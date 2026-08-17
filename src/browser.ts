@@ -19,11 +19,14 @@ export async function launchHeadedBrowser(): Promise<{ close: () => Promise<void
 export function createBrowserDriver(page: Page): PageDriver {
   return {
     async gotoSearch(query: string, _location: string) {
-      // No `location=` param: Facebook's own default (via geolocation permission
-      // granted on the context) resolves the correct area. Passing a free-text
-      // location string here was confirmed to override that correct default
-      // with a generic fallback region instead.
-      const url = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}`
+      // Facebook has no reliable free-text/geolocation location signal for a
+      // logged-out session (confirmed: location= param, geolocation permission,
+      // and locale/timezone were all ignored, defaulting to a generic US region).
+      // What does work is a location *slug* path segment, but only recognized
+      // slugs resolve — "manila" is confirmed working and already surfaces
+      // Dasmarinas/Cavite-area listings; "dasmarinas" itself is not a
+      // recognized slug and falls back to the generic default.
+      const url = `https://www.facebook.com/marketplace/manila/search/?query=${encodeURIComponent(query)}`
       await page.goto(url, { waitUntil: 'domcontentloaded' })
     },
     async getGridHtml() {
