@@ -32,8 +32,11 @@ async function resolvePageState(
   logger: Logger,
   fetchHtml: () => Promise<string>,
   softWallTimeoutMs: number,
+  hasContent: (html: string) => boolean,
 ): Promise<PageStateResult> {
   let html = await fetchHtml()
+  if (hasContent(html)) return { status: 'ok', html }
+
   let state = detectPageState(html)
   if (state === 'normal') return { status: 'ok', html }
 
@@ -42,6 +45,7 @@ async function resolvePageState(
     await new Promise((resolve) => setTimeout(resolve, softWallTimeoutMs))
     await driver.refresh()
     html = await fetchHtml()
+    if (hasContent(html)) return { status: 'ok', html }
     state = detectPageState(html)
     if (state === 'normal') return { status: 'ok', html }
     if (state === 'soft-wall') {
@@ -72,6 +76,7 @@ export async function runCollection(
     logger,
     () => driver.getGridHtml(),
     options.softWallTimeoutMs,
+    (html) => extractGridListings(html).length > 0,
   )
   if (gridResult.status === 'stop') return
 
@@ -87,6 +92,7 @@ export async function runCollection(
       logger,
       () => driver.getDetailHtml(),
       options.softWallTimeoutMs,
+      (html) => Object.keys(extractDetailFields(html)).length > 0,
     )
     if (detailResult.status === 'stop') return
 
