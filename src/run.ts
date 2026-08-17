@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { Logger } from './logger'
 import type { ReviewDecision } from './review'
@@ -5,6 +6,11 @@ import { detectPageState } from './wall'
 import { extractGridListings } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
 import { appendApprovedListing } from './output'
+
+function dumpDebugHtml(html: string): void {
+  const path = `data/debug-${Date.now()}.html`
+  writeFileSync(path, html)
+}
 
 export interface RunOptions {
   query: string
@@ -39,12 +45,14 @@ async function resolvePageState(
     state = detectPageState(html)
     if (state === 'normal') return { status: 'ok', html }
     if (state === 'soft-wall') {
-      logger.error('soft login-wall persisted after refresh, failing closed and stopping run')
+      dumpDebugHtml(html)
+      logger.error('soft login-wall persisted after refresh, failing closed and stopping run — html dumped for inspection')
       return { status: 'stop' }
     }
   }
 
-  logger.error(`unrecognized page state "${state}", failing closed and stopping run`)
+  dumpDebugHtml(html)
+  logger.error(`unrecognized page state "${state}", failing closed and stopping run — html dumped for inspection`)
   return { status: 'stop' }
 }
 
