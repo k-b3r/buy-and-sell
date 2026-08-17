@@ -19,24 +19,33 @@ type ReviewFn = (
   output: NodeJS.WritableStream,
 ) => Promise<ReviewDecision>
 
-async function handlePageState(
+type PageStateResult = { status: 'ok'; html: string } | { status: 'stop' }
+
+async function resolvePageState(
   driver: PageDriver,
   logger: Logger,
-  html: string,
+  fetchHtml: () => Promise<string>,
   softWallTimeoutMs: number,
-): Promise<'ok' | 'stop'> {
-  const state = detectPageState(html)
-  if (state === 'normal') return 'ok'
+): Promise<PageStateResult> {
+  let html = await fetchHtml()
+  let state = detectPageState(html)
+  if (state === 'normal') return { status: 'ok', html }
 
   if (state === 'soft-wall') {
     logger.warn('soft login-wall detected, waiting for manual refresh or auto-refresh fallback')
     await new Promise((resolve) => setTimeout(resolve, softWallTimeoutMs))
     await driver.refresh()
-    return 'ok'
+    html = await fetchHtml()
+    state = detectPageState(html)
+    if (state === 'normal') return { status: 'ok', html }
+    if (state === 'soft-wall') {
+      logger.error('soft login-wall persisted after refresh, failing closed and stopping run')
+      return { status: 'stop' }
+    }
   }
 
   logger.error(`unrecognized page state "${state}", failing closed and stopping run`)
-  return 'stop'
+  return { status: 'stop' }
 }
 
 export async function runCollection(
@@ -50,22 +59,30 @@ export async function runCollection(
   logger.info(`starting run: query="${options.query}" location="${options.location}"`)
   await driver.gotoSearch(options.query, options.location)
 
-  const gridHtml = await driver.getGridHtml()
-  const gridState = await handlePageState(driver, logger, gridHtml, options.softWallTimeoutMs)
-  if (gridState === 'stop') return
+  const gridResult = await resolvePageState(
+    driver,
+    logger,
+    () => driver.getGridHtml(),
+    options.softWallTimeoutMs,
+  )
+  if (gridResult.status === 'stop') return
 
-  const listings = extractGridListings(gridHtml)
+  const listings = extractGridListings(gridResult.html)
   logger.info(`found ${listings.length} listings in search grid`)
 
   for (const listing of listings) {
     await driver.openListing(listing)
     await driver.waitRandom(4000, 10000)
 
-    const detailHtml = await driver.getDetailHtml()
-    const detailState = await handlePageState(driver, logger, detailHtml, options.softWallTimeoutMs)
-    if (detailState === 'stop') return
+    const detailResult = await resolvePageState(
+      driver,
+      logger,
+      () => driver.getDetailHtml(),
+      options.softWallTimeoutMs,
+    )
+    if (detailResult.status === 'stop') return
 
-    const detail = extractDetailFields(detailHtml)
+    const detail = extractDetailFields(detailResult.html)
     const merged = { ...listing, ...detail }
 
     const decision = await review(merged, input, output)

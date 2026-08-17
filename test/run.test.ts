@@ -123,3 +123,41 @@ test('hard-block page state fails closed and stops the run', async () => {
   const logText = readFileSync(LOG_PATH, 'utf-8')
   expect(logText).toContain('[ERROR]')
 })
+
+test('soft-wall on detail page recovers via refresh and extracts post-refresh content', async () => {
+  const gridHtml = `<script type="application/json">{"results":[
+    {"id":"1","marketplace_listing_title":"Mic A"}
+  ]}</script>`
+  const softWallHtml = `<div class="login_form">You must log in to continue</div>`
+  const realDetailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"Real Mic","condition":"Used"}</script>`
+
+  let refreshCalled = false
+  let detailCallIndex = 0
+  const detailResponses = [softWallHtml, realDetailHtml]
+
+  const driver = makeDriver({
+    getGridHtml: async () => gridHtml,
+    getDetailHtml: async () => detailResponses[detailCallIndex++],
+    refresh: async () => {
+      refreshCalled = true
+    },
+  })
+  const logger = createLogger(LOG_PATH)
+
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 10 },
+  )
+
+  expect(refreshCalled).toBe(true)
+  expect(detailCallIndex).toBe(2)
+
+  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  expect(saved).toHaveLength(1)
+  expect(saved[0].marketplace_listing_title).toBe('Real Mic')
+  expect(saved[0].condition).toBe('Used')
+})
