@@ -2,9 +2,16 @@ import { chromium, type Page } from 'playwright'
 import type { PageDriver } from './driver'
 import type { GridListing } from './extract/grid'
 
+const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
+
 export async function launchHeadedBrowser(): Promise<{ close: () => Promise<void>; page: Page }> {
   const browser = await chromium.launch({ headless: false })
-  const context = await browser.newContext()
+  const context = await browser.newContext({
+    locale: 'en-PH',
+    timezoneId: 'Asia/Manila',
+    geolocation: DASMARINAS_CAVITE_COORDS,
+    permissions: ['geolocation'],
+  })
   const page = await context.newPage()
   return { page, close: () => browser.close() }
 }
