@@ -104,7 +104,7 @@ git init
 - [ ] **Step 3: Install dependencies**
 
 ```bash
-npm install
+pnpm install
 npx playwright install chromium
 ```
 
@@ -150,13 +150,13 @@ data/
 
 - [ ] **Step 7: Verify install**
 
-Run: `npm test`
+Run: `pnpm test`
 Expected: vitest runs with "No test files found" (no tests yet) — confirms toolchain wired correctly.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add package.json tsconfig.json vitest.config.ts .gitignore package-lock.json
+git add package.json tsconfig.json vitest.config.ts .gitignore pnpm-lock.yaml
 git commit -m "scaffold marketplace collector project"
 ```
 
@@ -202,7 +202,7 @@ test('info/warn/error write human-readable timestamped lines to file', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- logger`
+Run: `pnpm test -- logger`
 Expected: FAIL — `src/logger.ts` does not exist / `createLogger` not defined.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -234,7 +234,7 @@ export function createLogger(logFilePath: string): Logger {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- logger`
+Run: `pnpm test -- logger`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -281,7 +281,7 @@ test('appends one JSON object per line', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- output`
+Run: `pnpm test -- output`
 Expected: FAIL — `src/output.ts` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -297,7 +297,7 @@ export function appendApprovedListing(outputFilePath: string, listing: Record<st
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- output`
+Run: `pnpm test -- output`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -365,7 +365,7 @@ test('invalid input re-prompts until valid', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- review`
+Run: `pnpm test -- review`
 Expected: FAIL — `src/review.ts` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -409,7 +409,7 @@ export function promptReview(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- review`
+Run: `pnpm test -- review`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -478,7 +478,7 @@ test('hard-block page with captcha/checkpoint', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- wall`
+Run: `pnpm test -- wall`
 Expected: FAIL — `src/wall.ts` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -503,7 +503,7 @@ export function detectPageState(html: string): PageState {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- wall`
+Run: `pnpm test -- wall`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -569,7 +569,7 @@ test('returns empty array when no matching objects found', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- extract/grid`
+Run: `pnpm test -- extract/grid`
 Expected: FAIL — `src/extract/grid.ts` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -620,7 +620,7 @@ export function extractGridListings(html: string): GridListing[] {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- extract/grid`
+Run: `pnpm test -- extract/grid`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -686,7 +686,7 @@ test('returns empty object when nothing found', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- extract/detail`
+Run: `pnpm test -- extract/detail`
 Expected: FAIL — `src/extract/detail.ts` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -735,7 +735,7 @@ export function extractDetailFields(html: string): Record<string, unknown> {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- extract/detail`
+Run: `pnpm test -- extract/detail`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -910,7 +910,7 @@ test('hard-block page state fails closed and stops the run', async () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `npm test -- run.test`
+Run: `pnpm test -- run.test`
 Expected: FAIL — `src/run.ts` does not exist.
 
 - [ ] **Step 4: Write minimal implementation**
@@ -1006,7 +1006,7 @@ export async function runCollection(
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npm test -- run.test`
+Run: `pnpm test -- run.test`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -1116,7 +1116,7 @@ mkdir -p data
 
 - [ ] **Step 4: Verify it builds/runs (will hit real Facebook — expected to need Task 10 calibration)**
 
-Run: `npm run collect -- headphones "Dasmarinas, Cavite"`
+Run: `pnpm run collect -- headphones "Dasmarinas, Cavite"`
 Expected: Headed Chromium opens, navigates to Marketplace search. Selector/marker mismatches against real Facebook markup are expected here — that's what Task 10 is for.
 
 - [ ] **Step 5: Commit**
@@ -1140,7 +1140,7 @@ This task can't be automated: Facebook's actual DOM/embedded-JSON shape is unkno
 - [ ] **Step 1: Run the CLI against the real site**
 
 ```bash
-npm run collect -- headphones "Dasmarinas, Cavite"
+pnpm run collect -- headphones "Dasmarinas, Cavite"
 ```
 
 - [ ] **Step 2: Confirm stage 1 grid extraction**
