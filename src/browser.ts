@@ -18,8 +18,12 @@ export async function launchHeadedBrowser(): Promise<{ close: () => Promise<void
 
 export function createBrowserDriver(page: Page): PageDriver {
   return {
-    async gotoSearch(query: string, location: string) {
-      const url = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}`
+    async gotoSearch(query: string, _location: string) {
+      // No `location=` param: Facebook's own default (via geolocation permission
+      // granted on the context) resolves the correct area. Passing a free-text
+      // location string here was confirmed to override that correct default
+      // with a generic fallback region instead.
+      const url = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}`
       await page.goto(url, { waitUntil: 'domcontentloaded' })
     },
     async getGridHtml() {
