@@ -4,8 +4,9 @@ import { createLogger } from './logger'
 import { promptReview } from './review'
 
 async function main() {
-  const query = process.argv[2] ?? 'headphones'
-  const location = process.argv[3] ?? 'Dasmarinas, Cavite'
+  const args = process.argv.slice(2).filter((arg) => arg !== '--')
+  const query = args[0] ?? 'headphones'
+  const location = args[1] ?? 'Dasmarinas, Cavite'
 
   const logger = createLogger('data/collector.log')
   const { page, close } = await launchHeadedBrowser()
