@@ -132,7 +132,7 @@ export async function runCollection(
     if (detailResult.status === 'stop') return
 
     const detail = extractDetailFields(detailResult.html)
-    const merged = { ...listing, ...detail, id: listing.id }
+    const merged = { ...listing, ...detail }
 
     const decision = await review(merged, input, output)
     if (decision === 'stop') {

@@ -167,7 +167,8 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
   const gridHtml = `<script type="application/json">{"results":[{"id":"1","marketplace_listing_title":"Mic A"}]}</script>
 <script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
 <script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
-  const detailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"Mic"}</script>`
+  const detailHtml = (id: string) =>
+    `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
   const paginationResponse = JSON.stringify({
     data: {
       marketplace_search: {
@@ -179,11 +180,14 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
     },
   })
 
+  let currentListingId = ''
   const driver: PageDriver = {
     gotoSearch: async () => {},
     getGridHtml: async () => gridHtml,
-    openListing: async () => {},
-    getDetailHtml: async () => detailHtml,
+    openListing: async (listing) => {
+      currentListingId = listing.id
+    },
+    getDetailHtml: async () => detailHtml(currentListingId),
     refresh: async () => {},
     waitRandom: async () => {},
     fetchNextPage: async () => paginationResponse,
