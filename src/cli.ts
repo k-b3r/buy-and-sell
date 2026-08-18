@@ -7,6 +7,8 @@ async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const query = args[0] ?? 'headphones'
   const location = args[1] ?? 'Dasmarinas, Cavite'
+  const maxItemsArg = process.argv[4]
+  const maxItems = maxItemsArg ? Number(maxItemsArg) : undefined
 
   const logger = createLogger('data/collector.log')
   const { page, close } = await launchHeadedBrowser()
@@ -18,6 +20,7 @@ async function main() {
       location,
       outputPath: 'data/listings.jsonl',
       softWallTimeoutMs: 5000,
+      maxItems,
     })
   } finally {
     await close()

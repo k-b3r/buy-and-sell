@@ -6,6 +6,7 @@ import { detectPageState } from './wall'
 import { extractGridListings } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
 import { appendApprovedListing } from './output'
+import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 
 function dumpDebugHtml(html: string): void {
   const path = `data/debug-${Date.now()}.html`
@@ -17,6 +18,7 @@ export interface RunOptions {
   location: string
   outputPath: string
   softWallTimeoutMs: number
+  maxItems?: number
 }
 
 type ReviewFn = (
@@ -80,8 +82,41 @@ export async function runCollection(
   )
   if (gridResult.status === 'stop') return
 
-  const listings = extractGridListings(gridResult.html)
+  const seen = new Set<string>()
+  const listings = extractGridListings(gridResult.html).filter((l) => {
+    if (seen.has(l.id)) return false
+    seen.add(l.id)
+    return true
+  })
   logger.info(`found ${listings.length} listings in search grid`)
+
+  const maxItems = options.maxItems ?? listings.length
+  let cursor = extractCursor(gridResult.html)
+  let hasNextPage = true
+  while (listings.length < maxItems && cursor && hasNextPage) {
+    const lsd = extractLsd(gridResult.html)
+    if (!lsd) {
+      logger.error('no lsd token found for pagination, stopping')
+      break
+    }
+    await driver.waitRandom(4000, 10000)
+    const raw = await driver.fetchNextPage(cursor, lsd, options.query)
+    const page = parsePaginationResponse(raw)
+    if (!page) {
+      logger.error('unrecognized pagination response shape, failing closed and stopping pagination')
+      break
+    }
+    for (const node of page.nodes) {
+      const id = node.id as string
+      if (!seen.has(id)) {
+        seen.add(id)
+        listings.push(node as (typeof listings)[number])
+      }
+    }
+    logger.info(`paginated: now have ${listings.length} listings (page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'})`)
+    cursor = page.nextCursor
+    hasNextPage = page.hasNextPage
+  }
 
   for (const listing of listings) {
     await driver.openListing(listing)
@@ -97,7 +132,7 @@ export async function runCollection(
     if (detailResult.status === 'stop') return
 
     const detail = extractDetailFields(detailResult.html)
-    const merged = { ...listing, ...detail }
+    const merged = { ...listing, ...detail, id: listing.id }
 
     const decision = await review(merged, input, output)
     if (decision === 'stop') {

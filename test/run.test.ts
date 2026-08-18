@@ -162,3 +162,42 @@ test('soft-wall on detail page recovers via refresh and extracts post-refresh co
   expect(saved[0].marketplace_listing_title).toBe('Real Mic')
   expect(saved[0].condition).toBe('Used')
 })
+
+test('paginates for more items when maxItems exceeds first batch, deduping by id', async () => {
+  const gridHtml = `<script type="application/json">{"results":[{"id":"1","marketplace_listing_title":"Mic A"}]}</script>
+<script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
+<script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
+  const detailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"Mic"}</script>`
+  const paginationResponse = JSON.stringify({
+    data: {
+      marketplace_search: {
+        feed_units: {
+          edges: [{ node: { id: '2', marketplace_listing_title: 'Mic B' } }],
+          page_info: { end_cursor: '{"pg":1,"c2c":{"br":"y"}}', has_next_page: false },
+        },
+      },
+    },
+  })
+
+  const driver: PageDriver = {
+    gotoSearch: async () => {},
+    getGridHtml: async () => gridHtml,
+    openListing: async () => {},
+    getDetailHtml: async () => detailHtml,
+    refresh: async () => {},
+    waitRandom: async () => {},
+    fetchNextPage: async () => paginationResponse,
+  }
+  const logger = createLogger(LOG_PATH)
+
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    location: 'Dasmarinas, Cavite',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+    maxItems: 2,
+  })
+
+  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  expect(saved.map((s) => s.id)).toEqual(['1', '2'])
+})
