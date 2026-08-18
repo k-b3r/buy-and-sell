@@ -38,8 +38,8 @@ export function parsePaginationResponse(json: string): PaginationPage | null {
     return null
   }
   const nodes = feedUnits.edges
-    .filter((edge: any) => edge?.node && typeof edge.node === 'object')
-    .map((edge: any) => edge.node as Record<string, unknown>)
+    .filter((edge: any) => edge?.node?.listing && typeof edge.node.listing === 'object')
+    .map((edge: any) => edge.node.listing as Record<string, unknown>)
   const pageInfo = feedUnits.page_info as { end_cursor: string; has_next_page: boolean }
   let nextCursor: PageCursor | null = null
   try {

@@ -173,7 +173,7 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
     data: {
       marketplace_search: {
         feed_units: {
-          edges: [{ node: { id: '2', marketplace_listing_title: 'Mic B' } }],
+          edges: [{ node: { story_key: 's2', listing: { id: '2', marketplace_listing_title: 'Mic B' } } }],
           page_info: { end_cursor: '{"pg":1,"c2c":{"br":"y"}}', has_next_page: false },
         },
       },

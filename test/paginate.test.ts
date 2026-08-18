@@ -44,12 +44,16 @@ test('parsePaginationResponse returns null on unexpected shape', () => {
   expect(parsePaginationResponse('not json')).toBeNull()
 })
 
-test('parsePaginationResponse drops edges with a missing node', () => {
+test('parsePaginationResponse drops edges with a missing node or missing listing', () => {
   const json = JSON.stringify({
     data: {
       marketplace_search: {
         feed_units: {
-          edges: [{ node: { id: '111' } }, { cursor: 'no-node-here' }],
+          edges: [
+            { node: { story_key: '1', listing: { id: '111' } } },
+            { cursor: 'no-node-here' },
+            { node: { story_key: '2' } },
+          ],
           page_info: { end_cursor: '{"pg":1}', has_next_page: true },
         },
       },
@@ -59,6 +63,17 @@ test('parsePaginationResponse drops edges with a missing node', () => {
   expect(page).not.toBeNull()
   expect(page!.nodes).toHaveLength(1)
   expect(page!.nodes[0].id).toBe('111')
+})
+
+test('parsePaginationResponse unwraps the real Facebook node.listing shape (captured 2026-08-18)', () => {
+  const json = readFileSync('fixtures/pagination-response-real-capture.json', 'utf-8')
+  const page = parsePaginationResponse(json)
+  expect(page).not.toBeNull()
+  expect(page!.nodes.length).toBeGreaterThan(0)
+  for (const node of page!.nodes) {
+    expect(typeof node.id).toBe('string')
+    expect(node.marketplace_listing_title === undefined || typeof node.marketplace_listing_title === 'string').toBe(true)
+  }
 })
 
 test('extractCursor returns null on malformed cursor JSON', () => {
