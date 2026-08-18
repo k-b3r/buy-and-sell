@@ -28,6 +28,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
     getDetailHtml: async () => '<html></html>',
     refresh: async () => {},
     waitRandom: async () => {},
+    fetchNextPage: async () => '{}',
     ...overrides,
   }
 }

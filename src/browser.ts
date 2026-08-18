@@ -1,6 +1,7 @@
 import { chromium, type Page } from 'playwright'
 import type { PageDriver } from './driver'
 import type { GridListing } from './extract/grid'
+import type { PageCursor } from './paginate'
 
 const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
 
@@ -46,6 +47,66 @@ export function createBrowserDriver(page: Page): PageDriver {
     async waitRandom(minMs: number, maxMs: number) {
       const delay = minMs + Math.random() * (maxMs - minMs)
       await page.waitForTimeout(delay)
+    },
+    async fetchNextPage(cursor: PageCursor, lsd: string, query: string) {
+      return page.evaluate(
+        async ({ cursor, lsd, query }) => {
+          const variables = {
+            count: 24,
+            cursor: cursor.raw,
+            params: {
+              bqf: { callsite: 'COMMERCE_MKTPLACE_WWW', query },
+              browse_request_params: {
+                commerce_enable_local_pickup: true,
+                commerce_enable_shipping: true,
+                commerce_search_and_rp_available: true,
+                commerce_search_and_rp_category_id: [],
+                commerce_search_and_rp_condition: null,
+                commerce_search_and_rp_ctime_days: 30,
+                filter_location_latitude: 14.3294,
+                filter_location_longitude: 120.9367,
+                filter_price_lower_bound: 0,
+                filter_price_upper_bound: 214748364700,
+                filter_radius_km: 40,
+              },
+              custom_request_params: {
+                browse_context: null,
+                contextual_filters: [],
+                referral_code: null,
+                referral_ui_component: null,
+                saved_search_strid: null,
+                search_vertical: 'C2C',
+                seo_url: null,
+                serp_landing_settings: { virtual_category_id: '' },
+                surface: 'SEARCH',
+                virtual_contextual_filters: [],
+              },
+            },
+            scale: 1,
+            __relay_internal__pv__GHLShouldChangeMarketplaceSponsoredDataFieldNamerelayprovider: false,
+          }
+          const body = new URLSearchParams({
+            lsd,
+            fb_api_caller_class: 'RelayModern',
+            fb_api_req_friendly_name: 'CometMarketplaceSearchContentPaginationQuery',
+            variables: JSON.stringify(variables),
+            server_timestamps: 'true',
+            doc_id: '27212616558440397',
+          })
+          const res = await fetch('https://www.facebook.com/api/graphql/', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/x-www-form-urlencoded',
+              'x-fb-lsd': lsd,
+              'x-fb-friendly-name': 'CometMarketplaceSearchContentPaginationQuery',
+            },
+            body: body.toString(),
+            credentials: 'include',
+          })
+          return res.text()
+        },
+        { cursor, lsd, query },
+      )
     },
   }
 }
