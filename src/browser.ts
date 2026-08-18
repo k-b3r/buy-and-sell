@@ -62,12 +62,14 @@ export function createBrowserDriver(page: Page): PageDriver {
                 commerce_search_and_rp_available: true,
                 commerce_search_and_rp_category_id: [],
                 commerce_search_and_rp_condition: null,
-                commerce_search_and_rp_ctime_days: 30,
-                filter_location_latitude: 14.3294,
-                filter_location_longitude: 120.9367,
+                commerce_search_and_rp_ctime_days: Array.from({ length: 31 }, (_, i) =>
+                  Math.floor(Date.now() / 86400000) - i,
+                ).join(';'),
+                filter_location_latitude: 14.5896,
+                filter_location_longitude: 120.9808,
                 filter_price_lower_bound: 0,
                 filter_price_upper_bound: 214748364700,
-                filter_radius_km: 40,
+                filter_radius_km: 65,
               },
               custom_request_params: {
                 browse_context: null,
