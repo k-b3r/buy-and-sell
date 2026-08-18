@@ -26,7 +26,7 @@ export function createBrowserDriver(page: Page): PageDriver {
       // slugs resolve — "manila" is confirmed working and already surfaces
       // Dasmarinas/Cavite-area listings; "dasmarinas" itself is not a
       // recognized slug and falls back to the generic default.
-      const url = `https://www.facebook.com/marketplace/manila/search/?query=${encodeURIComponent(query)}`
+      const url = `https://www.facebook.com/marketplace/manila/search/?query=${encodeURIComponent(query)}&daysSinceListed=30&exact=false`
       await page.goto(url, { waitUntil: 'domcontentloaded' })
     },
     async getGridHtml() {
