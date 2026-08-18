@@ -7,8 +7,15 @@ async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const query = args[0] ?? 'headphones'
   const location = args[1] ?? 'Dasmarinas, Cavite'
-  const maxItemsArg = process.argv[4]
-  const maxItems = maxItemsArg ? Number(maxItemsArg) : undefined
+  const maxItemsArg = args[2]
+  let maxItems: number | undefined
+  if (maxItemsArg !== undefined) {
+    const parsed = Number(maxItemsArg)
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`invalid maxItems argument: "${maxItemsArg}"`)
+    }
+    maxItems = parsed
+  }
 
   const logger = createLogger('data/collector.log')
   const { page, close } = await launchHeadedBrowser()

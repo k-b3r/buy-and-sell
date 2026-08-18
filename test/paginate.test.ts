@@ -43,3 +43,25 @@ test('parsePaginationResponse returns null on unexpected shape', () => {
   expect(parsePaginationResponse('{"errors":[{"message":"boom"}]}')).toBeNull()
   expect(parsePaginationResponse('not json')).toBeNull()
 })
+
+test('parsePaginationResponse drops edges with a missing node', () => {
+  const json = JSON.stringify({
+    data: {
+      marketplace_search: {
+        feed_units: {
+          edges: [{ node: { id: '111' } }, { cursor: 'no-node-here' }],
+          page_info: { end_cursor: '{"pg":1}', has_next_page: true },
+        },
+      },
+    },
+  })
+  const page = parsePaginationResponse(json)
+  expect(page).not.toBeNull()
+  expect(page!.nodes).toHaveLength(1)
+  expect(page!.nodes[0].id).toBe('111')
+})
+
+test('extractCursor returns null on malformed cursor JSON', () => {
+  const html = '<script>"end_cursor":"not-json-at-all"</script>'
+  expect(extractCursor(html)).toBeNull()
+})

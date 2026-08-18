@@ -5,7 +5,7 @@ export interface GridListing {
 
 const LISTING_KEY_HINTS = ['marketplace_listing_title', 'listing_price', 'custom_title']
 
-function looksLikeListing(obj: unknown): obj is Record<string, unknown> {
+export function looksLikeListing(obj: unknown): obj is Record<string, unknown> {
   if (typeof obj !== 'object' || obj === null) return false
   const record = obj as Record<string, unknown>
   return typeof record.id === 'string' && LISTING_KEY_HINTS.some((key) => key in record)

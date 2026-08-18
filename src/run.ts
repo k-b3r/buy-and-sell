@@ -3,7 +3,7 @@ import type { PageDriver } from './driver'
 import type { Logger } from './logger'
 import type { ReviewDecision } from './review'
 import { detectPageState } from './wall'
-import { extractGridListings } from './extract/grid'
+import { extractGridListings, looksLikeListing } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
 import { appendApprovedListing } from './output'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
@@ -93,7 +93,14 @@ export async function runCollection(
   const maxItems = options.maxItems ?? listings.length
   let cursor = extractCursor(gridResult.html)
   let hasNextPage = true
+  const MAX_PAGES = 20
+  let pageCount = 0
   while (listings.length < maxItems && cursor && hasNextPage) {
+    pageCount += 1
+    if (pageCount > MAX_PAGES) {
+      logger.warn('pagination page limit reached, stopping')
+      break
+    }
     const lsd = extractLsd(gridResult.html)
     if (!lsd) {
       logger.error('no lsd token found for pagination, stopping')
@@ -106,14 +113,30 @@ export async function runCollection(
       logger.error('unrecognized pagination response shape, failing closed and stopping pagination')
       break
     }
+    let skipped = 0
+    const before = listings.length
     for (const node of page.nodes) {
+      if (!looksLikeListing(node)) {
+        skipped += 1
+        continue
+      }
       const id = node.id as string
       if (!seen.has(id)) {
         seen.add(id)
         listings.push(node as (typeof listings)[number])
       }
     }
+    if (skipped > 0) {
+      logger.info(`skipped ${skipped} pagination nodes with unrecognized shape`)
+    }
+    if (listings.length > maxItems) {
+      listings.length = maxItems
+    }
     logger.info(`paginated: now have ${listings.length} listings (page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'})`)
+    if (listings.length === before) {
+      logger.info('pagination made no progress, stopping')
+      break
+    }
     cursor = page.nextCursor
     hasNextPage = page.hasNextPage
   }

@@ -6,9 +6,13 @@ export interface PageCursor {
 export function extractCursor(html: string): PageCursor | null {
   const match = html.match(/"end_cursor":"((?:[^"\\]|\\.)*)"/)
   if (!match) return null
-  const raw = JSON.parse(`"${match[1]}"`)
-  const parsed = JSON.parse(raw) as { pg: number }
-  return { raw, pg: parsed.pg }
+  try {
+    const raw = JSON.parse(`"${match[1]}"`)
+    const parsed = JSON.parse(raw) as { pg: number }
+    return { raw, pg: parsed.pg }
+  } catch {
+    return null
+  }
 }
 
 export function extractLsd(html: string): string | null {
@@ -33,7 +37,9 @@ export function parsePaginationResponse(json: string): PaginationPage | null {
   if (!feedUnits || !Array.isArray(feedUnits.edges) || !feedUnits.page_info) {
     return null
   }
-  const nodes = feedUnits.edges.map((edge: any) => edge.node as Record<string, unknown>)
+  const nodes = feedUnits.edges
+    .filter((edge: any) => edge?.node && typeof edge.node === 'object')
+    .map((edge: any) => edge.node as Record<string, unknown>)
   const pageInfo = feedUnits.page_info as { end_cursor: string; has_next_page: boolean }
   let nextCursor: PageCursor | null = null
   try {
