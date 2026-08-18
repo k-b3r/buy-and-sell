@@ -59,8 +59,13 @@ Marketplace public listings only. Groups and Pages buy/sell surfaces are a later
 ### Logging
 **Resolved decision (2026-08-17):** Human-readable, raw is fine — no strict structured format required. Priority is user being able to read and verify what happened.
 
+### Pagination beyond initial batch
+**Finding (2026-08-18):** Facebook Marketplace search returns a fixed initial batch of 24 listings via server-rendered embedded JSON, regardless of query — confirmed no scroll/lazy-load triggers any GraphQL request in a logged-out session (0 GraphQL calls observed even after repeated scroll/wheel simulation). However, a genuinely logged-out-context GraphQL pagination call (`x-fb-friendly-name: CometMarketplaceSearchContentPaginationQuery`, `doc_id: 27212616558440397`) was confirmed reachable and returns **HTTP 200** with no wall/block triggered, when called from within the live page's own same-origin context using a real `lsd` token and real `end_cursor` — both of which are already embedded in the initial SSR page (see extraction regexes tested live: `end_cursor` under `page_info`, `lsd` under `["LSD",[],{"token":"..."}]`). One live test returned `edges: []` (empty) despite a valid 200 and cursor advancing (pg 0→1) — likely because the hand-approximated `browse_request_params` in the request body didn't exactly match what the page's own client actually sends; needs the real values extracted from the live page rather than guessed. Deferred to a dedicated future session — see `docs/superpowers/plans/2026-08-18-marketplace-pagination.md`.
+
 ### Location filter
 **Resolved decision (2026-08-17):** Dasmariñas, Cavite (user's area) — not all-Philippines.
+
+**Technical finding (2026-08-17):** For a logged-out session, Facebook has no reliable location signal via free-text `location=` URL param, browser geolocation permission, or locale/timezone — all confirmed ignored, falling back to a generic US (Bay Area) default regardless. The one thing that works is a recognized location *slug* as a URL path segment (`facebook.com/marketplace/<slug>/search/?query=...`). `manila` is confirmed working and surfaces real PH listings including Dasmarinas/Cavite-area results; `dasmarinas` itself is not a recognized slug. v0 hardcodes `manila`.
 
 ### First target category
 **Resolved decision (2026-08-17):** Audio equipment — mics, headphones, mixers. Chosen as the first category to build/validate the pipeline against.
