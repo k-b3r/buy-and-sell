@@ -15,6 +15,8 @@ Consequence: no access to login-gated surfaces (private Groups, Pages requiring 
 
 **Browser mode:** Headed (visible window) chosen for first build — user watches and can intervene manually if a wall/CAPTCHA appears, consistent w/ dry-run/manual-verify approach.
 
+**Switched to headless (2026-08-19):** Once the pipeline was proven stable (real live runs succeeding, wall false-positives fixed, pagination working), switched to headless per user request. Consequence: the soft-wall "wait up to 5s for user to manually refresh" behavior is now moot — there's no visible window to click refresh in — so it always falls through to the auto-refresh fallback after 5s. Functionally unchanged (that path was always a safe fallback), just no longer a real human-first choice in practice. Random pacing (`waitRandom` 4-10s) unaffected — same as before, this doesn't depend on headed/headless.
+
 **Wall handling (2026-08-17):** On login-overlay detection, collector pauses and waits up to 5s for user to manually refresh. If no manual refresh within 5s, collector auto-refreshes and continues. Human-first, automation as fallback only.
 
 **Hard block / CAPTCHA (2026-08-17):** Fail closed. If collector detects anything other than the known "safe" soft login-overlay state (e.g. CAPTCHA, hard block), it stops the run entirely and logs the failure — never guesses or retries blindly.

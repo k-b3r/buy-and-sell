@@ -5,8 +5,8 @@ import type { PageCursor } from './paginate'
 
 const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
 
-export async function launchHeadedBrowser(): Promise<{ close: () => Promise<void>; page: Page }> {
-  const browser = await chromium.launch({ headless: false })
+export async function launchBrowser(): Promise<{ close: () => Promise<void>; page: Page }> {
+  const browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({
     locale: 'en-PH',
     timezoneId: 'Asia/Manila',

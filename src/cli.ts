@@ -1,4 +1,4 @@
-import { launchHeadedBrowser, createBrowserDriver } from './browser'
+import { launchBrowser, createBrowserDriver } from './browser'
 import { runCollection } from './run'
 import { createLogger } from './logger'
 import { promptReview } from './review'
@@ -17,7 +17,7 @@ async function main() {
   }
 
   const logger = createLogger('data/collector.log')
-  const { page, close } = await launchHeadedBrowser()
+  const { page, close } = await launchBrowser()
   const driver = createBrowserDriver(page)
 
   try {

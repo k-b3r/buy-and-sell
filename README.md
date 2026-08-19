@@ -11,7 +11,7 @@ v0 — proof of concept. Collector works end-to-end against real Facebook Market
 ## How it works
 
 - **No login, no account** — reads listing data Facebook serves to a logged-out browser session. Zero account-ban risk; this was a deliberate architecture choice after confirming automated collection violates Meta's ToS regardless of login state (see `CONTEXT.md` → "Collector").
-- **Headed browser, human-paced** — a visible Chromium window, randomized 4-10s delays between navigations, manual y/n/stop review before anything is saved. You watch it run.
+- **Headless, human-paced** — randomized 4-10s delays between navigations, manual y/n/stop review before anything is saved. No visible browser window (switched from headed once the pipeline was proven stable).
 - **Two-stage per listing** — grid search results first (fast, low navigation), then each listing's detail page individually (slower, where pacing matters most).
 - **Pagination beyond the first 24** — Facebook only serves 24 listings per search by default; the collector can fetch more via the same internal API the site itself uses for infinite-scroll, still logged-out.
 
@@ -35,7 +35,7 @@ pnpm run collect -- "Sony WH-1000XM6" 50
 ```
 
 - Defaults: query `headphones`, `maxItems` unset (single 24-item batch, no pagination).
-- A headed browser opens and walks listings one at a time. For each: `[y]es` approves and saves it, `[n]o` skips it, `[s]top` ends the run early.
+- Walks listings one at a time in the background (headless). For each: `[y]es` approves and saves it, `[n]o` skips it, `[s]top` ends the run early.
 - Approved listings land in `data/listings.jsonl` (JSON Lines — one listing object per line). Logs go to `data/collector.log`.
 - No location argument — there's no reliable logged-out location filtering signal (see `CONTEXT.md` → "Location filter"). Results are centered on Metro Manila/Cavite via a hardcoded location slug.
 
