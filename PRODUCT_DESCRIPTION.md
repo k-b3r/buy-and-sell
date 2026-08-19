@@ -2,15 +2,31 @@
 
 A free, locally-run tool for collecting and analyzing publicly visible Facebook Marketplace listing data to identify potentially profitable buy-and-sell opportunities in the Philippines.
 
+> **Status note:** This document is the long-term product vision — goal, roadmap, eventual analytics/deal-scoring design. It predates implementation and some of its original assumptions (notably: using the user's own logged-in Facebook account) were deliberately overridden once real engineering constraints showed up. `CONTEXT.md` is the living decision log for what's actually been built and why — where the two disagree, `CONTEXT.md` wins. This doc has been updated to match, but treat `CONTEXT.md` as the source of truth for current behavior.
+
 ## 🎯 Goal
 
 Build a personal market intelligence system that helps answer:
 
 > **"What products are currently undervalued on Facebook Marketplace and could potentially be resold for a profit?"**
 
-The system will collect Marketplace listing information from searches performed through the user's own Facebook account and browser, store historical data locally, analyze market prices, and identify potentially attractive deals.
+The system collects Marketplace listing information via a locally controlled, **logged-out** browser session — not the user's own authenticated Facebook account (see Collection Approach below) — stores data locally, analyzes market prices, and identifies potentially attractive deals.
 
 The project is intended for **personal use** with a **₱0 software/tooling budget**.
+
+---
+
+## 🔐 Collection Approach (no-login by design)
+
+**This overrides the original assumption of using the user's authenticated account.** Real-world testing showed:
+
+* Meta's Terms of Service prohibit automated data collection outright, logged in or not — using the user's real account risked an actual account ban (checkpoints, restrictions, permanent loss of access).
+* A **no-login, logged-out** collector removes that risk entirely: no session, no cookies, nothing tied to a real account for Facebook to act against. The only residual risk is IP-level rate-limiting/soft-walls, which is far lower stakes and just means a slower run, not a lost account.
+* Facebook still requires a real browser (Playwright/Chromium) even logged out — plain HTTP requests are rejected outright at the edge (missing browser fingerprint signals). No shortcut around running an actual browser.
+* Logged-out Marketplace pages embed listing data as JSON directly in the page (server-rendered), which the collector reads — no scraping of rendered HTML text, no DOM-scraping fragility.
+* Consequence: private Groups and Pages (login-gated) are **not reachable** this way. Deferred to a later phase with a separate access strategy.
+
+See `CONTEXT.md` → "Collector" for full technical detail (bot-detection findings, wall-handling behavior, pacing rationale).
 
 ---
 
@@ -20,7 +36,7 @@ The project is intended for **personal use** with a **₱0 software/tooling budg
 ┌──────────────────────────┐
 │   Facebook Marketplace   │
 │                          │
-│  User's normal browser   │
+│  Logged-out, no account  │
 └────────────┬─────────────┘
              │
              ▼
@@ -28,13 +44,16 @@ The project is intended for **personal use** with a **₱0 software/tooling budg
 │      Local Collector     │
 │                          │
 │ Playwright + TypeScript  │
+│ Headed browser, human-   │
+│ paced, manually triggered│
 └────────────┬─────────────┘
              │
              ▼
 ┌──────────────────────────┐
 │       Data Storage       │
 │                          │
-│ PostgreSQL / JSON / CSV  │
+│  JSONL (v0) → PostgreSQL │
+│      (later phase)       │
 └────────────┬─────────────┘
              │
              ▼
@@ -42,29 +61,32 @@ The project is intended for **personal use** with a **₱0 software/tooling budg
 │     Data Processing      │
 │                          │
 │ Normalization            │
-│ Deduplication            │
-│ Price history            │
-│ Product identification   │
+│ Deduplication             │
+│ Price history             │
+│ Product identification    │
+│      (all deferred)       │
 └────────────┬─────────────┘
              │
              ▼
 ┌──────────────────────────┐
 │        Analytics         │
 │                          │
-│ Market prices            │
-│ Price distribution       │
-│ Location analysis        │
-│ Product trends           │
+│ Market prices             │
+│ Price distribution        │
+│ Location analysis         │
+│ Product trends             │
+│      (deferred)            │
 └────────────┬─────────────┘
              │
              ▼
 ┌──────────────────────────┐
 │      Deal Detection      │
 │                          │
-│ Estimated resale price   │
-│ Expected profit          │
-│ ROI                      │
-│ BUY SCORE                │
+│ Estimated resale price    │
+│ Expected profit            │
+│ ROI                         │
+│ BUY SCORE                    │
+│      (deferred)               │
 └──────────────────────────┘
 ```
 
@@ -74,31 +96,46 @@ The project is intended for **personal use** with a **₱0 software/tooling budg
 
 ## 1. Marketplace Listing Collection
 
-The application will use a locally controlled browser session to inspect Marketplace search results that the user can normally access.
+The collector uses a locally controlled, **logged-out headed browser** (Playwright/Chromium) to read Marketplace search results Facebook serves anonymously — not an authenticated session.
 
-Initial data to collect:
+Two-stage collection per run:
 
-* Listing ID
-* Listing URL
-* Title
-* Price
-* Currency
-* Location
-* Condition
-* Description
-* Image URLs
-* First-seen timestamp
-* Last-seen timestamp
+* **Stage 1 (grid):** the search-results page, read as-loaded — title, price, thumbnail, location, listing ID/URL. Near-zero navigations, wall rarely triggers here.
+* **Stage 2 (detail):** each listing opened individually for full detail — description, condition (when the seller filled it in), images, seller info. This is where pacing/wall-handling matters most.
 
-The collector should only process information available to the user's authenticated browser session and should not attempt to bypass Facebook's authentication, CAPTCHA, rate limits, or other access controls.
+No fixed schema is forced — the collector captures **whatever fields Facebook's page actually includes** for a given listing (condition and multi-photo galleries are seller-dependent and often absent even at detail level). A `raw_json`-style catch-all is the intended long-term approach once a database exists, so newly-discovered fields don't require a schema migration every time.
+
+Data actually available per listing includes (not all fields guaranteed present):
+
+* Listing ID, URL, title, price (nested object with currency, not a flat number)
+* Location (city name at grid level via reverse-geocode; raw lat/long only at detail level — inconsistent between stages)
+* Condition (often missing)
+* Description (`redacted_description.text`)
+* Primary photo URL (grid) / photo gallery (detail, when present)
+* Delivery type (local pickup / shipping)
+* Listed timestamp
+
+**Image URLs are signed and expire** (days, not permanent) — Facebook's CDN issues a fresh signed URL on every real page load. For long-term storage, the actual image bytes need to be downloaded while the URL is valid, not just the URL string.
+
+The collector only processes information a logged-out, anonymous browser session can see — it does not attempt to bypass CAPTCHA or hard blocks (see Wall Handling below).
+
+### Result volume: the 24-item ceiling, and how it's crossed
+
+A single Marketplace search serves a **fixed initial batch of 24 listings** embedded directly in the page — regardless of query. Scrolling triggers nothing in a logged-out session (Facebook's client-side pagination JS doesn't appear to activate without an authenticated session).
+
+Going beyond 24 requires calling Facebook's internal pagination API directly (same GraphQL endpoint the site itself uses for infinite-scroll) — confirmed reachable and functional **without logging in**, using a per-page-load security token (`lsd`) and continuation cursor Facebook already embeds in the page. The collector does this from inside the loaded page (same-origin), not as an external API client. Paced identically to per-listing navigation, capped, and deduplicated. See `CONTEXT.md` → "Pagination beyond initial batch" for the full mechanism.
+
+### Location targeting
+
+Facebook has **no working free-text or geolocation-based location filter** for a logged-out session — confirmed via multiple failed approaches (URL query param, browser geolocation permission, locale/timezone). The only mechanism that works is a recognized **location slug** in the URL path (`facebook.com/marketplace/<slug>/search/`). `manila` is the confirmed-working slug and surfaces real Dasmariñas/Cavite-area results; there is no dedicated `dasmarinas` slug. v0 hardcodes `manila`.
 
 ---
 
 ## 2. Listing Deduplication
 
-Marketplace searches may return the same listing multiple times.
+Marketplace searches may return the same listing multiple times (especially across pagination pages).
 
-The Facebook Marketplace listing ID will be used as the primary identifier.
+The Facebook Marketplace listing ID is the primary identifier and is deduplicated in-memory during a collection run.
 
 Example:
 
@@ -112,15 +149,13 @@ Listing ID:
 10000000000000005
 ```
 
-Repeated observations of the same listing should update the existing record rather than create duplicates.
+Persistent dedup (repeated observations across separate runs updating the same DB record rather than creating duplicates) is a database-phase feature — not yet built, since v0 has no database.
 
 ---
 
 ## 3. Historical Price Tracking
 
-A major purpose of the project is to build historical pricing data.
-
-Example:
+**Deferred — not yet built.** A major long-term purpose of the project is historical pricing data:
 
 ```text
 Aug 10 → ₱18,000
@@ -129,24 +164,15 @@ Aug 14 → ₱15,000
 Aug 17 → ₱13,500
 ```
 
-This allows the system to identify:
-
-* Price reductions
-* Seller negotiation signals
-* Listing age
-* Price stability
-* Potentially motivated sellers
-* Changes in market pricing
+This would allow identifying price reductions, seller negotiation signals, listing age, price stability, motivated sellers, and market pricing changes — but requires a database and repeat observations over time, neither of which exist yet. v0 is single-run, JSONL-only collection.
 
 ---
 
 # 📊 Market Analysis
 
-The system should calculate statistics for individual products and categories.
+**Deferred — not yet built.** The system should eventually calculate statistics for individual products and categories.
 
-### Product-level analysis
-
-Example:
+### Product-level analysis (target shape)
 
 ```text
 Product: RTX 3060 12GB
@@ -162,9 +188,7 @@ Highest price: ₱22,000
 75th percentile: ₱18,500
 ```
 
-### Category-level analysis
-
-Example:
+### Category-level analysis (target shape)
 
 ```text
 Category: GPUs
@@ -174,15 +198,11 @@ Average ROI: 21%
 Average listing age: 14 days
 ```
 
-The system should eventually rank categories based on potential profitability.
-
 ---
 
 # 💰 Buy-and-Sell Analysis
 
-The main objective is not simply to find cheap products.
-
-It is to determine whether purchasing a product creates a realistic opportunity for resale.
+**Deferred — not yet built.** The main objective is not simply to find cheap products, but whether purchasing one creates a realistic resale opportunity.
 
 The basic calculation:
 
@@ -220,7 +240,7 @@ ROI:                    28.6%
 
 # 🔥 Deal Detection
 
-Listings can receive a calculated deal score.
+**Deferred — not yet built.** Listings should eventually receive a calculated deal score.
 
 Example:
 
@@ -275,11 +295,9 @@ The score can consider:
 
 # 📍 Philippine Market Analysis
 
-The initial market focus is the Philippines.
+The initial market focus is the Philippines, currently centered on Metro Manila / Cavite via the `manila` location slug (see Location Targeting above — this is a Facebook platform constraint, not a product choice to exclude other regions).
 
 Location should be retained whenever available.
-
-Example:
 
 ```text
 Metro Manila
@@ -292,7 +310,7 @@ Cebu
 Davao
 ```
 
-This enables geographic analysis such as:
+Geographic price-difference analysis (target shape, deferred):
 
 ```text
 RTX 3060
@@ -302,15 +320,13 @@ Cavite median:        ₱15,500
 Laguna median:        ₱16,000
 ```
 
-Potential opportunities can then be identified based on geographic price differences.
-
 ---
 
 # 🧠 Product Identification
 
-Marketplace titles are inconsistent.
+**Deferred — explicitly decided as premature until real scraped data volume exists to design against.**
 
-For example:
+Marketplace titles are inconsistent, e.g.:
 
 ```text
 RTX 3060 12gb Asus
@@ -320,23 +336,7 @@ ASUS 3060 dual fan
 RTX3060 12G
 ```
 
-These should eventually be recognized as the same underlying product.
-
-The system should normalize:
-
-```text
-Brand
-Model
-Variant
-Storage
-Memory
-Condition
-Generation
-```
-
-into a canonical product.
-
-Example:
+These should eventually be recognized as the same underlying product, normalizing Brand / Model / Variant / Storage / Memory / Condition / Generation into a canonical product:
 
 ```text
 Raw title:
@@ -349,6 +349,8 @@ ASUS RTX 3060 12GB
 ---
 
 # 🗄️ Proposed Database
+
+**Not yet built — v0 stores JSONL, no database.** Schema below is the current best guess, informed by real captured listing data (not just speculative field names), and will likely gain a `raw_json` catch-all column per table once implemented, since Facebook's actual payload has far more inconsistent/undocumented structure than originally assumed (nested price objects, location shape differing between grid and detail views, condition/photos frequently absent).
 
 ## `listings`
 
@@ -367,6 +369,7 @@ seller_id
 first_seen_at
 last_seen_at
 status
+raw_json
 created_at
 updated_at
 ```
@@ -421,14 +424,19 @@ calculated_at
 
 * Node.js
 * TypeScript
+* pnpm (package manager)
 
 ## Browser Automation
 
-* Playwright
+* Playwright (headed Chromium, logged-out)
+
+## Testing
+
+* Vitest
 
 ## Database
 
-* PostgreSQL
+* PostgreSQL (not yet built — v0 is JSONL only)
 
 ## Data Processing
 
@@ -437,14 +445,14 @@ calculated_at
 
 ## API
 
-Optional:
+Optional, future:
 
 * Node.js
 * Fastify or Express
 
 ## Dashboard
 
-Optional:
+Optional, future:
 
 * Next.js
 * React
@@ -475,122 +483,66 @@ No paid:
 * Paid databases
 * Paid analytics platforms
 
-The initial system should run entirely on the developer's own computer.
+The system runs entirely on the developer's own computer / network.
 
 ---
 
 # 🧪 Development Phases
 
-## Phase 1 — Proof of Concept
+## Phase 1 — Proof of Concept ✅ Done
 
-Goal: determine whether Marketplace data can be reliably extracted from the user's browser.
+Actual implementation (superseded the original "authenticate manually" plan — see Collection Approach above):
 
-Tasks:
-
-* Launch browser
-* Authenticate manually
-* Open Marketplace
-* Read currently loaded listings
-* Extract listing IDs
-* Extract URLs
-* Save results to JSON
+* Launch headed, logged-out browser
+* Open Marketplace search (no auth)
+* Read currently loaded listings (grid stage)
+* Extract listing IDs, URLs, whatever fields are present
+* Save results to JSONL
 
 Output:
 
 ```text
-listings.json
+data/listings.jsonl
 ```
 
----
+## Phase 2 — Structured Extraction ✅ Done
 
-## Phase 2 — Structured Extraction
+Extract per-listing detail (stage 2): title, price, location, condition (when present), description, images, listing URL, listing ID. CLI-driven, one-item-at-a-time with manual y/n/stop review before saving — nothing writes to output unapproved. Human-readable, timestamped logs for verification.
 
-Extract:
+**Beyond original scope:** pagination past the initial 24-item batch, implemented and live-verified (see Result Volume above).
 
-* Title
-* Price
-* Location
-* Condition
-* Description
-* Images
-* Listing URL
-* Listing ID
+## Phase 3 — PostgreSQL — Not started
 
-Output:
+Move from JSONL to PostgreSQL:
+
+* Listing insertion, deduplication, updates
+* Historical observations, price history
+
+## Phase 4 — Market Analytics — Not started
+
+* Average/median price, percentiles, price distributions
+* Product comparisons, category analysis, geographic analysis
+
+## Phase 5 — Deal Detection — Not started
+
+* Expected resale price, profit calculation, ROI
+* Deal score, confidence score
+
+## Phase 6 — Automation — Not started, and reconsider before building
 
 ```text
-listings.csv
+Search → Collect → Normalize → Deduplicate → Analyze → Detect deals
 ```
 
----
-
-## Phase 3 — PostgreSQL
-
-Move from files to PostgreSQL.
-
-Implement:
-
-* Listing insertion
-* Deduplication
-* Updates
-* Historical observations
-* Price history
-
----
-
-## Phase 4 — Market Analytics
-
-Implement:
-
-* Average price
-* Median price
-* Percentiles
-* Price distributions
-* Product comparisons
-* Category analysis
-* Geographic analysis
-
----
-
-## Phase 5 — Deal Detection
-
-Implement:
-
-* Expected resale price
-* Profit calculation
-* ROI
-* Deal score
-* Confidence score
-
----
-
-## Phase 6 — Automation
-
-Eventually automate:
-
-```text
-Search
- ↓
-Collect
- ↓
-Normalize
- ↓
-Deduplicate
- ↓
-Analyze
- ↓
-Detect deals
-```
-
-The system should periodically collect new observations and update historical market data.
+**Note:** the original vision of periodic/automated collection is in tension with the no-login safety model — manual, user-triggered runs with human pacing is what keeps IP-level rate-limiting risk low. Any future automation (e.g. a scheduled job) should be weighed against that tradeoff explicitly, not assumed.
 
 ---
 
 # 🎯 Initial Target Categories
 
-Start with a limited number of categories rather than attempting to analyze all Marketplace products.
+**First category actually chosen: Audio equipment** (mics, headphones, mixers) — not the original candidate list below, which remains the aspirational list for categories to expand into later.
 
-Potential categories:
+Original candidate list:
 
 1. Smartphones
 2. GPUs
@@ -603,14 +555,7 @@ Potential categories:
 9. Power tools
 10. Bicycles
 
-The first category should be selected based on:
-
-* High demand
-* Reasonable resale value
-* Easy transportation
-* Low repair risk
-* Sufficient Marketplace volume
-* Observable price differences
+The first category should be selected based on: high demand, reasonable resale value, easy transportation, low repair risk, sufficient Marketplace volume, observable price differences.
 
 ---
 
@@ -661,6 +606,8 @@ BUY
 
 ## ⚠️ Important Constraint
 
-The project should operate within Facebook's applicable terms and technical restrictions. It should not attempt to bypass authentication, CAPTCHA, rate limits, access controls, or other anti-abuse mechanisms.
+**Superseded/clarified by real implementation** — see Collection Approach above for the full reasoning:
 
-The collector should only process data that the user's browser is legitimately able to access.
+The project uses a **logged-out, no-account** approach specifically to minimize risk under Facebook's applicable terms — automated collection is against Meta's ToS regardless of login state, so the mitigation is architectural (no account to lose, only IP-level rate-limiting as residual risk), not an attempt to "stay within" rules that flatly prohibit automation either way.
+
+The collector does not attempt to bypass CAPTCHA or hard-block challenges — on detecting anything other than a known-recoverable soft wall, it fails closed, stops the run, and logs the failure rather than guessing or retrying. Facebook's own internal pagination API is used the same way the site's own client uses it (same-origin, from within a real loaded page, using tokens Facebook itself issues to that page) — not an external/unofficial API integration.
