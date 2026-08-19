@@ -11,7 +11,7 @@ v0 — proof of concept. Collector works end-to-end against real Facebook Market
 ## How it works
 
 - **No login, no account** — reads listing data Facebook serves to a logged-out browser session. Zero account-ban risk; this was a deliberate architecture choice after confirming automated collection violates Meta's ToS regardless of login state (see `CONTEXT.md` → "Collector").
-- **Headless, human-paced** — randomized 4-10s delays between navigations, manual y/n/stop review before anything is saved. No visible browser window (switched from headed once the pipeline was proven stable).
+- **Headless, human-paced** — randomized 4-10s delays between navigations. Auto-approves every listing (switched from manual y/n/stop review once extraction quality was verified). No visible browser window (switched from headed once the pipeline was proven stable).
 - **Two-stage per listing** — grid search results first (fast, low navigation), then each listing's detail page individually (slower, where pacing matters most).
 - **Pagination beyond the first 24** — Facebook only serves 24 listings per search by default; the collector can fetch more via the same internal API the site itself uses for infinite-scroll, still logged-out.
 
@@ -35,7 +35,8 @@ pnpm run collect -- "Sony WH-1000XM6" 50
 ```
 
 - Defaults: query `headphones`, `maxItems` unset (single 24-item batch, no pagination).
-- Walks listings one at a time in the background (headless). For each: `[y]es` approves and saves it, `[n]o` skips it, `[s]top` ends the run early.
+- Walks listings one at a time in the background (headless), auto-approving each and saving it — no manual review step anymore.
+- Listings already present in `data/listings.jsonl` from a prior run are skipped entirely (not re-opened, not re-saved), so re-running the same query is safe and cheap.
 - Approved listings land in `data/listings.jsonl` (JSON Lines — one listing object per line). Logs go to `data/collector.log`.
 - No location argument — there's no reliable logged-out location filtering signal (see `CONTEXT.md` → "Location filter"). Results are centered on Metro Manila/Cavite via a hardcoded location slug.
 
@@ -51,7 +52,7 @@ Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orches
 
 ```
 src/
-  logger.ts, output.ts, review.ts     # logging, JSONL output, CLI y/n/stop prompt
+  logger.ts, output.ts, review.ts     # logging, JSONL output, auto-approve review fn
   wall.ts                              # detects soft login-walls vs hard blocks
   extract/grid.ts, extract/detail.ts   # parse listing data out of Facebook's embedded JSON
   paginate.ts                          # cursor/token extraction, pagination response parsing
