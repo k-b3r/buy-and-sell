@@ -1,5 +1,5 @@
 import { Readable, Writable } from 'node:stream'
-import { promptReview } from '../src/review'
+import { promptReview, autoApprove } from '../src/review'
 
 function mockInput(...lines: string[]): Readable {
   return Readable.from(lines.map((l) => l + '\n').join(''))
@@ -36,4 +36,11 @@ test('"s" resolves to stop', async () => {
 test('invalid input re-prompts until valid', async () => {
   const decision = await promptReview({ id: '1' }, mockInput('bogus', 'y'), mockOutput().stream)
   expect(decision).toBe('approve')
+})
+
+test('autoApprove always resolves to approve without reading input', async () => {
+  const out = mockOutput()
+  const decision = await autoApprove({ id: '1', marketplace_listing_title: 'RTX 3060' }, mockInput(), out.stream)
+  expect(decision).toBe('approve')
+  expect(out.text()).toContain('RTX 3060')
 })

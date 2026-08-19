@@ -1,7 +1,7 @@
 import { launchBrowser, createBrowserDriver } from './browser'
 import { runCollection } from './run'
 import { createLogger } from './logger'
-import { promptReview } from './review'
+import { autoApprove } from './review'
 
 async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
@@ -21,7 +21,7 @@ async function main() {
   const driver = createBrowserDriver(page)
 
   try {
-    await runCollection(driver, logger, promptReview, process.stdin, process.stdout, {
+    await runCollection(driver, logger, autoApprove, process.stdin, process.stdout, {
       query,
       outputPath: 'data/listings.jsonl',
       softWallTimeoutMs: 5000,

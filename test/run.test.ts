@@ -1,5 +1,5 @@
 import { Readable, Writable } from 'node:stream'
-import { readFileSync, rmSync, existsSync } from 'node:fs'
+import { readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs'
 import type { PageDriver } from '../src/driver'
 import type { GridListing } from '../src/extract/grid'
 import { runCollection } from '../src/run'
@@ -257,6 +257,43 @@ test('tolerates an empty pagination page and recovers real items from the next o
   })
 
   expect(paginationCallIndex).toBe(2)
+  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  expect(saved.map((s) => s.id)).toEqual(['1', '2'])
+})
+
+test('skips listings already present in the output file from a prior run', async () => {
+  writeFileSync(OUT_PATH, JSON.stringify({ id: '1', marketplace_listing_title: 'Mic A' }) + '\n')
+
+  const gridHtml = `<script type="application/json">{"results":[
+    {"id":"1","marketplace_listing_title":"Mic A"},
+    {"id":"2","marketplace_listing_title":"Mic B"}
+  ]}</script>`
+  const detailHtml = (id: string) =>
+    `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
+
+  let currentListingId = ''
+  const openedIds: string[] = []
+  const driver: PageDriver = {
+    gotoSearch: async () => {},
+    getGridHtml: async () => gridHtml,
+    openListing: async (listing) => {
+      currentListingId = listing.id
+      openedIds.push(listing.id)
+    },
+    getDetailHtml: async () => detailHtml(currentListingId),
+    refresh: async () => {},
+    waitRandom: async () => {},
+    fetchNextPage: async () => '{}',
+  }
+  const logger = createLogger(LOG_PATH)
+
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+  })
+
+  expect(openedIds).toEqual(['2'])
   const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })

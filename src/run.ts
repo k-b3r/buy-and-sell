@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { Logger } from './logger'
 import type { ReviewDecision } from './review'
@@ -11,6 +11,21 @@ import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 function dumpDebugHtml(html: string): void {
   const path = `data/debug-${Date.now()}.html`
   writeFileSync(path, html)
+}
+
+function loadPersistedIds(outputPath: string): Set<string> {
+  if (!existsSync(outputPath)) return new Set()
+  const ids = new Set<string>()
+  for (const line of readFileSync(outputPath, 'utf-8').split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const obj = JSON.parse(line)
+      if (typeof obj.id === 'string') ids.add(obj.id)
+    } catch {
+      // skip malformed lines rather than fail the whole run over one bad row
+    }
+  }
+  return ids
 }
 
 export interface RunOptions {
@@ -81,13 +96,18 @@ export async function runCollection(
   )
   if (gridResult.status === 'stop') return
 
-  const seen = new Set<string>()
-  const listings = extractGridListings(gridResult.html).filter((l) => {
+  const persistedIds = loadPersistedIds(options.outputPath)
+  const seen = new Set<string>(persistedIds)
+  const rawGridListings = extractGridListings(gridResult.html)
+  const alreadyCollected = rawGridListings.filter((l) => persistedIds.has(l.id)).length
+  const listings = rawGridListings.filter((l) => {
     if (seen.has(l.id)) return false
     seen.add(l.id)
     return true
   })
-  logger.info(`found ${listings.length} listings in search grid`)
+  logger.info(
+    `found ${rawGridListings.length} listings in search grid (${alreadyCollected} already collected previously, ${listings.length} new)`,
+  )
 
   const maxItems = options.maxItems ?? listings.length
   let cursor = extractCursor(gridResult.html)

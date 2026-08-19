@@ -2,6 +2,15 @@ import { createInterface } from 'node:readline'
 
 export type ReviewDecision = 'approve' | 'reject' | 'stop'
 
+export async function autoApprove(
+  listing: Record<string, unknown>,
+  _input: NodeJS.ReadableStream,
+  output: NodeJS.WritableStream,
+): Promise<ReviewDecision> {
+  output.write(`auto-approved: ${listing.marketplace_listing_title ?? listing.id}\n`)
+  return 'approve'
+}
+
 export function promptReview(
   listing: Record<string, unknown>,
   input: NodeJS.ReadableStream,
