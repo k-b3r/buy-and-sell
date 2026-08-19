@@ -205,6 +205,53 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })
 
+test('clamps to the hard 100-item limit even when maxItems requests more', async () => {
+  const gridHtml = `<script type="application/json">{"results":[{"id":"grid-1","marketplace_listing_title":"Mic"}]}</script>
+<script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
+<script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
+  const detailHtml = (id: string) =>
+    `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
+
+  let pageNum = 0
+  const driver: PageDriver = {
+    gotoSearch: async () => {},
+    getGridHtml: async () => gridHtml,
+    openListing: async () => {},
+    getDetailHtml: async () => detailHtml('grid-1'),
+    refresh: async () => {},
+    waitRandom: async () => {},
+    fetchNextPage: async () => {
+      pageNum += 1
+      const edges = Array.from({ length: 24 }, (_, i) => ({
+        node: { story_key: `s${pageNum}-${i}`, listing: { id: `p${pageNum}-${i}`, marketplace_listing_title: 'Mic' } },
+      }))
+      return JSON.stringify({
+        data: {
+          marketplace_search: {
+            feed_units: {
+              edges,
+              page_info: { end_cursor: `{"pg":${pageNum},"c2c":{"br":"x"}}`, has_next_page: true },
+            },
+          },
+        },
+      })
+    },
+  }
+  const logger = createLogger(LOG_PATH)
+
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+    maxItems: 500,
+  })
+
+  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  expect(saved).toHaveLength(100)
+  const logText = readFileSync(LOG_PATH, 'utf-8')
+  expect(logText).toContain('exceeds hard limit')
+})
+
 test('tolerates an empty pagination page and recovers real items from the next one', async () => {
   const gridHtml = `<script type="application/json">{"results":[{"id":"1","marketplace_listing_title":"Mic A"}]}</script>
 <script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
