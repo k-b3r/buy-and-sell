@@ -19,10 +19,11 @@ export async function launchHeadedBrowser(): Promise<{ close: () => Promise<void
 
 export function createBrowserDriver(page: Page): PageDriver {
   return {
-    async gotoSearch(query: string, _location: string) {
-      // Facebook has no reliable free-text/geolocation location signal for a
-      // logged-out session (confirmed: location= param, geolocation permission,
-      // and locale/timezone were all ignored, defaulting to a generic US region).
+    async gotoSearch(query: string) {
+      // No location parameter here at all — Facebook has no reliable free-text
+      // location signal for a logged-out session (confirmed: location= URL param,
+      // geolocation permission, and locale/timezone were all ignored, defaulting
+      // to a generic US region).
       // What does work is a location *slug* path segment, but only recognized
       // slugs resolve — "manila" is confirmed working and already surfaces
       // Dasmarinas/Cavite-area listings; "dasmarinas" itself is not a

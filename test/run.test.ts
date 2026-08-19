@@ -65,7 +65,7 @@ test('approved item gets saved, then loop advances to next item', async () => {
     async () => 'approve',
     mockInput(),
     silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
+    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
   )
 
   const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
@@ -93,7 +93,7 @@ test('"stop" decision ends the run without processing remaining items', async ()
     async () => 'stop',
     mockInput(),
     silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
+    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
   )
 
   expect(existsSync(OUT_PATH)).toBe(false)
@@ -117,7 +117,7 @@ test('hard-block page state fails closed and stops the run', async () => {
     async () => 'approve',
     mockInput(),
     silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
+    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
   )
 
   expect(existsSync(OUT_PATH)).toBe(false)
@@ -151,7 +151,7 @@ test('soft-wall on detail page recovers via refresh and extracts post-refresh co
     async () => 'approve',
     mockInput(),
     silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 10 },
+    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 10 },
   )
 
   expect(refreshCalled).toBe(true)
@@ -196,7 +196,6 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
 
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    location: 'Dasmarinas, Cavite',
     outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
     maxItems: 2,

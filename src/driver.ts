@@ -2,7 +2,7 @@ import type { GridListing } from './extract/grid'
 import type { PageCursor } from './paginate'
 
 export interface PageDriver {
-  gotoSearch(query: string, location: string): Promise<void>
+  gotoSearch(query: string): Promise<void>
   getGridHtml(): Promise<string>
   openListing(listing: GridListing): Promise<void>
   getDetailHtml(): Promise<string>

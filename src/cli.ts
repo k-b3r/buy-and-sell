@@ -6,8 +6,7 @@ import { promptReview } from './review'
 async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const query = args[0] ?? 'headphones'
-  const location = args[1] ?? 'Dasmarinas, Cavite'
-  const maxItemsArg = args[2]
+  const maxItemsArg = args[1]
   let maxItems: number | undefined
   if (maxItemsArg !== undefined) {
     const parsed = Number(maxItemsArg)
@@ -24,7 +23,6 @@ async function main() {
   try {
     await runCollection(driver, logger, promptReview, process.stdin, process.stdout, {
       query,
-      location,
       outputPath: 'data/listings.jsonl',
       softWallTimeoutMs: 5000,
       maxItems,

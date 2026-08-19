@@ -15,7 +15,6 @@ function dumpDebugHtml(html: string): void {
 
 export interface RunOptions {
   query: string
-  location: string
   outputPath: string
   softWallTimeoutMs: number
   maxItems?: number
@@ -70,8 +69,8 @@ export async function runCollection(
   output: NodeJS.WritableStream,
   options: RunOptions,
 ): Promise<void> {
-  logger.info(`starting run: query="${options.query}" location="${options.location}"`)
-  await driver.gotoSearch(options.query, options.location)
+  logger.info(`starting run: query="${options.query}"`)
+  await driver.gotoSearch(options.query)
 
   const gridResult = await resolvePageState(
     driver,
