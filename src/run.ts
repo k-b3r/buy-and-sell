@@ -7,6 +7,8 @@ import { extractGridListings, looksLikeListing } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
 import { appendApprovedListing } from './output'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
+import type { DbClient } from './db'
+import { upsertListing } from './db'
 
 function dumpDebugHtml(html: string): void {
   const path = `data/debug-${Date.now()}.html`
@@ -83,6 +85,7 @@ export async function runCollection(
   input: NodeJS.ReadableStream,
   output: NodeJS.WritableStream,
   options: RunOptions,
+  db?: DbClient,
 ): Promise<void> {
   logger.info(`starting run: query="${options.query}"`)
   await driver.gotoSearch(options.query)
@@ -197,6 +200,9 @@ export async function runCollection(
     }
     if (decision === 'approve') {
       appendApprovedListing(options.outputPath, merged)
+      if (db) {
+        await upsertListing(db, merged)
+      }
       logger.info(`saved listing ${merged.id}`)
     } else {
       logger.info(`rejected listing ${merged.id}`)
