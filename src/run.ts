@@ -112,14 +112,14 @@ export async function runCollection(
     `found ${rawGridListings.length} listings in search grid (${alreadyCollected} already collected previously, ${listings.length} new)`,
   )
 
-  const HARD_MAX_ITEMS = 100
+  const HARD_MAX_ITEMS = 1000
   if (options.maxItems !== undefined && options.maxItems > HARD_MAX_ITEMS) {
     logger.warn(`requested maxItems ${options.maxItems} exceeds hard limit ${HARD_MAX_ITEMS}, clamping`)
   }
   const maxItems = Math.min(options.maxItems ?? listings.length, HARD_MAX_ITEMS)
   let cursor = extractCursor(gridResult.html)
   let hasNextPage = true
-  const MAX_PAGES = 20
+  const MAX_PAGES = 60
   const MAX_CONSECUTIVE_EMPTY_PAGES = 3
   let pageCount = 0
   let consecutiveEmptyPages = 0

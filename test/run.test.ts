@@ -205,7 +205,7 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })
 
-test('clamps to the hard 100-item limit even when maxItems requests more', async () => {
+test('clamps to the hard 1000-item limit even when maxItems requests more', async () => {
   const gridHtml = `<script type="application/json">{"results":[{"id":"grid-1","marketplace_listing_title":"Mic"}]}</script>
 <script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
 <script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
@@ -243,11 +243,11 @@ test('clamps to the hard 100-item limit even when maxItems requests more', async
     query: 'headphones',
     outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
-    maxItems: 500,
+    maxItems: 2000,
   })
 
   const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved).toHaveLength(100)
+  expect(saved).toHaveLength(1000)
   const logText = readFileSync(LOG_PATH, 'utf-8')
   expect(logText).toContain('exceeds hard limit')
 })
