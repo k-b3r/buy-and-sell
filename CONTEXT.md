@@ -40,6 +40,10 @@ Consequence: no access to login-gated surfaces (private Groups, Pages requiring 
 ### Storage (v0)
 **Resolved decision (2026-08-17):** Plain JSON file output. No Postgres/DB setup yet — goal is testing the collection implementation itself, not building the full data pipeline. DB schema stays speculative/deferred until real dry-run data has been seen.
 
+**Superseded (2026-08-19):** Postgres added (hosted, Neon free tier — chosen over Supabase specifically because Supabase pauses whole projects after 1 week idle, which would keep tripping given this project's deliberately sporadic/manual scraping cadence; Neon only suspends compute, DB stays intact). Motivation: an eventual deployed analysis app needs to read this data remotely, which local-only JSONL can't serve without exposing the dev machine. Collector now writes to **both** JSONL (unchanged, still the safety net) and Postgres (`src/db.ts`, upsert by listing id — first_seen_at set on insert, last_seen_at/updated_at bumped on every re-observation). Schema (`db/schema.sql`) has typed columns for known-useful fields plus a `raw_json` JSONB catch-all, since Facebook's actual payload has far more inconsistent structure than a rigid schema could anticipate. `DATABASE_URL` read from `.env` (gitignored) via Node's native `process.loadEnvFile` — no `dotenv` dependency needed. DB is optional: if `DATABASE_URL` isn't set, collector still runs, JSONL-only.
+
+Scale check performed: at current real average row size (~7.2KB, raw blob), 1,000 items is negligible (~7MB) but 1,000,000 items would be ~6.75GB — well over any free tier. Free tier is fine for realistic near-term volume (thousands of listings); revisit storage/collection strategy only if approaching hundreds of thousands+ of real rows.
+
 ### Scope (current phase)
 Marketplace public listings only. Groups and Pages buy/sell surfaces are a later phase, revisited once Marketplace-only pipeline works — will need a separate access strategy since no-login can't reach them.
 

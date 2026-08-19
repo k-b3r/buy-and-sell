@@ -22,6 +22,14 @@ pnpm install
 pnpm exec playwright install chromium
 ```
 
+Optional, for Postgres storage: create `.env` with `DATABASE_URL="postgresql://..."` (a free [Neon](https://neon.tech) project works well — see `CONTEXT.md` → "Storage" for why Neon over Supabase), then apply the schema:
+
+```bash
+psql "$DATABASE_URL" -f db/schema.sql
+```
+
+Without a `.env`/`DATABASE_URL`, the collector still runs fine — JSONL-only.
+
 ## Usage
 
 ```bash
@@ -37,7 +45,7 @@ pnpm run collect -- "Sony WH-1000XM6" 50
 - Defaults: query `headphones`, `maxItems` unset (single 24-item batch, no pagination).
 - Walks listings one at a time in the background (headless), auto-approving each and saving it — no manual review step anymore.
 - Listings already present in `data/listings.jsonl` from a prior run are skipped entirely (not re-opened, not re-saved), so re-running the same query is safe and cheap.
-- Approved listings land in `data/listings.jsonl` (JSON Lines — one listing object per line). Logs go to `data/collector.log`.
+- Approved listings land in `data/listings.jsonl` (JSON Lines — one listing object per line), and are also upserted into Postgres if `DATABASE_URL` is configured. Logs go to `data/collector.log`.
 - No location argument — there's no reliable logged-out location filtering signal (see `CONTEXT.md` → "Location filter"). Results are centered on Metro Manila/Cavite via a hardcoded location slug.
 
 ## Testing
@@ -53,6 +61,7 @@ Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orches
 ```
 src/
   logger.ts, output.ts, review.ts     # logging, JSONL output, auto-approve review fn
+  db.ts                                # Postgres upsert (optional, alongside JSONL)
   wall.ts                              # detects soft login-walls vs hard blocks
   extract/grid.ts, extract/detail.ts   # parse listing data out of Facebook's embedded JSON
   paginate.ts                          # cursor/token extraction, pagination response parsing
