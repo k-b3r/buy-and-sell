@@ -103,27 +103,70 @@ export async function runCollection(
   const seen = new Set<string>(persistedIds)
   const rawGridListings = extractGridListings(gridResult.html)
   const alreadyCollected = rawGridListings.filter((l) => persistedIds.has(l.id)).length
-  const listings = rawGridListings.filter((l) => {
+  const firstBatch = rawGridListings.filter((l) => {
     if (seen.has(l.id)) return false
     seen.add(l.id)
     return true
   })
   logger.info(
-    `found ${rawGridListings.length} listings in search grid (${alreadyCollected} already collected previously, ${listings.length} new)`,
+    `found ${rawGridListings.length} listings in search grid (${alreadyCollected} already collected previously, ${firstBatch.length} new)`,
   )
 
   const HARD_MAX_ITEMS = 1000
   if (options.maxItems !== undefined && options.maxItems > HARD_MAX_ITEMS) {
     logger.warn(`requested maxItems ${options.maxItems} exceeds hard limit ${HARD_MAX_ITEMS}, clamping`)
   }
-  const maxItems = Math.min(options.maxItems ?? listings.length, HARD_MAX_ITEMS)
+  const maxItems = Math.min(options.maxItems ?? firstBatch.length, HARD_MAX_ITEMS)
+
+  // Process one page's items (open -> review -> save) before ever fetching the
+  // next page. Interleaving page-fetch and item-processing this way mimics
+  // real browsing (scroll a bit, open some, scroll more) instead of firing
+  // many uniform pagination-only requests back to back.
+  async function processBatch(items: ReturnType<typeof extractGridListings>): Promise<'stop' | 'continue'> {
+    for (const listing of items) {
+      await driver.openListing(listing)
+      await driver.waitRandom(4000, 10000)
+
+      const detailResult = await resolvePageState(
+        driver,
+        logger,
+        () => driver.getDetailHtml(),
+        options.softWallTimeoutMs,
+        (html) => Object.keys(extractDetailFields(html)).length > 0,
+      )
+      if (detailResult.status === 'stop') return 'stop'
+
+      const detail = extractDetailFields(detailResult.html)
+      const merged = { ...listing, ...detail }
+
+      const decision = await review(merged, input, output)
+      if (decision === 'stop') {
+        logger.info('user stopped run')
+        return 'stop'
+      }
+      if (decision === 'approve') {
+        appendApprovedListing(options.outputPath, merged)
+        if (db) {
+          await upsertListing(db, merged)
+        }
+        logger.info(`saved listing ${merged.id}`)
+      } else {
+        logger.info(`rejected listing ${merged.id}`)
+      }
+    }
+    return 'continue'
+  }
+
+  if (await processBatch(firstBatch) === 'stop') return
+  let processedCount = firstBatch.length
+
   let cursor = extractCursor(gridResult.html)
   let hasNextPage = true
   const MAX_PAGES = 60
   const MAX_CONSECUTIVE_EMPTY_PAGES = 3
   let pageCount = 0
   let consecutiveEmptyPages = 0
-  while (listings.length < maxItems && cursor && hasNextPage) {
+  while (processedCount < maxItems && cursor && hasNextPage) {
     pageCount += 1
     if (pageCount > MAX_PAGES) {
       logger.warn('pagination page limit reached, stopping')
@@ -142,7 +185,7 @@ export async function runCollection(
       break
     }
     let skipped = 0
-    const before = listings.length
+    const newItems: ReturnType<typeof extractGridListings> = []
     for (const node of page.nodes) {
       if (!looksLikeListing(node)) {
         skipped += 1
@@ -151,17 +194,20 @@ export async function runCollection(
       const id = node.id as string
       if (!seen.has(id)) {
         seen.add(id)
-        listings.push(node as (typeof listings)[number])
+        newItems.push(node as (typeof newItems)[number])
       }
     }
     if (skipped > 0) {
       logger.info(`skipped ${skipped} pagination nodes with unrecognized shape`)
     }
-    if (listings.length > maxItems) {
-      listings.length = maxItems
+    const remaining = maxItems - processedCount
+    if (newItems.length > remaining) {
+      newItems.length = remaining
     }
-    logger.info(`paginated: now have ${listings.length} listings (page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'})`)
-    if (listings.length === before) {
+    logger.info(
+      `page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'}: ${newItems.length} new listings (${processedCount + newItems.length}/${maxItems} total)`,
+    )
+    if (newItems.length === 0) {
       consecutiveEmptyPages += 1
       logger.info(
         `pagination page returned no new items (${consecutiveEmptyPages}/${MAX_CONSECUTIVE_EMPTY_PAGES} tolerated in a row)`,
@@ -172,41 +218,11 @@ export async function runCollection(
       }
     } else {
       consecutiveEmptyPages = 0
+      if (await processBatch(newItems) === 'stop') return
+      processedCount += newItems.length
     }
     cursor = page.nextCursor
     hasNextPage = page.hasNextPage
-  }
-
-  for (const listing of listings) {
-    await driver.openListing(listing)
-    await driver.waitRandom(4000, 10000)
-
-    const detailResult = await resolvePageState(
-      driver,
-      logger,
-      () => driver.getDetailHtml(),
-      options.softWallTimeoutMs,
-      (html) => Object.keys(extractDetailFields(html)).length > 0,
-    )
-    if (detailResult.status === 'stop') return
-
-    const detail = extractDetailFields(detailResult.html)
-    const merged = { ...listing, ...detail }
-
-    const decision = await review(merged, input, output)
-    if (decision === 'stop') {
-      logger.info('user stopped run')
-      return
-    }
-    if (decision === 'approve') {
-      appendApprovedListing(options.outputPath, merged)
-      if (db) {
-        await upsertListing(db, merged)
-      }
-      logger.info(`saved listing ${merged.id}`)
-    } else {
-      logger.info(`rejected listing ${merged.id}`)
-    }
   }
 
   logger.info('run complete')
