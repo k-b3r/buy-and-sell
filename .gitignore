@@ -2,3 +2,38 @@ node_modules/
 dist/
 data/
 *.log
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+.nyc_output
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm/eslint/stylelint caches
+.npm
+.eslintcache
+.stylelintcache
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+
+# pnpm
+.pnpm-store
