@@ -204,3 +204,59 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
   const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })
+
+test('tolerates an empty pagination page and recovers real items from the next one', async () => {
+  const gridHtml = `<script type="application/json">{"results":[{"id":"1","marketplace_listing_title":"Mic A"}]}</script>
+<script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
+<script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
+  const detailHtml = (id: string) =>
+    `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
+
+  const emptyPageResponse = JSON.stringify({
+    data: {
+      marketplace_search: {
+        feed_units: {
+          edges: [],
+          page_info: { end_cursor: '{"pg":1,"c2c":{"br":"y"}}', has_next_page: true },
+        },
+      },
+    },
+  })
+  const realPageResponse = JSON.stringify({
+    data: {
+      marketplace_search: {
+        feed_units: {
+          edges: [{ node: { story_key: 's2', listing: { id: '2', marketplace_listing_title: 'Mic B' } } }],
+          page_info: { end_cursor: '{"pg":2,"c2c":{"br":"z"}}', has_next_page: false },
+        },
+      },
+    },
+  })
+  const paginationResponses = [emptyPageResponse, realPageResponse]
+  let paginationCallIndex = 0
+
+  let currentListingId = ''
+  const driver: PageDriver = {
+    gotoSearch: async () => {},
+    getGridHtml: async () => gridHtml,
+    openListing: async (listing) => {
+      currentListingId = listing.id
+    },
+    getDetailHtml: async () => detailHtml(currentListingId),
+    refresh: async () => {},
+    waitRandom: async () => {},
+    fetchNextPage: async () => paginationResponses[paginationCallIndex++],
+  }
+  const logger = createLogger(LOG_PATH)
+
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+    maxItems: 2,
+  })
+
+  expect(paginationCallIndex).toBe(2)
+  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  expect(saved.map((s) => s.id)).toEqual(['1', '2'])
+})

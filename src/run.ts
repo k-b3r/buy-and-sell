@@ -93,7 +93,9 @@ export async function runCollection(
   let cursor = extractCursor(gridResult.html)
   let hasNextPage = true
   const MAX_PAGES = 20
+  const MAX_CONSECUTIVE_EMPTY_PAGES = 3
   let pageCount = 0
+  let consecutiveEmptyPages = 0
   while (listings.length < maxItems && cursor && hasNextPage) {
     pageCount += 1
     if (pageCount > MAX_PAGES) {
@@ -133,8 +135,16 @@ export async function runCollection(
     }
     logger.info(`paginated: now have ${listings.length} listings (page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'})`)
     if (listings.length === before) {
-      logger.info('pagination made no progress, stopping')
-      break
+      consecutiveEmptyPages += 1
+      logger.info(
+        `pagination page returned no new items (${consecutiveEmptyPages}/${MAX_CONSECUTIVE_EMPTY_PAGES} tolerated in a row)`,
+      )
+      if (consecutiveEmptyPages >= MAX_CONSECUTIVE_EMPTY_PAGES) {
+        logger.info('too many consecutive empty pages, stopping')
+        break
+      }
+    } else {
+      consecutiveEmptyPages = 0
     }
     cursor = page.nextCursor
     hasNextPage = page.hasNextPage
