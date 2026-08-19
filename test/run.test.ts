@@ -344,3 +344,45 @@ test('skips listings already present in the output file from a prior run', async
   const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })
+
+test('resuming with the same maxItems targets the overall total, not another full batch', async () => {
+  // Simulate a prior run that already saved 2 listings before crashing.
+  const priorLines = ['1', '2'].map((id) => JSON.stringify({ id, marketplace_listing_title: 'Mic' }))
+  writeFileSync(OUT_PATH, priorLines.join('\n') + '\n')
+
+  const gridHtml = `<script type="application/json">{"results":[
+    {"id":"1","marketplace_listing_title":"Mic A"},
+    {"id":"2","marketplace_listing_title":"Mic B"},
+    {"id":"3","marketplace_listing_title":"Mic C"}
+  ]}</script>`
+  const detailHtml = (id: string) =>
+    `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
+
+  let currentListingId = ''
+  const openedIds: string[] = []
+  const driver: PageDriver = {
+    gotoSearch: async () => {},
+    getGridHtml: async () => gridHtml,
+    openListing: async (listing) => {
+      currentListingId = listing.id
+      openedIds.push(listing.id)
+    },
+    getDetailHtml: async () => detailHtml(currentListingId),
+    refresh: async () => {},
+    waitRandom: async () => {},
+    fetchNextPage: async () => '{}',
+  }
+  const logger = createLogger(LOG_PATH)
+
+  // maxItems: 3 means "3 total", and 2 are already saved — should only process 1 more.
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+    maxItems: 3,
+  })
+
+  expect(openedIds).toEqual(['3'])
+  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  expect(saved.map((s) => s.id)).toEqual(['1', '2', '3'])
+})

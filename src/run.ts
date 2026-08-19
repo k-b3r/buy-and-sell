@@ -116,7 +116,20 @@ export async function runCollection(
   if (options.maxItems !== undefined && options.maxItems > HARD_MAX_ITEMS) {
     logger.warn(`requested maxItems ${options.maxItems} exceeds hard limit ${HARD_MAX_ITEMS}, clamping`)
   }
-  const maxItems = Math.min(options.maxItems ?? firstBatch.length, HARD_MAX_ITEMS)
+  const requestedTotal = options.maxItems !== undefined ? Math.min(options.maxItems, HARD_MAX_ITEMS) : undefined
+  // maxItems is new-items-to-process-this-run, not a total. When resuming after
+  // a crash, subtract what's already persisted so re-running the same command
+  // with the same maxItems converges on that total instead of adding another
+  // full batch on top of what's already saved.
+  const maxItems = requestedTotal !== undefined ? Math.max(0, requestedTotal - persistedIds.size) : firstBatch.length
+  if (requestedTotal !== undefined && persistedIds.size > 0) {
+    logger.info(
+      `${persistedIds.size} listings already saved from prior runs; targeting ${maxItems} more to reach ${requestedTotal} total`,
+    )
+  }
+  if (firstBatch.length > maxItems) {
+    firstBatch.length = maxItems
+  }
 
   // Process one page's items (open -> review -> save) before ever fetching the
   // next page. Interleaving page-fetch and item-processing this way mimics
