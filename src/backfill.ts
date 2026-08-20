@@ -1,24 +1,13 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { launchBrowser, createBrowserDriver } from './browser'
 import { createLogger } from './logger'
 import { createDbPool, upsertListing } from './db'
 import { createR2ImageStore, storeListingPhotos } from './images'
 import { extractDetailFields } from './extract/detail'
 import { resolvePageState } from './run'
+import { loadListings, saveListings } from './jsonl'
 
 const OUTPUT_PATH = 'data/listings.jsonl'
-
-function loadListings(path: string): Record<string, unknown>[] {
-  if (!existsSync(path)) return []
-  return readFileSync(path, 'utf-8')
-    .split('\n')
-    .filter((l) => l.trim())
-    .map((l) => JSON.parse(l))
-}
-
-function saveListings(path: string, listings: Record<string, unknown>[]): void {
-  writeFileSync(path, listings.map((l) => JSON.stringify(l)).join('\n') + '\n')
-}
 
 // One-off backfill for listings collected before the listing_photos extraction
 // fix and R2 image storage existed. Re-visits each listing live (paced like a
