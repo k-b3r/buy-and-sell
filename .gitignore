@@ -37,3 +37,6 @@ coverage
 
 # pnpm
 .pnpm-store
+
+# nested git worktrees (created by the superpowers skill inside the repo tree)
+.claude/worktrees/
