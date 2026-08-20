@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "collect": "tsx src/cli.ts",
-    "backfill-images": "tsx src/backfill.ts"
+    "backfill-images": "tsx src/backfill.ts",
+    "extract-products": "tsx src/extract-products.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
