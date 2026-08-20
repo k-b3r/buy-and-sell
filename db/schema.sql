@@ -24,3 +24,21 @@ CREATE INDEX IF NOT EXISTS listings_listed_at_idx ON listings (listed_at);
 
 -- Migration for tables created before stored_photo_urls existed (safe to re-run).
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS stored_photo_urls JSONB;
+
+CREATE TABLE IF NOT EXISTS products (
+  id SERIAL PRIMARY KEY,
+  base_model TEXT NOT NULL,
+  base_model_normalized TEXT NOT NULL,
+  variant_tier TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS products_base_model_variant_idx
+  ON products (base_model_normalized, COALESCE(variant_tier, ''));
+
+CREATE TABLE IF NOT EXISTS variant_enums (
+  base_model_normalized TEXT PRIMARY KEY,
+  enum_values JSONB NOT NULL
+);
+
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id);

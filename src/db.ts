@@ -1,4 +1,5 @@
 import { Pool } from 'pg'
+import { normalizeBaseModel } from './products'
 
 export interface DbClient {
   query(sql: string, params: unknown[]): Promise<unknown>
@@ -80,4 +81,24 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
       JSON.stringify(listing),
     ],
   )
+}
+
+export async function findOrCreateProduct(
+  db: DbClient,
+  baseModel: string,
+  variantTier: string | null,
+): Promise<number> {
+  const normalized = normalizeBaseModel(baseModel)
+
+  const existing = (await db.query(
+    `SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier IS NOT DISTINCT FROM $2`,
+    [normalized, variantTier],
+  )) as { rows: { id: number }[] }
+  if (existing.rows.length > 0) return existing.rows[0].id
+
+  const inserted = (await db.query(
+    `INSERT INTO products (base_model, base_model_normalized, variant_tier) VALUES ($1, $2, $3) RETURNING id`,
+    [baseModel, normalized, variantTier],
+  )) as { rows: { id: number }[] }
+  return inserted.rows[0].id
 }

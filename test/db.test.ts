@@ -1,5 +1,5 @@
 import type { DbClient } from '../src/db'
-import { upsertListing } from '../src/db'
+import { findOrCreateProduct, upsertListing } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -91,4 +91,33 @@ test('upsertListing falls back to custom_title when marketplace_listing_title is
   const { db, calls } = mockDb()
   await upsertListing(db, { id: '1', custom_title: 'Custom Name' })
   expect(calls[0].params[1]).toBe('Custom Name')
+})
+
+test('findOrCreateProduct inserts a new product when none matches, returns its id', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  let queryCount = 0
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      queryCount += 1
+      if (queryCount === 1) return { rows: [] } // SELECT finds nothing
+      return { rows: [{ id: 42 }] } // INSERT ... RETURNING id
+    },
+  }
+
+  const id = await findOrCreateProduct(db, 'RTX 3060', null)
+
+  expect(id).toBe(42)
+  expect(calls[0].sql).toMatch(/^SELECT/)
+  expect(calls[0].params).toEqual(['rtx 3060', null])
+  expect(calls[1].sql).toMatch(/^INSERT/)
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null])
+})
+
+test('findOrCreateProduct reuses an existing product when normalized base_model + variant_tier already match', async () => {
+  const db = { query: async () => ({ rows: [{ id: 7 }] }) }
+
+  const id = await findOrCreateProduct(db, '  RTX 3060  ', 'Custom AIB/OC')
+
+  expect(id).toBe(7)
 })
