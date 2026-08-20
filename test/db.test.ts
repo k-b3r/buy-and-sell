@@ -1,5 +1,5 @@
 import type { DbClient } from '../src/db'
-import { findOrCreateProduct, upsertListing } from '../src/db'
+import { findOrCreateProduct, updateListingProductIds, upsertListing } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -120,4 +120,27 @@ test('findOrCreateProduct reuses an existing product when normalized base_model 
   const id = await findOrCreateProduct(db, '  RTX 3060  ', 'Custom AIB/OC')
 
   expect(id).toBe(7)
+})
+
+test('updateListingProductIds does nothing (no query) when given an empty array', async () => {
+  const { db, calls } = mockDb()
+
+  await updateListingProductIds(db, [])
+
+  expect(calls).toHaveLength(0)
+})
+
+test('updateListingProductIds issues a single multi-row UPDATE for all assignments', async () => {
+  const { db, calls } = mockDb()
+
+  await updateListingProductIds(db, [
+    { id: '1', productId: 10 },
+    { id: '2', productId: 20 },
+    { id: '3', productId: 10 },
+  ])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toMatch(/^UPDATE listings/)
+  expect(calls[0].sql).toContain('FROM (VALUES')
+  expect(calls[0].params).toEqual(['1', 10, '2', 20, '3', 10])
 })

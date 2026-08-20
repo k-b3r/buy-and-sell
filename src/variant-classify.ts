@@ -5,7 +5,7 @@ import { createLogger } from './logger'
 import type { GeminiClient } from './gemini'
 import { createGeminiClient } from './gemini'
 import type { DbClient } from './db'
-import { createDbPool, findOrCreateProduct } from './db'
+import { createDbPool, findOrCreateProduct, updateListingProductIds } from './db'
 import { loadListings, saveListings } from './jsonl'
 import { buildVariantPrompt, buildVariantSchema } from './products'
 import type { ExtractionInput } from './products'
@@ -43,16 +43,28 @@ export async function runVariantClassification(
     return listings
   }
 
+  // Caches variant_tier -> product_id for this product — a handful of listings
+  // typically share a tier, and each cache hit avoids a real Postgres round trip.
+  const productIdCache = new Map<string, number>()
+  const assignments: { id: string; productId: number }[] = []
+
   for (const item of raw as { id?: unknown; variant_tier?: unknown }[]) {
     if (typeof item.id !== 'string' || typeof item.variant_tier !== 'string') continue
     const listing = targets.find((l) => String(l.id) === item.id)
     if (!listing) continue
 
-    const newProductId = await findOrCreateProduct(db, baseModel, item.variant_tier)
+    let newProductId = productIdCache.get(item.variant_tier)
+    if (newProductId === undefined) {
+      newProductId = await findOrCreateProduct(db, baseModel, item.variant_tier)
+      productIdCache.set(item.variant_tier, newProductId)
+    }
+
     listing.product_id = newProductId
-    await db.query('UPDATE listings SET product_id = $1 WHERE id = $2', [newProductId, item.id])
+    assignments.push({ id: item.id, productId: newProductId })
     logger.info(`listing ${item.id} -> product ${newProductId} (${baseModel}, ${item.variant_tier})`)
   }
+
+  await updateListingProductIds(db, assignments)
   saveListings(options.outputPath, listings)
 
   return listings

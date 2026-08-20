@@ -16,22 +16,31 @@ function fakeGemini(response: unknown): GeminiClient {
 }
 
 function fakeDb(): DbClient {
+  return fakeDbWithCalls().db
+}
+
+function fakeDbWithCalls(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const products: { id: number; normalized: string; variantTier: string | null }[] = []
+  const calls: { sql: string; params: unknown[] }[] = []
   let nextId = 1
   return {
-    query: async (sql: string, params: unknown[]) => {
-      if (sql.startsWith('SELECT')) {
-        const [normalized, variantTier] = params as [string, string | null]
-        const match = products.find((p) => p.normalized === normalized && p.variantTier === variantTier)
-        return { rows: match ? [{ id: match.id }] : [] }
-      }
-      if (sql.startsWith('INSERT')) {
-        const [, normalized, variantTier] = params as [string, string, string | null]
-        const id = nextId++
-        products.push({ id, normalized, variantTier })
-        return { rows: [{ id }] }
-      }
-      return { rows: [] } // UPDATE listings ...
+    calls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        if (sql.startsWith('SELECT')) {
+          const [normalized, variantTier] = params as [string, string | null]
+          const match = products.find((p) => p.normalized === normalized && p.variantTier === variantTier)
+          return { rows: match ? [{ id: match.id }] : [] }
+        }
+        if (sql.startsWith('INSERT')) {
+          const [, normalized, variantTier] = params as [string, string, string | null]
+          const id = nextId++
+          products.push({ id, normalized, variantTier })
+          return { rows: [{ id }] }
+        }
+        return { rows: [] } // UPDATE listings ...
+      },
     },
   }
 }
@@ -86,6 +95,48 @@ test('listings that already have a product_id are excluded from the batch sent t
   await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
 
   expect(promptedIds).toEqual(['2'])
+})
+
+test('batches all product_id assignments from one Gemini batch into a single UPDATE call', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060' },
+    { id: '2', base_model: 'iPhone 13' },
+  ])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060 for sale' },
+    { id: '2', marketplace_listing_title: 'iPhone 13 rush' },
+  ]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction(gemini, db, logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+
+  const updateCalls = calls.filter((c) => c.sql.startsWith('UPDATE listings'))
+  expect(updateCalls).toHaveLength(1)
+  expect(updateCalls[0].sql).toContain('FROM (VALUES')
+  expect(updateCalls[0].params).toEqual(['1', 1, '2', 2])
+})
+
+test('resolves each distinct base_model only once per run, even across multiple listings', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060' },
+    { id: '2', base_model: 'RTX 3060' },
+    { id: '3', base_model: 'iPhone 13' },
+  ])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060' },
+    { id: '2', marketplace_listing_title: 'RTX 3060 OC' },
+    { id: '3', marketplace_listing_title: 'iPhone 13' },
+  ]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction(gemini, db, logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+
+  // 2 distinct base models, each a SELECT (miss) + INSERT = 4 total product-lookup
+  // calls — not 5+, which is what re-resolving the repeated "RTX 3060" would cost.
+  const productLookupCalls = calls.filter((c) => c.sql.startsWith('SELECT') || c.sql.startsWith('INSERT'))
+  expect(productLookupCalls).toHaveLength(4)
 })
 
 test('a malformed batch response is logged and skipped, without crashing the run', async () => {

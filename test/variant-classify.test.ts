@@ -12,22 +12,31 @@ afterEach(() => {
 })
 
 function fakeDb(startId: number): DbClient {
+  return fakeDbWithCalls(startId).db
+}
+
+function fakeDbWithCalls(startId: number): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const products: { id: number; normalized: string; variantTier: string | null }[] = []
+  const calls: { sql: string; params: unknown[] }[] = []
   let nextId = startId
   return {
-    query: async (sql: string, params: unknown[]) => {
-      if (sql.startsWith('SELECT')) {
-        const [normalized, variantTier] = params as [string, string | null]
-        const match = products.find((p) => p.normalized === normalized && p.variantTier === variantTier)
-        return { rows: match ? [{ id: match.id }] : [] }
-      }
-      if (sql.startsWith('INSERT')) {
-        const [, normalized, variantTier] = params as [string, string, string | null]
-        const id = nextId++
-        products.push({ id, normalized, variantTier })
-        return { rows: [{ id }] }
-      }
-      return { rows: [] }
+    calls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        if (sql.startsWith('SELECT')) {
+          const [normalized, variantTier] = params as [string, string | null]
+          const match = products.find((p) => p.normalized === normalized && p.variantTier === variantTier)
+          return { rows: match ? [{ id: match.id }] : [] }
+        }
+        if (sql.startsWith('INSERT')) {
+          const [, normalized, variantTier] = params as [string, string, string | null]
+          const id = nextId++
+          products.push({ id, normalized, variantTier })
+          return { rows: [{ id }] }
+        }
+        return { rows: [] }
+      },
     },
   }
 }
@@ -82,4 +91,66 @@ test('only sends listings belonging to the target product_id to Gemini', async (
   })
 
   expect(promptedIds).toEqual(['1'])
+})
+
+test('batches all product_id reassignments into a single UPDATE call', async () => {
+  const gemini: GeminiClient = {
+    generateJson: async () => [
+      { id: '1', variant_tier: 'Custom AIB/OC' },
+      { id: '2', variant_tier: 'Reference/Founders Edition' },
+    ],
+  }
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060 OC Asus', product_id: 5 },
+    { id: '2', marketplace_listing_title: 'RTX 3060 Founders Edition', product_id: 5 },
+  ]
+  const { db, calls } = fakeDbWithCalls(100)
+
+  await runVariantClassification(
+    gemini,
+    db,
+    logger,
+    listings,
+    'RTX 3060',
+    ['Reference/Founders Edition', 'Custom AIB/OC'],
+    5,
+    { outputPath: OUT_PATH },
+  )
+
+  const updateCalls = calls.filter((c) => c.sql.startsWith('UPDATE listings'))
+  expect(updateCalls).toHaveLength(1)
+  expect(updateCalls[0].sql).toContain('FROM (VALUES')
+})
+
+test('resolves each distinct variant_tier only once, even across many listings', async () => {
+  const gemini: GeminiClient = {
+    generateJson: async () => [
+      { id: '1', variant_tier: 'Custom AIB/OC' },
+      { id: '2', variant_tier: 'Custom AIB/OC' },
+      { id: '3', variant_tier: 'Reference/Founders Edition' },
+    ],
+  }
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060 OC Asus', product_id: 5 },
+    { id: '2', marketplace_listing_title: 'RTX 3060 OC MSI', product_id: 5 },
+    { id: '3', marketplace_listing_title: 'RTX 3060 Founders Edition', product_id: 5 },
+  ]
+  const { db, calls } = fakeDbWithCalls(100)
+
+  await runVariantClassification(
+    gemini,
+    db,
+    logger,
+    listings,
+    'RTX 3060',
+    ['Reference/Founders Edition', 'Custom AIB/OC'],
+    5,
+    { outputPath: OUT_PATH },
+  )
+
+  // 2 distinct variant tiers, each a SELECT (miss) + INSERT = 4 total product-lookup calls
+  const productLookupCalls = calls.filter((c) => c.sql.startsWith('SELECT') || c.sql.startsWith('INSERT'))
+  expect(productLookupCalls).toHaveLength(4)
 })

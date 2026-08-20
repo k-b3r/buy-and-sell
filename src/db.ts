@@ -102,3 +102,23 @@ export async function findOrCreateProduct(
   )) as { rows: { id: number }[] }
   return inserted.rows[0].id
 }
+
+// Assigns product_id to many listings in a single round trip instead of one UPDATE
+// per listing — the per-listing version was the dominant cost of a Pass 1/2 run
+// (each remote Postgres round trip to Neon dwarfs the batched Gemini calls).
+export async function updateListingProductIds(
+  db: DbClient,
+  assignments: { id: string; productId: number }[],
+): Promise<void> {
+  if (assignments.length === 0) return
+
+  const valuesSql = assignments.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::int)`).join(', ')
+  const params = assignments.flatMap((a) => [a.id, a.productId])
+
+  await db.query(
+    `UPDATE listings SET product_id = data.product_id
+     FROM (VALUES ${valuesSql}) AS data(id, product_id)
+     WHERE listings.id = data.id`,
+    params,
+  )
+}

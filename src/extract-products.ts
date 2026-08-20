@@ -5,9 +5,9 @@ import { createLogger } from './logger'
 import type { GeminiClient } from './gemini'
 import { createGeminiClient } from './gemini'
 import type { DbClient } from './db'
-import { createDbPool, findOrCreateProduct } from './db'
+import { createDbPool, findOrCreateProduct, updateListingProductIds } from './db'
 import { loadListings, saveListings } from './jsonl'
-import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from './products'
+import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA, normalizeBaseModel } from './products'
 import type { ExtractionInput } from './products'
 
 export interface ExtractionOptions {
@@ -31,6 +31,10 @@ export async function runProductExtraction(
   const pending = listings.filter((l) => !l.product_id)
   logger.info(`${listings.length} total listings, ${pending.length} pending product extraction`)
 
+  // Caches base_model -> product_id across the whole run (not just one batch) — many
+  // listings share a base_model, and each cache hit avoids a real Postgres round trip.
+  const productIdCache = new Map<string, number>()
+
   for (let i = 0; i < pending.length; i += options.batchSize) {
     const batch = pending.slice(i, i + options.batchSize)
     const prompt = buildExtractionPrompt(batch.map(toExtractionInput))
@@ -41,16 +45,26 @@ export async function runProductExtraction(
       continue
     }
 
+    const assignments: { id: string; productId: number }[] = []
+
     for (const item of raw as { id?: unknown; base_model?: unknown }[]) {
       if (typeof item.id !== 'string' || typeof item.base_model !== 'string') continue
       const listing = listings.find((l) => String(l.id) === item.id)
       if (!listing) continue
 
-      const productId = await findOrCreateProduct(db, item.base_model, null)
+      const cacheKey = normalizeBaseModel(item.base_model)
+      let productId = productIdCache.get(cacheKey)
+      if (productId === undefined) {
+        productId = await findOrCreateProduct(db, item.base_model, null)
+        productIdCache.set(cacheKey, productId)
+      }
+
       listing.product_id = productId
-      await db.query('UPDATE listings SET product_id = $1 WHERE id = $2', [productId, item.id])
+      assignments.push({ id: item.id, productId })
       logger.info(`listing ${item.id} -> product ${productId} (${item.base_model})`)
     }
+
+    await updateListingProductIds(db, assignments)
     saveListings(options.outputPath, listings)
   }
 
