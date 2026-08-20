@@ -9,6 +9,8 @@ import { appendApprovedListing } from './output'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 import type { DbClient } from './db'
 import { upsertListing } from './db'
+import type { ImageStore } from './images'
+import { storeListingPhotos } from './images'
 
 function dumpDebugHtml(html: string): void {
   const path = `data/debug-${Date.now()}.html`
@@ -35,6 +37,7 @@ export interface RunOptions {
   outputPath: string
   softWallTimeoutMs: number
   maxItems?: number
+  daysSinceListed?: number
 }
 
 type ReviewFn = (
@@ -43,9 +46,11 @@ type ReviewFn = (
   output: NodeJS.WritableStream,
 ) => Promise<ReviewDecision>
 
-type PageStateResult = { status: 'ok'; html: string } | { status: 'stop' }
+type PageStateResult =
+  | { status: 'ok'; html: string }
+  | { status: 'stop'; reason: 'soft-wall-persisted' | 'hard-block' | 'unrecognized' }
 
-async function resolvePageState(
+export async function resolvePageState(
   driver: PageDriver,
   logger: Logger,
   fetchHtml: () => Promise<string>,
@@ -69,13 +74,13 @@ async function resolvePageState(
     if (state === 'soft-wall') {
       dumpDebugHtml(html)
       logger.error('soft login-wall persisted after refresh, failing closed and stopping run — html dumped for inspection')
-      return { status: 'stop' }
+      return { status: 'stop', reason: 'soft-wall-persisted' }
     }
   }
 
   dumpDebugHtml(html)
   logger.error(`unrecognized page state "${state}", failing closed and stopping run — html dumped for inspection`)
-  return { status: 'stop' }
+  return { status: 'stop', reason: state === 'hard-block' ? 'hard-block' : 'unrecognized' }
 }
 
 export async function runCollection(
@@ -86,9 +91,11 @@ export async function runCollection(
   output: NodeJS.WritableStream,
   options: RunOptions,
   db?: DbClient,
+  imageStore?: ImageStore,
 ): Promise<void> {
-  logger.info(`starting run: query="${options.query}"`)
-  await driver.gotoSearch(options.query)
+  const daysSinceListed = options.daysSinceListed ?? 30
+  logger.info(`starting run: query="${options.query}", daysSinceListed=${daysSinceListed}`)
+  await driver.gotoSearch(options.query, daysSinceListed)
 
   const gridResult = await resolvePageState(
     driver,
@@ -116,17 +123,11 @@ export async function runCollection(
   if (options.maxItems !== undefined && options.maxItems > HARD_MAX_ITEMS) {
     logger.warn(`requested maxItems ${options.maxItems} exceeds hard limit ${HARD_MAX_ITEMS}, clamping`)
   }
-  const requestedTotal = options.maxItems !== undefined ? Math.min(options.maxItems, HARD_MAX_ITEMS) : undefined
-  // maxItems is new-items-to-process-this-run, not a total. When resuming after
-  // a crash, subtract what's already persisted so re-running the same command
-  // with the same maxItems converges on that total instead of adding another
-  // full batch on top of what's already saved.
-  const maxItems = requestedTotal !== undefined ? Math.max(0, requestedTotal - persistedIds.size) : firstBatch.length
-  if (requestedTotal !== undefined && persistedIds.size > 0) {
-    logger.info(
-      `${persistedIds.size} listings already saved from prior runs; targeting ${maxItems} more to reach ${requestedTotal} total`,
-    )
-  }
+  // maxItems is new-items-to-collect-this-run, not a lifetime total. Already-saved
+  // IDs (from any prior run, any query) are skipped via dedup above regardless, so
+  // re-running the same command after a crash naturally continues rather than
+  // re-fetching what's already in the output file.
+  const maxItems = options.maxItems !== undefined ? Math.min(options.maxItems, HARD_MAX_ITEMS) : firstBatch.length
   if (firstBatch.length > maxItems) {
     firstBatch.length = maxItems
   }
@@ -158,6 +159,12 @@ export async function runCollection(
         return 'stop'
       }
       if (decision === 'approve') {
+        if (imageStore) {
+          const photoUrls = await storeListingPhotos(imageStore, logger, String(merged.id), merged.listing_photos)
+          if (photoUrls.length > 0) {
+            merged.stored_photo_urls = photoUrls
+          }
+        }
         appendApprovedListing(options.outputPath, merged)
         if (db) {
           await upsertListing(db, merged)

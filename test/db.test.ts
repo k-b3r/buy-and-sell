@@ -31,8 +31,10 @@ test('upsertListing extracts known fields and stores the full raw object as json
   await upsertListing(db, listing)
 
   expect(calls).toHaveLength(1)
-  const [id, title, priceAmount, priceCurrency, description, condition, categoryId, lat, lng, city, photoUrl, listedAt, rawJson] =
-    calls[0].params
+  const [
+    id, title, priceAmount, priceCurrency, description, condition, categoryId, lat, lng, city,
+    photoUrl, storedPhotoUrls, listedAt, rawJson,
+  ] = calls[0].params
 
   expect(id).toBe('12345')
   expect(title).toBe('Sony WH-1000XM6')
@@ -45,8 +47,23 @@ test('upsertListing extracts known fields and stores the full raw object as json
   expect(lng).toBe(120.94)
   expect(city).toBe('Dasmariñas')
   expect(photoUrl).toBe('https://scontent.example/photo.jpg')
+  expect(storedPhotoUrls).toBeNull()
   expect((listedAt as Date).getTime()).toBe(1786660802 * 1000)
   expect(JSON.parse(rawJson as string)).toEqual(listing)
+})
+
+test('upsertListing stores re-hosted photo URLs as a json array', async () => {
+  const { db, calls } = mockDb()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    stored_photo_urls: ['https://images.example.com/listings/12345/0.jpg', 'https://images.example.com/listings/12345/1.jpg'],
+  }
+
+  await upsertListing(db, listing)
+
+  const storedPhotoUrls = calls[0].params[11]
+  expect(JSON.parse(storedPhotoUrls as string)).toEqual(listing.stored_photo_urls)
 })
 
 test('upsertListing fills missing optional fields with null instead of throwing', async () => {

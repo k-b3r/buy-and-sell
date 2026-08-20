@@ -30,23 +30,36 @@ psql "$DATABASE_URL" -f db/schema.sql
 
 Without a `.env`/`DATABASE_URL`, the collector still runs fine — JSONL-only.
 
+Optional, for photo storage: Facebook's photo carousel URLs are signed and expire in days, so the collector re-hosts them to Cloudflare R2 (free 10GB tier) at collection time. Create an R2 bucket + API token, then add to `.env`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL` (the bucket's public dev URL or custom domain). Without these, photo URLs are still captured in `raw_json`/`listing_photos` but not downloaded — they'll go dead once Facebook's signature expires.
+
 ## Usage
 
 ```bash
-pnpm run collect -- "<search query>" [maxItems]
+pnpm run collect -- "<search query>" [maxItems] [daysSinceListed]
 ```
 
 Example:
 
 ```bash
 pnpm run collect -- "Sony WH-1000XM6" 50
+pnpm run collect -- "headphones" 100 7   # only listings posted in the last 7 days
 ```
 
-- Defaults: query `headphones`, `maxItems` unset (single 24-item batch, no pagination).
+- Defaults: query `headphones`, `maxItems` unset (single 24-item batch, no pagination), `daysSinceListed` 30.
+- `maxItems` is a per-run budget of *new* items (capped at 1000), not a lifetime total — already-saved listings (any query, any prior run) are skipped via dedup regardless, so re-running the same command after a crash just continues collecting fresh ones on top of what's already saved.
+- `daysSinceListed` narrows the search to recently-posted listings — useful for periodic re-runs of the same keyword (e.g. weekly with `7`), since it shrinks the pool to mostly-new-since-last-time listings instead of re-wading through a wide window of stuff you already have (dedup skips those anyway, but this avoids burning pagination budget getting past them).
 - Walks listings one at a time in the background (headless), auto-approving each and saving it — no manual review step anymore.
 - Listings already present in `data/listings.jsonl` from a prior run are skipped entirely (not re-opened, not re-saved), so re-running the same query is safe and cheap.
 - Approved listings land in `data/listings.jsonl` (JSON Lines — one listing object per line), and are also upserted into Postgres if `DATABASE_URL` is configured. Logs go to `data/collector.log`.
 - No location argument — there's no reliable logged-out location filtering signal (see `CONTEXT.md` → "Location filter"). Results are centered on Metro Manila/Cavite via a hardcoded location slug.
+
+## Backfilling images for already-collected listings
+
+```bash
+pnpm run backfill-images -- [limit]
+```
+
+Re-visits each already-saved listing live (paced same as a normal run) to pick up its full photo carousel and re-host it to R2 — needed for listings collected before the carousel-extraction fix and R2 storage existed (they only ever got `primary_listing_photo`, no `listing_photos`). Resumable: progress written after every listing, already-backfilled ones (have `stored_photo_urls`) skipped on the next run. Optional `limit` caps how many to process this run. Logs to `data/backfill.log`. Requires R2 configured; uses `DATABASE_URL` too if set.
 
 ## Testing
 
@@ -62,6 +75,7 @@ Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orches
 src/
   logger.ts, output.ts, review.ts     # logging, JSONL output, auto-approve review fn
   db.ts                                # Postgres upsert (optional, alongside JSONL)
+  images.ts                            # downloads + re-hosts photo carousel to R2 (optional)
   wall.ts                              # detects soft login-walls vs hard blocks
   extract/grid.ts, extract/detail.ts   # parse listing data out of Facebook's embedded JSON
   paginate.ts                          # cursor/token extraction, pagination response parsing

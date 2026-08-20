@@ -1,4 +1,7 @@
-const LISTING_KEY_HINTS = ['marketplace_listing_title', 'listing_price', 'custom_title']
+// listing_photos hints at the separate media-viewer query block Facebook embeds
+// alongside the main listing object — same listing id, but no title/price field
+// of its own, so it needs its own hint to be recognized as a listing candidate.
+const LISTING_KEY_HINTS = ['marketplace_listing_title', 'listing_price', 'custom_title', 'listing_photos']
 
 function looksLikeListing(obj: unknown): obj is Record<string, unknown> {
   if (typeof obj !== 'object' || obj === null) return false
@@ -32,7 +35,13 @@ export function extractDetailFields(html: string): Record<string, unknown> {
     }
   }
   if (found.length === 0) return {}
-  return found.reduce((richest, candidate) =>
-    Object.keys(candidate).length > Object.keys(richest).length ? candidate : richest,
-  )
+  const richest = found.reduce((a, b) => (Object.keys(b).length > Object.keys(a).length ? b : a))
+  // Facebook splits a listing's data across multiple query blocks on the same
+  // page (e.g. the photo carousel loads via a separate media-viewer query) —
+  // merge every candidate sharing the main object's id instead of discarding
+  // them, smallest-first so the richest object's own fields take precedence.
+  return found
+    .filter((candidate) => candidate.id === richest.id)
+    .sort((a, b) => Object.keys(a).length - Object.keys(b).length)
+    .reduce((merged, candidate) => ({ ...merged, ...candidate }), {})
 }

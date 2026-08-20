@@ -1,0 +1,8 @@
+<html><body>
+<!-- Real-world false positive (2026-08-19): FB's static JS bundle references a
+     "RecaptchaDialog.react" component by name on ordinary pages, unrelated to
+     an actual captcha challenge being shown. Bare /recaptcha/i matched this
+     and misclassified a normal soft login-wall page as a hard block. -->
+<script>require("RecaptchaDialog.react");require("Recaptcha.entrypoint");</script>
+<div id="login_form">You must log in to continue browsing.</div>
+</body></html>

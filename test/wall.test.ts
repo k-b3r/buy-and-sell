@@ -15,3 +15,8 @@ test('hard-block page with captcha/checkpoint', () => {
   const html = readFileSync('fixtures/hard-block-page.html', 'utf-8')
   expect(detectPageState(html)).toBe('hard-block')
 })
+
+test('does not false-positive hard-block on a bare "recaptcha" JS component name with no actual widget present', () => {
+  const html = readFileSync('fixtures/soft-wall-with-recaptcha-bundle-name.html', 'utf-8')
+  expect(detectPageState(html)).toBe('soft-wall')
+})

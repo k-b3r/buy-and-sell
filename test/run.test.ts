@@ -2,7 +2,7 @@ import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs'
 import type { PageDriver } from '../src/driver'
 import type { GridListing } from '../src/extract/grid'
-import { runCollection } from '../src/run'
+import { runCollection, resolvePageState } from '../src/run'
 import { createLogger } from '../src/logger'
 
 const OUT_PATH = 'test/tmp-run-listings.jsonl'
@@ -32,6 +32,33 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
     ...overrides,
   }
 }
+
+test('passes daysSinceListed through to the driver, defaulting to 30 when unset', async () => {
+  const calls: Array<{ query: string; daysSinceListed: number }> = []
+  const driver = makeDriver({
+    gotoSearch: async (query, daysSinceListed) => {
+      calls.push({ query, daysSinceListed })
+    },
+  })
+  const logger = createLogger(LOG_PATH)
+
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+  })
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+    daysSinceListed: 7,
+  })
+
+  expect(calls).toEqual([
+    { query: 'headphones', daysSinceListed: 30 },
+    { query: 'headphones', daysSinceListed: 7 },
+  ])
+})
 
 test('approved item gets saved, then loop advances to next item', async () => {
   const grid: GridListing[] = [
@@ -123,6 +150,29 @@ test('hard-block page state fails closed and stops the run', async () => {
   expect(existsSync(OUT_PATH)).toBe(false)
   const logText = readFileSync(LOG_PATH, 'utf-8')
   expect(logText).toContain('[ERROR]')
+})
+
+test('resolvePageState tags the stop reason so callers can distinguish a real block from a persisted soft-wall', async () => {
+  const driver = makeDriver({ refresh: async () => {} })
+  const logger = createLogger(LOG_PATH)
+
+  const hardBlock = await resolvePageState(
+    driver,
+    logger,
+    async () => `<div class="checkpoint_challenge">captcha</div>`,
+    10,
+    () => false,
+  )
+  expect(hardBlock).toEqual({ status: 'stop', reason: 'hard-block' })
+
+  const softWallPersisted = await resolvePageState(
+    driver,
+    logger,
+    async () => `<div class="login_form">log in</div>`,
+    10,
+    () => false,
+  )
+  expect(softWallPersisted).toEqual({ status: 'stop', reason: 'soft-wall-persisted' })
 })
 
 test('soft-wall on detail page recovers via refresh and extracts post-refresh content', async () => {
@@ -345,7 +395,7 @@ test('skips listings already present in the output file from a prior run', async
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })
 
-test('resuming with the same maxItems targets the overall total, not another full batch', async () => {
+test('resuming after a crash processes a fresh maxItems budget of new items, on top of what is already saved', async () => {
   // Simulate a prior run that already saved 2 listings before crashing.
   const priorLines = ['1', '2'].map((id) => JSON.stringify({ id, marketplace_listing_title: 'Mic' }))
   writeFileSync(OUT_PATH, priorLines.join('\n') + '\n')
@@ -353,7 +403,9 @@ test('resuming with the same maxItems targets the overall total, not another ful
   const gridHtml = `<script type="application/json">{"results":[
     {"id":"1","marketplace_listing_title":"Mic A"},
     {"id":"2","marketplace_listing_title":"Mic B"},
-    {"id":"3","marketplace_listing_title":"Mic C"}
+    {"id":"3","marketplace_listing_title":"Mic C"},
+    {"id":"4","marketplace_listing_title":"Mic D"},
+    {"id":"5","marketplace_listing_title":"Mic E"}
   ]}</script>`
   const detailHtml = (id: string) =>
     `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
@@ -374,7 +426,9 @@ test('resuming with the same maxItems targets the overall total, not another ful
   }
   const logger = createLogger(LOG_PATH)
 
-  // maxItems: 3 means "3 total", and 2 are already saved — should only process 1 more.
+  // maxItems is a per-run budget of NEW items, not a lifetime total: 1 and 2 are
+  // already saved and get skipped via dedup regardless, then 3 more new ones
+  // (3, 4, 5) get processed to fill the budget.
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
     outputPath: OUT_PATH,
@@ -382,7 +436,48 @@ test('resuming with the same maxItems targets the overall total, not another ful
     maxItems: 3,
   })
 
-  expect(openedIds).toEqual(['3'])
+  expect(openedIds).toEqual(['3', '4', '5'])
   const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved.map((s) => s.id)).toEqual(['1', '2', '3'])
+  expect(saved.map((s) => s.id)).toEqual(['1', '2', '3', '4', '5'])
+})
+
+test('when an image store is provided, downloads and re-hosts the photo carousel before saving', async () => {
+  const gridHtml = `<script type="application/json">{"results":[
+    {"id":"1","marketplace_listing_title":"Mic A"}
+  ]}</script>`
+  const detailHtml = `<script type="application/json">{
+    "id":"1","marketplace_listing_title":"Mic A",
+    "listing_photos":[{"image":{"uri":"https://cdn.example.com/a.jpg"}}]
+  }</script>`
+  const driver = makeDriver({
+    getGridHtml: async () => gridHtml,
+    getDetailHtml: async () => detailHtml,
+  })
+  const logger = createLogger(LOG_PATH)
+  const puts: string[] = []
+  const imageStore = {
+    put: async (key: string) => {
+      puts.push(key)
+      return `https://images.example.com/${key}`
+    },
+  }
+  const originalFetch = global.fetch
+  global.fetch = (async () =>
+    new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } })) as typeof fetch
+
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
+    undefined,
+    imageStore,
+  )
+  global.fetch = originalFetch
+
+  expect(puts).toEqual(['listings/1/0.jpg'])
+  const saved = JSON.parse(readFileSync(OUT_PATH, 'utf-8').trim())
+  expect(saved.stored_photo_urls).toEqual(['https://images.example.com/listings/1/0.jpg'])
 })

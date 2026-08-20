@@ -5,8 +5,10 @@ import type { PageCursor } from './paginate'
 
 const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
 
-export async function launchBrowser(): Promise<{ close: () => Promise<void>; page: Page }> {
-  const browser = await chromium.launch({ headless: true })
+export async function launchBrowser(
+  options: { headless?: boolean } = {},
+): Promise<{ close: () => Promise<void>; page: Page }> {
+  const browser = await chromium.launch({ headless: options.headless ?? true })
   const context = await browser.newContext({
     locale: 'en-PH',
     timezoneId: 'Asia/Manila',
@@ -19,7 +21,7 @@ export async function launchBrowser(): Promise<{ close: () => Promise<void>; pag
 
 export function createBrowserDriver(page: Page): PageDriver {
   return {
-    async gotoSearch(query: string) {
+    async gotoSearch(query: string, daysSinceListed: number) {
       // No location parameter here at all — Facebook has no reliable free-text
       // location signal for a logged-out session (confirmed: location= URL param,
       // geolocation permission, and locale/timezone were all ignored, defaulting
@@ -28,7 +30,7 @@ export function createBrowserDriver(page: Page): PageDriver {
       // slugs resolve — "manila" is confirmed working and already surfaces
       // Dasmarinas/Cavite-area listings; "dasmarinas" itself is not a
       // recognized slug and falls back to the generic default.
-      const url = `https://www.facebook.com/marketplace/manila/search/?query=${encodeURIComponent(query)}&daysSinceListed=30&exact=false`
+      const url = `https://www.facebook.com/marketplace/manila/search/?query=${encodeURIComponent(query)}&daysSinceListed=${daysSinceListed}&exact=false`
       await page.goto(url, { waitUntil: 'domcontentloaded' })
     },
     async getGridHtml() {

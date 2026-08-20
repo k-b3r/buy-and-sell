@@ -36,6 +36,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
 
   const primaryPhotoUrl =
     (listing.primary_listing_photo as { image?: { uri?: string } } | undefined)?.image?.uri ?? null
+  const storedPhotoUrls = (listing.stored_photo_urls as string[] | undefined) ?? null
 
   const creationTime = listing.creation_time as number | undefined
   const listedAt = creationTime ? new Date(creationTime * 1000) : null
@@ -43,9 +44,9 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
   await db.query(
     `INSERT INTO listings (
        id, title, price_amount, price_currency, description, condition, category_id,
-       location_lat, location_lng, location_city, primary_photo_url, listed_at, raw_json
+       location_lat, location_lng, location_city, primary_photo_url, stored_photo_urls, listed_at, raw_json
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      ON CONFLICT (id) DO UPDATE SET
        title = EXCLUDED.title,
        price_amount = EXCLUDED.price_amount,
@@ -57,6 +58,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
        location_lng = EXCLUDED.location_lng,
        location_city = EXCLUDED.location_city,
        primary_photo_url = EXCLUDED.primary_photo_url,
+       stored_photo_urls = EXCLUDED.stored_photo_urls,
        listed_at = EXCLUDED.listed_at,
        raw_json = EXCLUDED.raw_json,
        last_seen_at = now(),
@@ -73,6 +75,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
       locationLng,
       locationCity,
       primaryPhotoUrl,
+      storedPhotoUrls ? JSON.stringify(storedPhotoUrls) : null,
       listedAt,
       JSON.stringify(listing),
     ],
