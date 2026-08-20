@@ -7,7 +7,9 @@
     "test": "vitest run",
     "collect": "tsx src/cli.ts",
     "backfill-images": "tsx src/backfill.ts",
-    "extract-products": "tsx src/extract-products.ts"
+    "extract-products": "tsx src/extract-products.ts",
+    "price-lookup": "tsx src/price-lookup.ts",
+    "price-from-listings": "tsx src/price-from-listings.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -1,5 +1,5 @@
 import type { DbClient } from '../src/db'
-import { findOrCreateProduct, updateListingProductIds, upsertListing } from '../src/db'
+import { findOrCreateProduct, updateListingProductIds, upsertListing, insertPriceCheck } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -187,4 +187,29 @@ test('updateListingProductIds issues a single multi-row UPDATE for all assignmen
   expect(calls[0].sql).toMatch(/^UPDATE listings/)
   expect(calls[0].sql).toContain('FROM (VALUES')
   expect(calls[0].params).toEqual(['1', 10, '2', 20, '3', 10])
+})
+
+test('insertPriceCheck writes a new price_history row for the product, not an upsert', async () => {
+  const { db, calls } = mockDb()
+
+  await insertPriceCheck(
+    db,
+    42,
+    { low: 4500, high: 12000, currency: 'PHP' },
+    'Full grounded answer text here.',
+    'gemini_grounding',
+  )
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toMatch(/^INSERT INTO product_price_history/)
+  expect(calls[0].sql).not.toContain('ON CONFLICT')
+  expect(calls[0].params).toEqual([42, 4500, 12000, 'PHP', 'Full grounded answer text here.', 'gemini_grounding'])
+})
+
+test('insertPriceCheck tags a listing-derived price with the listing_prices source', async () => {
+  const { db, calls } = mockDb()
+
+  await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'computed from 4 listings', 'listing_prices')
+
+  expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'computed from 4 listings', 'listing_prices'])
 })

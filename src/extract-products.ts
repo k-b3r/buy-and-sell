@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from './logger'
 import { createLogger } from './logger'
 import type { GeminiClient } from './gemini'
-import { createGeminiClient } from './gemini'
+import { createGeminiClient, createFallbackGeminiClient } from './gemini'
 import type { DbClient } from './db'
 import { createDbPool, findOrCreateProduct, updateListingProductIds } from './db'
 import { loadListings, saveListings } from './jsonl'
@@ -13,7 +13,12 @@ import type { ExtractionInput } from './products'
 export interface ExtractionOptions {
   batchSize: number
   outputPath: string
+  delayMs?: number
 }
+
+export type DelayFn = (ms: number) => Promise<void>
+
+const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 function toExtractionInput(listing: Record<string, unknown>): ExtractionInput {
   const title = String(listing.marketplace_listing_title ?? listing.custom_title ?? '')
@@ -27,6 +32,7 @@ export async function runProductExtraction(
   logger: Logger,
   listings: Record<string, unknown>[],
   options: ExtractionOptions,
+  delay: DelayFn = realDelay,
 ): Promise<Record<string, unknown>[]> {
   const pending = listings.filter((l) => !l.product_id)
   logger.info(`${listings.length} total listings, ${pending.length} pending product extraction`)
@@ -34,23 +40,41 @@ export async function runProductExtraction(
   // Caches base_model -> product_id across the whole run (not just one batch) — many
   // listings share a base_model, and each cache hit avoids a real Postgres round trip.
   const productIdCache = new Map<string, number>()
+  const delayMs = options.delayMs ?? 5000
+  const totalBatches = Math.ceil(pending.length / options.batchSize)
+  let processedSoFar = 0
 
   for (let i = 0; i < pending.length; i += options.batchSize) {
+    const batchNum = i / options.batchSize + 1
+    if (i > 0) {
+      logger.info(`waiting ${delayMs}ms before next batch`)
+      await delay(delayMs)
+    }
     const batch = pending.slice(i, i + options.batchSize)
+    logger.info(`batch ${batchNum}/${totalBatches}: sending ${batch.length} listings to Gemini`)
     const prompt = buildExtractionPrompt(batch.map(toExtractionInput))
     const raw = await gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
 
     if (!Array.isArray(raw)) {
-      logger.error(`batch starting at ${i}: unexpected response shape (not an array), skipping batch`)
+      logger.error(`batch ${batchNum}/${totalBatches}: unexpected response shape (not an array), skipping batch`)
+      processedSoFar += batch.length
+      logProgress(logger, processedSoFar, pending.length)
       continue
     }
 
     const assignments: { id: string; productId: number }[] = []
+    let skipped = 0
 
     for (const item of raw as { id?: unknown; base_model?: unknown; variant?: unknown }[]) {
-      if (typeof item.id !== 'string' || typeof item.base_model !== 'string') continue
+      if (typeof item.id !== 'string' || typeof item.base_model !== 'string') {
+        skipped += 1
+        continue
+      }
       const listing = listings.find((l) => String(l.id) === item.id)
-      if (!listing) continue
+      if (!listing) {
+        skipped += 1
+        continue
+      }
 
       const variant = typeof item.variant === 'string' && item.variant.trim() !== '' ? item.variant : null
       const cacheKey = `${normalizeBaseModel(item.base_model)}::${variant ? normalizeVariantTier(variant) : ''}`
@@ -67,9 +91,21 @@ export async function runProductExtraction(
 
     await updateListingProductIds(db, assignments)
     saveListings(options.outputPath, listings)
+
+    processedSoFar += batch.length
+    logger.info(
+      `batch ${batchNum}/${totalBatches} done: ${assignments.length} assigned, ${skipped} skipped, ` +
+        `${productIdCache.size} distinct products seen so far`,
+    )
+    logProgress(logger, processedSoFar, pending.length)
   }
 
   return listings
+}
+
+function logProgress(logger: Logger, processedSoFar: number, pendingTotal: number): void {
+  const pct = pendingTotal === 0 ? 100 : Math.round((processedSoFar / pendingTotal) * 100)
+  logger.info(`${processedSoFar}/${pendingTotal} pending processed (${pct}%)`)
 }
 
 async function main() {
@@ -82,12 +118,31 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
 
   const logger = createLogger('data/extract-products.log')
-  const gemini = createGeminiClient(apiKey)
+
+  // Free tier is 20 requests/day per project per model — a second key from a
+  // different Google account is a different project, so it has its own
+  // independent quota. Falls back to it automatically on a 429, rather than
+  // needing to guess in advance how many requests either one has left today.
+  const altApiKey = process.env.ALT_FREE_GEMINI_API_KEY
+  const gemini = altApiKey
+    ? createFallbackGeminiClient([createGeminiClient(apiKey), createGeminiClient(altApiKey, 'gemini-3.6-flash')])
+    : createGeminiClient(apiKey)
+  if (altApiKey) {
+    logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')
+  }
   const pool = createDbPool(dbUrl)
   const listings = loadListings('data/listings.jsonl')
 
   try {
-    await runProductExtraction(gemini, pool, logger, listings, { batchSize: 25, outputPath: 'data/listings.jsonl' })
+    await runProductExtraction(gemini, pool, logger, listings, {
+      // Free tier is 20 requests/DAY for gemini-2.5-flash (confirmed live 2026-08-20
+      // via a real 429 — NOT the ~1,500/day figure researched earlier, which turned
+      // out to be the separate Google Search grounding quota, not base generateContent).
+      // Batch size sized so the whole 997-listing backlog fits in ~10 requests, not 40.
+      batchSize: 100,
+      outputPath: 'data/listings.jsonl',
+      delayMs: 5000,
+    })
   } finally {
     await pool.end()
   }

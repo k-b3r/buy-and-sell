@@ -13,7 +13,12 @@ afterEach(() => {
 })
 
 function fakeGemini(response: unknown): GeminiClient {
-  return { generateJson: async () => response }
+  return {
+    generateJson: async () => response,
+    generateGroundedText: async () => {
+      throw new Error('not used by product extraction')
+    },
+  }
 }
 
 function fakeDb(): DbClient {
@@ -85,6 +90,9 @@ test('listings that already have a product_id are excluded from the batch sent t
     generateJson: async (prompt: string) => {
       promptedIds = [...prompt.matchAll(/\[id: (\S+)\]/g)].map((m) => m[1])
       return [{ id: '2', base_model: 'iPhone 13' }]
+    },
+    generateGroundedText: async () => {
+      throw new Error('not used by product extraction')
     },
   }
   const logger = createLogger(LOG_PATH)
@@ -191,6 +199,73 @@ test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spe
   expect(oc).not.toBe(foundersEdition)
   expect(foundersEdition).toBe(founderSApostropheEdition)
   expect(normalizeVariantTier('Founders edition')).toBe(normalizeVariantTier("Founder's edition"))
+})
+
+test('waits between batches but not before the first one or after the last one', async () => {
+  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060' },
+    { id: '2', marketplace_listing_title: 'iPhone 13' },
+    { id: '3', marketplace_listing_title: 'Sony WH-1000XM4' },
+  ]
+  const delays: number[] = []
+  const fakeDelay = async (ms: number) => {
+    delays.push(ms)
+  }
+
+  await runProductExtraction(
+    gemini,
+    fakeDb(),
+    logger,
+    listings,
+    { batchSize: 1, outputPath: OUT_PATH, delayMs: 5000 },
+    fakeDelay,
+  )
+
+  expect(delays).toEqual([5000, 5000])
+})
+
+test('logs batch progress and a cumulative running total as it goes', async () => {
+  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060' },
+    { id: '2', marketplace_listing_title: 'iPhone 13' },
+    { id: '3', marketplace_listing_title: 'Sony WH-1000XM4' },
+  ]
+
+  await runProductExtraction(
+    gemini,
+    fakeDb(),
+    logger,
+    listings,
+    { batchSize: 1, outputPath: OUT_PATH, delayMs: 0 },
+  )
+
+  const log = readFileSync(LOG_PATH, 'utf-8')
+  expect(log).toContain('batch 1/3')
+  expect(log).toContain('batch 2/3')
+  expect(log).toContain('batch 3/3')
+  expect(log).toContain('3/3 pending processed (100%)')
+})
+
+test('logs a per-batch summary with assigned and skipped counts', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060' },
+    { id: '2' }, // missing base_model -> skipped
+    { id: 'not-a-real-listing', base_model: 'Ghost' }, // no matching listing -> skipped
+  ])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060' },
+    { id: '2', marketplace_listing_title: 'Unknown thing' },
+  ]
+
+  await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+
+  const log = readFileSync(LOG_PATH, 'utf-8')
+  expect(log).toContain('batch 1/1 done: 1 assigned, 2 skipped')
 })
 
 test('a malformed batch response is logged and skipped, without crashing the run', async () => {

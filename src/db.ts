@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import { normalizeBaseModel, normalizeVariantTier } from './products'
+import type { PriceRange } from './pricing'
 
 export interface DbClient {
   query(sql: string, params: unknown[]): Promise<unknown>
@@ -122,5 +123,25 @@ export async function updateListingProductIds(
      FROM (VALUES ${valuesSql}) AS data(id, product_id)
      WHERE listings.id = data.id`,
     params,
+  )
+}
+
+// Always an INSERT, never an upsert — each price check is a new point in the
+// product's price history, not a replacement of the last one. This is what
+// makes a price trend possible: query product_price_history ordered by
+// checked_at, don't just read a single "current price" column.
+export type PriceCheckSource = 'gemini_grounding' | 'listing_prices'
+
+export async function insertPriceCheck(
+  db: DbClient,
+  productId: number,
+  price: PriceRange,
+  rawResponse: string,
+  source: PriceCheckSource,
+): Promise<void> {
+  await db.query(
+    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [productId, price.low, price.high, price.currency, rawResponse, source],
   )
 }

@@ -52,3 +52,31 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_tier_normalized TEXT;
 DROP INDEX IF EXISTS products_base_model_variant_idx;
 CREATE UNIQUE INDEX IF NOT EXISTS products_base_model_variant_normalized_idx
   ON products (base_model_normalized, COALESCE(variant_tier_normalized, ''));
+
+-- Append-only price history — one row per check, never updated in place, so
+-- a price trend is just this table ordered by checked_at, not a single
+-- "current price" column that would silently lose all prior values.
+CREATE TABLE IF NOT EXISTS product_price_history (
+  id SERIAL PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  price_low NUMERIC,
+  price_high NUMERIC,
+  price_currency TEXT,
+  raw_response TEXT,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS product_price_history_product_checked_idx
+  ON product_price_history (product_id, checked_at);
+
+-- Migration for tables created before raw_response existed (safe to re-run).
+ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS raw_response TEXT;
+
+-- 'listing_prices' (computed from our own collected listings, a free fill-in
+-- while Gemini grounding is quota-limited) is NOT the same signal as
+-- 'gemini_grounding' (independent external market data) — comparing a
+-- listing's price against a range derived from this same marketplace's other
+-- listings is a different, more circular comparison than an outside market
+-- price would be. Tagging the source keeps the two from being silently
+-- blended in later analysis.
+ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'gemini_grounding';
