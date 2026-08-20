@@ -39,3 +39,27 @@ export const EXTRACTION_RESPONSE_SCHEMA = {
     required: ['id', 'base_model'],
   },
 } as const
+
+export function buildVariantSchema(enumValues: string[]) {
+  return {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        variant_tier: { type: 'string', enum: enumValues },
+      },
+      required: ['id', 'variant_tier'],
+    },
+  } as const
+}
+
+export function buildVariantPrompt(baseModel: string, enumValues: string[], listings: ExtractionInput[]): string {
+  const lines = listings.map(formatListingLine).join('\n')
+  const tiers = enumValues.map((v) => `- "${v}"`).join('\n')
+  return `Classify each ${baseModel} listing below by variant tier, based on its title/description:
+${tiers}
+
+Listings:
+${lines}`
+}
