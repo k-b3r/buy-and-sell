@@ -7,7 +7,7 @@ import { createGeminiClient } from './gemini'
 import type { DbClient } from './db'
 import { createDbPool, findOrCreateProduct, updateListingProductIds } from './db'
 import { loadListings, saveListings } from './jsonl'
-import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA, normalizeBaseModel } from './products'
+import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA, normalizeBaseModel, normalizeVariantTier } from './products'
 import type { ExtractionInput } from './products'
 
 export interface ExtractionOptions {
@@ -47,21 +47,22 @@ export async function runProductExtraction(
 
     const assignments: { id: string; productId: number }[] = []
 
-    for (const item of raw as { id?: unknown; base_model?: unknown }[]) {
+    for (const item of raw as { id?: unknown; base_model?: unknown; variant?: unknown }[]) {
       if (typeof item.id !== 'string' || typeof item.base_model !== 'string') continue
       const listing = listings.find((l) => String(l.id) === item.id)
       if (!listing) continue
 
-      const cacheKey = normalizeBaseModel(item.base_model)
+      const variant = typeof item.variant === 'string' && item.variant.trim() !== '' ? item.variant : null
+      const cacheKey = `${normalizeBaseModel(item.base_model)}::${variant ? normalizeVariantTier(variant) : ''}`
       let productId = productIdCache.get(cacheKey)
       if (productId === undefined) {
-        productId = await findOrCreateProduct(db, item.base_model, null)
+        productId = await findOrCreateProduct(db, item.base_model, variant)
         productIdCache.set(cacheKey, productId)
       }
 
       listing.product_id = productId
       assignments.push({ id: item.id, productId })
-      logger.info(`listing ${item.id} -> product ${productId} (${item.base_model})`)
+      logger.info(`listing ${item.id} -> product ${productId} (${item.base_model}${variant ? `, ${variant}` : ''})`)
     }
 
     await updateListingProductIds(db, assignments)

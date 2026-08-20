@@ -1,6 +1,7 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runProductExtraction } from '../src/extract-products'
 import { createLogger } from '../src/logger'
+import { normalizeVariantTier } from '../src/products'
 import type { GeminiClient } from '../src/gemini'
 import type { DbClient } from '../src/db'
 
@@ -20,7 +21,7 @@ function fakeDb(): DbClient {
 }
 
 function fakeDbWithCalls(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
-  const products: { id: number; normalized: string; variantTier: string | null }[] = []
+  const products: { id: number; normalized: string; variantNormalized: string | null }[] = []
   const calls: { sql: string; params: unknown[] }[] = []
   let nextId = 1
   return {
@@ -29,14 +30,14 @@ function fakeDbWithCalls(): { db: DbClient; calls: { sql: string; params: unknow
       query: async (sql: string, params: unknown[]) => {
         calls.push({ sql, params })
         if (sql.startsWith('SELECT')) {
-          const [normalized, variantTier] = params as [string, string | null]
-          const match = products.find((p) => p.normalized === normalized && p.variantTier === variantTier)
+          const [normalized, variantNormalized] = params as [string, string | null]
+          const match = products.find((p) => p.normalized === normalized && p.variantNormalized === variantNormalized)
           return { rows: match ? [{ id: match.id }] : [] }
         }
         if (sql.startsWith('INSERT')) {
-          const [, normalized, variantTier] = params as [string, string, string | null]
+          const [, normalized, , variantNormalized] = params as [string, string, string | null, string | null]
           const id = nextId++
-          products.push({ id, normalized, variantTier })
+          products.push({ id, normalized, variantNormalized })
           return { rows: [{ id }] }
         }
         return { rows: [] } // UPDATE listings ...
@@ -137,6 +138,59 @@ test('resolves each distinct base_model only once per run, even across multiple 
   // calls — not 5+, which is what re-resolving the repeated "RTX 3060" would cost.
   const productLookupCalls = calls.filter((c) => c.sql.startsWith('SELECT') || c.sql.startsWith('INSERT'))
   expect(productLookupCalls).toHaveLength(4)
+})
+
+test('a listing with a variant guess gets a different product_id than one without', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060', variant: 'OC' },
+    { id: '2', base_model: 'RTX 3060' },
+  ])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060 OC Asus' },
+    { id: '2', marketplace_listing_title: 'RTX 3060' },
+  ]
+
+  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+
+  expect(result[0].product_id).not.toBe(result[1].product_id)
+})
+
+test('an empty string variant is treated as no variant at all', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060', variant: '' },
+    { id: '2', base_model: 'RTX 3060' },
+  ])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060' },
+    { id: '2', marketplace_listing_title: 'RTX 3060' },
+  ]
+
+  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+
+  expect(result[0].product_id).toBe(result[1].product_id)
+})
+
+test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spellings of the same edition collapse', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060', variant: 'OC' },
+    { id: '2', base_model: 'RTX 3060', variant: 'Founders edition' },
+    { id: '3', base_model: 'RTX 3060', variant: "Founder's edition" },
+  ])
+  const logger = createLogger(LOG_PATH)
+  const listings = [
+    { id: '1', marketplace_listing_title: 'RTX 3060 OC' },
+    { id: '2', marketplace_listing_title: 'RTX 3060 Founders edition' },
+    { id: '3', marketplace_listing_title: "RTX 3060 Founder's edition" },
+  ]
+
+  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+
+  const [oc, foundersEdition, founderSApostropheEdition] = result.map((l) => l.product_id)
+  expect(oc).not.toBe(foundersEdition)
+  expect(foundersEdition).toBe(founderSApostropheEdition)
+  expect(normalizeVariantTier('Founders edition')).toBe(normalizeVariantTier("Founder's edition"))
 })
 
 test('a malformed batch response is logged and skipped, without crashing the run', async () => {

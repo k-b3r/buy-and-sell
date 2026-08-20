@@ -1,5 +1,4 @@
-import { normalizeBaseModel, buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from '../src/products'
-import { buildVariantSchema, buildVariantPrompt } from '../src/products'
+import { normalizeBaseModel, normalizeVariantTier, buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from '../src/products'
 
 test('normalizeBaseModel trims, lowercases, and collapses internal whitespace', () => {
   expect(normalizeBaseModel('  RTX   3060  ')).toBe('rtx 3060')
@@ -20,28 +19,19 @@ test('buildExtractionPrompt includes each listing id and title, and truncates lo
   expect(prompt).not.toContain('no scratches or dents anywhere on the case')
 })
 
-test('EXTRACTION_RESPONSE_SCHEMA is an array schema requiring id and base_model per item', () => {
+test('EXTRACTION_RESPONSE_SCHEMA is an array schema requiring id and base_model, with variant optional', () => {
   expect(EXTRACTION_RESPONSE_SCHEMA.type).toBe('array')
   expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toEqual(['id', 'base_model'])
+  expect(EXTRACTION_RESPONSE_SCHEMA.items.properties.variant.type).toBe('string')
 })
 
-test('buildVariantSchema constrains variant_tier to exactly the given enum values', () => {
-  const schema = buildVariantSchema(['Reference/Founders Edition', 'Custom AIB/OC', 'Unknown'])
-  expect(schema.items.properties.variant_tier.enum).toEqual([
-    'Reference/Founders Edition',
-    'Custom AIB/OC',
-    'Unknown',
-  ])
-  expect(schema.items.required).toEqual(['id', 'variant_tier'])
+test('buildExtractionPrompt instructs the model to leave variant empty unless clearly signaled', () => {
+  const prompt = buildExtractionPrompt([{ id: '1', title: 'RTX 3060 OC Asus', description: '' }])
+  expect(prompt.toLowerCase()).toContain('variant')
 })
 
-test('buildVariantPrompt names the base model, lists the enum values, and lists each listing', () => {
-  const prompt = buildVariantPrompt('RTX 3060', ['Reference/Founders Edition', 'Custom AIB/OC'], [
-    { id: '1', title: 'RTX 3060 OC Asus', description: 'Factory overclocked' },
-  ])
-
-  expect(prompt).toContain('RTX 3060')
-  expect(prompt).toContain('"Reference/Founders Edition"')
-  expect(prompt).toContain('"Custom AIB/OC"')
-  expect(prompt).toContain('[id: 1] title: "RTX 3060 OC Asus"')
+test('normalizeVariantTier trims, lowercases, collapses whitespace, and strips apostrophes', () => {
+  expect(normalizeVariantTier('  OC  ')).toBe('oc')
+  expect(normalizeVariantTier("Founder's edition")).toBe('founders edition')
+  expect(normalizeVariantTier('Founders edition')).toBe('founders edition')
 })

@@ -2,6 +2,18 @@ export function normalizeBaseModel(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+// Light-touch only — catches trivial noise (case, whitespace, contraction
+// apostrophes like "Founder's" vs "Founders") without doing any real semantic
+// merging (e.g. "FE" vs "Founders Edition" still land as separate products).
+// Deliberate deduplication across those is a later, human/AI-assisted phase.
+export function normalizeVariantTier(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/['\u2019]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
 export interface ExtractionInput {
   id: string
   title: string
@@ -24,6 +36,11 @@ condition, price, storage/color, and edition/variant details (write "RTX 3060" n
 unidentifiable even from the description, use a general category instead ("Laptop",
 "Bicycle") rather than guessing wrong.
 
+Also extract a "variant" for each listing ONLY when the title/description clearly
+signals a specific edition/trim that plausibly affects its value (e.g. "Founders
+Edition", "Custom AIB/OC", "Pro", "Max"). Leave variant as an empty string ""
+when no such signal is present - do NOT use storage capacity or color as a variant.
+
 Listings:
 ${lines}`
 }
@@ -35,31 +52,8 @@ export const EXTRACTION_RESPONSE_SCHEMA = {
     properties: {
       id: { type: 'string' },
       base_model: { type: 'string' },
+      variant: { type: 'string' },
     },
     required: ['id', 'base_model'],
   },
 } as const
-
-export function buildVariantSchema(enumValues: string[]) {
-  return {
-    type: 'array',
-    items: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        variant_tier: { type: 'string', enum: enumValues },
-      },
-      required: ['id', 'variant_tier'],
-    },
-  } as const
-}
-
-export function buildVariantPrompt(baseModel: string, enumValues: string[], listings: ExtractionInput[]): string {
-  const lines = listings.map(formatListingLine).join('\n')
-  const tiers = enumValues.map((v) => `- "${v}"`).join('\n')
-  return `Classify each ${baseModel} listing below by variant tier, based on its title/description:
-${tiers}
-
-Listings:
-${lines}`
-}

@@ -1,5 +1,5 @@
 import { Pool } from 'pg'
-import { normalizeBaseModel } from './products'
+import { normalizeBaseModel, normalizeVariantTier } from './products'
 
 export interface DbClient {
   query(sql: string, params: unknown[]): Promise<unknown>
@@ -89,16 +89,18 @@ export async function findOrCreateProduct(
   variantTier: string | null,
 ): Promise<number> {
   const normalized = normalizeBaseModel(baseModel)
+  const normalizedVariant = variantTier === null ? null : normalizeVariantTier(variantTier)
 
   const existing = (await db.query(
-    `SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier IS NOT DISTINCT FROM $2`,
-    [normalized, variantTier],
+    `SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2`,
+    [normalized, normalizedVariant],
   )) as { rows: { id: number }[] }
   if (existing.rows.length > 0) return existing.rows[0].id
 
   const inserted = (await db.query(
-    `INSERT INTO products (base_model, base_model_normalized, variant_tier) VALUES ($1, $2, $3) RETURNING id`,
-    [baseModel, normalized, variantTier],
+    `INSERT INTO products (base_model, base_model_normalized, variant_tier, variant_tier_normalized)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [baseModel, normalized, variantTier, normalizedVariant],
   )) as { rows: { id: number }[] }
   return inserted.rows[0].id
 }

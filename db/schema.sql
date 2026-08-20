@@ -42,3 +42,13 @@ CREATE TABLE IF NOT EXISTS variant_enums (
 );
 
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id);
+
+-- variant_tier is now extracted freely per-listing alongside base_model (no
+-- predefined enum required upfront) - dedup on a normalized column so trivial
+-- noise (case, whitespace, contraction apostrophes) doesn't fragment products,
+-- while the raw variant_tier column keeps the original text for later review.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_tier_normalized TEXT;
+
+DROP INDEX IF EXISTS products_base_model_variant_idx;
+CREATE UNIQUE INDEX IF NOT EXISTS products_base_model_variant_normalized_idx
+  ON products (base_model_normalized, COALESCE(variant_tier_normalized, ''));

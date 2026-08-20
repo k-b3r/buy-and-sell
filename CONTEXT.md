@@ -69,6 +69,27 @@ Marketplace public listings only. Groups and Pages buy/sell surfaces are a later
 ### Product identification / canonical matching
 **Resolved decision (2026-08-17):** Deferred — premature before real scraped data exists. Priority is proving raw collection works first (Phase 1/2 territory); normalization, market stats, deal scoring all wait until there's actual audio-equipment listing data to look at.
 
+**Superseded (2026-08-20, same day):** Originally two-pass — `base_model` always extracted, `variant_tier` left `NULL` until a human pre-defined a small fixed enum per product, only then would a second Gemini call classify listings against that closed enum. Reversed after deciding the manual-enum-authoring step ("invent tier names before seeing any real data") was worse than the drift it was meant to prevent. See below for the live design.
+
+**Resolved design (2026-08-20, revised):** No longer deferred — real data exists (997 PH listings, 970 with photo carousels). Single-pass Gemini extraction: every listing gets both a `base_model` and a free-text `variant` guess in the same call, no predefined enum required. This deliberately re-accepts the "Founders Edition" vs "Founder's edition" drift the two-pass design existed to avoid — cleanup is deferred to a later, separate human/AI-assisted grouping phase (not yet built) rather than prevented up front. Trade-off explicitly discussed and accepted: cheaper/simpler pipeline (one pass, no manual per-product enum authoring, no second classification call) in exchange for a messier interim `products` table until grouping happens.
+
+**Extraction (single pass, fully automatic — `src/extract-products.ts`):**
+- Model: `gemini-2.5-flash` (free tier — grounding/generation both free up to ~1,500 requests/day on this model, confirmed live 2026-08-19).
+- Batched: ~25 listings (id + title + first ~150 chars of description, since title alone is sometimes too vague — e.g. "For sale rush") per request. At 997 listings this is only ~40 requests total, nowhere near the daily cap even run in one sitting.
+- Structured JSON output via `responseSchema` (not free-text parsing) — `{id, base_model, variant?}` per item, `variant` optional/empty-string when no clear signal. `id` is included explicitly per item rather than relying on array-order correlation, so a dropped/reordered response item can't silently corrupt the id→listing mapping.
+- Prompt instructs: strip seller phrases ("RUSH", "FOR SALE"), condition, price, storage/color from `base_model`; separately, extract `variant` only when the listing clearly signals a specific, plausibly price-relevant edition/trim (not storage/color).
+- `findOrCreateProduct` finds-or-creates a `products` row keyed on `(base_model_normalized, variant_tier_normalized)`. `variant_tier_normalized` applies light-touch normalization only (trim/lowercase/strip contraction apostrophes, via `normalizeVariantTier`) — enough to collapse trivial noise like `"Founders edition"` vs `"Founder's edition"` into one row, but real drift (e.g. `"FE"` vs `"Founders Edition"`) still lands as separate product rows on purpose. Every listing gets a `product_id` in this one pass.
+- Both `base_model`/`variant` and their normalized forms are cached in-memory for the whole run, so listings sharing a product resolve from cache instead of re-querying Postgres — see "Batched writes" below.
+- **Deferred, not yet built:** a later phase where the dashboard shows, per `base_model`, the distinct variant strings observed (with counts), lets a human pick canonical ones, and merges the rest — manually for now (LLM-assisted merge-suggestion considered and explicitly deferred to avoid extra Gemini calls). Until that phase exists, the `products` table will contain near-duplicate variant rows for any base_model where Gemini's guesses drifted.
+
+**Batched writes (2026-08-20):** the per-listing round trip to Neon Postgres (not the batched Gemini calls) was the actual dominant cost of a run. `updateListingProductIds` (`src/db.ts`) assigns `product_id` to a whole Gemini batch in one multi-row `UPDATE ... FROM (VALUES ...)` instead of one `UPDATE` per listing, and both extraction scripts cache resolved product IDs per run so repeated base_model/variant pairs don't re-query at all.
+
+**Dashboard (read-only browsing — curation feature deferred):**
+- Next.js app in `dashboard/` subdirectory of this repo, deployed to Vercel (free Hobby tier — fits, this is non-commercial personal use), reading the same Neon Postgres `DATABASE_URL` (configured as a separate Vercel env var, not the local `.env`).
+- Password-gated: single shared secret via env var + cookie, no full auth provider — proportionate to a single-user personal tool.
+- Scope: **read-only** listing/product browsing for now. The variant-enum-curation write path from the original two-pass design was removed along with Pass 2 — the `variant_merges`/grouping UI is a future phase, not yet designed in detail.
+- Deal-scoring (Gemini `google_search`-grounded market price lookup per product, compared against listing price) is explicitly **out of scope for this dashboard** — later phase, once the product list itself is in good shape.
+
 ### Field extraction
 **Resolved decision (2026-08-17):** Extract whatever fields are actually shown on the page — no fixed schema forced. Stage 1 (grid) captures whatever the grid card shows (title, price, thumbnail, location, listing ID/URL typically); stage 2 (detail) captures whatever the listing page shows (condition, description, images, seller info, etc., whatever's present).
 

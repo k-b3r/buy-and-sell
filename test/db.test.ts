@@ -111,7 +111,7 @@ test('findOrCreateProduct inserts a new product when none matches, returns its i
   expect(calls[0].sql).toMatch(/^SELECT/)
   expect(calls[0].params).toEqual(['rtx 3060', null])
   expect(calls[1].sql).toMatch(/^INSERT/)
-  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null])
 })
 
 test('findOrCreateProduct reuses an existing product when normalized base_model + variant_tier already match', async () => {
@@ -120,6 +120,50 @@ test('findOrCreateProduct reuses an existing product when normalized base_model 
   const id = await findOrCreateProduct(db, '  RTX 3060  ', 'Custom AIB/OC')
 
   expect(id).toBe(7)
+})
+
+test('findOrCreateProduct dedupes variant_tier on a normalized column, keeping the raw text stored', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  let queryCount = 0
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      queryCount += 1
+      if (queryCount === 1) return { rows: [] } // SELECT finds nothing
+      return { rows: [{ id: 55 }] } // INSERT ... RETURNING id
+    },
+  }
+
+  const id = await findOrCreateProduct(db, 'RTX 3060', "Founder's edition")
+
+  expect(id).toBe(55)
+  expect(calls[0].params).toEqual(['rtx 3060', 'founders edition'])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', "Founder's edition", 'founders edition'])
+})
+
+test('findOrCreateProduct treats "Founders edition" and "Founder\'s edition" as the same product', async () => {
+  const products: { id: number; normalized: string; variantNormalized: string | null }[] = []
+  let nextId = 1
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      if (sql.startsWith('SELECT')) {
+        const [normalized, variantNormalized] = params as [string, string | null]
+        const match = products.find((p) => p.normalized === normalized && p.variantNormalized === variantNormalized)
+        return { rows: match ? [{ id: match.id }] : [] }
+      }
+      const [, normalized, , variantNormalized] = params as [string, string, string, string | null]
+      const id = nextId++
+      products.push({ id, normalized, variantNormalized })
+      return { rows: [{ id }] }
+    },
+  }
+
+  const ocId = await findOrCreateProduct(db, 'RTX 3060', 'OC')
+  const foundersId = await findOrCreateProduct(db, 'RTX 3060', 'Founders edition')
+  const founderSApostropheId = await findOrCreateProduct(db, 'RTX 3060', "Founder's edition")
+
+  expect(foundersId).toBe(founderSApostropheId)
+  expect(ocId).not.toBe(foundersId)
 })
 
 test('updateListingProductIds does nothing (no query) when given an empty array', async () => {
