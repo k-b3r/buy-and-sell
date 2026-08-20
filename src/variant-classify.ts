@@ -45,7 +45,7 @@ export async function runVariantClassification(
 
   for (const item of raw as { id?: unknown; variant_tier?: unknown }[]) {
     if (typeof item.id !== 'string' || typeof item.variant_tier !== 'string') continue
-    const listing = listings.find((l) => String(l.id) === item.id)
+    const listing = targets.find((l) => String(l.id) === item.id)
     if (!listing) continue
 
     const newProductId = await findOrCreateProduct(db, baseModel, item.variant_tier)
