@@ -98,3 +98,22 @@ ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS condition TEXT;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS flagged_removed_at TIMESTAMPTZ;
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS listings_check_order_idx ON listings (last_checked_at, listed_at);
+
+-- Product-level enrichment (description, value drivers, trained-knowledge price)
+-- from an LLM's own parametric knowledge, no live search involved. product_id is
+-- the primary key (upsert, not append-only) - unlike product_price_history (which
+-- keeps every check as a trend point since live market prices move over time), a
+-- model's trained knowledge doesn't change between runs unless the model itself
+-- changes. The model column records which model produced the row, so a future
+-- model upgrade has a clear signal for which rows are worth refreshing.
+CREATE TABLE IF NOT EXISTS product_enrichment (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  description TEXT NOT NULL,
+  value_drivers TEXT NOT NULL,
+  has_trained_price_knowledge BOOLEAN NOT NULL,
+  trained_price_low NUMERIC,
+  trained_price_high NUMERIC,
+  trained_price_currency TEXT,
+  model TEXT NOT NULL,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
