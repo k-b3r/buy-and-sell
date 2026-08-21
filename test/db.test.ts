@@ -8,6 +8,8 @@ import {
   markListingAlive,
   flagListingRemoved,
   deleteListing,
+  getEnrichmentCandidates,
+  upsertProductEnrichment,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -311,4 +313,78 @@ test('deleteListing removes the row by id', async () => {
 
   expect(calls[0].sql).toMatch(/^DELETE FROM listings/)
   expect(calls[0].params).toEqual(['123'])
+})
+
+test('getEnrichmentCandidates returns products without an enrichment row, with sibling variant names', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return {
+        rows: [
+          {
+            id: 363,
+            base_model: 'iPhone 12',
+            variant_tier: 'Mini',
+            sibling_variants: ['(base, no variant)', 'Pro', 'Pro Max'],
+          },
+          { id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [] },
+        ],
+      }
+    },
+  }
+
+  const result = await getEnrichmentCandidates(db)
+
+  expect(calls[0].sql).toContain('NOT EXISTS')
+  expect(calls[0].sql).toContain('product_enrichment')
+  expect(result).toEqual([
+    {
+      id: 363,
+      base_model: 'iPhone 12',
+      variant_tier: 'Mini',
+      sibling_variants: ['(base, no variant)', 'Pro', 'Pro Max'],
+    },
+    { id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [] },
+  ])
+})
+
+test('upsertProductEnrichment inserts with PHP currency derived when a trained price is known', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertProductEnrichment(
+    db,
+    363,
+    {
+      description: 'desc',
+      valueDrivers: 'drivers',
+      hasTrainedPriceKnowledge: true,
+      trainedPriceLow: 9000,
+      trainedPriceHigh: 13000,
+    },
+    'openai/gpt-oss-120b',
+  )
+
+  expect(calls[0].sql).toMatch(/^INSERT INTO product_enrichment/)
+  expect(calls[0].sql).toContain('ON CONFLICT (product_id) DO UPDATE')
+  expect(calls[0].params).toEqual([363, 'desc', 'drivers', true, 9000, 13000, 'PHP', 'openai/gpt-oss-120b'])
+})
+
+test('upsertProductEnrichment stores null currency when no trained price is known', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertProductEnrichment(
+    db,
+    17,
+    {
+      description: 'desc',
+      valueDrivers: 'drivers',
+      hasTrainedPriceKnowledge: false,
+      trainedPriceLow: null,
+      trainedPriceHigh: null,
+    },
+    'openai/gpt-oss-120b',
+  )
+
+  expect(calls[0].params).toEqual([17, 'desc', 'drivers', false, null, null, null, 'openai/gpt-oss-120b'])
 })
