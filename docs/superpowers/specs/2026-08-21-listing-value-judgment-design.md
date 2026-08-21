@@ -95,9 +95,20 @@ side effect).
 FROM product_enrichment e WHERE e.product_id = p.id)`. No listings are read at this
 stage — only `base_model`/`variant_tier` are needed as input.
 
-**Batching:** 25 products per Groq call — same batch size as `extract-products.ts`'s
-Pass 1, and this call is lighter per-item than that one (no listing text involved,
-just a product name), so 25 stays comfortably under the 8,000 TPM cap.
+**Batching:** 35 products per Groq call — derived from this call's own output size,
+not copied from `extract-products.ts`'s Pass 1 (that batch size of 25 fit a much
+lighter per-item output, just a `base_model` string; this call returns a description
++ value-drivers paragraph + price fields per product, roughly 165-200 output tokens
+each). Target ~7,000 tokens/request (200 output-tokens/product estimate × 35, leaving
+margin under the 8,000 TPM cap for input tokens and estimate error). Bigger batches
+trim the repeated-instruction-boilerplate overhead per product and request count
+(helps RPM/RPD margin), but total output tokens for the full backlog is roughly
+fixed regardless of batch size — the 200,000 TPD cap still means multi-day
+resumability for the full ~1,244 products either way (see Open Risks). The
+implementation plan should include a live check with a few batches at this size to
+confirm per-item quality holds before trusting it at scale (batches large enough to
+matter also risk the model rushing/genericizing later items in a long array — a real
+but fuzzy failure mode, worth eyeballing rather than assuming away).
 
 **Prompt:**
 
@@ -165,10 +176,12 @@ supposed to guarantee schema compliance.
   self-assessment — some hallucinated-but-confident price knowledge is possible.
   Worth a spot-check on a sample once this runs, same caution as the rest of this
   effort.
-- Groq's 200,000 tokens/day cap likely bottlenecks before the 1,000 requests/day
-  figure does, same as previously noted — full backlog (~1,244 products) may take
-  a couple of runs across days; resumability handles this, no special handling
-  needed.
+- Groq's 200,000 tokens/day cap bottlenecks well before the 1,000 requests/day
+  figure does: ~1,244 products × ~200 output tokens/product ≈ 250,000 output tokens
+  minimum, already over the daily cap before counting input tokens — this is fixed
+  by the backlog size, not the batch size (see Batching above). Full backlog needs
+  at least 2 days; resumability (skip-if-already-enriched) handles this with no
+  special handling needed, same pattern as the rest of this pipeline.
 
 ## Deferred to Phase 2 (not this pass)
 
