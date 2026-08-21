@@ -90,10 +90,26 @@ of the extraction plan hit a real bug without this guard, where importing the
 module's exported function for tests ran `main()` against live credentials as a
 side effect).
 
-**Candidate selection:** every product without a `product_enrichment` row yet —
-`SELECT p.id, p.base_model, p.variant_tier FROM products p WHERE NOT EXISTS (SELECT 1
-FROM product_enrichment e WHERE e.product_id = p.id)`. No listings are read at this
-stage — only `base_model`/`variant_tier` are needed as input.
+**Candidate selection:** every product without a `product_enrichment` row yet, plus
+its sibling variants — other product rows that share the same `base_model_normalized`
+but a different `variant_tier`. Real data confirms this matters: "iPhone 12" alone
+already has 4 tracked rows (base, Mini, Pro, Pro Max); iPhone 13-17, RTX 5060, iPad,
+PS4, and others follow the same pattern. Enriching "iPhone 12 (Mini)" with no
+awareness that "iPhone 12 Pro Max" is a separately-tracked product risks a
+family-generic description instead of a Mini-specific one.
+
+```sql
+SELECT p.id, p.base_model, p.variant_tier,
+  (SELECT array_agg(DISTINCT COALESCE(p2.variant_tier, '(base, no variant)'))
+   FROM products p2
+   WHERE p2.base_model_normalized = p.base_model_normalized AND p2.id != p.id
+  ) as sibling_variants
+FROM products p
+WHERE NOT EXISTS (SELECT 1 FROM product_enrichment e WHERE e.product_id = p.id)
+```
+
+No listings are read at this stage — only `base_model`/`variant_tier` (and now
+sibling variant names) are needed as input.
 
 **Batching:** 35 products per Groq call — derived from this call's own output size,
 not copied from `extract-products.ts`'s Pass 1 (that batch size of 25 fit a much
@@ -117,7 +133,11 @@ For each product below (identified by base model / variant), provide:
 - description: a concise description of what this product is (2-3 sentences)
 - value_drivers: what affects this specific product's resale value — condition
   factors, common defects/wear points, meaningful spec or variant differences, what
-  separates a well-priced unit from an overpriced one
+  separates a well-priced unit from an overpriced one. Where "other tracked variants"
+  are listed, write value_drivers specific to THIS variant, not the whole family —
+  say how it differs from those siblings where that's relevant to value (e.g. why a
+  Mini/Pro/Pro Max of the same generation are priced differently), not a generic
+  description that could apply to any of them.
 - has_trained_price_knowledge: true only if you have specific knowledge of this
   product's typical secondhand price from your training data, not a generic guess
 - trained_price_low / trained_price_high: if has_trained_price_knowledge is true,
@@ -130,7 +150,7 @@ to false and leave the price fields out — do not guess.
 
 Products:
 [id: 17] RTX 2060
-[id: 363] iPhone 12 (Mini)
+[id: 363] iPhone 12 (Mini) — other tracked variants of this base model: (base, no variant), Pro, Pro Max
 ...
 ```
 
