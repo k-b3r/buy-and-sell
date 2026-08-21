@@ -32,7 +32,21 @@ export async function runProductEnrichment(
   for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
     const batch = candidates.slice(i, i + BATCH_SIZE)
     const prompt = buildEnrichmentPrompt(batch)
-    const raw = (await groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA)) as { results?: unknown }
+
+    // Groq's daily token cap (see spec's Open Risks) is expected to be hit mid-run
+    // on the full backlog, and a truncated/malformed response can throw a JSON
+    // parse error inside generateJson too — either way this must be a recorded,
+    // clean stop, not an uncaught throw that silently truncates the log and kills
+    // the process (see src/price-lookup.ts's generateGroundedTextWithRetry for the
+    // same "don't let this class of error crash uncaught" precedent).
+    let raw: { results?: unknown }
+    try {
+      raw = (await groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA)) as { results?: unknown }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error(`batch starting at ${i}: Groq request failed (${message}), stopping run`)
+      break
+    }
 
     if (!raw || !Array.isArray(raw.results)) {
       logger.error(`batch starting at ${i}: unexpected response shape (no results array), skipping batch`)
@@ -46,10 +60,15 @@ export async function runProductEnrichment(
         typeof item.value_drivers !== 'string' ||
         typeof item.has_trained_price_knowledge !== 'boolean'
       ) {
+        const idHint = typeof item.id === 'string' ? item.id : '(missing/invalid id)'
+        logger.warn(`item ${idHint}: malformed fields in Groq response, skipping`)
         continue
       }
       const candidate = batch.find((c) => String(c.id) === item.id)
-      if (!candidate) continue
+      if (!candidate) {
+        logger.warn(`item ${item.id}: no matching candidate in this batch, skipping`)
+        continue
+      }
 
       const trainedPriceLow = typeof item.trained_price_low === 'number' ? item.trained_price_low : null
       const trainedPriceHigh = typeof item.trained_price_high === 'number' ? item.trained_price_high : null
@@ -81,7 +100,7 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
   const logger = createLogger('data/enrich-products.log')
-  const groq = createGroqClient(apiKey)
+  const groq = createGroqClient(apiKey, MODEL)
   const pool = createDbPool(dbUrl)
 
   try {

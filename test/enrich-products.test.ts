@@ -117,3 +117,89 @@ test('a malformed batch response (no results array) is logged and skipped, witho
   expect(upserts).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
 })
+
+test('a malformed item within an otherwise well-formed batch is logged and skipped, while the well-formed item still gets upserted', async () => {
+  const groq = fakeGroq({
+    results: [
+      {
+        id: '1',
+        description: 'Good description.',
+        value_drivers: 'Good drivers.',
+        has_trained_price_knowledge: false,
+        trained_price_low: null,
+        trained_price_high: null,
+      },
+      {
+        id: '2',
+        // description missing -> malformed
+        value_drivers: 'y',
+        has_trained_price_knowledge: true,
+        trained_price_low: 100,
+        trained_price_high: 200,
+      },
+    ],
+  })
+  const { db, upserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const candidates: EnrichmentCandidate[] = [
+    { id: 1, base_model: 'A', variant_tier: null, sibling_variants: [] },
+    { id: 2, base_model: 'B', variant_tier: null, sibling_variants: [] },
+  ]
+
+  await runProductEnrichment(groq, db, logger, candidates)
+
+  expect(upserts).toHaveLength(1)
+  expect(upserts[0]).toEqual([1, 'Good description.', 'Good drivers.', false, null, null, null, 'openai/gpt-oss-120b'])
+  expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
+})
+
+test('an item whose id has no matching candidate in the batch is logged and skipped', async () => {
+  const groq = fakeGroq({
+    results: [
+      {
+        id: '999',
+        description: 'x',
+        value_drivers: 'y',
+        has_trained_price_knowledge: false,
+        trained_price_low: null,
+        trained_price_high: null,
+      },
+    ],
+  })
+  const { db, upserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const candidates: EnrichmentCandidate[] = [{ id: 1, base_model: 'A', variant_tier: null, sibling_variants: [] }]
+
+  await runProductEnrichment(groq, db, logger, candidates)
+
+  expect(upserts).toHaveLength(0)
+  const logContents = readFileSync(LOG_PATH, 'utf-8')
+  expect(logContents).toContain('[WARN]')
+  expect(logContents).toContain('999')
+})
+
+test('groq.generateJson throwing (e.g. daily token cap hit, or malformed JSON) is logged and stops the run cleanly, without further batch calls', async () => {
+  let callCount = 0
+  const groq: GroqClient = {
+    generateJson: async () => {
+      callCount += 1
+      throw new Error('rate_limit_exceeded: daily token limit reached')
+    },
+  }
+  const { db, upserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const candidates: EnrichmentCandidate[] = Array.from({ length: 70 }, (_, i) => ({
+    id: i + 1,
+    base_model: `Product ${i + 1}`,
+    variant_tier: null,
+    sibling_variants: [],
+  }))
+
+  await expect(runProductEnrichment(groq, db, logger, candidates)).resolves.toBeUndefined()
+
+  expect(callCount).toBe(1)
+  expect(upserts).toHaveLength(0)
+  const logContents = readFileSync(LOG_PATH, 'utf-8')
+  expect(logContents).toContain('[ERROR]')
+  expect(logContents).toContain('rate_limit_exceeded')
+})
