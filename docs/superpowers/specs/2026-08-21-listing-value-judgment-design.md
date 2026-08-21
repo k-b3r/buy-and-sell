@@ -1,80 +1,49 @@
-# Listing Value Judgment — Design
+# Product Enrichment — Design
 
 **Status:** draft, pending review.
 
-**Goal:** For each real (non-generic) product, judge whether each of its listings is a
-good deal, adjusted for the condition/defects stated in that specific listing's own
-title/description — not just a flat comparison against a price range. Surface the
-verdict on the dashboard.
+**Goal (this pass):** For each product, gather three things from an LLM's own
+knowledge — no live search: a description of what it is, an explanation of what
+drives its resale value (condition factors, common defects, meaningful
+spec/variant differences), and the model's own price knowledge from training, if it
+has any. Store it per product. **Per-listing comparison against this data is
+explicitly out of scope for this pass** — that's Phase 2, later, once this data
+exists to compare against.
 
-## Why (context from exploration)
+## Why this scope, why now
 
-Raw min/max/avg pricing (already on the dashboard) ignores condition — a scratched
-unit legitimately costs less; that's not automatically a deal signal. A 3-product
-live spike (RTX 2060, iPhone 12 Mini, Land Lot) confirmed an LLM reading a listing's
-free text against a market anchor catches this correctly (e.g. flagged a listing with
-78% battery health as `overpriced` despite a similar price to 97%+ units; flagged a
-swap-only/reballed listing with a placeholder price as `insufficient_info` instead of
-a fake bargain; flagged the deliberately-generic "Land Lot" product as `is_generic`).
+Earlier exploration (see conversation, and the 3-product live spike: RTX 2060,
+iPhone 12 Mini, Land Lot) validated that an LLM reading a listing's free text against
+a market anchor produces useful, condition-aware verdicts. But that requires the
+anchor to exist first. This pass builds the anchor — product-level data — and
+nothing downstream of it yet.
 
-Two API calls are involved and they do different jobs:
-- **Grounded market lookup** (needs live web search) — Gemini, already built
-  (`src/pricing.ts` + `src/price-lookup.ts`), low volume, resumable.
-- **Per-listing judgment** (no search — reasoning over provided text) — moving this to
-  **Groq** (`openai/gpt-oss-120b`, free tier: 1,000 req/day / 200,000 tokens/day,
-  native strict JSON-schema output), since it's the higher-volume call and Gemini
-  cannot combine search grounding with structured JSON output in one request
-  (confirmed live — see `src/gemini.ts`'s comment on `generateGroundedText`).
+None of the three fields (description, value drivers, trained-knowledge price)
+need live search — they're the model's own parametric knowledge. That means this
+step doesn't need Gemini's grounding at all, and can run entirely on **Groq**
+(`openai/gpt-oss-120b`, free tier: 1,000 req/day / 200,000 tokens/day, native strict
+JSON-schema output) — cheaper and higher-quota than Gemini for this job. The
+existing live grounded price-lookup (`src/price-lookup.ts`, Gemini, unchanged) is a
+**separate, independent signal** that keeps running as-is — this doesn't replace it,
+it adds a second, differently-sourced price point alongside it.
 
 ## Architecture
 
 ```
-products (has a parsed market price)
-  -> judge-listings.ts groups that product's un-judged listings
-  -> Groq: batched structured judgment call (market range + reasoning as anchor,
-           each listing's own title/condition/description as evidence)
-  -> listing_value_judgments rows (one per listing)
-  -> dashboard: getProductDetail joins verdicts, ListingsView renders a badge
+products (all of them — every product has >=1 listing by construction)
+  -> enrich-products.ts batches un-enriched products (base_model + variant_tier only,
+     no listings needed at this stage)
+  -> Groq: structured batch call, no search tool
+  -> product_enrichment rows (one per product, upserted)
 ```
 
-Layers on the existing extraction pipeline; doesn't replace it. Two additions to the
-existing grounded price-lookup step, one new client, one new script, one new table,
-one dashboard change.
+One new client, one new script, one new table. No dashboard change in this pass
+(surfacing this data on the product detail page is straightforward once it exists,
+but isn't the current focus — can follow as a small addition once the data's real).
 
-## 1. Reasoning-aware grounded price lookup (extends existing code)
+## 1. `src/groq.ts` — Groq client wrapper
 
-`src/pricing.ts`'s `buildPriceLookupPrompt` already produces a response whose full
-text is stored (`product_price_history.raw_response`) — real stored examples already
-contain decent reasoning ("excluded Pro Max figure, different product"; "128GB
-30760-34000, 256GB 34500-38000, combined range"), but this is incidental, not
-required by the prompt. Tighten it to require the explanation explicitly:
-
-```
-Search for the current secondhand/used market price range in PHP for "${productName}"
-in the Philippines, based on real current listings (e.g. Facebook Marketplace,
-Carousell, Shopee).
-
-Explain your reasoning: what listings/data points you found, what you excluded and
-why (different variant, different condition tier, outlier), and any condition
-assumption behind the range (e.g. "typical used condition" vs "like new").
-
-End your response with exactly one line in this exact format, with no extra text
-after it:
-PRICE_RANGE: <low>-<high> PHP
-
-If you cannot find enough real listings to determine a range, omit that line entirely
-instead of guessing.
-```
-
-`parsePriceRangeResponse` is unchanged (still parses the trailing line). The
-surrounding explanation text is what step 2 reads as the market anchor's reasoning.
-Products where this doesn't produce a parseable range are implicitly excluded from
-judgment (see candidate selection below) — this, combined with the judgment call's
-own `is_generic` flag, is the "not generic" filter, not a hardcoded category list.
-
-## 2. `src/groq.ts` — Groq client wrapper
-
-Mirrors `GeminiClient`'s shape so `src/judge-listings.ts` doesn't care which provider
+Mirrors `GeminiClient`'s shape so orchestration code doesn't care which provider
 it's calling:
 
 ```ts
@@ -90,93 +59,87 @@ it, same as Task 4's `src/gemini.ts` did (that task's own draft SDK call turned 
 wrong and was caught exactly by its smoke-test step). The implementation plan must
 include an equivalent smoke-test step here.
 
-## 3. Schema: `listing_value_judgments`
+## 2. Schema: `product_enrichment`
 
 ```sql
-CREATE TABLE IF NOT EXISTS listing_value_judgments (
-  listing_id TEXT PRIMARY KEY REFERENCES listings(id),
-  product_id INTEGER NOT NULL REFERENCES products(id),
-  verdict TEXT NOT NULL,
-  reasoning TEXT NOT NULL,
-  estimated_fair_price NUMERIC,
-  is_generic_product BOOLEAN NOT NULL DEFAULT false,
+CREATE TABLE IF NOT EXISTS product_enrichment (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id),
+  description TEXT NOT NULL,
+  value_drivers TEXT NOT NULL,
+  has_trained_price_knowledge BOOLEAN NOT NULL,
+  trained_price_low NUMERIC,
+  trained_price_high NUMERIC,
+  trained_price_currency TEXT,
+  model TEXT NOT NULL,
   checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS listing_value_judgments_product_idx
-  ON listing_value_judgments (product_id);
 ```
 
-**Postgres-only, no JSONL mirror** — deliberate break from this repo's usual
-dual-write convention. `data/listings.jsonl` is the scraped source-of-truth mirror;
-this table is derived analysis, not scraped data, so it doesn't belong there.
+`product_id` is the primary key (upsert, not append-only) — unlike
+`product_price_history` (which intentionally keeps every check as a trend point
+since live market prices move over time), a model's trained knowledge doesn't change
+between runs unless the model itself changes. The `model` column records which model
+produced the row, so a future model upgrade has a clear signal for which rows are
+worth refreshing — not needed now, just cheap to capture.
 
-## 4. `src/judge-listings.ts`
+## 3. `src/enrich-products.ts`
 
-Same shape as `extract-products.ts`/`variant-classify.ts`: resumable CLI, own log
-file, `main()` guarded by the `process.argv[1] === fileURLToPath(import.meta.url)`
-pattern (Task 5 of the extraction plan hit a real bug without this — importing the
-module for its exported function ran `main()` as a side effect against live
-credentials during `pnpm test`).
+Same resumable-CLI shape as `extract-products.ts`: own log file, `main()` guarded by
+the `process.argv[1] === fileURLToPath(import.meta.url)` pattern (required — Task 5
+of the extraction plan hit a real bug without this guard, where importing the
+module's exported function for tests ran `main()` against live credentials as a
+side effect).
 
-**Candidate selection:** products with a parseable market price
-(`product_price_history` has a row with a non-null `price_low`/`price_high`) whose
-listings don't yet have a `listing_value_judgments` row. Batched per product (all of
-one product's un-judged listings in one Groq call, using the product's latest market
-price + its `raw_response` reasoning as context) — mirrors `variant-classify.ts`'s
-per-product batching, **sub-chunked at a fixed max listings-per-call** (e.g. 15) for
-products with more un-judged listings than that, to stay well under Groq's 8,000
-TPM cap — a handful of products (e.g. "iPhone 13" has 34 listings) would otherwise
-push a single request's token count too high.
+**Candidate selection:** every product without a `product_enrichment` row yet —
+`SELECT p.id, p.base_model, p.variant_tier FROM products p WHERE NOT EXISTS (SELECT 1
+FROM product_enrichment e WHERE e.product_id = p.id)`. No listings are read at this
+stage — only `base_model`/`variant_tier` are needed as input.
 
-**Prompt + schema** (validated in the live spike):
+**Batching:** 25 products per Groq call — same batch size as `extract-products.ts`'s
+Pass 1, and this call is lighter per-item than that one (no listing text involved,
+just a product name), so 25 stays comfortably under the 8,000 TPM cap.
+
+**Prompt:**
 
 ```
-You are evaluating second-hand Facebook Marketplace listings in the Philippines for
-the product "${productName}".
+For each product below (identified by base model / variant), provide:
+- description: a concise description of what this product is (2-3 sentences)
+- value_drivers: what affects this specific product's resale value — condition
+  factors, common defects/wear points, meaningful spec or variant differences, what
+  separates a well-priced unit from an overpriced one
+- has_trained_price_knowledge: true only if you have specific knowledge of this
+  product's typical secondhand price from your training data, not a generic guess
+- trained_price_low / trained_price_high: if has_trained_price_knowledge is true,
+  your best estimate of the typical secondhand price range in PHP (Philippines) as
+  of your training data; omit otherwise
 
-${marketRangeText ? `Reference market price range found: ${marketRangeText}
-Reasoning behind that range: ${marketReasoningText}` : 'No reliable market price range was found for this product.'}
+Do not search — answer only from what you already know. If you don't recognize this
+specific product or have no confident price knowledge, set has_trained_price_knowledge
+to false and leave the price fields out — do not guess.
 
-First: is "${productName}" too generic/broad a name to price meaningfully as a single
-comparable product (e.g. a bare category like "Laptop", "Land", "Item", or something
-whose price depends on unstated specifics like land area/location rather than the
-item itself)? Set is_generic accordingly.
-
-Second, for each listing below, judge its value: compare its asking price against the
-market range, adjusted for whatever condition or defects are mentioned in its
-title/description. A low price WITH a stated defect is not necessarily a deal — a low
-price with no stated issue is the real signal. Your own background knowledge of this
-product (typical specs, common issues, general depreciation) may inform this
-judgment, but the provided market range is the anchor for the number — if your own
-sense of the price disagrees strongly with it, say so in the reasoning rather than
-silently picking one. Ignore obviously bogus/placeholder prices (e.g. swap-only
-listings with a filler price) — mark those insufficient_info.
-
-Listings:
-[id: ...] title: "..." condition: "..." price: ₱... desc: "..."
+Products:
+[id: 17] RTX 2060
+[id: 363] iPhone 12 (Mini)
+...
 ```
+
+**Schema:**
 
 ```ts
 {
-  type: 'object',
-  properties: {
-    is_generic: { type: 'boolean' },
-    listings: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' },
-          verdict: { type: 'string', enum: ['great_deal', 'fair', 'overpriced', 'insufficient_info'] },
-          reasoning: { type: 'string' },
-          estimated_fair_price: { type: 'number', nullable: true },
-        },
-        required: ['id', 'verdict', 'reasoning'],
-      },
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      description: { type: 'string' },
+      value_drivers: { type: 'string' },
+      has_trained_price_knowledge: { type: 'boolean' },
+      trained_price_low: { type: 'number', nullable: true },
+      trained_price_high: { type: 'number', nullable: true },
     },
+    required: ['id', 'description', 'value_drivers', 'has_trained_price_knowledge'],
   },
-  required: ['is_generic', 'listings'],
 }
 ```
 
@@ -184,39 +147,34 @@ Malformed/non-conforming batch response: log + skip (same fail-closed-on-the-bro
 unit philosophy as the rest of this pipeline), even though Groq's strict mode is
 supposed to guarantee schema compliance.
 
-## 5. Dashboard surfacing
-
-`dashboard/src/lib/queries.ts`: `getProductDetail` gains a join to
-`listing_value_judgments` per listing (verdict, reasoning, estimated_fair_price).
-`ListingsView` (both List and Cards views, product detail page) renders a small
-verdict badge — reuses `--color-signal` for `great_deal`, a new `--color-warn` token
-for `overpriced`, `--color-text-muted` for `fair`/`insufficient_info`.
-
 ## Global constraints
 
-- ₱0 budget: `FREE_GROQ_API_KEY` (already created) and the existing
-  `FREE_GEMINI_API_KEY` — never a paid key.
-- Resumable: listings already in `listing_value_judgments` are skipped.
-- Structured JSON output only for the Groq call — never free-text-parsed.
-- The Gemini grounded call still can't combine search + structured output; stays
-  free-text + trailing-line-parsed, unchanged from the existing pattern.
-- TDD throughout: prompt/schema builders, `GroqClient` (fake-injected), the
-  orchestration script (fakes, no live calls in tests), and the dashboard query
-  change all get Vitest coverage per this repo's existing carve-outs.
+- ₱0 budget: `FREE_GROQ_API_KEY` (already created) — never a paid key.
+- Resumable: products already in `product_enrichment` are skipped.
+- Structured JSON output only — never free-text-parsed.
+- No search tool — this call is explicitly answering from training knowledge only;
+  the prompt says so directly, and there's nothing wired up for Groq to search with
+  anyway.
+- TDD throughout: prompt/schema builder, `GroqClient` (fake-injected), and the
+  orchestration script (fakes, no live calls in tests) all get Vitest coverage per
+  this repo's existing carve-outs.
 
 ## Open risks
 
-- Groq's 200,000 tokens/day cap is the likely real bottleneck, not the 1,000
-  requests/day figure — full backlog (~1,244 products) may take a few days,
-  resumability is the mitigation, not a fix.
-- Grounded-call throttling has been observed as both severe and absent within the
-  same two days — unpredictable, same mitigation.
-- Products with a market price that's technically parseable but still not truly
-  comparable (the `is_generic` flag catches some of this, not all) — worth a spot-
-  check pass on a wider sample once this is running, per your own note.
+- `has_trained_price_knowledge: false` is only as honest as the model's own
+  self-assessment — some hallucinated-but-confident price knowledge is possible.
+  Worth a spot-check on a sample once this runs, same caution as the rest of this
+  effort.
+- Groq's 200,000 tokens/day cap likely bottlenecks before the 1,000 requests/day
+  figure does, same as previously noted — full backlog (~1,244 products) may take
+  a couple of runs across days; resumability handles this, no special handling
+  needed.
 
-## Out of scope (this pass)
+## Deferred to Phase 2 (not this pass)
 
-- No dashboard UI to manually re-trigger judgment for a single product (CLI only).
-- No historical trend of verdicts over time (table is structured to allow it later
-  via re-running, not built now).
+Per-listing comparison against this enrichment data, using each listing's own stated
+condition/defects — the original motivating idea from this whole exploration — plus
+the live grounded price signal (`price-lookup.ts`, already running independently) as
+a second anchor. Both exist as real signals once this phase lands; combining them
+into per-listing verdicts is future work once product-level data is real and
+spot-checked.
