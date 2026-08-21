@@ -1,5 +1,14 @@
 import type { DbClient } from '../src/db'
-import { findOrCreateProduct, updateListingProductIds, upsertListing, insertPriceCheck } from '../src/db'
+import {
+  findOrCreateProduct,
+  updateListingProductIds,
+  upsertListing,
+  insertPriceCheck,
+  getCheckListingsCandidates,
+  markListingAlive,
+  flagListingRemoved,
+  deleteListing,
+} from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -255,4 +264,51 @@ test('insertPriceCheck defaults condition to null when not given (e.g. a blended
   await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'text', 'gemini_grounding')
 
   expect(calls[0].params[6]).toBeNull()
+})
+
+test('getCheckListingsCandidates orders by last_checked_at then listed_at, oldest/never-checked first', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await getCheckListingsCandidates(db, 50)
+
+  expect(calls[0].sql).toContain('ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST')
+  expect(calls[0].sql).toContain('LIMIT $1')
+  expect(calls[0].params).toEqual([50])
+})
+
+test('markListingAlive sets last_checked_at and clears any removal flag', async () => {
+  const { db, calls } = mockDb()
+
+  await markListingAlive(db, '123')
+
+  expect(calls[0].sql).toMatch(/^UPDATE listings/)
+  expect(calls[0].sql).toContain('last_checked_at = now()')
+  expect(calls[0].sql).toContain('flagged_removed_at = NULL')
+  expect(calls[0].params).toEqual(['123'])
+})
+
+test('flagListingRemoved sets both flagged_removed_at and last_checked_at, does not delete', async () => {
+  const { db, calls } = mockDb()
+
+  await flagListingRemoved(db, '123')
+
+  expect(calls[0].sql).toMatch(/^UPDATE listings/)
+  expect(calls[0].sql).toContain('flagged_removed_at = now()')
+  expect(calls[0].sql).toContain('last_checked_at = now()')
+  expect(calls[0].params).toEqual(['123'])
+})
+
+test('deleteListing removes the row by id', async () => {
+  const { db, calls } = mockDb()
+
+  await deleteListing(db, '123')
+
+  expect(calls[0].sql).toMatch(/^DELETE FROM listings/)
+  expect(calls[0].params).toEqual(['123'])
 })

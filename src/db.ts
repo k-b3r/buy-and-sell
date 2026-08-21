@@ -150,3 +150,43 @@ export async function insertPriceCheck(
     [productId, price.low, price.high, price.currency, rawResponse, source, condition],
   )
 }
+
+export interface CheckListingsCandidate {
+  id: string
+  flagged_removed_at: string | null
+}
+
+// Never-checked listings (NULLS FIRST) all come before any re-check cycle —
+// the first full pass works through the backlog before anything repeats.
+// Within that, oldest by the seller's actual FB posting date (listed_at)
+// goes first: the longer something's been posted, the likelier it's already
+// sold/removed, so checking those first finds genuinely-stale listings fastest.
+export async function getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]> {
+  const result = (await db.query(
+    `SELECT id, flagged_removed_at FROM listings
+     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
+     LIMIT $1`,
+    [limit],
+  )) as { rows: CheckListingsCandidate[] }
+  return result.rows
+}
+
+// Real content found — clears any prior removal flag too, treating a listing
+// that recovers after being flagged as a false positive, not something to
+// silently leave flagged.
+export async function markListingAlive(db: DbClient, id: string): Promise<void> {
+  await db.query(`UPDATE listings SET last_checked_at = now(), flagged_removed_at = NULL WHERE id = $1`, [id])
+}
+
+// First soft-wall hit — not deleted yet. See db/schema.sql for why one hit
+// alone isn't trusted (indistinguishable from a transient session wall).
+export async function flagListingRemoved(db: DbClient, id: string): Promise<void> {
+  await db.query(`UPDATE listings SET flagged_removed_at = now(), last_checked_at = now() WHERE id = $1`, [id])
+}
+
+// Only called when a listing was already flagged from a prior, separate run
+// and is still soft-walled now — confirmed removed. Products are never
+// cascade-deleted here, even if this was their last remaining listing.
+export async function deleteListing(db: DbClient, id: string): Promise<void> {
+  await db.query(`DELETE FROM listings WHERE id = $1`, [id])
+}

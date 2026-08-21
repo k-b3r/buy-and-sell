@@ -1,9 +1,10 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
 import sharp from 'sharp'
 import type { Logger } from './logger'
 
 export interface ImageStore {
   put(key: string, body: Uint8Array, contentType: string): Promise<string>
+  deleteAll(prefix: string): Promise<void>
 }
 
 export interface R2Config {
@@ -26,6 +27,12 @@ export function createR2ImageStore(config: R2Config): ImageStore {
         new PutObjectCommand({ Bucket: config.bucket, Key: key, Body: body, ContentType: contentType }),
       )
       return `${config.publicBaseUrl}/${key}`
+    },
+    async deleteAll(prefix) {
+      const listed = await client.send(new ListObjectsV2Command({ Bucket: config.bucket, Prefix: prefix }))
+      const keys = (listed.Contents ?? []).flatMap((obj) => (obj.Key ? [{ Key: obj.Key }] : []))
+      if (keys.length === 0) return
+      await client.send(new DeleteObjectsCommand({ Bucket: config.bucket, Delete: { Objects: keys } }))
     },
   }
 }
@@ -101,4 +108,9 @@ export async function storeListingPhotos(
     urls.push(url)
   }
   return urls
+}
+
+export async function deleteListingPhotos(store: ImageStore, logger: Logger, listingId: string): Promise<void> {
+  await store.deleteAll(`listings/${listingId}/`)
+  logger.info(`deleted photos for listing ${listingId}`)
 }

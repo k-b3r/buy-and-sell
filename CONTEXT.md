@@ -142,5 +142,20 @@ Also found: **grounding quota is pooled by model generation *family*, not per in
 
 **Technical finding (2026-08-17):** For a logged-out session, Facebook has no reliable location signal via free-text `location=` URL param, browser geolocation permission, or locale/timezone — all confirmed ignored, falling back to a generic US (Bay Area) default regardless. The one thing that works is a recognized location *slug* as a URL path segment (`facebook.com/marketplace/<slug>/search/?query=...`). `manila` is confirmed working and surfaces real PH listings including Dasmarinas/Cavite-area results; `dasmarinas` itself is not a recognized slug. v0 hardcodes `manila`.
 
+### Listing removal detection (check-listings)
+**Resolved design (2026-08-21):** `src/check-listings.ts` — periodically re-visits already-collected listings live to detect ones that have been removed/sold, and hard-deletes their data (Postgres row + R2 photos). Products are **never** cascade-deleted, even if this was their last remaining listing — orphaned products are an accepted, expected outcome.
+
+**Core risk, resolved via two-phase confirmation:** Facebook's `/login/` redirect is indistinguishable, from the HTML alone, between a genuinely removed listing and a real transient session wall (same ambiguity hit with `backfill.ts`'s soft-wall handling). Since deletion is irreversible (unlike skipping a price-check), one soft-wall hit alone is not trusted:
+- First hit on a listing (`flagged_removed_at IS NULL`) → flag it (`flagged_removed_at = now()`), do **not** delete.
+- A *later, separate* run re-checks already-flagged listings. Still soft-walled → confirmed removed, hard-delete. Accessible again → treated as a recovered false positive, flag cleared (`markListingAlive`), not silently left flagged.
+- A run only ever checks a given listing once — "second confirmation" always means a genuinely separate invocation (real elapsed time), never an immediate double-check within the same run that would just hit the same transient wall twice.
+- Hard-block (real captcha) is unambiguous and still fails the whole run closed immediately, same as everywhere else — never treated as evidence of removal.
+
+**Candidate order:** `ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`. Never-checked listings (the entire first pass) come before any re-check cycle. Within that, oldest by the *seller's actual FB posting date* (`listed_at`, extracted from `creation_time` in the raw payload) goes first — the longer something's been posted, the more likely it's already sold/removed, so this order finds genuinely-stale listings fastest.
+
+**Decoupled from `data/listings.jsonl` entirely** — Postgres-only, never loads or rewrites the JSONL file, so it's safe to run at the same time as `collect` (which only ever appends to that file — the load-then-rewrite-whole-file hazard that affects `extract-products`/`price-from-listings`/`backfill.ts` doesn't apply here since this script never touches JSONL at all). Accepted tradeoff: JSONL rows for hard-deleted listings go stale (Postgres says gone, JSONL still has the row) — acceptable since Postgres is what the dashboard/scoring actually reads; JSONL remains the archival safety net, not treated as needing to stay perfectly current.
+
+**Runs anywhere** — reuses `launchBrowser({headless, socksProxy})` unchanged, so it works identically whether run locally or on the Hetzner VPS through the SOCKS tunnel, no special-casing needed.
+
 ### First target category
 **Resolved decision (2026-08-17):** Audio equipment — mics, headphones, mixers. Chosen as the first category to build/validate the pipeline against.

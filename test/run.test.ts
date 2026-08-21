@@ -460,6 +460,7 @@ test('when an image store is provided, downloads and re-hosts the photo carousel
       puts.push(key)
       return `https://images.example.com/${key}`
     },
+    deleteAll: async () => {},
   }
   const originalFetch = global.fetch
   global.fetch = (async () =>

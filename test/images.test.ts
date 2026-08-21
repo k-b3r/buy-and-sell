@@ -1,7 +1,7 @@
 import sharp from 'sharp'
 import type { Logger } from '../src/logger'
 import type { ImageStore, FetchBytes, CompressImage } from '../src/images'
-import { storeListingPhotos, defaultCompressImage, defaultFetchBytes } from '../src/images'
+import { storeListingPhotos, defaultCompressImage, defaultFetchBytes, deleteListingPhotos } from '../src/images'
 
 // Identity pass-through — real compression (sharp) is exercised separately;
 // these tests only care about the download/store orchestration.
@@ -17,13 +17,18 @@ function fakeLogger(): Logger & { warnings: string[] } {
   }
 }
 
-function fakeStore(): ImageStore & { puts: { key: string; contentType: string }[] } {
+function fakeStore(): ImageStore & { puts: { key: string; contentType: string }[]; deletedPrefixes: string[] } {
   const puts: { key: string; contentType: string }[] = []
+  const deletedPrefixes: string[] = []
   return {
     puts,
+    deletedPrefixes,
     async put(key, _body, contentType) {
       puts.push({ key, contentType })
       return `https://images.example.com/${key}`
+    },
+    async deleteAll(prefix) {
+      deletedPrefixes.push(prefix)
     },
   }
 }
@@ -102,4 +107,13 @@ test('returns an empty array when there is no photo carousel', async () => {
   expect(await storeListingPhotos(store, logger, '111', undefined)).toEqual([])
   expect(await storeListingPhotos(store, logger, '111', 'not-an-array')).toEqual([])
   expect(store.puts).toEqual([])
+})
+
+test('deleteListingPhotos deletes everything under the listing\'s own key prefix', async () => {
+  const store = fakeStore()
+  const logger = fakeLogger()
+
+  await deleteListingPhotos(store, logger, '111')
+
+  expect(store.deletedPrefixes).toEqual(['listings/111/'])
 })

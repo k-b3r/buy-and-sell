@@ -87,3 +87,14 @@ ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS source TEXT NOT NULL 
 -- a blended across-conditions range hides real price-relevant variance
 -- (a "Used - Fair" and a "New" of the same product don't belong in one range).
 ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS condition TEXT;
+
+-- Two-phase removal detection for check-listings: a listing that soft-walls
+-- gets flagged (not deleted) on first hit — the same /login/ redirect FB
+-- shows for a real removed listing is indistinguishable from a transient
+-- session wall, so one hit alone isn't trusted. Only a listing that's STILL
+-- soft-walled on a later, separate run (flagged_removed_at already set) gets
+-- hard-deleted. If it turns out accessible again before that, the flag is
+-- cleared instead — a recovered false positive, not silently ignored.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS flagged_removed_at TIMESTAMPTZ;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS listings_check_order_idx ON listings (last_checked_at, listed_at);
