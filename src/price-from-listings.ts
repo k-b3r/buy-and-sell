@@ -22,30 +22,36 @@ export function computePriceRangeFromPrices(prices: number[]): (PriceRange & { u
   }
 }
 
-export interface ListingPricesForProduct {
+export interface ListingPricesForProductCondition {
   id: number
   base_model: string
   variant_tier: string | null
+  condition: string
   prices: number[]
 }
 
-// Same 2+ listings scope as the Gemini-grounded lookup — a range needs more
-// than one data point to mean anything, regardless of the source.
-export async function getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProduct[]> {
+// One group per (product, condition) pair, not per product — a blended range
+// across conditions hides real price-relevant variance (a "Used - Fair" and
+// a "New" of the same product don't belong in one range). Listings with no
+// stated condition can't be assigned a tier, so they're excluded here (they
+// were previously folded into a blended "probably used" range; now that a
+// per-condition breakdown exists, an unlabeled listing has nowhere honest to go).
+export async function getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]> {
   const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, array_agg(l.price_amount) AS prices
+    `SELECT p.id, p.base_model, p.variant_tier, l.condition, array_agg(l.price_amount) AS prices
      FROM products p
      JOIN listings l ON l.product_id = p.id
-     WHERE l.price_amount IS NOT NULL
-     GROUP BY p.id, p.base_model, p.variant_tier
+     WHERE l.price_amount IS NOT NULL AND l.condition IS NOT NULL
+     GROUP BY p.id, p.base_model, p.variant_tier, l.condition
      HAVING count(l.id) >= 2
      ORDER BY count(l.id) DESC`,
     [],
-  )) as { rows: { id: number; base_model: string; variant_tier: string | null; prices: string[] }[] }
+  )) as { rows: { id: number; base_model: string; variant_tier: string | null; condition: string; prices: string[] }[] }
   return result.rows.map((r) => ({
     id: r.id,
     base_model: r.base_model,
     variant_tier: r.variant_tier,
+    condition: r.condition,
     prices: r.prices.map(Number),
   }))
 }
@@ -57,28 +63,28 @@ export async function getListingPricesByProduct(db: DbClient): Promise<ListingPr
 export async function runPriceFromListings(
   db: DbClient,
   logger: Logger,
-  products: ListingPricesForProduct[],
+  groups: ListingPricesForProductCondition[],
 ): Promise<void> {
   let inserted = 0
   let skipped = 0
 
-  for (const product of products) {
-    const label = product.variant_tier ? `${product.base_model} (${product.variant_tier})` : product.base_model
-    const range = computePriceRangeFromPrices(product.prices)
+  for (const group of groups) {
+    const label = group.variant_tier ? `${group.base_model} (${group.variant_tier})` : group.base_model
+    const range = computePriceRangeFromPrices(group.prices)
 
     if (!range) {
       skipped += 1
-      logger.warn(`product ${product.id} (${label}): fewer than 2 valid prices after filtering junk, skipping`)
+      logger.warn(`product ${group.id} (${label}, ${group.condition}): fewer than 2 valid prices after filtering junk, skipping`)
       continue
     }
 
-    const note = `computed from ${range.usedCount} of ${product.prices.length} listings (junk prices excluded)`
-    await insertPriceCheck(db, product.id, range, note, 'listing_prices')
+    const note = `computed from ${range.usedCount} of ${group.prices.length} "${group.condition}" listings (junk prices excluded)`
+    await insertPriceCheck(db, group.id, range, note, 'listing_prices', group.condition)
     inserted += 1
-    logger.info(`product ${product.id} (${label}): ${range.low}-${range.high} PHP (${note})`)
+    logger.info(`product ${group.id} (${label}, ${group.condition}): ${range.low}-${range.high} PHP (${note})`)
   }
 
-  logger.info(`done: ${inserted} products priced, ${skipped} skipped`)
+  logger.info(`done: ${inserted} product/condition ranges priced, ${skipped} skipped`)
 }
 
 async function main() {
@@ -92,9 +98,9 @@ async function main() {
   const pool = createDbPool(dbUrl)
 
   try {
-    const products = await getListingPricesByProduct(pool)
-    logger.info(`${products.length} products with 2+ listings to compute a price range for`)
-    await runPriceFromListings(pool, logger, products)
+    const groups = await getListingPricesByProduct(pool)
+    logger.info(`${groups.length} product/condition groups with 2+ listings to compute a price range for`)
+    await runPriceFromListings(pool, logger, groups)
   } finally {
     await pool.end()
   }

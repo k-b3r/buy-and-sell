@@ -26,7 +26,11 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
   const priceCurrency = priceObj?.currency ?? null
 
   const description = (listing.redacted_description as { text?: string } | undefined)?.text ?? null
-  const condition = (listing.condition as string | undefined) ?? null
+  // Facebook nests condition inside attribute_data (an array of {label, value,
+  // attribute_name} entries covering Condition, Brand, etc.), not a top-level
+  // "condition" field — confirmed live, 97% of real listings have it here.
+  const attributeData = listing.attribute_data as { label?: string; attribute_name?: string }[] | undefined
+  const condition = attributeData?.find((a) => a.attribute_name === 'Condition')?.label ?? null
   const categoryId = (listing.marketplace_listing_category_id as string | undefined) ?? null
 
   const location = listing.location as
@@ -138,10 +142,11 @@ export async function insertPriceCheck(
   price: PriceRange,
   rawResponse: string,
   source: PriceCheckSource,
+  condition: string | null = null,
 ): Promise<void> {
   await db.query(
-    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [productId, price.low, price.high, price.currency, rawResponse, source],
+    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [productId, price.low, price.high, price.currency, rawResponse, source, condition],
   )
 }

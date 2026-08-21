@@ -21,7 +21,10 @@ test('upsertListing extracts known fields and stores the full raw object as json
     marketplace_listing_title: 'Sony WH-1000XM6',
     listing_price: { amount: '15500.00', currency: 'PHP' },
     redacted_description: { text: 'Barely used, comes with case.' },
-    condition: 'Used - Good',
+    attribute_data: [
+      { label: 'Used - Good', value: 'used_good', attribute_name: 'Condition' },
+      { label: 'Sony', value: 'Sony', attribute_name: 'Brand' },
+    ],
     marketplace_listing_category_id: '1792291877663080',
     location: { latitude: 14.33, longitude: 120.94, reverse_geocode: { city: 'Dasmariñas' } },
     primary_listing_photo: { image: { uri: 'https://scontent.example/photo.jpg' } },
@@ -50,6 +53,31 @@ test('upsertListing extracts known fields and stores the full raw object as json
   expect(storedPhotoUrls).toBeNull()
   expect((listedAt as Date).getTime()).toBe(1786660802 * 1000)
   expect(JSON.parse(rawJson as string)).toEqual(listing)
+})
+
+test('upsertListing extracts condition from attribute_data, not a top-level field', async () => {
+  const { db, calls } = mockDb()
+  await upsertListing(db, {
+    id: '1',
+    marketplace_listing_title: 'Test',
+    attribute_data: [
+      { label: 'Brand', value: 'Sony', attribute_name: 'Brand' },
+      { label: 'New', value: 'new', attribute_name: 'Condition' },
+    ],
+  })
+
+  expect(calls[0].params[5]).toBe('New')
+})
+
+test('upsertListing sets condition to null when attribute_data has no Condition entry', async () => {
+  const { db, calls } = mockDb()
+  await upsertListing(db, {
+    id: '1',
+    marketplace_listing_title: 'Test',
+    attribute_data: [{ label: 'Sony', value: 'Sony', attribute_name: 'Brand' }],
+  })
+
+  expect(calls[0].params[5]).toBeNull()
 })
 
 test('upsertListing stores re-hosted photo URLs as a json array', async () => {
@@ -203,13 +231,28 @@ test('insertPriceCheck writes a new price_history row for the product, not an up
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toMatch(/^INSERT INTO product_price_history/)
   expect(calls[0].sql).not.toContain('ON CONFLICT')
-  expect(calls[0].params).toEqual([42, 4500, 12000, 'PHP', 'Full grounded answer text here.', 'gemini_grounding'])
+  expect(calls[0].params).toEqual([42, 4500, 12000, 'PHP', 'Full grounded answer text here.', 'gemini_grounding', null])
 })
 
-test('insertPriceCheck tags a listing-derived price with the listing_prices source', async () => {
+test('insertPriceCheck tags a listing-derived price with the listing_prices source and a condition', async () => {
   const { db, calls } = mockDb()
 
-  await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'computed from 4 listings', 'listing_prices')
+  await insertPriceCheck(
+    db,
+    42,
+    { low: 14999, high: 15000, currency: 'PHP' },
+    'computed from 4 listings',
+    'listing_prices',
+    'Used - Good',
+  )
 
-  expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'computed from 4 listings', 'listing_prices'])
+  expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'computed from 4 listings', 'listing_prices', 'Used - Good'])
+})
+
+test('insertPriceCheck defaults condition to null when not given (e.g. a blended Gemini-grounded range)', async () => {
+  const { db, calls } = mockDb()
+
+  await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'text', 'gemini_grounding')
+
+  expect(calls[0].params[6]).toBeNull()
 })

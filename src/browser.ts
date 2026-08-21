@@ -5,10 +5,37 @@ import type { PageCursor } from './paginate'
 
 const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
 
+// Only the embedded JSON in the page is ever read (see extract/grid.ts,
+// extract/detail.ts) — actual photos are downloaded separately via plain
+// fetch() in images.ts, never through the browser. So Chromium rendering
+// real images/fonts/stylesheets/media for every navigation is pure wasted
+// CPU/memory/bandwidth. Deliberately NOT blocking 'fetch'/'xhr' — the
+// GraphQL pagination call in fetchNextPage below depends on that.
+const BLOCKED_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media'])
+
+export function shouldBlockResource(resourceType: string): boolean {
+  return BLOCKED_RESOURCE_TYPES.has(resourceType)
+}
+
 export async function launchBrowser(
   options: { headless?: boolean } = {},
 ): Promise<{ close: () => Promise<void>; page: Page }> {
-  const browser = await chromium.launch({ headless: options.headless ?? true })
+  const browser = await chromium.launch({
+    headless: options.headless ?? true,
+    args: [
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-sync',
+      '--disable-translate',
+      '--disable-default-apps',
+      '--mute-audio',
+      '--no-first-run',
+    ],
+  })
   const context = await browser.newContext({
     locale: 'en-PH',
     timezoneId: 'Asia/Manila',
@@ -16,6 +43,12 @@ export async function launchBrowser(
     permissions: ['geolocation'],
   })
   const page = await context.newPage()
+  await page.route('**/*', (route) => {
+    if (shouldBlockResource(route.request().resourceType())) {
+      return route.abort()
+    }
+    return route.continue()
+  })
   return { page, close: () => browser.close() }
 }
 

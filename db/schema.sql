@@ -80,3 +80,10 @@ ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS raw_response TEXT;
 -- price would be. Tagging the source keeps the two from being silently
 -- blended in later analysis.
 ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'gemini_grounding';
+
+-- NULL = not condition-specific (e.g. Gemini's grounded range, which isn't
+-- split by condition). A 'listing_prices' row is always tagged with the
+-- exact condition label (e.g. "Used - Good") its range was computed from —
+-- a blended across-conditions range hides real price-relevant variance
+-- (a "Used - Fair" and a "New" of the same product don't belong in one range).
+ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS condition TEXT;
