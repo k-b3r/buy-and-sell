@@ -5,6 +5,7 @@ import { createLogger } from './logger'
 import { autoApprove } from './review'
 import { createDbPool } from './db'
 import { createR2ImageStore } from './images'
+import { checkTunnelAlive } from './tunnel'
 
 async function main() {
   if (existsSync('.env')) {
@@ -33,7 +34,20 @@ async function main() {
   }
 
   const logger = createLogger('data/collector.log')
-  const { page, close } = await launchBrowser()
+
+  const socksProxy = process.env.SOCKS_PROXY
+  if (socksProxy) {
+    const alive = await checkTunnelAlive(socksProxy)
+    if (!alive) {
+      logger.error(
+        `SOCKS_PROXY is set to ${socksProxy} but the tunnel isn't reachable — start the laptop-side ssh -R tunnel before running collect`,
+      )
+      process.exit(1)
+    }
+    logger.info(`laptop tunnel confirmed alive via ${socksProxy}`)
+  }
+
+  const { page, close } = await launchBrowser({ socksProxy })
   const driver = createBrowserDriver(page)
 
   const dbUrl = process.env.DATABASE_URL
