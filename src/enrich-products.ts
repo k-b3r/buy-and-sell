@@ -9,7 +9,16 @@ import { createDbPool, getEnrichmentCandidates, upsertProductEnrichment } from '
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from './enrichment'
 import type { EnrichmentCandidate } from './enrichment'
 
-const BATCH_SIZE = 35
+// Originally sized at 35 from output-token math alone — wrong, because
+// gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before
+// the JSON, which don't show up in a token-per-field estimate and vary
+// non-deterministically run to run. Confirmed live (2026-08-22) against the
+// real first batch of pending candidates: n=20 succeeds cleanly (well under
+// Groq's 8,000 TPM cap even with reasoning overhead), n=25/30 pass but butt
+// up against an apparent ~3,072-token completion ceiling, n=35 fails outright
+// with an unhelpful "Failed to validate JSON" 400 (truncated mid-generation,
+// not a real schema problem — Groq's error message doesn't say so).
+const BATCH_SIZE = 20
 const MODEL = 'openai/gpt-oss-120b'
 
 interface RawEnrichmentItem {

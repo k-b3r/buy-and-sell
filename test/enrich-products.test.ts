@@ -84,7 +84,7 @@ test('has_trained_price_knowledge false with no price fields stores null prices 
   expect(upserts[0]).toEqual([17, 'x', 'y', false, null, null, null, 'openai/gpt-oss-120b'])
 })
 
-test('batches candidates at 35 per Groq call', async () => {
+test('batches candidates at 20 per Groq call', async () => {
   let callCount = 0
   const groq: GroqClient = {
     generateJson: async () => {
@@ -94,7 +94,7 @@ test('batches candidates at 35 per Groq call', async () => {
   }
   const { db } = fakeDb()
   const logger = createLogger(LOG_PATH)
-  const candidates: EnrichmentCandidate[] = Array.from({ length: 70 }, (_, i) => ({
+  const candidates: EnrichmentCandidate[] = Array.from({ length: 40 }, (_, i) => ({
     id: i + 1,
     base_model: `Product ${i + 1}`,
     variant_tier: null,
