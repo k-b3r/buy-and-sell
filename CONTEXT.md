@@ -125,6 +125,8 @@ Also found: **grounding quota is pooled by model generation *family*, not per in
 
 **Implemented (2026-08-22):** `src/new-price-lookup.ts` — one Exa structured-output search per product (`src/exa.ts`'s `createExaClient`, `POST /search` with `outputSchema` so Exa returns parsed `{found, price_low, price_high}` directly, no free-text parsing needed unlike Gemini grounding's regex approach). Reuses `product_price_history` (new `source = 'exa_new_retail'`, `condition = 'New'`) rather than a new table — same shape as `gemini_grounding`/`listing_prices`, just a different source tag. Resumable via `NOT EXISTS`, first-pass fill (every product is a candidate, unlike `getPriceLookupCandidates`'s >=2-listings filter — a new-retail price is a per-model fact, not tied to how many listings we've collected). A single product's Exa failure is logged and skipped, doesn't stop the run — no quota-style fatal error class exists for Exa the way it does for Groq/Gemini.
 
+**Cost note (2026-08-22):** unlike Groq/Gemini's free tiers, each Exa search costs real money (`$0.007`/search observed live — full 2,822-product backlog ≈ $19.75). So `getNewPriceCandidates` skips a product with a price row from *any* source in `product_price_history`, not just `exa_new_retail` — a product already priced by `gemini_grounding`/`listing_prices` doesn't need a paid Exa call too.
+
 ### Field extraction
 **Resolved decision (2026-08-17):** Extract whatever fields are actually shown on the page — no fixed schema forced. Stage 1 (grid) captures whatever the grid card shows (title, price, thumbnail, location, listing ID/URL typically); stage 2 (detail) captures whatever the listing page shows (condition, description, images, seller info, etc., whatever's present).
 

@@ -17,6 +17,7 @@ import {
   getExtractionCandidates,
   getBackfillCandidates,
   markListingPhotosUnavailable,
+  getNewPriceCandidates,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -407,6 +408,22 @@ test('upsertProductEnrichment stores null currency when no trained price is know
   )
 
   expect(calls[0].params).toEqual([17, 'desc', 'drivers', false, null, null, null, 'openai/gpt-oss-120b'])
+})
+
+test('getNewPriceCandidates skips a product with a price row from ANY source, not just exa_new_retail', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await getNewPriceCandidates(db)
+
+  expect(calls[0].sql).toContain('NOT EXISTS')
+  expect(calls[0].sql).toContain('product_price_history')
+  expect(calls[0].sql).not.toContain('source')
 })
 
 test('getPriceReviewCandidates returns listings whose price is a magnitude outlier vs their product median, not yet reviewed', async () => {

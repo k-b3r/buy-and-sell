@@ -215,15 +215,17 @@ export interface NewPriceCandidate {
 // New-retail price is a per-model fact, not tied to condition or how many
 // listings we've collected of it — unlike getPriceLookupCandidates (which
 // only bothers with products that have >=2 listings), every product is a
-// candidate. Resumable via NOT EXISTS, same pattern as getEnrichmentCandidates:
-// a first-pass fill, not a re-check-every-run trend (that's what the
-// gemini_grounding source in this same table already does).
+// candidate. Skips any product with a price row from ANY source (not just
+// exa_new_retail) — a product already priced by gemini_grounding or
+// listing_prices doesn't need an Exa call too (each Exa search costs real
+// money, unlike Groq/Gemini's free tiers). Resumable via NOT EXISTS, first-
+// pass fill, not a re-check-every-run trend.
 export async function getNewPriceCandidates(db: DbClient): Promise<NewPriceCandidate[]> {
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier
      FROM products p
      WHERE NOT EXISTS (
-       SELECT 1 FROM product_price_history h WHERE h.product_id = p.id AND h.source = 'exa_new_retail'
+       SELECT 1 FROM product_price_history h WHERE h.product_id = p.id
      )
      ORDER BY p.id`,
     [],
