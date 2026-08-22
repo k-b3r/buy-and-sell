@@ -117,3 +117,10 @@ CREATE TABLE IF NOT EXISTS product_enrichment (
   model TEXT NOT NULL,
   checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Sold is a terminal status Facebook reports directly (raw_json.is_sold), unlike
+-- removed/deleted which is inferred from a soft-wall and needs two-phase
+-- confirmation (see flagged_removed_at above) because a soft-wall is
+-- indistinguishable from a transient session issue. Sold has no such ambiguity,
+-- so it's a plain nullable timestamp set once, not a flag-then-confirm cycle.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ;

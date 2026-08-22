@@ -51,6 +51,7 @@ function fakeImageStore(): { store: ImageStore; deletedPrefixes: string[] } {
 }
 
 const realListingDetailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"RTX 3060"}</script>`
+const soldListingDetailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"RTX 3060","is_sold":true}</script>`
 const softWallHtml = `<div class="login_form">You must log in to continue</div>`
 const hardBlockHtml = `<div class="checkpoint_challenge">captcha</div>`
 
@@ -65,6 +66,19 @@ test('real content found: marks the listing alive, does not flag or delete', asy
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('last_checked_at = now()')
   expect(calls[0].sql).toContain('flagged_removed_at = NULL')
+})
+
+test('real content found with is_sold true: marks the listing sold, not alive', async () => {
+  const driver = makeDriver({ getDetailHtml: async () => soldListingDetailHtml })
+  const { db, calls } = fakeDb()
+  const { store } = fakeImageStore()
+  const logger = createLogger(LOG_PATH)
+
+  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('sold_at = now()')
+  expect(calls[0].sql).not.toContain('flagged_removed_at = NULL')
 })
 
 test('soft-wall persists, not previously flagged: flags it, does not delete', async () => {

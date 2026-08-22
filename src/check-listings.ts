@@ -5,7 +5,14 @@ import { createLogger } from './logger'
 import type { PageDriver } from './driver'
 import { launchBrowser, createBrowserDriver } from './browser'
 import type { DbClient, CheckListingsCandidate } from './db'
-import { createDbPool, getCheckListingsCandidates, markListingAlive, flagListingRemoved, deleteListing } from './db'
+import {
+  createDbPool,
+  getCheckListingsCandidates,
+  markListingAlive,
+  markListingSold,
+  flagListingRemoved,
+  deleteListing,
+} from './db'
 import type { ImageStore } from './images'
 import { createR2ImageStore, deleteListingPhotos } from './images'
 import { extractDetailFields } from './extract/detail'
@@ -57,6 +64,12 @@ export async function runCheckListings(
         logger.warn(`listing ${candidate.id} soft-walled, flagging for confirmation on a later run`)
         await flagListingRemoved(db, candidate.id)
       }
+      continue
+    }
+
+    if (extractDetailFields(result.html).is_sold === true) {
+      logger.info(`listing ${candidate.id} detected as sold`)
+      await markListingSold(db, candidate.id)
       continue
     }
 

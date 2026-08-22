@@ -165,6 +165,7 @@ export interface CheckListingsCandidate {
 export async function getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]> {
   const result = (await db.query(
     `SELECT id, flagged_removed_at FROM listings
+     WHERE sold_at IS NULL
      ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
      LIMIT $1`,
     [limit],
@@ -174,9 +175,21 @@ export async function getCheckListingsCandidates(db: DbClient, limit: number): P
 
 // Real content found — clears any prior removal flag too, treating a listing
 // that recovers after being flagged as a false positive, not something to
-// silently leave flagged.
+// silently leave flagged. Also clears sold_at, for the same reason (a listing
+// that's actually still live and unsold shouldn't stay marked sold).
 export async function markListingAlive(db: DbClient, id: string): Promise<void> {
-  await db.query(`UPDATE listings SET last_checked_at = now(), flagged_removed_at = NULL WHERE id = $1`, [id])
+  await db.query(
+    `UPDATE listings SET last_checked_at = now(), flagged_removed_at = NULL, sold_at = NULL WHERE id = $1`,
+    [id],
+  )
+}
+
+// Sold is a terminal, definite signal from Facebook itself (raw_json.is_sold) —
+// no soft-wall-style two-phase confirmation needed, unlike flagListingRemoved.
+// getCheckListingsCandidates excludes sold_at IS NOT NULL rows, so a sold
+// listing is never re-checked again.
+export async function markListingSold(db: DbClient, id: string): Promise<void> {
+  await db.query(`UPDATE listings SET sold_at = now(), last_checked_at = now() WHERE id = $1`, [id])
 }
 
 // First soft-wall hit — not deleted yet. See db/schema.sql for why one hit

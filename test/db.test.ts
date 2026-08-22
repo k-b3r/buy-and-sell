@@ -8,6 +8,7 @@ import {
   markListingAlive,
   flagListingRemoved,
   deleteListing,
+  markListingSold,
   getEnrichmentCandidates,
   upsertProductEnrichment,
 } from '../src/db'
@@ -281,10 +282,11 @@ test('getCheckListingsCandidates orders by last_checked_at then listed_at, oldes
 
   expect(calls[0].sql).toContain('ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST')
   expect(calls[0].sql).toContain('LIMIT $1')
+  expect(calls[0].sql).toContain('WHERE sold_at IS NULL')
   expect(calls[0].params).toEqual([50])
 })
 
-test('markListingAlive sets last_checked_at and clears any removal flag', async () => {
+test('markListingAlive sets last_checked_at and clears any removal flag and sold flag', async () => {
   const { db, calls } = mockDb()
 
   await markListingAlive(db, '123')
@@ -292,6 +294,18 @@ test('markListingAlive sets last_checked_at and clears any removal flag', async 
   expect(calls[0].sql).toMatch(/^UPDATE listings/)
   expect(calls[0].sql).toContain('last_checked_at = now()')
   expect(calls[0].sql).toContain('flagged_removed_at = NULL')
+  expect(calls[0].sql).toContain('sold_at = NULL')
+  expect(calls[0].params).toEqual(['123'])
+})
+
+test('markListingSold sets sold_at and last_checked_at', async () => {
+  const { db, calls } = mockDb()
+
+  await markListingSold(db, '123')
+
+  expect(calls[0].sql).toMatch(/^UPDATE listings/)
+  expect(calls[0].sql).toContain('sold_at = now()')
+  expect(calls[0].sql).toContain('last_checked_at = now()')
   expect(calls[0].params).toEqual(['123'])
 })
 
