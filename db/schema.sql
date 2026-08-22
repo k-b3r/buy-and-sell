@@ -124,3 +124,18 @@ CREATE TABLE IF NOT EXISTS product_enrichment (
 -- indistinguishable from a transient session issue. Sold has no such ambiguity,
 -- so it's a plain nullable timestamp set once, not a flag-then-confirm cycle.
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ;
+
+-- Per-listing price review for statistical outliers (see src/review-listing-prices.ts).
+-- listings.price_amount is NEVER written to by this pipeline - it stays the raw
+-- scraped source of truth always, same as product_enrichment does for products.
+-- is_negotiable and price_low/price_high are independent signals, never coupled -
+-- a listing can be a single fixed price AND negotiable, or a range AND not.
+CREATE TABLE IF NOT EXISTS listing_price_review (
+  listing_id TEXT PRIMARY KEY REFERENCES listings(id),
+  is_negotiable BOOLEAN NOT NULL,
+  price_low NUMERIC,
+  price_high NUMERIC,
+  reasoning TEXT NOT NULL,
+  model TEXT NOT NULL,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

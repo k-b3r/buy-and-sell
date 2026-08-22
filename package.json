@@ -11,7 +11,8 @@
     "price-lookup": "tsx src/price-lookup.ts",
     "price-from-listings": "tsx src/price-from-listings.ts",
     "check-listings": "tsx src/check-listings.ts",
-    "enrich-products": "tsx src/enrich-products.ts"
+    "enrich-products": "tsx src/enrich-products.ts",
+    "review-listing-prices": "tsx src/review-listing-prices.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

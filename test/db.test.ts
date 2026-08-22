@@ -11,6 +11,8 @@ import {
   markListingSold,
   getEnrichmentCandidates,
   upsertProductEnrichment,
+  getPriceReviewCandidates,
+  upsertListingPriceReview,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -401,4 +403,72 @@ test('upsertProductEnrichment stores null currency when no trained price is know
   )
 
   expect(calls[0].params).toEqual([17, 'desc', 'drivers', false, null, null, null, 'openai/gpt-oss-120b'])
+})
+
+test('getPriceReviewCandidates returns listings whose price is a magnitude outlier vs their product median, not yet reviewed', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return {
+        rows: [
+          {
+            id: '1000000000000001',
+            title: 'RTX 2060 6GB FOR SWAP ONLY',
+            description: 'FOR SWAP SA RTX 3060, ADD AKO. REBALLED PO BUT WORKING AS INTENDED.',
+            price_amount: '999999999',
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getPriceReviewCandidates(db)
+
+  expect(calls[0].sql).toContain('percentile_cont(0.5)')
+  expect(calls[0].sql).toContain('NOT EXISTS')
+  expect(calls[0].sql).toContain('listing_price_review')
+  expect(result).toEqual([
+    {
+      id: '1000000000000001',
+      title: 'RTX 2060 6GB FOR SWAP ONLY',
+      description: 'FOR SWAP SA RTX 3060, ADD AKO. REBALLED PO BUT WORKING AS INTENDED.',
+      price_amount: 999999999,
+    },
+  ])
+})
+
+test('upsertListingPriceReview inserts is_negotiable, price range, reasoning, and model', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertListingPriceReview(
+    db,
+    '1000000000000001',
+    { isNegotiable: true, priceLow: 7500, priceHigh: 9000, reasoning: 'Swap-only listing, real price is negotiable per description.' },
+    'openai/gpt-oss-120b',
+  )
+
+  expect(calls[0].sql).toMatch(/^INSERT INTO listing_price_review/)
+  expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
+  expect(calls[0].params).toEqual([
+    '1000000000000001',
+    true,
+    7500,
+    9000,
+    'Swap-only listing, real price is negotiable per description.',
+    'openai/gpt-oss-120b',
+  ])
+})
+
+test('upsertListingPriceReview stores null price range when no real price could be determined', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertListingPriceReview(
+    db,
+    '123',
+    { isNegotiable: false, priceLow: null, priceHigh: null, reasoning: 'No price mentioned anywhere in the text.' },
+    'openai/gpt-oss-120b',
+  )
+
+  expect(calls[0].params).toEqual(['123', false, null, null, 'No price mentioned anywhere in the text.', 'openai/gpt-oss-120b'])
 })

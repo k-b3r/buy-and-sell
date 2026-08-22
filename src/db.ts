@@ -2,6 +2,7 @@ import { Pool } from 'pg'
 import { normalizeBaseModel, normalizeVariantTier } from './products'
 import type { PriceRange } from './pricing'
 import type { EnrichmentCandidate } from './enrichment'
+import type { PriceReviewCandidate } from './price-review'
 
 export interface DbClient {
   query(sql: string, params: unknown[]): Promise<unknown>
@@ -260,5 +261,63 @@ export async function upsertProductEnrichment(
       trainedPriceCurrency,
       model,
     ],
+  )
+}
+
+// Cheap SQL-only pre-filter, no LLM: flags listings whose price is more than
+// 10x off their product's own median in either direction. Products with only
+// one listing can never flag themselves (their price equals their own median).
+// NOT EXISTS on listing_price_review is the resumability mechanism, same
+// pattern as getEnrichmentCandidates.
+export async function getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]> {
+  const result = (await db.query(
+    `WITH product_medians AS (
+       SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price
+       FROM listings
+       WHERE product_id IS NOT NULL AND price_amount IS NOT NULL AND price_amount > 0
+       GROUP BY product_id
+     )
+     SELECT l.id, l.title, l.description, l.price_amount
+     FROM listings l
+     JOIN product_medians m ON m.product_id = l.product_id
+     WHERE l.price_amount IS NOT NULL
+       AND (l.price_amount < m.median_price / 10 OR l.price_amount > m.median_price * 10)
+       AND NOT EXISTS (SELECT 1 FROM listing_price_review r WHERE r.listing_id = l.id)`,
+    [],
+  )) as { rows: Record<string, unknown>[] }
+  return result.rows.map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    description: r.description as string | null,
+    price_amount: Number(r.price_amount),
+  }))
+}
+
+export interface PriceReviewData {
+  isNegotiable: boolean
+  priceLow: number | null
+  priceHigh: number | null
+  reasoning: string
+}
+
+// listings.price_amount is never written here - this table is purely additive,
+// same as product_enrichment is for products (see db/schema.sql).
+export async function upsertListingPriceReview(
+  db: DbClient,
+  listingId: string,
+  data: PriceReviewData,
+  model: string,
+): Promise<void> {
+  await db.query(
+    `INSERT INTO listing_price_review (listing_id, is_negotiable, price_low, price_high, reasoning, model)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (listing_id) DO UPDATE SET
+       is_negotiable = EXCLUDED.is_negotiable,
+       price_low = EXCLUDED.price_low,
+       price_high = EXCLUDED.price_high,
+       reasoning = EXCLUDED.reasoning,
+       model = EXCLUDED.model,
+       checked_at = now()`,
+    [listingId, data.isNegotiable, data.priceLow, data.priceHigh, data.reasoning, model],
   )
 }
