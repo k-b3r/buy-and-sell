@@ -32,6 +32,37 @@ function SoldBadge() {
   return <span style={soldBadgeStyle}>Sold</span>
 }
 
+const negotiableBadgeStyle: CSSProperties = {
+  display: 'inline-block',
+  marginLeft: 8,
+  padding: '1px 8px',
+  borderRadius: 12,
+  fontSize: '0.75em',
+  border: '1px solid var(--color-accent)',
+  color: 'var(--color-accent)',
+}
+
+function NegotiableBadge() {
+  return <span style={negotiableBadgeStyle}>Negotiable</span>
+}
+
+// price_review's range replaces the recorded price display when it has a real
+// read on it; a review row with no determinable price (both null) falls back
+// to the recorded price, same as no review row at all. is_negotiable is a
+// wholly separate signal (NegotiableBadge), never coupled to which price shows.
+function formatListingPrice(l: ProductListingSummary): string {
+  const review = l.price_review
+  if (review && (review.price_low !== null || review.price_high !== null)) {
+    if (review.price_low === review.price_high) {
+      return review.price_low !== null ? `₱${review.price_low.toLocaleString()}` : '—'
+    }
+    if (review.price_low !== null && review.price_high !== null) {
+      return `₱${review.price_low.toLocaleString()}–₱${review.price_high.toLocaleString()}`
+    }
+  }
+  return l.price_amount !== null ? `₱${l.price_amount.toLocaleString()}` : '—'
+}
+
 export default function ListingsView({ listings }: { listings: ProductListingSummary[] }) {
   const [view, setView] = useState<View>('cards')
 
@@ -78,7 +109,10 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
                   {l.sold_at && <SoldBadge />}
                 </td>
                 <td>{l.condition ?? '—'}</td>
-                <td className="mono">{l.price_amount !== null ? `₱${l.price_amount.toLocaleString()}` : '—'}</td>
+                <td className="mono">
+                  {formatListingPrice(l)}
+                  {l.price_review?.is_negotiable && <NegotiableBadge />}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -118,7 +152,8 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
                   {l.condition ?? '—'}
                 </div>
                 <div className="mono" style={{ marginTop: 4 }}>
-                  {l.price_amount !== null ? `₱${l.price_amount.toLocaleString()}` : '—'}
+                  {formatListingPrice(l)}
+                  {l.price_review?.is_negotiable && <NegotiableBadge />}
                 </div>
               </div>
             </Link>

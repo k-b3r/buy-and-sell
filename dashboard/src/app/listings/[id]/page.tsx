@@ -2,7 +2,24 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getPool } from '@/lib/db'
 import { getListingDetail } from '@/lib/queries'
+import type { ListingDetail } from '@/lib/queries'
 import ListingCarousel from './ListingCarousel'
+
+// price_review's range replaces the recorded price when it has a real read on
+// it; a review row with no determinable price (both null) falls back to the
+// recorded price, same as no review row at all.
+function formatListingPrice(listing: ListingDetail): string {
+  const review = listing.price_review
+  if (review && (review.price_low !== null || review.price_high !== null)) {
+    if (review.price_low === review.price_high) {
+      return review.price_low !== null ? `₱${review.price_low.toLocaleString()}` : 'Price not listed'
+    }
+    if (review.price_low !== null && review.price_high !== null) {
+      return `₱${review.price_low.toLocaleString()}–₱${review.price_high.toLocaleString()}`
+    }
+  }
+  return listing.price_amount !== null ? `₱${listing.price_amount.toLocaleString()}` : 'Price not listed'
+}
 
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -42,7 +59,23 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       <ListingCarousel photoUrls={listing.photo_urls} title={listing.title} />
 
       <p className="mono" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-        {listing.price_amount !== null ? `₱${listing.price_amount.toLocaleString()}` : 'Price not listed'}
+        {formatListingPrice(listing)}
+        {listing.price_review?.is_negotiable && (
+          <span
+            style={{
+              display: 'inline-block',
+              marginLeft: 12,
+              padding: '2px 10px',
+              borderRadius: 12,
+              fontSize: '0.5em',
+              verticalAlign: 'middle',
+              border: '1px solid var(--color-accent)',
+              color: 'var(--color-accent)',
+            }}
+          >
+            Negotiable
+          </span>
+        )}
       </p>
 
       <table cellPadding={4}>

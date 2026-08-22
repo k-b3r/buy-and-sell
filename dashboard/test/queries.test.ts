@@ -147,6 +147,9 @@ test('getProductDetail returns the product, its market price, and its listings',
             primary_photo_url: 'https://x/0.jpg',
             condition: 'Used - Like New',
             sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
           },
         ],
       }
@@ -171,8 +174,55 @@ test('getProductDetail returns the product, its market price, and its listings',
         primary_photo_url: 'https://x/0.jpg',
         condition: 'Used - Like New',
         sold_at: null,
+        price_review: null,
       },
     ],
+  })
+})
+
+test('getProductDetail includes price_review on a listing when a listing_price_review row exists', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 1,
+              base_model: 'RTX 2060',
+              variant_tier: null,
+              market_price_low: null,
+              market_price_high: null,
+              market_price_source: null,
+            },
+          ],
+        }
+      }
+      return {
+        rows: [
+          {
+            id: '1000000000000001',
+            title: 'RTX 2060 6GB FOR SWAP ONLY',
+            price_amount: '999999999',
+            primary_photo_url: null,
+            condition: 'Used - Good',
+            sold_at: null,
+            price_review_is_negotiable: true,
+            price_review_low: '7500',
+            price_review_high: '9000',
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(result?.listings[0].price_review).toEqual({
+    is_negotiable: true,
+    price_low: 7500,
+    price_high: 9000,
   })
 })
 
@@ -319,6 +369,9 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
       base_model: 'RTX 3060',
       variant_tier: null,
       sold_at: null,
+      price_review_is_negotiable: null,
+      price_review_low: null,
+      price_review_high: null,
     },
   ])
 
@@ -338,6 +391,39 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
     base_model: 'RTX 3060',
     variant_tier: null,
     sold_at: null,
+    price_review: null,
+  })
+})
+
+test('getListingDetail includes price_review when a listing_price_review row exists', async () => {
+  const db = fakeDb([
+    {
+      id: '1000000000000001',
+      title: 'RTX 2060 6GB FOR SWAP ONLY',
+      price_amount: '999999999',
+      price_currency: 'PHP',
+      description: 'swap only',
+      condition: 'Used - Good',
+      location_city: null,
+      listed_at: null,
+      primary_photo_url: null,
+      stored_photo_urls: null,
+      product_id: 17,
+      base_model: 'RTX 2060',
+      variant_tier: null,
+      sold_at: null,
+      price_review_is_negotiable: true,
+      price_review_low: '7500',
+      price_review_high: '9000',
+    },
+  ])
+
+  const result = await getListingDetail(db, '1000000000000001')
+
+  expect(result?.price_review).toEqual({
+    is_negotiable: true,
+    price_low: 7500,
+    price_high: 9000,
   })
 })
 

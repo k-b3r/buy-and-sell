@@ -36,6 +36,18 @@ function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value)
 }
 
+// A LEFT JOIN nulls every joined column when there's no matching row - since
+// is_negotiable is NOT NULL in listing_price_review, that's the reliable
+// "no review row exists" signal, same pattern as product_enrichment's join.
+function toPriceReview(r: Record<string, unknown>): ListingPriceReview | null {
+  if (r.price_review_is_negotiable === null || r.price_review_is_negotiable === undefined) return null
+  return {
+    is_negotiable: r.price_review_is_negotiable as boolean,
+    price_low: toNullableNumber(r.price_review_low),
+    price_high: toNullableNumber(r.price_review_high),
+  }
+}
+
 export async function getProductSummaries(
   db: QueryClient,
   options: { search?: string; offset?: number; limit?: number } = {},
@@ -80,6 +92,12 @@ export async function getProductSummaries(
   }))
 }
 
+export interface ListingPriceReview {
+  is_negotiable: boolean
+  price_low: number | null
+  price_high: number | null
+}
+
 export interface ProductListingSummary {
   id: string
   title: string
@@ -87,6 +105,7 @@ export interface ProductListingSummary {
   primary_photo_url: string | null
   condition: string | null
   sold_at: string | null
+  price_review: ListingPriceReview | null
 }
 
 export interface ProductEnrichment {
@@ -145,7 +164,13 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       : null
 
   const listingsResult = await db.query(
-    `SELECT id, title, price_amount, primary_photo_url, condition, sold_at FROM listings WHERE product_id = $1 ORDER BY title`,
+    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.condition, l.sold_at,
+            pr.is_negotiable as price_review_is_negotiable,
+            pr.price_low as price_review_low, pr.price_high as price_review_high
+     FROM listings l
+     LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
+     WHERE l.product_id = $1
+     ORDER BY l.title`,
     [productId],
   )
   const listings = (listingsResult.rows as Record<string, unknown>[]).map((r) => ({
@@ -155,6 +180,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     primary_photo_url: r.primary_photo_url as string | null,
     condition: r.condition as string | null,
     sold_at: toIsoOrNull(r.sold_at),
+    price_review: toPriceReview(r),
   }))
 
   return {
@@ -183,6 +209,7 @@ export interface ListingDetail {
   base_model: string | null
   variant_tier: string | null
   sold_at: string | null
+  price_review: ListingPriceReview | null
 }
 
 function toIsoOrNull(value: unknown): string | null {
@@ -194,9 +221,12 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const result = await db.query(
     `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
             l.location_city, l.listed_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
-            l.sold_at, p.base_model, p.variant_tier
+            l.sold_at, p.base_model, p.variant_tier,
+            pr.is_negotiable as price_review_is_negotiable,
+            pr.price_low as price_review_low, pr.price_high as price_review_high
      FROM listings l
      LEFT JOIN products p ON p.id = l.product_id
+     LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
      WHERE l.id = $1`,
     [listingId],
   )
@@ -225,5 +255,6 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     base_model: row.base_model as string | null,
     variant_tier: row.variant_tier as string | null,
     sold_at: toIsoOrNull(row.sold_at),
+    price_review: toPriceReview(row),
   }
 }
