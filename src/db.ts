@@ -136,7 +136,7 @@ export async function updateListingProductIds(
 // product's price history, not a replacement of the last one. This is what
 // makes a price trend possible: query product_price_history ordered by
 // checked_at, don't just read a single "current price" column.
-export type PriceCheckSource = 'gemini_grounding' | 'listing_prices'
+export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_retail'
 
 export async function insertPriceCheck(
   db: DbClient,
@@ -204,6 +204,31 @@ export async function flagListingRemoved(db: DbClient, id: string): Promise<void
 // cascade-deleted here, even if this was their last remaining listing.
 export async function deleteListing(db: DbClient, id: string): Promise<void> {
   await db.query(`DELETE FROM listings WHERE id = $1`, [id])
+}
+
+export interface NewPriceCandidate {
+  id: number
+  base_model: string
+  variant_tier: string | null
+}
+
+// New-retail price is a per-model fact, not tied to condition or how many
+// listings we've collected of it — unlike getPriceLookupCandidates (which
+// only bothers with products that have >=2 listings), every product is a
+// candidate. Resumable via NOT EXISTS, same pattern as getEnrichmentCandidates:
+// a first-pass fill, not a re-check-every-run trend (that's what the
+// gemini_grounding source in this same table already does).
+export async function getNewPriceCandidates(db: DbClient): Promise<NewPriceCandidate[]> {
+  const result = (await db.query(
+    `SELECT p.id, p.base_model, p.variant_tier
+     FROM products p
+     WHERE NOT EXISTS (
+       SELECT 1 FROM product_price_history h WHERE h.product_id = p.id AND h.source = 'exa_new_retail'
+     )
+     ORDER BY p.id`,
+    [],
+  )) as { rows: NewPriceCandidate[] }
+  return result.rows
 }
 
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {

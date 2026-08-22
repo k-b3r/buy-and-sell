@@ -12,6 +12,7 @@
     "price-from-listings": "tsx src/price-from-listings.ts",
     "check-listings": "tsx src/check-listings.ts",
     "enrich-products": "tsx src/enrich-products.ts",
+    "new-price-lookup": "tsx src/new-price-lookup.ts",
     "review-listing-prices": "tsx src/review-listing-prices.ts"
   },
   "devDependencies": {

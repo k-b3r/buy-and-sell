@@ -1,0 +1,81 @@
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import type { Logger } from './logger'
+import { createLogger } from './logger'
+import type { ExaClient } from './exa'
+import { createExaClient } from './exa'
+import type { DbClient, NewPriceCandidate } from './db'
+import { createDbPool, getNewPriceCandidates, insertPriceCheck } from './db'
+import { buildNewPriceQuery, NEW_PRICE_SYSTEM_PROMPT, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from './new-price'
+
+export type DelayFn = (ms: number) => Promise<void>
+const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Each product is one independent Exa search — a failure on one (network
+// blip, malformed response) is logged and skipped, not fatal to the run,
+// unlike Groq/Gemini's quota errors which really do mean "stop, nothing
+// else will succeed either." Exa has no per-call quota signal like that.
+export async function runNewPriceLookup(
+  exa: ExaClient,
+  db: DbClient,
+  logger: Logger,
+  products: NewPriceCandidate[],
+  delay: DelayFn = realDelay,
+): Promise<void> {
+  logger.info(`${products.length} products to check for new-retail price`)
+
+  for (let i = 0; i < products.length; i++) {
+    if (i > 0) await delay(1000)
+
+    const product = products[i]
+    const label = product.variant_tier ? `${product.base_model} (${product.variant_tier})` : product.base_model
+    const query = buildNewPriceQuery(product.base_model, product.variant_tier)
+
+    let content: unknown
+    try {
+      content = await exa.searchStructured(query, NEW_PRICE_SYSTEM_PROMPT, NEW_PRICE_OUTPUT_SCHEMA)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error(`product ${product.id} (${label}): Exa request failed (${message}), skipping`)
+      continue
+    }
+
+    const price = parseNewPriceContent(content)
+    if (!price) {
+      logger.warn(`product ${product.id} (${label}): no reliable new-retail price found, skipping`)
+      continue
+    }
+
+    await insertPriceCheck(db, product.id, price, JSON.stringify(content), 'exa_new_retail', 'New')
+    logger.info(`product ${product.id} (${label}): ${price.low}-${price.high} ${price.currency}`)
+  }
+}
+
+async function main() {
+  if (existsSync('.env')) {
+    process.loadEnvFile('.env')
+  }
+  const apiKey = process.env.EXA_API_KEY
+  if (!apiKey) throw new Error('EXA_API_KEY not set in .env')
+  const dbUrl = process.env.DATABASE_URL
+  if (!dbUrl) throw new Error('DATABASE_URL not set in .env — new-price lookup requires Postgres')
+
+  const logger = createLogger('data/new-price-lookup.log')
+  const exa = createExaClient(apiKey)
+  const pool = createDbPool(dbUrl)
+
+  try {
+    const products = await getNewPriceCandidates(pool)
+    await runNewPriceLookup(exa, pool, logger, products)
+  } finally {
+    await pool.end()
+  }
+  logger.info('new-price lookup complete')
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}
