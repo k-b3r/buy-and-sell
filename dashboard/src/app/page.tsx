@@ -1,3 +1,19 @@
-export default function HomePage() {
-  return <p>Dashboard scaffold OK — products list comes in Task 2.</p>
+import { getPool } from '@/lib/db'
+import { getProductSummaries } from '@/lib/queries'
+import ProductListClient from './ProductListClient'
+
+const PAGE_SIZE = 30
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams
+  const search = q ?? ''
+  const products = await getProductSummaries(getPool(), { search, offset: 0, limit: PAGE_SIZE })
+  const nextOffset = products.length === PAGE_SIZE ? PAGE_SIZE : null
+
+  return (
+    <div>
+      <h1>Products</h1>
+      <ProductListClient initialProducts={products} initialNextOffset={nextOffset} initialSearch={search} />
+    </div>
+  )
 }
