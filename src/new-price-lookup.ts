@@ -5,7 +5,7 @@ import { createLogger } from './logger'
 import type { ExaClient } from './exa'
 import { createExaClient } from './exa'
 import type { DbClient, NewPriceCandidate } from './db'
-import { createDbPool, getNewPriceCandidates, insertPriceCheck } from './db'
+import { createDbPool, getNewPriceCandidates, insertPriceCheck, flagProductPriceLookupExcluded } from './db'
 import { buildNewPriceQuery, NEW_PRICE_SYSTEM_PROMPT, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from './new-price'
 
 export type DelayFn = (ms: number) => Promise<void>
@@ -42,7 +42,13 @@ export async function runNewPriceLookup(
 
     const price = parseNewPriceContent(content)
     if (!price) {
-      logger.warn(`product ${product.id} (${label}): no reliable new-retail price found, skipping`)
+      // Exa itself searched and came up empty/unusable — unlike the catch
+      // block above (a request failure, could be transient), this is a real
+      // signal the product isn't a findable retail item. Flag it so future
+      // runs don't pay for the same search again (see flag-price-ineligible.ts
+      // for the manually-curated version of the same idea).
+      await flagProductPriceLookupExcluded(db, product.id, 'exa_no_result')
+      logger.warn(`product ${product.id} (${label}): no reliable new-retail price found, flagged and skipping`)
       continue
     }
 

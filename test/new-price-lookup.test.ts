@@ -40,7 +40,7 @@ test('inserts a price_history row per product when a real price is found', async
   expect(inserts[0]).toEqual([2, 14499, 19999, 'PHP', JSON.stringify({ found: true, price_low: 14499, price_high: 19999 }), 'exa_new_retail', 'New'])
 })
 
-test('a product with no reliable price found is logged and skipped, no row inserted', async () => {
+test('a product with no reliable price found is logged, flagged price_lookup_excluded, and skipped, no price_history row inserted', async () => {
   const exa = fakeExa({ found: false })
   const { db, inserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
@@ -48,7 +48,8 @@ test('a product with no reliable price found is logged and skipped, no row inser
 
   await runNewPriceLookup(exa, db, logger, products)
 
-  expect(inserts).toHaveLength(0)
+  expect(inserts).toHaveLength(1)
+  expect(inserts[0]).toEqual(['exa_no_result', 5])
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
 })
 

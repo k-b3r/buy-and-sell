@@ -244,6 +244,14 @@ export async function flagPriceLookupExcluded(db: DbClient, baseModels: string[]
   ])
 }
 
+// Per-product, not per-category — called when Exa itself searched and came up
+// empty for this specific product (see new-price-lookup.ts), not for a
+// transient request failure. One real "no result" is a strong enough signal
+// not to keep paying for the same search again on every future run.
+export async function flagProductPriceLookupExcluded(db: DbClient, productId: number, reason: string): Promise<void> {
+  await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2`, [reason, productId])
+}
+
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier,

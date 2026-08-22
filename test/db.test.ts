@@ -19,6 +19,7 @@ import {
   markListingPhotosUnavailable,
   getNewPriceCandidates,
   flagPriceLookupExcluded,
+  flagProductPriceLookupExcluded,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -435,6 +436,16 @@ test('flagPriceLookupExcluded updates products matching any of the given base_mo
 
   expect(calls[0].sql).toMatch(/^UPDATE products SET price_lookup_excluded = true/)
   expect(calls[0].params).toEqual(['real_estate', ['Condo', 'House and Lot']])
+})
+
+test('flagProductPriceLookupExcluded updates a single product by id', async () => {
+  const { db, calls } = mockDb()
+
+  await flagProductPriceLookupExcluded(db, 42, 'exa_no_result')
+
+  expect(calls[0].sql).toMatch(/^UPDATE products SET price_lookup_excluded = true/)
+  expect(calls[0].sql).toContain('WHERE id = $2')
+  expect(calls[0].params).toEqual(['exa_no_result', 42])
 })
 
 test('getPriceReviewCandidates returns listings whose price is a magnitude outlier vs their product median, not yet reviewed', async () => {
