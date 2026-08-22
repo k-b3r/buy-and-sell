@@ -33,24 +33,24 @@ function SoldBadge() {
 }
 
 export default function ListingsView({ listings }: { listings: ProductListingSummary[] }) {
-  const [view, setView] = useState<View>('list')
+  const [view, setView] = useState<View>('cards')
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button
-          onClick={() => setView('list')}
-          aria-pressed={view === 'list'}
-          style={toggleButtonStyle(view === 'list')}
-        >
-          List
-        </button>
         <button
           onClick={() => setView('cards')}
           aria-pressed={view === 'cards'}
           style={toggleButtonStyle(view === 'cards')}
         >
           Cards
+        </button>
+        <button
+          onClick={() => setView('list')}
+          aria-pressed={view === 'list'}
+          style={toggleButtonStyle(view === 'list')}
+        >
+          List
         </button>
       </div>
 
