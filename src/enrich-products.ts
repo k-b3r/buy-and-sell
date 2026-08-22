@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from './logger'
 import { createLogger } from './logger'
 import type { GroqClient } from './groq'
-import { createGroqClient } from './groq'
+import { createGroqClient, createFallbackGroqClient } from './groq'
 import type { DbClient } from './db'
 import { createDbPool, getEnrichmentCandidates, upsertProductEnrichment } from './db'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from './enrichment'
@@ -138,7 +138,10 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
   const logger = createLogger('data/enrich-products.log')
-  const groq = createGroqClient(apiKey, MODEL)
+  const groq = createFallbackGroqClient([
+    createGroqClient(apiKey, MODEL),
+    createGroqClient(apiKey, 'openai/gpt-oss-20b'),
+  ])
   const pool = createDbPool(dbUrl)
 
   try {
