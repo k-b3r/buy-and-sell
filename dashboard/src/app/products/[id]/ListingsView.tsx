@@ -18,6 +18,20 @@ function toggleButtonStyle(active: boolean): CSSProperties {
   }
 }
 
+const soldBadgeStyle: CSSProperties = {
+  display: 'inline-block',
+  marginLeft: 8,
+  padding: '1px 8px',
+  borderRadius: 12,
+  fontSize: '0.75em',
+  background: 'var(--color-text-muted)',
+  color: 'var(--color-bg)',
+}
+
+function SoldBadge() {
+  return <span style={soldBadgeStyle}>Sold</span>
+}
+
 export default function ListingsView({ listings }: { listings: ProductListingSummary[] }) {
   const [view, setView] = useState<View>('list')
 
@@ -61,6 +75,7 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
                 </td>
                 <td>
                   <Link href={`/listings/${l.id}`}>{l.title}</Link>
+                  {l.sold_at && <SoldBadge />}
                 </td>
                 <td>{l.condition ?? '—'}</td>
                 <td className="mono">{l.price_amount !== null ? `₱${l.price_amount.toLocaleString()}` : '—'}</td>
@@ -95,7 +110,10 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
                 ) : null}
               </div>
               <div style={{ padding: 10 }}>
-                <div style={{ fontSize: '0.9em' }}>{l.title}</div>
+                <div style={{ fontSize: '0.9em' }}>
+                  {l.title}
+                  {l.sold_at && <SoldBadge />}
+                </div>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>
                   {l.condition ?? '—'}
                 </div>

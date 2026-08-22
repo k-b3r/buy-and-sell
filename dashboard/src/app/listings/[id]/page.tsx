@@ -19,7 +19,25 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         )}
       </p>
 
-      <h1>{listing.title}</h1>
+      <h1>
+        {listing.title}
+        {listing.sold_at && (
+          <span
+            style={{
+              display: 'inline-block',
+              marginLeft: 12,
+              padding: '2px 10px',
+              borderRadius: 12,
+              fontSize: '0.6em',
+              verticalAlign: 'middle',
+              background: 'var(--color-text-muted)',
+              color: 'var(--color-bg)',
+            }}
+          >
+            Sold
+          </span>
+        )}
+      </h1>
 
       <ListingCarousel photoUrls={listing.photo_urls} title={listing.title} />
 
@@ -45,6 +63,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             <tr>
               <td style={{ color: 'var(--color-text-muted)' }}>Listed</td>
               <td>{new Date(listing.listed_at).toLocaleDateString()}</td>
+            </tr>
+          )}
+          {listing.sold_at && (
+            <tr>
+              <td style={{ color: 'var(--color-text-muted)' }}>Sold</td>
+              <td>{new Date(listing.sold_at).toLocaleDateString()}</td>
             </tr>
           )}
         </tbody>

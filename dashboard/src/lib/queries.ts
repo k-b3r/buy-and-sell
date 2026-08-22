@@ -86,6 +86,7 @@ export interface ProductListingSummary {
   price_amount: number | null
   primary_photo_url: string | null
   condition: string | null
+  sold_at: string | null
 }
 
 export interface ProductEnrichment {
@@ -144,7 +145,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       : null
 
   const listingsResult = await db.query(
-    `SELECT id, title, price_amount, primary_photo_url, condition FROM listings WHERE product_id = $1 ORDER BY title`,
+    `SELECT id, title, price_amount, primary_photo_url, condition, sold_at FROM listings WHERE product_id = $1 ORDER BY title`,
     [productId],
   )
   const listings = (listingsResult.rows as Record<string, unknown>[]).map((r) => ({
@@ -153,6 +154,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     price_amount: toNullableNumber(r.price_amount),
     primary_photo_url: r.primary_photo_url as string | null,
     condition: r.condition as string | null,
+    sold_at: toIsoOrNull(r.sold_at),
   }))
 
   return {
@@ -180,6 +182,7 @@ export interface ListingDetail {
   product_id: number | null
   base_model: string | null
   variant_tier: string | null
+  sold_at: string | null
 }
 
 function toIsoOrNull(value: unknown): string | null {
@@ -191,7 +194,7 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const result = await db.query(
     `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
             l.location_city, l.listed_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
-            p.base_model, p.variant_tier
+            l.sold_at, p.base_model, p.variant_tier
      FROM listings l
      LEFT JOIN products p ON p.id = l.product_id
      WHERE l.id = $1`,
@@ -221,5 +224,6 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     product_id: row.product_id as number | null,
     base_model: row.base_model as string | null,
     variant_tier: row.variant_tier as string | null,
+    sold_at: toIsoOrNull(row.sold_at),
   }
 }

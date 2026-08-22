@@ -146,6 +146,7 @@ test('getProductDetail returns the product, its market price, and its listings',
             price_amount: '15000',
             primary_photo_url: 'https://x/0.jpg',
             condition: 'Used - Like New',
+            sold_at: null,
           },
         ],
       }
@@ -169,9 +170,49 @@ test('getProductDetail returns the product, its market price, and its listings',
         price_amount: 15000,
         primary_photo_url: 'https://x/0.jpg',
         condition: 'Used - Like New',
+        sold_at: null,
       },
     ],
   })
+})
+
+test('getProductDetail marks a listing sold when its sold_at is set', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 1,
+              base_model: 'RTX 3060',
+              variant_tier: null,
+              market_price_low: null,
+              market_price_high: null,
+              market_price_source: null,
+            },
+          ],
+        }
+      }
+      return {
+        rows: [
+          {
+            id: '123',
+            title: 'RTX 3060 OC Asus',
+            price_amount: '15000',
+            primary_photo_url: 'https://x/0.jpg',
+            condition: 'Used - Like New',
+            sold_at: new Date('2026-08-22T00:00:00.000Z'),
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(result?.listings[0].sold_at).toBe('2026-08-22T00:00:00.000Z')
 })
 
 test('getProductDetail includes enrichment when a product_enrichment row exists', async () => {
@@ -277,6 +318,7 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
       product_id: 1,
       base_model: 'RTX 3060',
       variant_tier: null,
+      sold_at: null,
     },
   ])
 
@@ -295,7 +337,33 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
     product_id: 1,
     base_model: 'RTX 3060',
     variant_tier: null,
+    sold_at: null,
   })
+})
+
+test('getListingDetail coerces a Date sold_at to an ISO string', async () => {
+  const db = fakeDb([
+    {
+      id: '123',
+      title: 'RTX 3060 OC Asus',
+      price_amount: null,
+      price_currency: null,
+      description: null,
+      condition: null,
+      location_city: null,
+      listed_at: null,
+      primary_photo_url: null,
+      stored_photo_urls: null,
+      product_id: null,
+      base_model: null,
+      variant_tier: null,
+      sold_at: new Date('2026-08-22T00:00:00.000Z'),
+    },
+  ])
+
+  const result = await getListingDetail(db, '123')
+
+  expect(result?.sold_at).toBe('2026-08-22T00:00:00.000Z')
 })
 
 test('getListingDetail falls back to primary_photo_url when stored_photo_urls is null or empty', async () => {
