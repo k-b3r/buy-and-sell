@@ -6,7 +6,7 @@ import type { ExaClient } from './exa'
 import { createExaClient } from './exa'
 import type { DbClient, NewPriceCandidate } from './db'
 import { createDbPool, getNewPriceCandidates, insertPriceCheck, flagProductPriceLookupExcluded } from './db'
-import { buildNewPriceQuery, NEW_PRICE_SYSTEM_PROMPT, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from './new-price'
+import { buildNewPriceQuery, buildNewPriceSystemPrompt, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from './new-price'
 
 export type DelayFn = (ms: number) => Promise<void>
 const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -30,10 +30,11 @@ export async function runNewPriceLookup(
     const product = products[i]
     const label = product.variant_tier ? `${product.base_model} (${product.variant_tier})` : product.base_model
     const query = buildNewPriceQuery(product.base_model, product.variant_tier)
+    const systemPrompt = buildNewPriceSystemPrompt(product.description, product.sibling_variants)
 
     let content: unknown
     try {
-      content = await exa.searchStructured(query, NEW_PRICE_SYSTEM_PROMPT, NEW_PRICE_OUTPUT_SCHEMA)
+      content = await exa.searchStructured(query, systemPrompt, NEW_PRICE_OUTPUT_SCHEMA)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       logger.error(`product ${product.id} (${label}): Exa request failed (${message}), skipping`)

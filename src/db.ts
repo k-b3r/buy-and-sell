@@ -210,6 +210,8 @@ export interface NewPriceCandidate {
   id: number
   base_model: string
   variant_tier: string | null
+  description: string | null
+  sibling_variants: string[]
 }
 
 // New-retail price is a per-model fact, not tied to condition or how many
@@ -219,11 +221,21 @@ export interface NewPriceCandidate {
 // exa_new_retail) — a product already priced by gemini_grounding or
 // listing_prices doesn't need an Exa call too (each Exa search costs real
 // money, unlike Groq/Gemini's free tiers). Resumable via NOT EXISTS, first-
-// pass fill, not a re-check-every-run trend.
+// pass fill, not a re-check-every-run trend. description/sibling_variants
+// (same LEFT JOIN / sibling-lookup shape as getEnrichmentCandidates) give
+// Exa's search disambiguating context — description may be null if this
+// product hasn't been through enrich-products.ts yet.
 export async function getNewPriceCandidates(db: DbClient): Promise<NewPriceCandidate[]> {
   const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier
+    `SELECT p.id, p.base_model, p.variant_tier, e.description,
+       COALESCE(
+         (SELECT array_agg(DISTINCT COALESCE(p2.variant_tier, '(base, no variant)'))
+          FROM products p2
+          WHERE p2.base_model_normalized = p.base_model_normalized AND p2.id != p.id),
+         ARRAY[]::text[]
+       ) as sibling_variants
      FROM products p
+     LEFT JOIN product_enrichment e ON e.product_id = p.id
      WHERE NOT p.price_lookup_excluded
        AND NOT EXISTS (
          SELECT 1 FROM product_price_history h WHERE h.product_id = p.id

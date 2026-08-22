@@ -1,4 +1,4 @@
-import { buildNewPriceQuery, NEW_PRICE_SYSTEM_PROMPT, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from '../src/new-price'
+import { buildNewPriceQuery, buildNewPriceSystemPrompt, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from '../src/new-price'
 
 test('buildNewPriceQuery includes variant tier when present', () => {
   expect(buildNewPriceQuery('Sony WH-1000XM4', 'Silent White')).toBe(
@@ -10,8 +10,24 @@ test('buildNewPriceQuery omits variant tier when absent', () => {
   expect(buildNewPriceQuery('Sony WH-1000XM4', null)).toBe('Sony WH-1000XM4 brand new retail price Philippines')
 })
 
-test('NEW_PRICE_SYSTEM_PROMPT and NEW_PRICE_OUTPUT_SCHEMA are locked (Exa structured-output request shape)', () => {
-  expect(NEW_PRICE_SYSTEM_PROMPT).toContain('Philippine Peso')
+test('buildNewPriceSystemPrompt has the base instructions with no description or siblings', () => {
+  const prompt = buildNewPriceSystemPrompt(null, [])
+  expect(prompt).toContain('Philippine Peso')
+  expect(prompt).not.toContain('Product context:')
+  expect(prompt).not.toContain('Other tracked variants')
+})
+
+test('buildNewPriceSystemPrompt appends the description as disambiguating context when present', () => {
+  const prompt = buildNewPriceSystemPrompt('A flagship noise-cancelling over-ear headphone from Sony.', [])
+  expect(prompt).toContain('Product context: A flagship noise-cancelling over-ear headphone from Sony.')
+})
+
+test('buildNewPriceSystemPrompt appends sibling variants so the model prices the right one, not a relative', () => {
+  const prompt = buildNewPriceSystemPrompt(null, ['Pro', 'Pro Max', 'Mini'])
+  expect(prompt).toContain('Other tracked variants of this same base model (price the requested one, not these): Pro, Pro Max, Mini')
+})
+
+test('NEW_PRICE_OUTPUT_SCHEMA is locked (Exa structured-output request shape)', () => {
   expect(NEW_PRICE_OUTPUT_SCHEMA).toEqual({
     type: 'object',
     required: ['found'],

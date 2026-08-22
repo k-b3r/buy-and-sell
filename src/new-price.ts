@@ -5,8 +5,25 @@ export function buildNewPriceQuery(baseModel: string, variantTier: string | null
   return `${productName} brand new retail price Philippines`
 }
 
-export const NEW_PRICE_SYSTEM_PROMPT =
+const BASE_SYSTEM_PROMPT =
   'You find current brand-new retail prices in Philippine Peso (PHP) for a consumer product, sold by official retailers or authorized dealers in the Philippines. Prefer official brand sites and known PH electronics retailers. If no reliable new-retail PHP price is found, set found to false and leave price fields null.'
+
+// description (product_enrichment's own generated description) and
+// siblingVariants (other variant_tier values tracked under the same base
+// model, e.g. "Pro"/"Pro Max"/"Mini") disambiguate which exact product is
+// being priced — without this, a generic query like "iPhone 13" risks Exa
+// grounding the price to a sibling variant's listing instead of the one
+// actually requested.
+export function buildNewPriceSystemPrompt(description: string | null, siblingVariants: string[]): string {
+  let prompt = BASE_SYSTEM_PROMPT
+  if (description) {
+    prompt += ` Product context: ${description}`
+  }
+  if (siblingVariants.length > 0) {
+    prompt += ` Other tracked variants of this same base model (price the requested one, not these): ${siblingVariants.join(', ')}`
+  }
+  return prompt
+}
 
 export const NEW_PRICE_OUTPUT_SCHEMA = {
   type: 'object',

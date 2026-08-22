@@ -11,8 +11,17 @@ afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
 
-function fakeExa(content: unknown): ExaClient {
-  return { searchStructured: async () => content }
+function fakeExa(content: unknown): { exa: ExaClient; calls: { query: string; systemPrompt: string }[] } {
+  const calls: { query: string; systemPrompt: string }[] = []
+  return {
+    calls,
+    exa: {
+      searchStructured: async (query: string, systemPrompt: string) => {
+        calls.push({ query, systemPrompt })
+        return content
+      },
+    },
+  }
 }
 
 function fakeDb(): { db: DbClient; inserts: unknown[][] } {
@@ -29,22 +38,27 @@ function fakeDb(): { db: DbClient; inserts: unknown[][] } {
 }
 
 test('inserts a price_history row per product when a real price is found', async () => {
-  const exa = fakeExa({ found: true, price_low: 14499, price_high: 19999 })
+  const { exa, calls } = fakeExa({ found: true, price_low: 14499, price_high: 19999 })
   const { db, inserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
-  const products: NewPriceCandidate[] = [{ id: 2, base_model: 'Sony WH-1000XM4', variant_tier: null }]
+  const products: NewPriceCandidate[] = [
+    { id: 2, base_model: 'Sony WH-1000XM4', variant_tier: null, description: 'A noise-cancelling headphone.', sibling_variants: [] },
+  ]
 
   await runNewPriceLookup(exa, db, logger, products)
 
   expect(inserts).toHaveLength(1)
   expect(inserts[0]).toEqual([2, 14499, 19999, 'PHP', JSON.stringify({ found: true, price_low: 14499, price_high: 19999 }), 'exa_new_retail', 'New'])
+  expect(calls[0].systemPrompt).toContain('Product context: A noise-cancelling headphone.')
 })
 
 test('a product with no reliable price found is logged, flagged price_lookup_excluded, and skipped, no price_history row inserted', async () => {
-  const exa = fakeExa({ found: false })
+  const { exa } = fakeExa({ found: false })
   const { db, inserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
-  const products: NewPriceCandidate[] = [{ id: 5, base_model: 'Obscure Widget', variant_tier: null }]
+  const products: NewPriceCandidate[] = [
+    { id: 5, base_model: 'Obscure Widget', variant_tier: null, description: null, sibling_variants: [] },
+  ]
 
   await runNewPriceLookup(exa, db, logger, products)
 
@@ -65,8 +79,8 @@ test('an Exa request failure for one product is logged and does not stop the run
   const { db, inserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
   const products: NewPriceCandidate[] = [
-    { id: 1, base_model: 'A', variant_tier: null },
-    { id: 2, base_model: 'B', variant_tier: null },
+    { id: 1, base_model: 'A', variant_tier: null, description: null, sibling_variants: [] },
+    { id: 2, base_model: 'B', variant_tier: null, description: null, sibling_variants: [] },
   ]
 
   await runNewPriceLookup(exa, db, logger, products, async () => {})

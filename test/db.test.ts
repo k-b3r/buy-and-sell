@@ -428,6 +428,8 @@ test('getNewPriceCandidates skips a product with a price row from ANY source, no
   expect(calls[0].sql).toContain('product_price_history')
   expect(calls[0].sql).not.toContain('source')
   expect(calls[0].sql).toContain('price_lookup_excluded')
+  expect(calls[0].sql).toContain('LEFT JOIN product_enrichment')
+  expect(calls[0].sql).toContain('sibling_variants')
 })
 
 test('flagPriceLookupExcluded updates products matching any of the given base_model values', async () => {
