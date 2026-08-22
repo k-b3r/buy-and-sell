@@ -13,6 +13,10 @@ import {
   upsertProductEnrichment,
   getPriceReviewCandidates,
   upsertListingPriceReview,
+  getCollectedListingIds,
+  getExtractionCandidates,
+  getBackfillCandidates,
+  markListingPhotosUnavailable,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -471,4 +475,59 @@ test('upsertListingPriceReview stores null price range when no real price could 
   )
 
   expect(calls[0].params).toEqual(['123', false, null, null, 'No price mentioned anywhere in the text.', 'openai/gpt-oss-120b'])
+})
+
+test('getCollectedListingIds returns every listing id as a Set, for dedup during collection', async () => {
+  const db = {
+    query: async (sql: string) => {
+      expect(sql).toBe('SELECT id FROM listings')
+      return { rows: [{ id: '1' }, { id: '2' }] }
+    },
+  }
+
+  const result = await getCollectedListingIds(db)
+
+  expect(result).toBeInstanceOf(Set)
+  expect([...result]).toEqual(['1', '2'])
+})
+
+test('getExtractionCandidates returns pending listings as id/title/description', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: '1', title: 'RTX 3060', description: 'for sale' }] }
+    },
+  }
+
+  const result = await getExtractionCandidates(db)
+
+  expect(calls[0].sql).toContain('WHERE product_id IS NULL')
+  expect(result).toEqual([{ id: '1', title: 'RTX 3060', description: 'for sale' }])
+})
+
+test('getBackfillCandidates returns listings without stored photos, with their raw_json', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const rawListing = { id: '1', marketplace_listing_title: 'Mic' }
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: '1', raw_json: rawListing }] }
+    },
+  }
+
+  const result = await getBackfillCandidates(db)
+
+  expect(calls[0].sql).toContain('WHERE stored_photo_urls IS NULL')
+  expect(result).toEqual([{ id: '1', raw_json: rawListing }])
+})
+
+test('markListingPhotosUnavailable sets stored_photo_urls to an empty array', async () => {
+  const { db, calls } = mockDb()
+
+  await markListingPhotosUnavailable(db, '123')
+
+  expect(calls[0].sql).toMatch(/^UPDATE listings/)
+  expect(calls[0].sql).toContain('stored_photo_urls')
+  expect(calls[0].params).toEqual(['123'])
 })

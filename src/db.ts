@@ -321,3 +321,44 @@ export async function upsertListingPriceReview(
     [listingId, data.isNegotiable, data.priceLow, data.priceHigh, data.reasoning, model],
   )
 }
+
+// Dedup source for collection runs — replaces the old JSONL-file-based
+// loadPersistedIds. Postgres is the single source of truth now; no local
+// file can drift out of sync with it (see CONTEXT.md on removing JSONL).
+export async function getCollectedListingIds(db: DbClient): Promise<Set<string>> {
+  const result = (await db.query('SELECT id FROM listings', [])) as { rows: { id: string }[] }
+  return new Set(result.rows.map((r) => r.id))
+}
+
+export interface ExtractionCandidate {
+  id: string
+  title: string
+  description: string | null
+}
+
+export async function getExtractionCandidates(db: DbClient): Promise<ExtractionCandidate[]> {
+  const result = (await db.query(
+    `SELECT id, title, description FROM listings WHERE product_id IS NULL`,
+    [],
+  )) as { rows: ExtractionCandidate[] }
+  return result.rows
+}
+
+export interface BackfillCandidate {
+  id: string
+  raw_json: Record<string, unknown>
+}
+
+export async function getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]> {
+  const result = (await db.query(
+    `SELECT id, raw_json FROM listings WHERE stored_photo_urls IS NULL`,
+    [],
+  )) as { rows: BackfillCandidate[] }
+  return result.rows
+}
+
+// Reversible: a listing later confirmed still live (via a validation pass)
+// can just be re-run through backfill, which overwrites this with real URLs.
+export async function markListingPhotosUnavailable(db: DbClient, id: string): Promise<void> {
+  await db.query(`UPDATE listings SET stored_photo_urls = '[]'::jsonb WHERE id = $1`, [id])
+}

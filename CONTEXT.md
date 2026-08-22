@@ -54,6 +54,8 @@ Consequence: no access to login-gated surfaces (private Groups, Pages requiring 
 
 Scale check performed: at current real average row size (~7.2KB, raw blob), 1,000 items is negligible (~7MB) but 1,000,000 items would be ~6.75GB — well over any free tier. Free tier is fine for realistic near-term volume (thousands of listings); revisit storage/collection strategy only if approaching hundreds of thousands+ of real rows.
 
+**Superseded (2026-08-22):** `data/listings.jsonl` removed entirely — Postgres is now the sole source of truth, not a dual-write. Real discrepancy found live: the local JSONL file on one machine had 2,332 rows while Postgres (shared, written to by collection running elsewhere too) had 4,006 — `extract-products.ts` was silently working off the stale, smaller local file, missing ~42% of real listings. Two sources of truth drifting apart is exactly the failure mode a single shared DB was supposed to prevent. Changes: `runCollection` (`src/run.ts`) now takes `db: DbClient` as a required param, not optional, and dedup (`getCollectedListingIds`) reads `SELECT id FROM listings` instead of parsing a local file — this also means dedup now works correctly across machines, not just within one. `extract-products.ts` and `backfill.ts` (`src/db.ts`'s `getExtractionCandidates`/`getBackfillCandidates`) read their pending work directly from Postgres. `src/jsonl.ts` and `src/output.ts` deleted; `cli.ts`/`backfill.ts` both now require `DATABASE_URL` (no more JSONL-only fallback mode).
+
 ### Scope (current phase)
 Marketplace public listings only. Groups and Pages buy/sell surfaces are a later phase, revisited once Marketplace-only pipeline works — will need a separate access strategy since no-login can't reach them.
 
@@ -153,7 +155,7 @@ Also found: **grounding quota is pooled by model generation *family*, not per in
 
 **Candidate order:** `ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`. Never-checked listings (the entire first pass) come before any re-check cycle. Within that, oldest by the *seller's actual FB posting date* (`listed_at`, extracted from `creation_time` in the raw payload) goes first — the longer something's been posted, the more likely it's already sold/removed, so this order finds genuinely-stale listings fastest.
 
-**Decoupled from `data/listings.jsonl` entirely** — Postgres-only, never loads or rewrites the JSONL file, so it's safe to run at the same time as `collect` (which only ever appends to that file — the load-then-rewrite-whole-file hazard that affects `extract-products`/`price-from-listings`/`backfill.ts` doesn't apply here since this script never touches JSONL at all). Accepted tradeoff: JSONL rows for hard-deleted listings go stale (Postgres says gone, JSONL still has the row) — acceptable since Postgres is what the dashboard/scoring actually reads; JSONL remains the archival safety net, not treated as needing to stay perfectly current.
+**Postgres-only** (this was already true when written, ahead of the rest of the codebase — see the 2026-08-22 entry under "Storage" above, where every other script caught up and JSONL was removed entirely).
 
 **Runs anywhere** — reuses `launchBrowser({headless, socksProxy})` unchanged, so it works identically whether run locally or on the Hetzner VPS through the SOCKS tunnel, no special-casing needed.
 

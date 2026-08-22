@@ -18,11 +18,9 @@ import { createR2ImageStore, deleteListingPhotos } from './images'
 import { extractDetailFields } from './extract/detail'
 import { resolvePageState } from './run'
 
-// Postgres-only, deliberately decoupled from data/listings.jsonl — this never
-// loads/rewrites the JSONL file, so it's safe to run at the same time as
-// `collect` (which only ever appends to that file). JSONL will end up stale
-// for anything deleted here; accepted tradeoff, Postgres is the source of
-// truth this reads/writes against, JSONL stays the archival safety net.
+// Postgres-only, same as every other script now (see CONTEXT.md on removing
+// the local JSONL file that used to double as a second source of truth) —
+// safe to run at the same time as `collect`, ordinary row-level upserts/deletes.
 export async function runCheckListings(
   driver: PageDriver,
   db: DbClient,

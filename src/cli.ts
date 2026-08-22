@@ -51,12 +51,8 @@ async function main() {
   const driver = createBrowserDriver(page)
 
   const dbUrl = process.env.DATABASE_URL
-  const pool = dbUrl ? createDbPool(dbUrl) : undefined
-  if (pool) {
-    logger.info('database configured, listings will be upserted to Postgres')
-  } else {
-    logger.warn('no DATABASE_URL set, skipping database writes (JSONL only)')
-  }
+  if (!dbUrl) throw new Error('DATABASE_URL not set in .env — Postgres is the collector\'s only persistence now')
+  const pool = createDbPool(dbUrl)
 
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
   const r2Configured = R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_KEY && R2_BUCKET_NAME && R2_PUBLIC_BASE_URL
@@ -84,7 +80,6 @@ async function main() {
       process.stdout,
       {
         query,
-        outputPath: 'data/listings.jsonl',
         softWallTimeoutMs: 5000,
         maxItems,
         daysSinceListed,
@@ -94,7 +89,7 @@ async function main() {
     )
   } finally {
     await close()
-    if (pool) await pool.end()
+    await pool.end()
   }
 }
 

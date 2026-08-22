@@ -3,13 +3,12 @@ import { runProductExtraction } from '../src/extract-products'
 import { createLogger } from '../src/logger'
 import { normalizeVariantTier } from '../src/products'
 import type { GeminiClient } from '../src/gemini'
-import type { DbClient } from '../src/db'
+import type { DbClient, ExtractionCandidate } from '../src/db'
 
 const LOG_PATH = 'test/tmp-extract.log'
-const OUT_PATH = 'test/tmp-extract.jsonl'
 
 afterEach(() => {
-  for (const p of [LOG_PATH, OUT_PATH]) if (existsSync(p)) rmSync(p)
+  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
 
 function fakeGemini(response: unknown): GeminiClient {
@@ -51,21 +50,22 @@ function fakeDbWithCalls(): { db: DbClient; calls: { sql: string; params: unknow
   }
 }
 
-test('assigns product_id to each listing from the batched Gemini response', async () => {
+test('assigns each listing to a product via a single batched UPDATE, keyed by the Gemini response id', async () => {
   const gemini = fakeGemini([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2', base_model: 'iPhone 13' },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060 for sale' },
-    { id: '2', marketplace_listing_title: 'iPhone 13 rush' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060 for sale', description: null },
+    { id: '2', title: 'iPhone 13 rush', description: null },
   ]
+  const { db, calls } = fakeDbWithCalls()
 
-  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
-  expect(result[0].product_id).toBe(1)
-  expect(result[1].product_id).toBe(2)
+  const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
+  expect(updateCall?.params).toEqual(['1', 1, '2', 2])
 })
 
 test('two listings with the same base_model get the same product_id', async () => {
@@ -74,17 +74,19 @@ test('two listings with the same base_model get the same product_id', async () =
     { id: '2', base_model: 'RTX 3060' },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060 for sale' },
-    { id: '2', marketplace_listing_title: 'RTX 3060 OC' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060 for sale', description: null },
+    { id: '2', title: 'RTX 3060 OC', description: null },
   ]
+  const { db, calls } = fakeDbWithCalls()
 
-  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
-  expect(result[0].product_id).toBe(result[1].product_id)
+  const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
+  expect(updateCall?.params).toEqual(['1', 1, '2', 1])
 })
 
-test('listings that already have a product_id are excluded from the batch sent to Gemini', async () => {
+test('candidate list passed in is already the pending set — getExtractionCandidates does the filtering, not this function', async () => {
   let promptedIds: string[] = []
   const gemini: GeminiClient = {
     generateJson: async (prompt: string) => {
@@ -96,12 +98,9 @@ test('listings that already have a product_id are excluded from the batch sent t
     },
   }
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'Already done', product_id: 99 },
-    { id: '2', marketplace_listing_title: 'iPhone 13 rush' },
-  ]
+  const candidates: ExtractionCandidate[] = [{ id: '2', title: 'iPhone 13 rush', description: null }]
 
-  await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 25 })
 
   expect(promptedIds).toEqual(['2'])
 })
@@ -112,13 +111,13 @@ test('batches all product_id assignments from one Gemini batch into a single UPD
     { id: '2', base_model: 'iPhone 13' },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060 for sale' },
-    { id: '2', marketplace_listing_title: 'iPhone 13 rush' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060 for sale', description: null },
+    { id: '2', title: 'iPhone 13 rush', description: null },
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
   const updateCalls = calls.filter((c) => c.sql.startsWith('UPDATE listings'))
   expect(updateCalls).toHaveLength(1)
@@ -133,14 +132,14 @@ test('resolves each distinct base_model only once per run, even across multiple 
     { id: '3', base_model: 'iPhone 13' },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060' },
-    { id: '2', marketplace_listing_title: 'RTX 3060 OC' },
-    { id: '3', marketplace_listing_title: 'iPhone 13' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060', description: null },
+    { id: '2', title: 'RTX 3060 OC', description: null },
+    { id: '3', title: 'iPhone 13', description: null },
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
   // 2 distinct base models, each a SELECT (miss) + INSERT = 4 total product-lookup
   // calls — not 5+, which is what re-resolving the repeated "RTX 3060" would cost.
@@ -154,14 +153,17 @@ test('a listing with a variant guess gets a different product_id than one withou
     { id: '2', base_model: 'RTX 3060' },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060 OC Asus' },
-    { id: '2', marketplace_listing_title: 'RTX 3060' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060 OC Asus', description: null },
+    { id: '2', title: 'RTX 3060', description: null },
   ]
+  const { db, calls } = fakeDbWithCalls()
 
-  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
-  expect(result[0].product_id).not.toBe(result[1].product_id)
+  const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
+  const params = updateCall?.params as [string, number, string, number]
+  expect(params[1]).not.toBe(params[3])
 })
 
 test('an empty string variant is treated as no variant at all', async () => {
@@ -170,14 +172,17 @@ test('an empty string variant is treated as no variant at all', async () => {
     { id: '2', base_model: 'RTX 3060' },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060' },
-    { id: '2', marketplace_listing_title: 'RTX 3060' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060', description: null },
+    { id: '2', title: 'RTX 3060', description: null },
   ]
+  const { db, calls } = fakeDbWithCalls()
 
-  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
-  expect(result[0].product_id).toBe(result[1].product_id)
+  const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
+  const params = updateCall?.params as [string, number, string, number]
+  expect(params[1]).toBe(params[3])
 })
 
 test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spellings of the same edition collapse', async () => {
@@ -187,41 +192,36 @@ test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spe
     { id: '3', base_model: 'RTX 3060', variant: "Founder's edition" },
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060 OC' },
-    { id: '2', marketplace_listing_title: 'RTX 3060 Founders edition' },
-    { id: '3', marketplace_listing_title: "RTX 3060 Founder's edition" },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060 OC', description: null },
+    { id: '2', title: 'RTX 3060 Founders edition', description: null },
+    { id: '3', title: "RTX 3060 Founder's edition", description: null },
   ]
+  const { db, calls } = fakeDbWithCalls()
 
-  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
-  const [oc, foundersEdition, founderSApostropheEdition] = result.map((l) => l.product_id)
-  expect(oc).not.toBe(foundersEdition)
-  expect(foundersEdition).toBe(founderSApostropheEdition)
+  const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
+  const params = updateCall?.params as [string, number, string, number, string, number]
+  expect(params[1]).not.toBe(params[3])
+  expect(params[3]).toBe(params[5])
   expect(normalizeVariantTier('Founders edition')).toBe(normalizeVariantTier("Founder's edition"))
 })
 
 test('waits between batches but not before the first one or after the last one', async () => {
   const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060' },
-    { id: '2', marketplace_listing_title: 'iPhone 13' },
-    { id: '3', marketplace_listing_title: 'Sony WH-1000XM4' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060', description: null },
+    { id: '2', title: 'iPhone 13', description: null },
+    { id: '3', title: 'Sony WH-1000XM4', description: null },
   ]
   const delays: number[] = []
   const fakeDelay = async (ms: number) => {
     delays.push(ms)
   }
 
-  await runProductExtraction(
-    gemini,
-    fakeDb(),
-    logger,
-    listings,
-    { batchSize: 1, outputPath: OUT_PATH, delayMs: 5000 },
-    fakeDelay,
-  )
+  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 1, delayMs: 5000 }, fakeDelay)
 
   expect(delays).toEqual([5000, 5000])
 })
@@ -229,19 +229,13 @@ test('waits between batches but not before the first one or after the last one',
 test('logs batch progress and a cumulative running total as it goes', async () => {
   const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060' },
-    { id: '2', marketplace_listing_title: 'iPhone 13' },
-    { id: '3', marketplace_listing_title: 'Sony WH-1000XM4' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060', description: null },
+    { id: '2', title: 'iPhone 13', description: null },
+    { id: '3', title: 'Sony WH-1000XM4', description: null },
   ]
 
-  await runProductExtraction(
-    gemini,
-    fakeDb(),
-    logger,
-    listings,
-    { batchSize: 1, outputPath: OUT_PATH, delayMs: 0 },
-  )
+  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 1, delayMs: 0 })
 
   const log = readFileSync(LOG_PATH, 'utf-8')
   expect(log).toContain('batch 1/3')
@@ -254,15 +248,15 @@ test('logs a per-batch summary with assigned and skipped counts', async () => {
   const gemini = fakeGemini([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2' }, // missing base_model -> skipped
-    { id: 'not-a-real-listing', base_model: 'Ghost' }, // no matching listing -> skipped
+    { id: 'not-a-real-listing', base_model: 'Ghost' }, // no matching candidate -> skipped
   ])
   const logger = createLogger(LOG_PATH)
-  const listings = [
-    { id: '1', marketplace_listing_title: 'RTX 3060' },
-    { id: '2', marketplace_listing_title: 'Unknown thing' },
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060', description: null },
+    { id: '2', title: 'Unknown thing', description: null },
   ]
 
-  await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 25 })
 
   const log = readFileSync(LOG_PATH, 'utf-8')
   expect(log).toContain('batch 1/1 done: 1 assigned, 2 skipped')
@@ -271,10 +265,30 @@ test('logs a per-batch summary with assigned and skipped counts', async () => {
 test('a malformed batch response is logged and skipped, without crashing the run', async () => {
   const gemini = fakeGemini({ not: 'an array' })
   const logger = createLogger(LOG_PATH)
-  const listings = [{ id: '1', marketplace_listing_title: 'RTX 3060' }]
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
+  const { db, calls } = fakeDbWithCalls()
 
-  const result = await runProductExtraction(gemini, fakeDb(), logger, listings, { batchSize: 25, outputPath: OUT_PATH })
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
-  expect(result[0].product_id).toBeUndefined()
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
+})
+
+test('a null description is sent to Gemini as an empty string, not "null"', async () => {
+  let capturedPrompt = ''
+  const gemini: GeminiClient = {
+    generateJson: async (prompt: string) => {
+      capturedPrompt = prompt
+      return [{ id: '1', base_model: 'RTX 3060' }]
+    },
+    generateGroundedText: async () => {
+      throw new Error('not used by product extraction')
+    },
+  }
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
+
+  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 25 })
+
+  expect(capturedPrompt).toContain('desc: ""')
 })

@@ -1,15 +1,15 @@
 import { Readable, Writable } from 'node:stream'
-import { readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from '../src/driver'
 import type { GridListing } from '../src/extract/grid'
+import type { DbClient } from '../src/db'
 import { runCollection, resolvePageState } from '../src/run'
 import { createLogger } from '../src/logger'
 
-const OUT_PATH = 'test/tmp-run-listings.jsonl'
 const LOG_PATH = 'test/tmp-run.log'
 
 afterEach(() => {
-  for (const p of [OUT_PATH, LOG_PATH]) if (existsSync(p)) rmSync(p)
+  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
 
 function mockInput(...lines: string[]): Readable {
@@ -33,6 +33,27 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
   }
 }
 
+// existingIds simulates listings Postgres already has (from any prior run, any
+// machine) — the dedup source runCollection reads once at the start via
+// getCollectedListingIds. upsertCalls captures every upsertListing call this
+// run makes, in full param-array form (see src/db.ts's upsertListing for the
+// positional layout: [0]=id, [1]=title, [5]=condition, [11]=stored_photo_urls).
+function fakeDb(existingIds: string[] = []): { db: DbClient; upsertCalls: unknown[][] } {
+  const upsertCalls: unknown[][] = []
+  return {
+    upsertCalls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        if (sql === 'SELECT id FROM listings') {
+          return { rows: existingIds.map((id) => ({ id })) }
+        }
+        upsertCalls.push(params)
+        return { rows: [] }
+      },
+    },
+  }
+}
+
 test('passes daysSinceListed through to the driver, defaulting to 30 when unset', async () => {
   const calls: Array<{ query: string; daysSinceListed: number }> = []
   const driver = makeDriver({
@@ -44,15 +65,13 @@ test('passes daysSinceListed through to the driver, defaulting to 30 when unset'
 
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
-  })
+  }, fakeDb().db)
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
     daysSinceListed: 7,
-  })
+  }, fakeDb().db)
 
   expect(calls).toEqual([
     { query: 'headphones', daysSinceListed: 30 },
@@ -61,16 +80,6 @@ test('passes daysSinceListed through to the driver, defaulting to 30 when unset'
 })
 
 test('approved item gets saved, then loop advances to next item', async () => {
-  const grid: GridListing[] = [
-    { id: '1', marketplace_listing_title: 'Mic A' },
-    { id: '2', marketplace_listing_title: 'Mic B' },
-  ]
-  const driver = makeDriver({
-    getGridHtml: async () =>
-      `<script type="application/json"><![CDATA[]]></script>`, // overridden below via monkeypatch
-  })
-  // Simplify: directly stub extractGridListings behavior by controlling getGridHtml + getDetailHtml content
-  // using real fixture-shaped JSON so extractGridListings/extractDetailFields parse it for real.
   const gridHtml = `<script type="application/json">{"results":[
     {"id":"1","marketplace_listing_title":"Mic A"},
     {"id":"2","marketplace_listing_title":"Mic B"}
@@ -86,19 +95,15 @@ test('approved item gets saved, then loop advances to next item', async () => {
   })
 
   const logger = createLogger(LOG_PATH)
-  await runCollection(
-    finalDriver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-  )
+  const { db, upsertCalls } = fakeDb()
+  await runCollection(finalDriver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    softWallTimeoutMs: 100,
+  }, db)
 
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved).toHaveLength(2)
-  expect(saved[0].id).toBe('1')
-  expect(saved[1].id).toBe('2')
+  expect(upsertCalls).toHaveLength(2)
+  expect(upsertCalls[0][0]).toBe('1')
+  expect(upsertCalls[1][0]).toBe('2')
 })
 
 test('"stop" decision ends the run without processing remaining items', async () => {
@@ -113,17 +118,14 @@ test('"stop" decision ends the run without processing remaining items', async ()
     getDetailHtml: async () => detailHtml,
   })
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
 
-  await runCollection(
-    driver,
-    logger,
-    async () => 'stop',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-  )
+  await runCollection(driver, logger, async () => 'stop', mockInput(), silentOutput(), {
+    query: 'headphones',
+    softWallTimeoutMs: 100,
+  }, db)
 
-  expect(existsSync(OUT_PATH)).toBe(false)
+  expect(upsertCalls).toHaveLength(0)
 })
 
 test('hard-block page state fails closed and stops the run', async () => {
@@ -137,17 +139,14 @@ test('hard-block page state fails closed and stops the run', async () => {
     getDetailHtml: async () => hardBlockDetailHtml,
   })
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
 
-  await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-  )
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    softWallTimeoutMs: 100,
+  }, db)
 
-  expect(existsSync(OUT_PATH)).toBe(false)
+  expect(upsertCalls).toHaveLength(0)
   const logText = readFileSync(LOG_PATH, 'utf-8')
   expect(logText).toContain('[ERROR]')
 })
@@ -180,7 +179,7 @@ test('soft-wall on detail page recovers via refresh and extracts post-refresh co
     {"id":"1","marketplace_listing_title":"Mic A"}
   ]}</script>`
   const softWallHtml = `<div class="login_form">You must log in to continue</div>`
-  const realDetailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"Real Mic","condition":"Used"}</script>`
+  const realDetailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"Real Mic"}</script>`
 
   let refreshCalled = false
   let detailCallIndex = 0
@@ -194,23 +193,18 @@ test('soft-wall on detail page recovers via refresh and extracts post-refresh co
     },
   })
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
 
-  await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 10 },
-  )
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    softWallTimeoutMs: 10,
+  }, db)
 
   expect(refreshCalled).toBe(true)
   expect(detailCallIndex).toBe(2)
-
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved).toHaveLength(1)
-  expect(saved[0].marketplace_listing_title).toBe('Real Mic')
-  expect(saved[0].condition).toBe('Used')
+  expect(upsertCalls).toHaveLength(1)
+  expect(upsertCalls[0][0]).toBe('1')
+  expect(upsertCalls[0][1]).toBe('Real Mic')
 })
 
 test('paginates for more items when maxItems exceeds first batch, deduping by id', async () => {
@@ -243,31 +237,28 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
     fetchNextPage: async () => paginationResponse,
   }
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
 
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
     maxItems: 2,
-  })
+  }, db)
 
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved.map((s) => s.id)).toEqual(['1', '2'])
+  expect(upsertCalls.map((c) => c[0])).toEqual(['1', '2'])
 })
 
 test('clamps to the hard 1000-item limit even when maxItems requests more', async () => {
   const gridHtml = `<script type="application/json">{"results":[{"id":"grid-1","marketplace_listing_title":"Mic"}]}</script>
 <script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
 <script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
-  const detailHtml = (id: string) =>
-    `<script type="application/json">{"id":"${id}","marketplace_listing_title":"Mic"}</script>`
 
   let pageNum = 0
   const driver: PageDriver = {
     gotoSearch: async () => {},
     getGridHtml: async () => gridHtml,
     openListing: async () => {},
-    getDetailHtml: async () => detailHtml('grid-1'),
+    getDetailHtml: async () => `<script type="application/json">{"id":"grid-1","marketplace_listing_title":"Mic"}</script>`,
     refresh: async () => {},
     waitRandom: async () => {},
     fetchNextPage: async () => {
@@ -288,16 +279,15 @@ test('clamps to the hard 1000-item limit even when maxItems requests more', asyn
     },
   }
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
 
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
     maxItems: 2000,
-  })
+  }, db)
 
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved).toHaveLength(1000)
+  expect(upsertCalls).toHaveLength(1000)
   const logText = readFileSync(LOG_PATH, 'utf-8')
   expect(logText).toContain('exceeds hard limit')
 })
@@ -345,22 +335,19 @@ test('tolerates an empty pagination page and recovers real items from the next o
     fetchNextPage: async () => paginationResponses[paginationCallIndex++],
   }
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
 
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
     maxItems: 2,
-  })
+  }, db)
 
   expect(paginationCallIndex).toBe(2)
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved.map((s) => s.id)).toEqual(['1', '2'])
+  expect(upsertCalls.map((c) => c[0])).toEqual(['1', '2'])
 })
 
-test('skips listings already present in the output file from a prior run', async () => {
-  writeFileSync(OUT_PATH, JSON.stringify({ id: '1', marketplace_listing_title: 'Mic A' }) + '\n')
-
+test('skips listings Postgres already has from a prior run', async () => {
   const gridHtml = `<script type="application/json">{"results":[
     {"id":"1","marketplace_listing_title":"Mic A"},
     {"id":"2","marketplace_listing_title":"Mic B"}
@@ -383,23 +370,18 @@ test('skips listings already present in the output file from a prior run', async
     fetchNextPage: async () => '{}',
   }
   const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb(['1'])
 
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
-  })
+  }, db)
 
   expect(openedIds).toEqual(['2'])
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved.map((s) => s.id)).toEqual(['1', '2'])
+  expect(upsertCalls.map((c) => c[0])).toEqual(['2'])
 })
 
 test('resuming after a crash processes a fresh maxItems budget of new items, on top of what is already saved', async () => {
-  // Simulate a prior run that already saved 2 listings before crashing.
-  const priorLines = ['1', '2'].map((id) => JSON.stringify({ id, marketplace_listing_title: 'Mic' }))
-  writeFileSync(OUT_PATH, priorLines.join('\n') + '\n')
-
   const gridHtml = `<script type="application/json">{"results":[
     {"id":"1","marketplace_listing_title":"Mic A"},
     {"id":"2","marketplace_listing_title":"Mic B"},
@@ -425,20 +407,20 @@ test('resuming after a crash processes a fresh maxItems budget of new items, on 
     fetchNextPage: async () => '{}',
   }
   const logger = createLogger(LOG_PATH)
+  // Simulate a prior run that already saved listings 1 and 2 before crashing.
+  const { db, upsertCalls } = fakeDb(['1', '2'])
 
   // maxItems is a per-run budget of NEW items, not a lifetime total: 1 and 2 are
   // already saved and get skipped via dedup regardless, then 3 more new ones
   // (3, 4, 5) get processed to fill the budget.
   await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
     query: 'headphones',
-    outputPath: OUT_PATH,
     softWallTimeoutMs: 100,
     maxItems: 3,
-  })
+  }, db)
 
   expect(openedIds).toEqual(['3', '4', '5'])
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
-  expect(saved.map((s) => s.id)).toEqual(['1', '2', '3', '4', '5'])
+  expect(upsertCalls.map((c) => c[0])).toEqual(['3', '4', '5'])
 })
 
 test('when an image store is provided, downloads and re-hosts the photo carousel before saving', async () => {
@@ -466,19 +448,20 @@ test('when an image store is provided, downloads and re-hosts the photo carousel
   global.fetch = (async () =>
     new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } })) as typeof fetch
 
+  const { db, upsertCalls } = fakeDb()
   await runCollection(
     driver,
     logger,
     async () => 'approve',
     mockInput(),
     silentOutput(),
-    { query: 'headphones', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-    undefined,
+    { query: 'headphones', softWallTimeoutMs: 100 },
+    db,
     imageStore,
   )
   global.fetch = originalFetch
 
   expect(puts).toEqual(['listings/1/0.jpg'])
-  const saved = JSON.parse(readFileSync(OUT_PATH, 'utf-8').trim())
-  expect(saved.stored_photo_urls).toEqual(['https://images.example.com/listings/1/0.jpg'])
+  const storedPhotoUrls = upsertCalls[0][11] as string
+  expect(JSON.parse(storedPhotoUrls)).toEqual(['https://images.example.com/listings/1/0.jpg'])
 })

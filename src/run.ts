@@ -1,14 +1,13 @@
-import { writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { Logger } from './logger'
 import type { ReviewDecision } from './review'
 import { detectPageState } from './wall'
 import { extractGridListings, looksLikeListing } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
-import { appendApprovedListing } from './output'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 import type { DbClient } from './db'
-import { upsertListing } from './db'
+import { upsertListing, getCollectedListingIds } from './db'
 import type { ImageStore } from './images'
 import { storeListingPhotos } from './images'
 
@@ -17,24 +16,8 @@ function dumpDebugHtml(html: string): void {
   writeFileSync(path, html)
 }
 
-function loadPersistedIds(outputPath: string): Set<string> {
-  if (!existsSync(outputPath)) return new Set()
-  const ids = new Set<string>()
-  for (const line of readFileSync(outputPath, 'utf-8').split('\n')) {
-    if (!line.trim()) continue
-    try {
-      const obj = JSON.parse(line)
-      if (typeof obj.id === 'string') ids.add(obj.id)
-    } catch {
-      // skip malformed lines rather than fail the whole run over one bad row
-    }
-  }
-  return ids
-}
-
 export interface RunOptions {
   query: string
-  outputPath: string
   softWallTimeoutMs: number
   maxItems?: number
   daysSinceListed?: number
@@ -90,7 +73,7 @@ export async function runCollection(
   input: NodeJS.ReadableStream,
   output: NodeJS.WritableStream,
   options: RunOptions,
-  db?: DbClient,
+  db: DbClient,
   imageStore?: ImageStore,
 ): Promise<void> {
   const daysSinceListed = options.daysSinceListed ?? 30
@@ -106,7 +89,7 @@ export async function runCollection(
   )
   if (gridResult.status === 'stop') return
 
-  const persistedIds = loadPersistedIds(options.outputPath)
+  const persistedIds = await getCollectedListingIds(db)
   const seen = new Set<string>(persistedIds)
   const rawGridListings = extractGridListings(gridResult.html)
   const alreadyCollected = rawGridListings.filter((l) => persistedIds.has(l.id)).length
@@ -124,9 +107,9 @@ export async function runCollection(
     logger.warn(`requested maxItems ${options.maxItems} exceeds hard limit ${HARD_MAX_ITEMS}, clamping`)
   }
   // maxItems is new-items-to-collect-this-run, not a lifetime total. Already-saved
-  // IDs (from any prior run, any query) are skipped via dedup above regardless, so
-  // re-running the same command after a crash naturally continues rather than
-  // re-fetching what's already in the output file.
+  // IDs (from any prior run, any query, any machine — Postgres is shared) are
+  // skipped via dedup above regardless, so re-running the same command after a
+  // crash naturally continues rather than re-processing what's already saved.
   const maxItems = options.maxItems !== undefined ? Math.min(options.maxItems, HARD_MAX_ITEMS) : firstBatch.length
   if (firstBatch.length > maxItems) {
     firstBatch.length = maxItems
@@ -165,10 +148,7 @@ export async function runCollection(
             merged.stored_photo_urls = photoUrls
           }
         }
-        appendApprovedListing(options.outputPath, merged)
-        if (db) {
-          await upsertListing(db, merged)
-        }
+        await upsertListing(db, merged)
         logger.info(`saved listing ${merged.id}`)
       } else {
         logger.info(`rejected listing ${merged.id}`)

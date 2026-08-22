@@ -1,20 +1,17 @@
 import { existsSync } from 'node:fs'
 import { launchBrowser, createBrowserDriver } from './browser'
 import { createLogger } from './logger'
-import { createDbPool, upsertListing } from './db'
+import { createDbPool, upsertListing, getBackfillCandidates, markListingPhotosUnavailable } from './db'
 import { createR2ImageStore, storeListingPhotos } from './images'
 import { extractDetailFields } from './extract/detail'
 import { resolvePageState } from './run'
-import { loadListings, saveListings } from './jsonl'
-
-const OUTPUT_PATH = 'data/listings.jsonl'
 
 // One-off backfill for listings collected before the listing_photos extraction
 // fix and R2 image storage existed. Re-visits each listing live (paced like a
 // normal collection run) to pick up the full photo carousel now that it can
-// actually be extracted, and re-hosts it to R2. Resumable: progress is written
-// after every listing, and already-backfilled listings (stored_photo_urls
-// already set) are skipped on the next run.
+// actually be extracted, and re-hosts it to R2. Resumable: Postgres is the
+// only source of truth (see CONTEXT.md on removing JSONL) — a listing's
+// stored_photo_urls being non-null on the row itself is what marks it done.
 async function main() {
   if (existsSync('.env')) {
     process.loadEnvFile('.env')
@@ -50,19 +47,12 @@ async function main() {
   })
 
   const dbUrl = process.env.DATABASE_URL
-  const pool = dbUrl ? createDbPool(dbUrl) : undefined
-  if (pool) {
-    logger.info('database configured, backfilled listings will be upserted to Postgres')
-  } else {
-    logger.warn('no DATABASE_URL set, skipping database writes (JSONL only)')
-  }
+  if (!dbUrl) throw new Error('DATABASE_URL not set in .env — backfill requires Postgres')
+  const pool = createDbPool(dbUrl)
 
-  const listings = loadListings(OUTPUT_PATH)
-  const pending = listings.filter((l) => !l.stored_photo_urls)
+  const pending = await getBackfillCandidates(pool)
   const todo = limit !== undefined ? pending.slice(0, limit) : pending
-  logger.info(
-    `${listings.length} total listings, ${pending.length} pending photo backfill, processing ${todo.length} this run`,
-  )
+  logger.info(`${pending.length} pending photo backfill, processing ${todo.length} this run`)
 
   const { page, close } = await launchBrowser({ headless: !headed })
   const driver = createBrowserDriver(page)
@@ -81,8 +71,8 @@ async function main() {
   let softWallSkipCount = 0
 
   try {
-    for (const listing of todo) {
-      const id = String(listing.id)
+    for (const candidate of todo) {
+      const id = candidate.id
       await driver.waitRandom(4000, 10000)
       logger.info(`opening listing ${id}`)
       await driver.openListing({ id })
@@ -101,11 +91,9 @@ async function main() {
             `soft-wall persisted for listing ${id} (likely removed/unavailable), marking as no-photos-available ` +
               `and skipping (${softWallSkipCount} skipped so far this run)`,
           )
-          // Reversible: delete the empty array and rerun if a listing is
-          // later confirmed (via a validation pass) to still be live.
-          const idx = listings.findIndex((l) => String(l.id) === id)
-          if (idx !== -1) listings[idx] = { ...listing, stored_photo_urls: [] }
-          saveListings(OUTPUT_PATH, listings)
+          // Reversible: a listing later confirmed still live (via a validation
+          // pass) can just be re-run through backfill, which overwrites this.
+          await markListingPhotosUnavailable(pool, id)
           continue
         }
         logger.error(`stopping backfill at listing ${id}`)
@@ -115,20 +103,14 @@ async function main() {
       const detail = extractDetailFields(result.html)
       const photoUrls = await storeListingPhotos(imageStore, logger, id, detail.listing_photos)
 
-      const merged = { ...listing, ...detail, stored_photo_urls: photoUrls }
-      const idx = listings.findIndex((l) => String(l.id) === id)
-      if (idx !== -1) listings[idx] = merged
-      saveListings(OUTPUT_PATH, listings)
-
-      if (pool) {
-        await upsertListing(pool, merged)
-      }
+      const merged = { ...candidate.raw_json, ...detail, stored_photo_urls: photoUrls }
+      await upsertListing(pool, merged)
 
       logger.info(`saved ${photoUrls.length} photos for listing ${id}`)
     }
   } finally {
     if (!headed) await close()
-    if (pool) await pool.end()
+    await pool.end()
   }
 
   logger.info(`backfill complete (${softWallSkipCount} listings skipped as likely unavailable, marked for later validation)`)
