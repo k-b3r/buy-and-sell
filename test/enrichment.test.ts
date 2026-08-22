@@ -21,6 +21,17 @@ test('buildEnrichmentPrompt includes each product id/label, and sibling variants
   expect(prompt).not.toContain('RTX 2060 —')
 })
 
+test('buildEnrichmentPrompt instructs the model to omit entirely-unrecognized products rather than fabricate a description', () => {
+  const products: EnrichmentCandidate[] = [
+    { id: 1, base_model: 'Obscure Local Brand Widget', variant_tier: null, sibling_variants: [] },
+  ]
+
+  const prompt = buildEnrichmentPrompt(products)
+
+  expect(prompt).toContain('omit it from the results array entirely')
+  expect(prompt).toContain('do not fabricate')
+})
+
 test('ENRICHMENT_RESPONSE_SCHEMA requires a results array with all six fields per item', () => {
   expect(ENRICHMENT_RESPONSE_SCHEMA.type).toBe('object')
   expect(ENRICHMENT_RESPONSE_SCHEMA.required).toEqual(['results'])

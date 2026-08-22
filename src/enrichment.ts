@@ -16,7 +16,8 @@ function formatProductLine(p: EnrichmentCandidate): string {
 
 export function buildEnrichmentPrompt(products: EnrichmentCandidate[]): string {
   const lines = products.map(formatProductLine).join('\n')
-  return `For each product below (identified by base model / variant), provide:
+  return `For each product below (identified by base model / variant) that you actually
+recognize, provide:
 - description: a concise description of what this product is (2-3 sentences)
 - value_drivers: what affects this specific product's resale value - condition
   factors, common defects/wear points, meaningful spec or variant differences, what
@@ -30,9 +31,11 @@ export function buildEnrichmentPrompt(products: EnrichmentCandidate[]): string {
   your best estimate of the typical secondhand price range in PHP (Philippines) as
   of your training data; null otherwise
 
-Do not search - answer only from what you already know. If you don't recognize this
-specific product or have no confident price knowledge, set has_trained_price_knowledge
-to false and leave the price fields null - do not guess.
+Do not search - answer only from what you already know. If you do not recognize a
+product at all (the name doesn't correspond to anything you actually know), omit it from the results array entirely - do not fabricate a description for a
+product you don't actually know. If you recognize the product itself but have no
+confident price knowledge, still include it, with has_trained_price_knowledge set
+to false and the price fields null.
 
 Products:
 ${lines}`
