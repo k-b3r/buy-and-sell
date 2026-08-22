@@ -18,6 +18,7 @@ import {
   getBackfillCandidates,
   markListingPhotosUnavailable,
   getNewPriceCandidates,
+  flagPriceLookupExcluded,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -424,6 +425,16 @@ test('getNewPriceCandidates skips a product with a price row from ANY source, no
   expect(calls[0].sql).toContain('NOT EXISTS')
   expect(calls[0].sql).toContain('product_price_history')
   expect(calls[0].sql).not.toContain('source')
+  expect(calls[0].sql).toContain('price_lookup_excluded')
+})
+
+test('flagPriceLookupExcluded updates products matching any of the given base_model values', async () => {
+  const { db, calls } = mockDb()
+
+  await flagPriceLookupExcluded(db, ['Condo', 'House and Lot'], 'real_estate')
+
+  expect(calls[0].sql).toMatch(/^UPDATE products SET price_lookup_excluded = true/)
+  expect(calls[0].params).toEqual(['real_estate', ['Condo', 'House and Lot']])
 })
 
 test('getPriceReviewCandidates returns listings whose price is a magnitude outlier vs their product median, not yet reviewed', async () => {

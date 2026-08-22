@@ -224,13 +224,24 @@ export async function getNewPriceCandidates(db: DbClient): Promise<NewPriceCandi
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier
      FROM products p
-     WHERE NOT EXISTS (
-       SELECT 1 FROM product_price_history h WHERE h.product_id = p.id
-     )
+     WHERE NOT p.price_lookup_excluded
+       AND NOT EXISTS (
+         SELECT 1 FROM product_price_history h WHERE h.product_id = p.id
+       )
      ORDER BY p.id`,
     [],
   )) as { rows: NewPriceCandidate[] }
   return result.rows
+}
+
+// Manually curated categories (real estate, bare placeholders, parts with no
+// single fixed price, services) — see db/schema.sql. Idempotent: matches on
+// base_model text, safe to re-run as more junk categories turn up over time.
+export async function flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void> {
+  await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE base_model = ANY($2)`, [
+    reason,
+    baseModels,
+  ])
 }
 
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {

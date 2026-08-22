@@ -139,3 +139,12 @@ CREATE TABLE IF NOT EXISTS listing_price_review (
   model TEXT NOT NULL,
   checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Some base_model values aren't real, priceable products (real estate, bare
+-- category placeholders like "GPU"/"Item", parts/accessories with no single
+-- fixed retail price, services). "New-retail price" is a meaningless concept
+-- for these — both new-price-lookup.ts (Exa, costs real money per call) and
+-- price-lookup.ts (Gemini grounding, burns quota) skip anything flagged here.
+-- Manually curated (src/flag-price-ineligible.ts), not auto-classified.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded_reason TEXT;

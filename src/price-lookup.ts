@@ -22,6 +22,7 @@ export async function getPriceLookupCandidates(db: DbClient): Promise<PriceLooku
     `SELECT p.id, p.base_model, p.variant_tier
      FROM products p
      JOIN listings l ON l.product_id = p.id
+     WHERE NOT p.price_lookup_excluded
      GROUP BY p.id, p.base_model, p.variant_tier
      HAVING count(l.id) >= 2
      ORDER BY count(l.id) DESC`,
