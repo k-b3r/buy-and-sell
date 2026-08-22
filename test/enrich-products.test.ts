@@ -178,12 +178,14 @@ test('an item whose id has no matching candidate in the batch is logged and skip
   expect(logContents).toContain('999')
 })
 
-test('groq.generateJson throwing (e.g. daily token cap hit, or malformed JSON) is logged and stops the run cleanly, without further batch calls', async () => {
+test('a real 429 quota error is not retried — logged and stops the run cleanly on the first hit', async () => {
   let callCount = 0
   const groq: GroqClient = {
     generateJson: async () => {
       callCount += 1
-      throw new Error('rate_limit_exceeded: daily token limit reached')
+      const err = new Error('rate_limit_exceeded: daily token limit reached') as Error & { status: number }
+      err.status = 429
+      throw err
     },
   }
   const { db, upserts } = fakeDb()
@@ -202,4 +204,47 @@ test('groq.generateJson throwing (e.g. daily token cap hit, or malformed JSON) i
   const logContents = readFileSync(LOG_PATH, 'utf-8')
   expect(logContents).toContain('[ERROR]')
   expect(logContents).toContain('rate_limit_exceeded')
+})
+
+test('a non-quota Groq error (e.g. the occasional 400 structural glitch) is retried and can still succeed', async () => {
+  let callCount = 0
+  const groq: GroqClient = {
+    generateJson: async () => {
+      callCount += 1
+      if (callCount < 2) throw new Error('400 json_validate_failed: unexpected nesting')
+      return { results: [{ id: '1', description: 'x', value_drivers: 'y', has_trained_price_knowledge: false, trained_price_low: null, trained_price_high: null }] }
+    },
+  }
+  const { db, upserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const candidates: EnrichmentCandidate[] = [{ id: 1, base_model: 'RTX 3060', variant_tier: null, sibling_variants: [] }]
+  const delays: number[] = []
+
+  await runProductEnrichment(groq, db, logger, candidates, async (ms) => {
+    delays.push(ms)
+  })
+
+  expect(callCount).toBe(2)
+  expect(upserts).toHaveLength(1)
+  expect(delays).toEqual([3000])
+})
+
+test('a persistent non-quota Groq error gives up after 3 attempts, logged, stops the run cleanly', async () => {
+  let callCount = 0
+  const groq: GroqClient = {
+    generateJson: async () => {
+      callCount += 1
+      throw new Error('400 json_validate_failed: unexpected nesting')
+    },
+  }
+  const { db, upserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const candidates: EnrichmentCandidate[] = [{ id: 1, base_model: 'RTX 3060', variant_tier: null, sibling_variants: [] }]
+
+  await runProductEnrichment(groq, db, logger, candidates, async () => {})
+
+  expect(callCount).toBe(3)
+  expect(upserts).toHaveLength(0)
+  const logContents = readFileSync(LOG_PATH, 'utf-8')
+  expect(logContents).toContain('[ERROR]')
 })

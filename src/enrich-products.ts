@@ -21,6 +21,18 @@ import type { EnrichmentCandidate } from './enrichment'
 const BATCH_SIZE = 20
 const MODEL = 'openai/gpt-oss-120b'
 
+export type DelayFn = (ms: number) => Promise<void>
+const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// gpt-oss-120b occasionally (non-deterministically) wraps the array as
+// {"results":{"items":[...]}} instead of {"results":[...]} — confirmed live
+// (2026-08-22): replaying the exact same failing batch, attempt 1 and 2
+// succeeded, attempt 3 failed this way. Worth a few retries. A real 429 quota
+// error is different — retrying just burns more of an already-exhausted
+// budget for nothing, so it's excluded and fails on the first hit.
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 3000
+
 interface RawEnrichmentItem {
   id?: unknown
   description?: unknown
@@ -35,6 +47,7 @@ export async function runProductEnrichment(
   db: DbClient,
   logger: Logger,
   candidates: EnrichmentCandidate[],
+  delay: DelayFn = realDelay,
 ): Promise<void> {
   logger.info(`${candidates.length} products to enrich`)
 
@@ -48,14 +61,30 @@ export async function runProductEnrichment(
     // clean stop, not an uncaught throw that silently truncates the log and kills
     // the process (see src/price-lookup.ts's generateGroundedTextWithRetry for the
     // same "don't let this class of error crash uncaught" precedent).
-    let raw: { results?: unknown }
-    try {
-      raw = (await groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA)) as { results?: unknown }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      logger.error(`batch starting at ${i}: Groq request failed (${message}), stopping run`)
-      break
+    let raw: { results?: unknown } | undefined
+    let fatal = false
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        raw = (await groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA)) as { results?: unknown }
+        break
+      } catch (err) {
+        const status = (err as { status?: unknown }).status
+        const message = err instanceof Error ? err.message : String(err)
+        if (status === 429) {
+          logger.error(`batch starting at ${i}: Groq quota exhausted (${message}), stopping run`)
+          fatal = true
+          break
+        }
+        if (attempt === MAX_ATTEMPTS) {
+          logger.error(`batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`)
+          fatal = true
+          break
+        }
+        logger.warn(`batch starting at ${i}: Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message})`)
+        await delay(RETRY_DELAY_MS)
+      }
     }
+    if (fatal) break
 
     if (!raw || !Array.isArray(raw.results)) {
       logger.error(`batch starting at ${i}: unexpected response shape (no results array), skipping batch`)
