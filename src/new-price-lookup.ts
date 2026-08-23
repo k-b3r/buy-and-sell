@@ -92,7 +92,7 @@ async function main() {
   // Each search costs real money (~$0.007) unlike Groq/Gemini's free tiers —
   // an optional limit lets a run be capped to a small batch instead of
   // spending against the entire candidate backlog at once.
-  const limitArg = process.argv[2]
+  const limitArg = process.argv.slice(2).filter((arg) => arg !== '--')[0]
   let limit: number | undefined
   if (limitArg !== undefined) {
     const parsed = Number(limitArg)
