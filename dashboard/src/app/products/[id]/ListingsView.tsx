@@ -187,7 +187,7 @@ export default function ListingsView({
   const [view, setView] = useState<View>('cards')
   const [sortKey, setSortKey] = useState<SortKey>('discount_desc')
   const [listedWithinDays, setListedWithinDays] = useState(0)
-  const [hideSold, setHideSold] = useState(false)
+  const [hideSold, setHideSold] = useState(true)
   const [negotiableOnly, setNegotiableOnly] = useState(false)
   const [selectedBand, setSelectedBand] = useState<number | null>(null)
 
