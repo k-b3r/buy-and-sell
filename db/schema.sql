@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS listings (
 
 CREATE INDEX IF NOT EXISTS listings_title_idx ON listings USING gin (to_tsvector('english', coalesce(title, '')));
 CREATE INDEX IF NOT EXISTS listings_listed_at_idx ON listings (listed_at);
+-- Every product-scoped listings lookup (discount summary lateral, product
+-- detail page, the base products-list JOIN) filters on this — without it,
+-- getProductSummaries seq-scans all listings per product row. Confirmed live
+-- 2026-08-23: adding this took the products-list query from ~2.9s to ~0.17s.
+CREATE INDEX IF NOT EXISTS listings_product_id_idx ON listings (product_id);
 
 -- Migration for tables created before stored_photo_urls existed (safe to re-run).
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS stored_photo_urls JSONB;
