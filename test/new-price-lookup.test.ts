@@ -61,6 +61,30 @@ test('inserts a price_history row (with confidence) per product when a real pric
   expect(calls[0].systemPrompt).toContain('Product context: A noise-cancelling headphone.')
 })
 
+test('a low-confidence price is not inserted — flagged price_lookup_excluded with a distinct reason instead of trusted', async () => {
+  const response = {
+    output: {
+      content: { found: true, price_low: 5000, price_high: 999999 },
+      grounding: [
+        { field: 'price_low', confidence: 'high' },
+        { field: 'price_high', confidence: 'low' },
+      ],
+    },
+  }
+  const { exa } = fakeExa(response)
+  const { db, inserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const products: NewPriceCandidate[] = [
+    { id: 9, base_model: 'Sketchy Gadget', variant_tier: null, description: null, sibling_variants: [] },
+  ]
+
+  await runNewPriceLookup(exa, db, logger, products)
+
+  expect(inserts).toHaveLength(1)
+  expect(inserts[0]).toEqual(['exa_low_confidence', 9])
+  expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
+})
+
 test('a product with no reliable price found is logged, flagged price_lookup_excluded, and skipped, no price_history row inserted', async () => {
   const { exa } = fakeExa({ output: { content: { found: false } } })
   const { db, inserts } = fakeDb()

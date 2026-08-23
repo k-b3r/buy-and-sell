@@ -59,10 +59,20 @@ export async function runNewPriceLookup(
       continue
     }
 
+    const confidence = extractNewPriceConfidence(response)
+    if (confidence === 'low') {
+      // A real price was returned, but Exa itself isn't confident in it —
+      // don't let a shaky number masquerade as trusted data. Flagged with a
+      // distinct reason from exa_no_result (a genuine "unpriceable" signal)
+      // since this is "we got an answer, just not one worth trusting."
+      await flagProductPriceLookupExcluded(db, product.id, 'exa_low_confidence')
+      logger.warn(`product ${product.id} (${label}): price found but low confidence, flagged and skipping`)
+      continue
+    }
+
     // Store the full response (results, grounding/citations, costDollars),
     // not just the parsed price — free extra value for later enrichment/
     // analysis since we already paid for the search.
-    const confidence = extractNewPriceConfidence(response)
     await insertPriceCheck(db, product.id, price, JSON.stringify(response), 'exa_new_retail', 'New', confidence)
     logger.info(`product ${product.id} (${label}): ${price.low}-${price.high} ${price.currency} (confidence: ${confidence ?? 'unknown'})`)
   }
