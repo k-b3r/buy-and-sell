@@ -4,6 +4,7 @@ import {
   NEW_PRICE_OUTPUT_SCHEMA,
   parseNewPriceContent,
   extractNewPriceConfidence,
+  extractNewPriceMetadata,
 } from '../src/new-price'
 
 test('buildNewPriceQuery includes variant tier when present', () => {
@@ -28,6 +29,11 @@ test('buildNewPriceSystemPrompt explicitly instructs against promo/sale pricing'
   expect(prompt).toMatch(/standard.*(not|excluding).*promo/i)
 })
 
+test('buildNewPriceSystemPrompt tells the model to prefer the most recently published source on conflicting prices', () => {
+  const prompt = buildNewPriceSystemPrompt(null, [])
+  expect(prompt).toMatch(/most recently published/i)
+})
+
 test('buildNewPriceSystemPrompt appends the description as disambiguating context when present', () => {
   const prompt = buildNewPriceSystemPrompt('A flagship noise-cancelling over-ear headphone from Sony.', [])
   expect(prompt).toContain('Product context: A flagship noise-cancelling over-ear headphone from Sony.')
@@ -46,6 +52,8 @@ test('NEW_PRICE_OUTPUT_SCHEMA is locked (Exa structured-output request shape)', 
       found: { type: 'boolean', description: 'true if a real current PHP new-retail price was found' },
       price_low: { type: 'number', description: 'lowest observed new-retail price in PHP' },
       price_high: { type: 'number', description: 'highest observed new-retail price in PHP' },
+      release_year: { type: 'number', description: 'the year this product was originally released, if known' },
+      is_discontinued: { type: 'boolean', description: 'true if the product is discontinued/no longer sold new' },
     },
   })
 })
@@ -99,4 +107,21 @@ test('extractNewPriceConfidence returns null when there is no grounding data', (
   expect(extractNewPriceConfidence({ output: { content: {} } })).toBeNull()
   expect(extractNewPriceConfidence(null)).toBeNull()
   expect(extractNewPriceConfidence('not an object')).toBeNull()
+})
+
+test('extractNewPriceMetadata pulls release_year and is_discontinued when present', () => {
+  const response = { output: { content: { found: true, price_low: 1, price_high: 2, release_year: 2021, is_discontinued: true } } }
+  expect(extractNewPriceMetadata(response)).toEqual({ releaseYear: 2021, isDiscontinued: true })
+})
+
+test('extractNewPriceMetadata defaults both to null when absent or malformed', () => {
+  expect(extractNewPriceMetadata({ output: { content: { found: true, price_low: 1, price_high: 2 } } })).toEqual({
+    releaseYear: null,
+    isDiscontinued: null,
+  })
+  expect(extractNewPriceMetadata({ output: { content: { release_year: 'not a number', is_discontinued: 'not a bool' } } })).toEqual({
+    releaseYear: null,
+    isDiscontinued: null,
+  })
+  expect(extractNewPriceMetadata(null)).toEqual({ releaseYear: null, isDiscontinued: null })
 })

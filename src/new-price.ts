@@ -6,7 +6,7 @@ export function buildNewPriceQuery(baseModel: string, variantTier: string | null
 }
 
 const BASE_SYSTEM_PROMPT =
-  'You find current brand-new retail prices in Philippine Peso (PHP) for a consumer product, sold by official retailers or authorized dealers in the Philippines. Prefer official brand sites and known PH electronics retailers. Report the standard/regular retail price, not a temporary promo, flash sale, or discounted price — if only a promo price is available and the regular price is unclear, set found to false rather than reporting the promo price. If no reliable new-retail PHP price is found, set found to false and leave price fields null.'
+  'You find current brand-new retail prices in Philippine Peso (PHP) for a consumer product, sold by official retailers or authorized dealers in the Philippines. Prefer official brand sites and known PH electronics retailers. Report the standard/regular retail price, not a temporary promo, flash sale, or discounted price — if only a promo price is available and the regular price is unclear, set found to false rather than reporting the promo price. If sources disagree on the price (e.g. an old launch-announcement article vs a current listing), prefer the most recently published source, not the oldest or the average. If no reliable new-retail PHP price is found, set found to false and leave price fields null.'
 
 // description (product_enrichment's own generated description) and
 // siblingVariants (other variant_tier values tracked under the same base
@@ -32,6 +32,8 @@ export const NEW_PRICE_OUTPUT_SCHEMA = {
     found: { type: 'boolean', description: 'true if a real current PHP new-retail price was found' },
     price_low: { type: 'number', description: 'lowest observed new-retail price in PHP' },
     price_high: { type: 'number', description: 'highest observed new-retail price in PHP' },
+    release_year: { type: 'number', description: 'the year this product was originally released, if known' },
+    is_discontinued: { type: 'boolean', description: 'true if the product is discontinued/no longer sold new' },
   },
 }
 
@@ -39,6 +41,8 @@ interface RawNewPriceContent {
   found?: unknown
   price_low?: unknown
   price_high?: unknown
+  release_year?: unknown
+  is_discontinued?: unknown
 }
 
 interface ExaGroundingEntry {
@@ -80,4 +84,21 @@ export function extractNewPriceConfidence(response: unknown): string | null {
   if (low) return 'low'
   const first = relevant[0]?.confidence
   return typeof first === 'string' ? first : null
+}
+
+export interface NewPriceMetadata {
+  releaseYear: number | null
+  isDiscontinued: boolean | null
+}
+
+// Free extra fields from the same already-paid-for search — same content
+// object parseNewPriceContent reads, just the two fields it doesn't.
+export function extractNewPriceMetadata(response: unknown): NewPriceMetadata {
+  const content = getOutputContent(response)
+  if (typeof content !== 'object' || content === null) return { releaseYear: null, isDiscontinued: null }
+  const { release_year, is_discontinued } = content as RawNewPriceContent
+  return {
+    releaseYear: typeof release_year === 'number' ? release_year : null,
+    isDiscontinued: typeof is_discontinued === 'boolean' ? is_discontinued : null,
+  }
 }

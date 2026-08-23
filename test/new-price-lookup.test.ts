@@ -57,8 +57,30 @@ test('inserts a price_history row (with confidence) per product when a real pric
   await runNewPriceLookup(exa, db, logger, products)
 
   expect(inserts).toHaveLength(1)
-  expect(inserts[0]).toEqual([2, 14499, 19999, 'PHP', JSON.stringify(response), 'exa_new_retail', 'New', 'high'])
+  expect(inserts[0]).toEqual([2, 14499, 19999, 'PHP', JSON.stringify(response), 'exa_new_retail', 'New', 'high', null, null])
   expect(calls[0].systemPrompt).toContain('Product context: A noise-cancelling headphone.')
+})
+
+test('inserts release_year and is_discontinued when Exa returns them', async () => {
+  const response = {
+    output: {
+      content: { found: true, price_low: 14499, price_high: 19999, release_year: 2021, is_discontinued: true },
+      grounding: [
+        { field: 'price_low', confidence: 'high' },
+        { field: 'price_high', confidence: 'high' },
+      ],
+    },
+  }
+  const { exa } = fakeExa(response)
+  const { db, inserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const products: NewPriceCandidate[] = [
+    { id: 2, base_model: 'Sony WH-1000XM4', variant_tier: null, description: null, sibling_variants: [] },
+  ]
+
+  await runNewPriceLookup(exa, db, logger, products)
+
+  expect(inserts[0]).toEqual([2, 14499, 19999, 'PHP', JSON.stringify(response), 'exa_new_retail', 'New', 'high', 2021, true])
 })
 
 test('a low-confidence price is not inserted — flagged price_lookup_excluded with a distinct reason instead of trusted', async () => {

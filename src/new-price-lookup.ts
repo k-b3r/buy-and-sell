@@ -12,6 +12,7 @@ import {
   NEW_PRICE_OUTPUT_SCHEMA,
   parseNewPriceContent,
   extractNewPriceConfidence,
+  extractNewPriceMetadata,
 } from './new-price'
 
 export type DelayFn = (ms: number) => Promise<void>
@@ -73,7 +74,8 @@ export async function runNewPriceLookup(
     // Store the full response (results, grounding/citations, costDollars),
     // not just the parsed price — free extra value for later enrichment/
     // analysis since we already paid for the search.
-    await insertPriceCheck(db, product.id, price, JSON.stringify(response), 'exa_new_retail', 'New', confidence)
+    const { releaseYear, isDiscontinued } = extractNewPriceMetadata(response)
+    await insertPriceCheck(db, product.id, price, JSON.stringify(response), 'exa_new_retail', 'New', confidence, releaseYear, isDiscontinued)
     logger.info(`product ${product.id} (${label}): ${price.low}-${price.high} ${price.currency} (confidence: ${confidence ?? 'unknown'})`)
   }
 }

@@ -140,7 +140,9 @@ export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_
 
 // confidence is Exa-specific (its grounding data reports "high"/"low" per
 // field, see extractNewPriceConfidence) — null for gemini_grounding/
-// listing_prices sources, which have no equivalent signal.
+// listing_prices sources, which have no equivalent signal. releaseYear/
+// isDiscontinued are likewise Exa-only (extractNewPriceMetadata) — free
+// extra fields from the same already-paid-for search.
 export async function insertPriceCheck(
   db: DbClient,
   productId: number,
@@ -149,11 +151,13 @@ export async function insertPriceCheck(
   source: PriceCheckSource,
   condition: string | null = null,
   confidence: string | null = null,
+  releaseYear: number | null = null,
+  isDiscontinued: boolean | null = null,
 ): Promise<void> {
   await db.query(
-    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition, confidence)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [productId, price.low, price.high, price.currency, rawResponse, source, condition, confidence],
+    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition, confidence, release_year, is_discontinued)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [productId, price.low, price.high, price.currency, rawResponse, source, condition, confidence, releaseYear, isDiscontinued],
   )
 }
 

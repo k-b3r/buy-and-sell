@@ -93,6 +93,12 @@ ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS condition TEXT;
 -- for gemini_grounding/listing_prices, which have no equivalent signal.
 ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS confidence TEXT;
 
+-- Exa-only (extractNewPriceMetadata) — free extra fields from the same
+-- already-paid-for search, kept as dedicated queryable columns rather than
+-- left buried in raw_response JSON, same reasoning as confidence above.
+ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS release_year INTEGER;
+ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS is_discontinued BOOLEAN;
+
 -- Two-phase removal detection for check-listings: a listing that soft-walls
 -- gets flagged (not deleted) on first hit — the same /login/ redirect FB
 -- shows for a real removed listing is indistinguishable from a transient
