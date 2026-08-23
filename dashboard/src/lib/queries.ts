@@ -119,7 +119,7 @@ function notPlaceholderPriceSql(column: string): string {
     length(trunc(${column})::text) >= 3
     AND (
       trunc(${column})::text ~ '^(\\d+)\\1+$'
-      OR trunc(${column})::text = left('123456789', length(trunc(${column})::text))
+      OR trunc(${column})::text ~ '012|123|234|345|456|567|678|789'
     )
   )`
 }
@@ -174,20 +174,26 @@ const DISCOUNT_SUMMARY_LATERAL = `
 `
 
 // Classic "fake price to get attention" patterns real sellers use as
-// placeholders - ascending-sequential digit runs (123, 12345), repeated-
-// digit runs (111, 9999), and repeated multi-digit blocks (6969, 696969 -
-// joke/meme numbers). Distinct from magnitude-outlier detection: found live
-// 2026-08-23 that ₱123,456 fell well within the 10x magnitude threshold of
-// a real ₱150,000 median yet is obviously not a real ask (it produced a
-// nonsensical -626% "discount"). Deliberately narrow - round numbers like
-// 500/1000/15000 are extremely common REAL prices in this marketplace and
-// must not be flagged. Minimum length 3 for the same reason (₱11, ₱99 are
+// placeholders - ascending-sequential digit runs anywhere in the price (123,
+// 12345, but also embedded runs like the 456 inside 12456 - confirmed live
+// 2026-08-23 against a real ₱12,456 listing that the old start-only-at-1
+// prefix check missed), repeated-digit runs (111, 9999), and repeated
+// multi-digit blocks (6969, 696969 - joke/meme numbers). Distinct from
+// magnitude-outlier detection: found live 2026-08-23 that ₱123,456 fell well
+// within the 10x magnitude threshold of a real ₱150,000 median yet is
+// obviously not a real ask (it produced a nonsensical -626% "discount").
+// Deliberately accepts some false-positive risk on the ascending-run check
+// (e.g. a genuine ₱3,456 gets caught too) in exchange for catching embedded
+// runs like 12456 - a direct tradeoff picked over the narrower whole-price-
+// only version. Minimum length 3 for the same reason as before (₱11, ₱99 are
 // plausible real small-item prices).
+const ASCENDING_RUN_RE = /012|123|234|345|456|567|678|789/
+
 export function isPlaceholderPrice(price: number): boolean {
   const digits = String(Math.trunc(Math.abs(price)))
   if (digits.length < 3) return false
   if (/^(\d+)\1+$/.test(digits)) return true
-  return digits === '123456789'.slice(0, digits.length)
+  return ASCENDING_RUN_RE.test(digits)
 }
 
 // Same magnitude-outlier heuristic as src/db.ts's getPriceReviewCandidates

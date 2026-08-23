@@ -47,6 +47,14 @@ test('isPlaceholderPrice flags ascending-sequential digit runs', () => {
   expect(isPlaceholderPrice(123456)).toBe(true)
 })
 
+test('isPlaceholderPrice flags an ascending run embedded anywhere in the price, not just starting at 1', () => {
+  // real listing found live 2026-08-23: ₱12,456 - a "1,2" run followed by a
+  // "4,5,6" run, not a clean prefix of 123456789, but still placeholder-like.
+  expect(isPlaceholderPrice(12456)).toBe(true)
+  expect(isPlaceholderPrice(23456)).toBe(true)
+  expect(isPlaceholderPrice(56789)).toBe(true)
+})
+
 test('isPlaceholderPrice flags repeated-single-digit runs', () => {
   expect(isPlaceholderPrice(111)).toBe(true)
   expect(isPlaceholderPrice(9999)).toBe(true)
