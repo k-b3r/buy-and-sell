@@ -47,6 +47,19 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Appliances',
     'Furniture and Appliances',
     'Speaker',
+    // Assembled/build-varies bundles — a single price range across these is
+    // meaningless (found live 2026-08-23: "Gaming PC Set" returned a
+    // "high confidence" ₱40,800-414,995 range, each number individually real
+    // but grounded to totally different unrelated prebuilts — the product's
+    // own Groq enrichment already says "configurations vary widely, exact
+    // components define its value", this just wasn't wired to the exclusion
+    // check).
+    'Desktop PC Setup',
+    'Gaming PC Set',
+    'Gaming PC Setup',
+    'Gaming Setup',
+    'PC Set',
+    'Pre-built PC',
   ],
   parts_accessory: [
     'Bicycle Accessories',
