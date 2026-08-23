@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import type { DiscountBand, ProductListingSummary } from '@/lib/queries'
+import { isListingPriceNegotiable } from '@/lib/queries'
 import { isInDiscountBand } from './discountBand'
 
 type View = 'list' | 'cards'
@@ -135,9 +136,15 @@ const LISTED_WITHIN_OPTIONS = [
   { value: 90, label: 'Last 90 days' },
 ]
 
-function filterListings(listings: ProductListingSummary[], listedWithinDays: number, hideSold: boolean): ProductListingSummary[] {
+function filterListings(
+  listings: ProductListingSummary[],
+  listedWithinDays: number,
+  hideSold: boolean,
+  negotiableOnly: boolean,
+): ProductListingSummary[] {
   return listings.filter((l) => {
     if (hideSold && l.sold_at) return false
+    if (negotiableOnly && !isListingPriceNegotiable(l.price_amount, l.price_review)) return false
     if (listedWithinDays > 0) {
       if (!l.listed_at) return false
       const cutoff = Date.now() - listedWithinDays * 24 * 60 * 60 * 1000
@@ -181,9 +188,10 @@ export default function ListingsView({
   const [sortKey, setSortKey] = useState<SortKey>('discount_desc')
   const [listedWithinDays, setListedWithinDays] = useState(0)
   const [hideSold, setHideSold] = useState(false)
+  const [negotiableOnly, setNegotiableOnly] = useState(false)
   const [selectedBand, setSelectedBand] = useState<number | null>(null)
 
-  const visibleListings = sortListings(filterListings(listings, listedWithinDays, hideSold), sortKey)
+  const visibleListings = sortListings(filterListings(listings, listedWithinDays, hideSold, negotiableOnly), sortKey)
 
   function isHighlighted(l: ProductListingSummary): boolean {
     return selectedBand !== null && isInDiscountBand(l.discount_percent, selectedBand)
@@ -243,6 +251,10 @@ export default function ListingsView({
           <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)} />
           Hide sold
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.9em', cursor: 'pointer' }}>
+          <input type="checkbox" checked={negotiableOnly} onChange={(e) => setNegotiableOnly(e.target.checked)} />
+          Negotiable only
+        </label>
         <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>
           {visibleListings.length} of {listings.length}
         </span>
@@ -281,7 +293,7 @@ export default function ListingsView({
                 <td>{l.condition ?? '—'}</td>
                 <td className="mono">
                   {formatListingPrice(l)}
-                  {l.price_review?.is_negotiable && <NegotiableBadge />}
+                  {isListingPriceNegotiable(l.price_amount, l.price_review) && <NegotiableBadge />}
                   <DiscountBadge percent={l.discount_percent} />
                 </td>
               </tr>
@@ -325,7 +337,7 @@ export default function ListingsView({
                 </div>
                 <div className="mono" style={{ marginTop: 4 }}>
                   {formatListingPrice(l)}
-                  {l.price_review?.is_negotiable && <NegotiableBadge />}
+                  {isListingPriceNegotiable(l.price_amount, l.price_review) && <NegotiableBadge />}
                   <DiscountBadge percent={l.discount_percent} />
                 </div>
               </div>

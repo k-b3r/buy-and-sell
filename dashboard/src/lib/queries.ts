@@ -352,6 +352,16 @@ export interface ProductListingSummary {
   reference_price: number | null
 }
 
+// Two independent sources of "don't trust this as a firm price": the LLM
+// review (magnitude-outlier prices Groq actually read and judged negotiable)
+// and the placeholder-pattern check (never sent to an LLM at all - the
+// pattern alone is confident enough on its own). Either one is enough to
+// show the badge / count as negotiable in a filter.
+export function isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null): boolean {
+  if (priceReview?.is_negotiable) return true
+  return priceAmount !== null && isPlaceholderPrice(priceAmount)
+}
+
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
 // middle values, matching Postgres's median exactly (used server-side in
 // getListingDetail's SQL; this JS version is for getProductDetail, which

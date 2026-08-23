@@ -5,6 +5,7 @@ import {
   getListingDetail,
   computeListingDiscount,
   isPlaceholderPrice,
+  isListingPriceNegotiable,
   summarizeDiscounts,
 } from '../src/lib/queries'
 import type { QueryClient } from '../src/lib/queries'
@@ -78,6 +79,26 @@ test('isPlaceholderPrice does not flag real round prices', () => {
 test('isPlaceholderPrice does not flag ordinary non-pattern prices', () => {
   expect(isPlaceholderPrice(17499)).toBe(false)
   expect(isPlaceholderPrice(32500)).toBe(false)
+})
+
+test('isListingPriceNegotiable is true when the LLM review says so, regardless of the price pattern', () => {
+  expect(isListingPriceNegotiable(17499, { is_negotiable: true, price_low: null, price_high: null })).toBe(true)
+})
+
+test('isListingPriceNegotiable is true for a placeholder-pattern price with no review row at all', () => {
+  expect(isListingPriceNegotiable(12456, null)).toBe(true)
+})
+
+test('isListingPriceNegotiable is true for a placeholder-pattern price even when the review row says not negotiable', () => {
+  expect(isListingPriceNegotiable(123456, { is_negotiable: false, price_low: null, price_high: null })).toBe(true)
+})
+
+test('isListingPriceNegotiable is false for an ordinary price with no review row', () => {
+  expect(isListingPriceNegotiable(17499, null)).toBe(false)
+})
+
+test('isListingPriceNegotiable is false when price is null and there is no review row', () => {
+  expect(isListingPriceNegotiable(null, null)).toBe(false)
 })
 
 test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {

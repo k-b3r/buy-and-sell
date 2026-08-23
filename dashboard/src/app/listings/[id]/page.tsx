@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getPool } from '@/lib/db'
-import { getListingDetail } from '@/lib/queries'
+import { getListingDetail, isListingPriceNegotiable } from '@/lib/queries'
 import type { ListingDetail } from '@/lib/queries'
 import ListingCarousel from './ListingCarousel'
 
@@ -60,7 +60,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       <p className="mono" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
         {formatListingPrice(listing)}
-        {listing.price_review?.is_negotiable && (
+        {isListingPriceNegotiable(listing.price_amount, listing.price_review) && (
           <span
             style={{
               display: 'inline-block',
