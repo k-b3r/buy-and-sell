@@ -1,8 +1,11 @@
+import { PRODUCT_CATEGORIES } from './products'
+
 export interface EnrichmentCandidate {
   id: number
   base_model: string
   variant_tier: string | null
   sibling_variants: string[]
+  category: string | null
 }
 
 function formatProductLine(p: EnrichmentCandidate): string {
@@ -30,6 +33,8 @@ recognize, provide:
 - trained_price_low / trained_price_high: if has_trained_price_knowledge is true,
   your best estimate of the typical secondhand price range in PHP (Philippines) as
   of your training data; null otherwise
+- category: exactly one of: ${PRODUCT_CATEGORIES.join(', ')}. Use "Other" if none
+  genuinely fit rather than forcing a bad match.
 
 Do not search - answer only from what you already know. If you do not recognize a
 product at all (the name doesn't correspond to anything you actually know), omit it from the results array entirely - do not fabricate a description for a
@@ -55,6 +60,7 @@ export const ENRICHMENT_RESPONSE_SCHEMA = {
           has_trained_price_knowledge: { type: 'boolean' },
           trained_price_low: { type: ['number', 'null'] },
           trained_price_high: { type: ['number', 'null'] },
+          category: { type: 'string', enum: PRODUCT_CATEGORIES },
         },
         required: [
           'id',
@@ -63,6 +69,7 @@ export const ENRICHMENT_RESPONSE_SCHEMA = {
           'has_trained_price_knowledge',
           'trained_price_low',
           'trained_price_high',
+          'category',
         ],
         additionalProperties: false,
       },

@@ -21,6 +21,7 @@ import {
   flagPriceLookupExcluded,
   flagProductPriceLookupExcluded,
   mergeDuplicateProduct,
+  updateProductCategories,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -257,6 +258,28 @@ test('updateListingProductIds issues a single multi-row UPDATE for all assignmen
   expect(calls[0].params).toEqual(['1', 10, '2', 20, '3', 10])
 })
 
+test('updateProductCategories does nothing (no query) when given an empty array', async () => {
+  const { db, calls } = mockDb()
+
+  await updateProductCategories(db, [])
+
+  expect(calls).toHaveLength(0)
+})
+
+test('updateProductCategories issues a single multi-row UPDATE for all assignments', async () => {
+  const { db, calls } = mockDb()
+
+  await updateProductCategories(db, [
+    { id: 1, category: 'Gaming' },
+    { id: 2, category: 'Audio' },
+  ])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toMatch(/^UPDATE products/)
+  expect(calls[0].sql).toContain('FROM (VALUES')
+  expect(calls[0].params).toEqual([1, 'Gaming', 2, 'Audio'])
+})
+
 test('insertPriceCheck writes a new price_history row for the product, not an upsert', async () => {
   const { db, calls } = mockDb()
 
@@ -384,9 +407,10 @@ test('getEnrichmentCandidates returns products without an enrichment row, with s
             id: 363,
             base_model: 'iPhone 12',
             variant_tier: 'Mini',
+            category: null,
             sibling_variants: ['(base, no variant)', 'Pro', 'Pro Max'],
           },
-          { id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [] },
+          { id: 17, base_model: 'RTX 2060', variant_tier: null, category: 'PC Components', sibling_variants: [] },
         ],
       }
     },
@@ -396,14 +420,16 @@ test('getEnrichmentCandidates returns products without an enrichment row, with s
 
   expect(calls[0].sql).toContain('NOT EXISTS')
   expect(calls[0].sql).toContain('product_enrichment')
+  expect(calls[0].sql).toContain('p.category')
   expect(result).toEqual([
     {
       id: 363,
       base_model: 'iPhone 12',
       variant_tier: 'Mini',
+      category: null,
       sibling_variants: ['(base, no variant)', 'Pro', 'Pro Max'],
     },
-    { id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [] },
+    { id: 17, base_model: 'RTX 2060', variant_tier: null, category: 'PC Components', sibling_variants: [] },
   ])
 })
 

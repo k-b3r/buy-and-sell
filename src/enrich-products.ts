@@ -5,9 +5,10 @@ import { createLogger } from './logger'
 import type { GroqClient } from './groq'
 import { createGroqClient, createFallbackGroqClient } from './groq'
 import type { DbClient } from './db'
-import { createDbPool, getEnrichmentCandidates, upsertProductEnrichment } from './db'
+import { createDbPool, getEnrichmentCandidates, upsertProductEnrichment, updateProductCategories } from './db'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from './enrichment'
 import type { EnrichmentCandidate } from './enrichment'
+import { PRODUCT_CATEGORIES } from './products'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before
@@ -18,6 +19,11 @@ import type { EnrichmentCandidate } from './enrichment'
 // up against an apparent ~3,072-token completion ceiling, n=35 fails outright
 // with an unhelpful "Failed to validate JSON" 400 (truncated mid-generation,
 // not a real schema problem — Groq's error message doesn't say so).
+//
+// The response schema later grew a `category` field (short enum string, ~1-2
+// tokens) — not re-verified live against this ceiling with the extra field.
+// Watch the first real run for the same truncation failure mode before
+// trusting 20 still holds.
 const BATCH_SIZE = 20
 const MODEL = 'openai/gpt-oss-120b'
 
@@ -33,6 +39,8 @@ const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, 
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 3000
 
+const VALID_CATEGORIES = new Set<string>(PRODUCT_CATEGORIES)
+
 interface RawEnrichmentItem {
   id?: unknown
   description?: unknown
@@ -40,6 +48,7 @@ interface RawEnrichmentItem {
   has_trained_price_knowledge?: unknown
   trained_price_low?: unknown
   trained_price_high?: unknown
+  category?: unknown
 }
 
 export async function runProductEnrichment(
@@ -91,6 +100,8 @@ export async function runProductEnrichment(
       continue
     }
 
+    const categoryAssignments: { id: number; category: string }[] = []
+
     for (const item of raw.results as RawEnrichmentItem[]) {
       if (
         typeof item.id !== 'string' ||
@@ -124,7 +135,22 @@ export async function runProductEnrichment(
         MODEL,
       )
       logger.info(`product ${candidate.id} enriched (trained price known: ${item.has_trained_price_knowledge})`)
+
+      // category is best-effort here, unlike the enrichment fields above — a
+      // malformed category doesn't invalidate the enrichment upsert that
+      // already happened. Only ever fills a gap (candidate.category is
+      // already null): a candidate arriving here with a category already
+      // set (assigned at creation by extract-products.ts) keeps it as-is.
+      if (candidate.category === null) {
+        if (typeof item.category === 'string' && VALID_CATEGORIES.has(item.category)) {
+          categoryAssignments.push({ id: candidate.id, category: item.category })
+        } else {
+          logger.warn(`product ${candidate.id}: malformed/invalid category in Groq response, leaving category unset`)
+        }
+      }
     }
+
+    await updateProductCategories(db, categoryAssignments)
   }
 }
 

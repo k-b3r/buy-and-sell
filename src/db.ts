@@ -300,7 +300,7 @@ export async function mergeDuplicateProduct(db: DbClient, survivorId: number, lo
 
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {
   const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier,
+    `SELECT p.id, p.base_model, p.variant_tier, p.category,
        COALESCE(
          (SELECT array_agg(DISTINCT COALESCE(p2.variant_tier, '(base, no variant)'))
           FROM products p2
