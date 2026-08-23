@@ -17,9 +17,14 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       price_max: '18500',
       price_avg: '15250.5',
       sample_photo_url: 'https://x/0.jpg',
-      market_price_low: '15000',
-      market_price_high: '20000',
-      market_price_source: 'web_search',
+      new_price_low: null,
+      new_price_high: null,
+      used_price_low: '15000',
+      used_price_high: '20000',
+      used_price_source: 'web_search',
+      has_trained_price_knowledge: null,
+      trained_price_low: null,
+      trained_price_high: null,
     },
     {
       id: 2,
@@ -30,9 +35,14 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       price_max: null,
       price_avg: null,
       sample_photo_url: null,
-      market_price_low: null,
-      market_price_high: null,
-      market_price_source: null,
+      new_price_low: null,
+      new_price_high: null,
+      used_price_low: null,
+      used_price_high: null,
+      used_price_source: null,
+      has_trained_price_knowledge: null,
+      trained_price_low: null,
+      trained_price_high: null,
     },
   ])
 
@@ -48,9 +58,11 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       price_max: 18500,
       price_avg: 15250.5,
       sample_photo_url: 'https://x/0.jpg',
-      market_price_low: 15000,
-      market_price_high: 20000,
-      market_price_source: 'web_search',
+      new_price_low: null,
+      new_price_high: null,
+      secondhand_price_low: 15000,
+      secondhand_price_high: 20000,
+      secondhand_price_source: 'web_search',
     },
     {
       id: 2,
@@ -61,11 +73,73 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       price_max: null,
       price_avg: null,
       sample_photo_url: null,
-      market_price_low: null,
-      market_price_high: null,
-      market_price_source: null,
+      new_price_low: null,
+      new_price_high: null,
+      secondhand_price_low: null,
+      secondhand_price_high: null,
+      secondhand_price_source: null,
     },
   ])
+})
+
+test('getProductSummaries surfaces a brand-new price from Exa independently of secondhand', async () => {
+  const db = fakeDb([
+    {
+      id: 310,
+      base_model: 'iPhone 15',
+      variant_tier: 'Plus',
+      listing_count: '4',
+      price_min: '25000',
+      price_max: '32500',
+      price_avg: '28999',
+      sample_photo_url: null,
+      new_price_low: '68990',
+      new_price_high: '89990',
+      used_price_low: null,
+      used_price_high: null,
+      used_price_source: null,
+      has_trained_price_knowledge: true,
+      trained_price_low: '35000',
+      trained_price_high: '40000',
+    },
+  ])
+
+  const result = await getProductSummaries(db)
+
+  expect(result[0].new_price_low).toBe(68990)
+  expect(result[0].new_price_high).toBe(89990)
+  // No gemini_grounding/web_search/listing_prices row - falls back to Groq's trained secondhand knowledge
+  expect(result[0].secondhand_price_low).toBe(35000)
+  expect(result[0].secondhand_price_high).toBe(40000)
+  expect(result[0].secondhand_price_source).toBe('groq_trained')
+})
+
+test('getProductSummaries does not fall back to Groq trained knowledge when has_trained_price_knowledge is false', async () => {
+  const db = fakeDb([
+    {
+      id: 5,
+      base_model: 'Obscure Widget',
+      variant_tier: null,
+      listing_count: '1',
+      price_min: '500',
+      price_max: '500',
+      price_avg: '500',
+      sample_photo_url: null,
+      new_price_low: null,
+      new_price_high: null,
+      used_price_low: null,
+      used_price_high: null,
+      used_price_source: null,
+      has_trained_price_knowledge: false,
+      trained_price_low: null,
+      trained_price_high: null,
+    },
+  ])
+
+  const result = await getProductSummaries(db)
+
+  expect(result[0].secondhand_price_low).toBeNull()
+  expect(result[0].secondhand_price_source).toBeNull()
 })
 
 test('getProductSummaries defaults to limit 30, offset 0, no search filter', async () => {
@@ -119,7 +193,7 @@ test('getProductDetail returns null when the product does not exist', async () =
   expect(result).toBeNull()
 })
 
-test('getProductDetail returns the product, its market price, and its listings', async () => {
+test('getProductDetail returns the product, its new/secondhand prices, and its listings', async () => {
   let call = 0
   const db: QueryClient = {
     query: async () => {
@@ -131,9 +205,19 @@ test('getProductDetail returns the product, its market price, and its listings',
               id: 1,
               base_model: 'RTX 3060',
               variant_tier: null,
-              market_price_low: '15000',
-              market_price_high: '20000',
-              market_price_source: 'web_search',
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: '15000',
+              used_price_high: '20000',
+              used_price_source: 'web_search',
+              enrichment_description: null,
+              enrichment_value_drivers: null,
+              enrichment_has_trained_price_knowledge: null,
+              enrichment_trained_price_low: null,
+              enrichment_trained_price_high: null,
+              enrichment_trained_price_currency: null,
+              enrichment_model: null,
+              enrichment_checked_at: null,
             },
           ],
         }
@@ -162,9 +246,11 @@ test('getProductDetail returns the product, its market price, and its listings',
     id: 1,
     base_model: 'RTX 3060',
     variant_tier: null,
-    market_price_low: 15000,
-    market_price_high: 20000,
-    market_price_source: 'web_search',
+    new_price_low: null,
+    new_price_high: null,
+    secondhand_price_low: 15000,
+    secondhand_price_high: 20000,
+    secondhand_price_source: 'web_search',
     enrichment: null,
     listings: [
       {
@@ -180,6 +266,48 @@ test('getProductDetail returns the product, its market price, and its listings',
   })
 })
 
+test('getProductDetail surfaces a brand-new Exa price separately from a Groq-trained secondhand fallback', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 310,
+              base_model: 'iPhone 15',
+              variant_tier: 'Plus',
+              new_price_low: '68990',
+              new_price_high: '89990',
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
+              enrichment_description: 'desc',
+              enrichment_value_drivers: 'drivers',
+              enrichment_has_trained_price_knowledge: true,
+              enrichment_trained_price_low: '35000',
+              enrichment_trained_price_high: '40000',
+              enrichment_trained_price_currency: 'PHP',
+              enrichment_model: 'openai/gpt-oss-120b',
+              enrichment_checked_at: new Date('2026-08-22T00:00:00.000Z'),
+            },
+          ],
+        }
+      }
+      return { rows: [] }
+    },
+  }
+
+  const result = await getProductDetail(db, 310)
+
+  expect(result?.new_price_low).toBe(68990)
+  expect(result?.new_price_high).toBe(89990)
+  expect(result?.secondhand_price_low).toBe(35000)
+  expect(result?.secondhand_price_high).toBe(40000)
+  expect(result?.secondhand_price_source).toBe('groq_trained')
+})
+
 test('getProductDetail includes price_review on a listing when a listing_price_review row exists', async () => {
   let call = 0
   const db: QueryClient = {
@@ -192,9 +320,11 @@ test('getProductDetail includes price_review on a listing when a listing_price_r
               id: 1,
               base_model: 'RTX 2060',
               variant_tier: null,
-              market_price_low: null,
-              market_price_high: null,
-              market_price_source: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
             },
           ],
         }
@@ -238,9 +368,11 @@ test('getProductDetail marks a listing sold when its sold_at is set', async () =
               id: 1,
               base_model: 'RTX 3060',
               variant_tier: null,
-              market_price_low: null,
-              market_price_high: null,
-              market_price_source: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
             },
           ],
         }
@@ -277,9 +409,11 @@ test('getProductDetail includes enrichment when a product_enrichment row exists'
               id: 1,
               base_model: 'RTX 3060',
               variant_tier: null,
-              market_price_low: null,
-              market_price_high: null,
-              market_price_source: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
               enrichment_description: 'A mid-range GPU popular for 1080p gaming.',
               enrichment_value_drivers: 'VRAM size, boost clock, cooler quality',
               enrichment_has_trained_price_knowledge: true,
@@ -322,9 +456,11 @@ test('getProductDetail returns null enrichment when no product_enrichment row ex
               id: 1,
               base_model: 'RTX 3060',
               variant_tier: null,
-              market_price_low: null,
-              market_price_high: null,
-              market_price_source: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
               enrichment_description: null,
               enrichment_value_drivers: null,
               enrichment_has_trained_price_knowledge: null,

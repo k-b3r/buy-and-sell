@@ -19,10 +19,15 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         {product.base_model}
         {product.variant_tier ? ` — ${product.variant_tier}` : ''}
       </h1>
-      {product.market_price_low !== null && product.market_price_high !== null && (
+      {product.secondhand_price_low !== null && product.secondhand_price_high !== null && (
         <p className="mono" style={{ color: 'var(--color-signal)' }}>
-          Market price: ₱{product.market_price_low.toLocaleString()}–₱{product.market_price_high.toLocaleString()}{' '}
-          ({product.market_price_source})
+          Secondhand price: ₱{product.secondhand_price_low.toLocaleString()}–₱
+          {product.secondhand_price_high.toLocaleString()} ({product.secondhand_price_source})
+        </p>
+      )}
+      {product.new_price_low !== null && product.new_price_high !== null && (
+        <p className="mono" style={{ color: 'var(--color-text-muted)' }}>
+          New retail price: ₱{product.new_price_low.toLocaleString()}–₱{product.new_price_high.toLocaleString()}
         </p>
       )}
 

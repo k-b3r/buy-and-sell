@@ -111,9 +111,14 @@ export default function ProductListClient({ initialProducts, initialNextOffset, 
                   avg ₱{Math.round(p.price_avg).toLocaleString()}
                 </div>
               )}
-              {p.market_price_low !== null && p.market_price_high !== null && (
+              {p.secondhand_price_low !== null && p.secondhand_price_high !== null && (
                 <div className="mono" style={{ color: 'var(--color-signal)', fontSize: '0.9em', marginTop: 4 }}>
-                  Market: ₱{p.market_price_low.toLocaleString()}–₱{p.market_price_high.toLocaleString()}
+                  Secondhand: ₱{p.secondhand_price_low.toLocaleString()}–₱{p.secondhand_price_high.toLocaleString()}
+                </div>
+              )}
+              {p.new_price_low !== null && p.new_price_high !== null && (
+                <div className="mono" style={{ color: 'var(--color-text-muted)', fontSize: '0.9em' }}>
+                  New: ₱{p.new_price_low.toLocaleString()}–₱{p.new_price_high.toLocaleString()}
                 </div>
               )}
               <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 4 }}>

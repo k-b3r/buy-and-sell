@@ -11,29 +11,73 @@ export interface ProductSummary {
   price_max: number | null
   price_avg: number | null
   sample_photo_url: string | null
-  market_price_low: number | null
-  market_price_high: number | null
-  market_price_source: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  secondhand_price_source: string | null
 }
 
 const DEFAULT_LIMIT = 30
 
-// Preference order for which market-price signal to surface: an external
-// source (web_search/gemini_grounding) beats 'listing_prices', which is
-// computed from this same marketplace's own listings and so is a more
-// circular comparison (see db/schema.sql's product_price_history comment).
-const MARKET_PRICE_LATERAL = `
+// exa_new_retail is the only source that has ever targeted brand-new retail
+// pricing - gemini_grounding and web_search both explicitly ask for
+// secondhand/used pricing (see src/pricing.ts's prompt), and Exa itself
+// can't reach secondhand listings at all (FB/Carousell aren't indexed,
+// confirmed live 2026-08-22 - see CONTEXT.md). Blending these into one
+// "market price" number was a real bug: a product's new-retail price would
+// silently make every real secondhand listing look like a huge deal against
+// full retail. Kept as two separate laterals so the two concepts can never
+// collapse into one column again.
+const NEW_PRICE_LATERAL = `
+  LEFT JOIN LATERAL (
+    SELECT price_low, price_high
+    FROM product_price_history h
+    WHERE h.product_id = p.id AND h.source = 'exa_new_retail'
+    ORDER BY h.checked_at DESC
+    LIMIT 1
+  ) np ON true
+`
+
+// gemini_grounding/web_search are external secondhand-grounded searches,
+// preferred over listing_prices, which is computed from this same
+// marketplace's own listings and so is a more circular comparison (see
+// db/schema.sql's product_price_history comment).
+const SECONDHAND_PRICE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT price_low, price_high, source
     FROM product_price_history h
-    WHERE h.product_id = p.id
-    ORDER BY (h.source != 'listing_prices') DESC, h.checked_at DESC
+    WHERE h.product_id = p.id AND h.source IN ('gemini_grounding', 'web_search', 'listing_prices')
+    ORDER BY (h.source = 'listing_prices') ASC, h.checked_at DESC
     LIMIT 1
-  ) mp ON true
+  ) up ON true
 `
 
 function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value)
+}
+
+// Third and last fallback tier for secondhand price, below the two external
+// sources in SECONDHAND_PRICE_LATERAL: Groq's own trained-knowledge guess
+// (product_enrichment.trained_price_*) is explicitly scoped to secondhand
+// too (see src/enrichment.ts's prompt) - unverified/no live grounding, but
+// still the right *kind* of number, unlike gemini_grounding/web_search which
+// simply may not exist yet for a given product.
+function resolveSecondhandPrice(
+  usedLow: unknown,
+  usedHigh: unknown,
+  usedSource: unknown,
+  hasTrainedPriceKnowledge: unknown,
+  trainedLow: unknown,
+  trainedHigh: unknown,
+): { low: number | null; high: number | null; source: string | null } {
+  if (usedLow !== null && usedLow !== undefined) {
+    return { low: toNullableNumber(usedLow), high: toNullableNumber(usedHigh), source: usedSource as string }
+  }
+  if (hasTrainedPriceKnowledge === true) {
+    return { low: toNullableNumber(trainedLow), high: toNullableNumber(trainedHigh), source: 'groq_trained' }
+  }
+  return { low: null, high: null, source: null }
 }
 
 // A LEFT JOIN nulls every joined column when there's no matching row - since
@@ -64,32 +108,53 @@ export async function getProductSummaries(
             max(l.price_amount) as price_max,
             avg(l.price_amount) as price_avg,
             max(l.primary_photo_url) as sample_photo_url,
-            mp.price_low as market_price_low,
-            mp.price_high as market_price_high,
-            mp.source as market_price_source
+            np.price_low as new_price_low,
+            np.price_high as new_price_high,
+            up.price_low as used_price_low,
+            up.price_high as used_price_high,
+            up.source as used_price_source,
+            e.has_trained_price_knowledge,
+            e.trained_price_low,
+            e.trained_price_high
      FROM products p
      JOIN listings l ON l.product_id = p.id
-     ${MARKET_PRICE_LATERAL}
+     ${NEW_PRICE_LATERAL}
+     ${SECONDHAND_PRICE_LATERAL}
+     LEFT JOIN product_enrichment e ON e.product_id = p.id
      WHERE ($1::text IS NULL OR p.base_model ILIKE $1)
-     GROUP BY p.id, p.base_model, p.variant_tier, mp.price_low, mp.price_high, mp.source
+     GROUP BY p.id, p.base_model, p.variant_tier, np.price_low, np.price_high,
+              up.price_low, up.price_high, up.source,
+              e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high
      ORDER BY listing_count DESC, p.id ASC
      LIMIT $2 OFFSET $3`,
     [search, limit, offset],
   )
 
-  return (result.rows as Record<string, unknown>[]).map((r) => ({
-    id: r.id as number,
-    base_model: r.base_model as string,
-    variant_tier: r.variant_tier as string | null,
-    listing_count: Number(r.listing_count),
-    price_min: toNullableNumber(r.price_min),
-    price_max: toNullableNumber(r.price_max),
-    price_avg: toNullableNumber(r.price_avg),
-    sample_photo_url: r.sample_photo_url as string | null,
-    market_price_low: toNullableNumber(r.market_price_low),
-    market_price_high: toNullableNumber(r.market_price_high),
-    market_price_source: r.market_price_source as string | null,
-  }))
+  return (result.rows as Record<string, unknown>[]).map((r) => {
+    const secondhand = resolveSecondhandPrice(
+      r.used_price_low,
+      r.used_price_high,
+      r.used_price_source,
+      r.has_trained_price_knowledge,
+      r.trained_price_low,
+      r.trained_price_high,
+    )
+    return {
+      id: r.id as number,
+      base_model: r.base_model as string,
+      variant_tier: r.variant_tier as string | null,
+      listing_count: Number(r.listing_count),
+      price_min: toNullableNumber(r.price_min),
+      price_max: toNullableNumber(r.price_max),
+      price_avg: toNullableNumber(r.price_avg),
+      sample_photo_url: r.sample_photo_url as string | null,
+      new_price_low: toNullableNumber(r.new_price_low),
+      new_price_high: toNullableNumber(r.new_price_high),
+      secondhand_price_low: secondhand.low,
+      secondhand_price_high: secondhand.high,
+      secondhand_price_source: secondhand.source,
+    }
+  })
 }
 
 export interface ListingPriceReview {
@@ -123,17 +188,20 @@ export interface ProductDetail {
   id: number
   base_model: string
   variant_tier: string | null
-  market_price_low: number | null
-  market_price_high: number | null
-  market_price_source: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  secondhand_price_source: string | null
   enrichment: ProductEnrichment | null
   listings: ProductListingSummary[]
 }
 
 export async function getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null> {
   const productResult = await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, mp.price_low as market_price_low,
-            mp.price_high as market_price_high, mp.source as market_price_source,
+    `SELECT p.id, p.base_model, p.variant_tier,
+            np.price_low as new_price_low, np.price_high as new_price_high,
+            up.price_low as used_price_low, up.price_high as used_price_high, up.source as used_price_source,
             e.description as enrichment_description, e.value_drivers as enrichment_value_drivers,
             e.has_trained_price_knowledge as enrichment_has_trained_price_knowledge,
             e.trained_price_low as enrichment_trained_price_low,
@@ -141,7 +209,8 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
             e.trained_price_currency as enrichment_trained_price_currency,
             e.model as enrichment_model, e.checked_at as enrichment_checked_at
      FROM products p
-     ${MARKET_PRICE_LATERAL}
+     ${NEW_PRICE_LATERAL}
+     ${SECONDHAND_PRICE_LATERAL}
      LEFT JOIN product_enrichment e ON e.product_id = p.id
      WHERE p.id = $1`,
     [productId],
@@ -183,13 +252,24 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     price_review: toPriceReview(r),
   }))
 
+  const secondhand = resolveSecondhandPrice(
+    productRow.used_price_low,
+    productRow.used_price_high,
+    productRow.used_price_source,
+    productRow.enrichment_has_trained_price_knowledge,
+    productRow.enrichment_trained_price_low,
+    productRow.enrichment_trained_price_high,
+  )
+
   return {
     id: productRow.id as number,
     base_model: productRow.base_model as string,
     variant_tier: productRow.variant_tier as string | null,
-    market_price_low: toNullableNumber(productRow.market_price_low),
-    market_price_high: toNullableNumber(productRow.market_price_high),
-    market_price_source: productRow.market_price_source as string | null,
+    new_price_low: toNullableNumber(productRow.new_price_low),
+    new_price_high: toNullableNumber(productRow.new_price_high),
+    secondhand_price_low: secondhand.low,
+    secondhand_price_high: secondhand.high,
+    secondhand_price_source: secondhand.source,
     enrichment,
     listings,
   }
