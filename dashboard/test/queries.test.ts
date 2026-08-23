@@ -21,6 +21,13 @@ test('isPlaceholderPrice flags repeated-single-digit runs', () => {
   expect(isPlaceholderPrice(55555)).toBe(true)
 })
 
+test('isPlaceholderPrice flags repeated multi-digit block runs (e.g. joke/meme numbers)', () => {
+  expect(isPlaceholderPrice(6969)).toBe(true)
+  expect(isPlaceholderPrice(696969)).toBe(true)
+  expect(isPlaceholderPrice(4242)).toBe(true)
+  expect(isPlaceholderPrice(123123)).toBe(true)
+})
+
 test('isPlaceholderPrice does not flag real round prices', () => {
   expect(isPlaceholderPrice(500)).toBe(false)
   expect(isPlaceholderPrice(1000)).toBe(false)
@@ -290,7 +297,7 @@ test('getProductSummaries excludes placeholder-pattern prices from the price ran
 
   await getProductSummaries(db)
 
-  const occurrences = capturedSql.split("'^(\\d)\\1+$'").length - 1
+  const occurrences = capturedSql.split("'^(\\d+)\\1+$'").length - 1
   expect(occurrences).toBe(4) // price_min, price_max, price_avg, and the discount lateral
 })
 
@@ -298,7 +305,7 @@ test('getListingDetail excludes placeholder-pattern prices from the sibling medi
   const db: QueryClient = {
     query: async (sql: string) => {
       if (sql.includes('WITH product_prices')) {
-        expect(sql).toContain("'^(\\d)\\1+$'")
+        expect(sql).toContain("'^(\\d+)\\1+$'")
         return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       }
       return {

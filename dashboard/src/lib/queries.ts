@@ -77,7 +77,7 @@ function notPlaceholderPriceSql(column: string): string {
   return `NOT (
     length(trunc(${column})::text) >= 3
     AND (
-      trunc(${column})::text ~ '^(\\d)\\1+$'
+      trunc(${column})::text ~ '^(\\d+)\\1+$'
       OR trunc(${column})::text = left('123456789', length(trunc(${column})::text))
     )
   )`
@@ -121,18 +121,19 @@ const DISCOUNT_SUMMARY_LATERAL = `
 `
 
 // Classic "fake price to get attention" patterns real sellers use as
-// placeholders - ascending-sequential digit runs (123, 12345) and
-// repeated-single-digit runs (111, 9999). Distinct from magnitude-outlier
-// detection: found live 2026-08-23 that ₱123,456 fell well within the 10x
-// magnitude threshold of a real ₱150,000 median yet is obviously not a real
-// ask (it produced a nonsensical -626% "discount"). Deliberately narrow -
-// round numbers like 500/1000/15000 are extremely common REAL prices in
-// this marketplace and must not be flagged. Minimum length 3 for the same
-// reason (₱11, ₱99 are plausible real small-item prices).
+// placeholders - ascending-sequential digit runs (123, 12345), repeated-
+// digit runs (111, 9999), and repeated multi-digit blocks (6969, 696969 -
+// joke/meme numbers). Distinct from magnitude-outlier detection: found live
+// 2026-08-23 that ₱123,456 fell well within the 10x magnitude threshold of
+// a real ₱150,000 median yet is obviously not a real ask (it produced a
+// nonsensical -626% "discount"). Deliberately narrow - round numbers like
+// 500/1000/15000 are extremely common REAL prices in this marketplace and
+// must not be flagged. Minimum length 3 for the same reason (₱11, ₱99 are
+// plausible real small-item prices).
 export function isPlaceholderPrice(price: number): boolean {
   const digits = String(Math.trunc(Math.abs(price)))
   if (digits.length < 3) return false
-  if (/^(\d)\1+$/.test(digits)) return true
+  if (/^(\d+)\1+$/.test(digits)) return true
   return digits === '123456789'.slice(0, digits.length)
 }
 
