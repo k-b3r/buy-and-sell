@@ -1,6 +1,38 @@
 import { expect, test } from 'vitest'
-import { getProductSummaries, getProductDetail, getListingDetail } from '../src/lib/queries'
+import { getProductSummaries, getProductDetail, getListingDetail, computeListingDiscount } from '../src/lib/queries'
 import type { QueryClient } from '../src/lib/queries'
+
+test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {
+  expect(computeListingDiscount(15000, 15000, 15000, 1)).toEqual({ discountPercent: null, referencePrice: null })
+})
+
+test('computeListingDiscount is null when this listing itself is a magnitude outlier (>10x or <0.1x the raw median)', () => {
+  // ₱999,999,999 "for swap only" placeholder against a real ₱15,000 median
+  expect(computeListingDiscount(999999999, 15000, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
+  // ₱10 "for attention only" placeholder
+  expect(computeListingDiscount(10, 15000, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
+})
+
+test('computeListingDiscount computes percent below the outlier-excluded median for an in-range listing', () => {
+  // priced at 12000 against a clean median of 15000 -> 20% below
+  expect(computeListingDiscount(12000, 15000, 15000, 5)).toEqual({ discountPercent: 20, referencePrice: 15000 })
+})
+
+test('computeListingDiscount is negative when priced above the reference (not a discount)', () => {
+  expect(computeListingDiscount(18000, 15000, 15000, 5)).toEqual({ discountPercent: -20, referencePrice: 15000 })
+})
+
+test('computeListingDiscount uses the outlier-excluded median as the reference, not the raw one', () => {
+  // raw median pulled up by an outlier at 999999999; clean median (outlier excluded) is the real 15000
+  expect(computeListingDiscount(12000, 50000, 15000, 5)).toEqual({ discountPercent: 20, referencePrice: 15000 })
+})
+
+test('computeListingDiscount is null when price/median data is missing or non-positive', () => {
+  expect(computeListingDiscount(null, 15000, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
+  expect(computeListingDiscount(12000, null, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
+  expect(computeListingDiscount(12000, 15000, null, 5)).toEqual({ discountPercent: null, referencePrice: null })
+  expect(computeListingDiscount(12000, 0, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
+})
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }
@@ -261,9 +293,63 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
         condition: 'Used - Like New',
         sold_at: null,
         price_review: null,
+        discount_percent: null,
+        reference_price: null,
       },
     ],
   })
+})
+
+test('getProductDetail computes each listing\'s discount against the outlier-excluded median of its siblings', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 1,
+              base_model: 'RTX 3060',
+              variant_tier: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
+              enrichment_description: null,
+              enrichment_value_drivers: null,
+              enrichment_has_trained_price_knowledge: null,
+              enrichment_trained_price_low: null,
+              enrichment_trained_price_high: null,
+              enrichment_trained_price_currency: null,
+              enrichment_model: null,
+              enrichment_checked_at: null,
+            },
+          ],
+        }
+      }
+      // Median of [12000, 15000, 18000, 999999999] before outlier exclusion is
+      // pulled way up by the placeholder; the real market median is 15000.
+      return {
+        rows: [
+          { id: 'a', title: 'A', price_amount: '12000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          { id: 'b', title: 'B', price_amount: '15000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          { id: 'c', title: 'C', price_amount: '18000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          { id: 'd', title: 'D (swap only placeholder)', price_amount: '999999999', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(result?.listings.map((l) => [l.id, l.discount_percent, l.reference_price])).toEqual([
+    ['a', 20, 15000],
+    ['b', 0, 15000],
+    ['c', -20, 15000],
+    ['d', null, null],
+  ])
 })
 
 test('getProductDetail surfaces a brand-new Exa price separately from a Groq-trained secondhand fallback', async () => {
@@ -522,13 +608,95 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
     condition: 'Used - Like New',
     location_city: 'Quezon City',
     listed_at: '2026-08-01T00:00:00.000Z',
+    last_seen_at: null,
     photo_urls: ['https://x/0.jpg', 'https://x/1.jpg'],
     product_id: 1,
     base_model: 'RTX 3060',
     variant_tier: null,
     sold_at: null,
+    discount_percent: null,
+    reference_price: null,
     price_review: null,
   })
+})
+
+test('getListingDetail computes discount against its siblings\' outlier-excluded median', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: '123',
+              title: 'RTX 3060 OC Asus',
+              price_amount: '12000',
+              price_currency: 'PHP',
+              description: null,
+              condition: null,
+              location_city: null,
+              listed_at: null,
+              last_seen_at: null,
+              primary_photo_url: null,
+              stored_photo_urls: null,
+              product_id: 1,
+              base_model: 'RTX 3060',
+              variant_tier: null,
+              sold_at: null,
+              price_review_is_negotiable: null,
+              price_review_low: null,
+              price_review_high: null,
+            },
+          ],
+        }
+      }
+      return { rows: [{ raw_median_price: '15000', sample_size: '5', clean_median_price: '15000' }] }
+    },
+  }
+
+  const result = await getListingDetail(db, '123')
+
+  expect(result?.discount_percent).toBe(20)
+  expect(result?.reference_price).toBe(15000)
+})
+
+test('getListingDetail skips the sibling-median lookup entirely when the listing has no product_id', async () => {
+  let queryCount = 0
+  const db: QueryClient = {
+    query: async (_sql, _params) => {
+      queryCount += 1
+      return {
+        rows: [
+          {
+            id: '124',
+            title: 'Unmatched listing',
+            price_amount: '5000',
+            price_currency: 'PHP',
+            description: null,
+            condition: null,
+            location_city: null,
+            listed_at: null,
+            last_seen_at: null,
+            primary_photo_url: null,
+            stored_photo_urls: null,
+            product_id: null,
+            base_model: null,
+            variant_tier: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getListingDetail(db, '124')
+
+  expect(queryCount).toBe(1)
+  expect(result?.discount_percent).toBeNull()
 })
 
 test('getListingDetail includes price_review when a listing_price_review row exists', async () => {

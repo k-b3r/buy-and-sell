@@ -57,6 +57,34 @@ function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value)
 }
 
+// Same magnitude-outlier heuristic as src/db.ts's getPriceReviewCandidates
+// (>10x or <0.1x the raw median) - a listing that far out is a placeholder
+// price ("for attention only", "for swap"), not a real ask, so it gets no
+// discount shown and is excluded from the reference price itself (a single
+// ₱999,999,999 placeholder would otherwise blow up a plain average).
+// rawMedianPrice decides whether THIS listing is an outlier; cleanMedianPrice
+// (computed with outliers already excluded) is the actual reference used for
+// the percentage, so the reference isn't itself skewed by the outliers it's
+// meant to be filtering out.
+export function computeListingDiscount(
+  priceAmount: unknown,
+  rawMedianPrice: unknown,
+  cleanMedianPrice: unknown,
+  sampleSize: unknown,
+): { discountPercent: number | null; referencePrice: number | null } {
+  const price = toNullableNumber(priceAmount)
+  const n = toNullableNumber(sampleSize)
+  const rawMedian = toNullableNumber(rawMedianPrice)
+  const cleanMedian = toNullableNumber(cleanMedianPrice)
+  const NONE = { discountPercent: null, referencePrice: null }
+
+  if (price === null || n === null || n < 2) return NONE
+  if (rawMedian === null || rawMedian <= 0 || cleanMedian === null || cleanMedian <= 0) return NONE
+  if (price < rawMedian / 10 || price > rawMedian * 10) return NONE
+
+  return { discountPercent: Math.round(((cleanMedian - price) / cleanMedian) * 100), referencePrice: cleanMedian }
+}
+
 // Third and last fallback tier for secondhand price, below the two external
 // sources in SECONDHAND_PRICE_LATERAL: Groq's own trained-knowledge guess
 // (product_enrichment.trained_price_*) is explicitly scoped to secondhand
@@ -171,6 +199,27 @@ export interface ProductListingSummary {
   condition: string | null
   sold_at: string | null
   price_review: ListingPriceReview | null
+  discount_percent: number | null
+  reference_price: number | null
+}
+
+// percentile_cont(0.5)-equivalent: linear interpolation between the two
+// middle values, matching Postgres's median exactly (used server-side in
+// getListingDetail's SQL; this JS version is for getProductDetail, which
+// already has every sibling listing's price in hand from one query and
+// doesn't need a second round trip to compute the same thing).
+function median(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = (sorted.length - 1) / 2
+  return (sorted[Math.floor(mid)] + sorted[Math.ceil(mid)]) / 2
+}
+
+function computeMedians(prices: number[]): { rawMedian: number | null; cleanMedian: number | null; sampleSize: number } {
+  const rawMedian = median(prices)
+  if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
+  const clean = prices.filter((p) => p >= rawMedian / 10 && p <= rawMedian * 10)
+  return { rawMedian, cleanMedian: median(clean), sampleSize: prices.length }
 }
 
 export interface ProductEnrichment {
@@ -242,7 +291,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
      ORDER BY l.title`,
     [productId],
   )
-  const listings = (listingsResult.rows as Record<string, unknown>[]).map((r) => ({
+  const rawListings = (listingsResult.rows as Record<string, unknown>[]).map((r) => ({
     id: r.id as string,
     title: r.title as string,
     price_amount: toNullableNumber(r.price_amount),
@@ -251,6 +300,16 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     sold_at: toIsoOrNull(r.sold_at),
     price_review: toPriceReview(r),
   }))
+
+  const validPrices = rawListings
+    .map((l) => l.price_amount)
+    .filter((p): p is number => p !== null && p > 0)
+  const { rawMedian, cleanMedian, sampleSize } = computeMedians(validPrices)
+
+  const listings = rawListings.map((l) => {
+    const discount = computeListingDiscount(l.price_amount, rawMedian, cleanMedian, sampleSize)
+    return { ...l, discount_percent: discount.discountPercent, reference_price: discount.referencePrice }
+  })
 
   const secondhand = resolveSecondhandPrice(
     productRow.used_price_low,
@@ -284,12 +343,15 @@ export interface ListingDetail {
   condition: string | null
   location_city: string | null
   listed_at: string | null
+  last_seen_at: string | null
   photo_urls: string[]
   product_id: number | null
   base_model: string | null
   variant_tier: string | null
   sold_at: string | null
   price_review: ListingPriceReview | null
+  discount_percent: number | null
+  reference_price: number | null
 }
 
 function toIsoOrNull(value: unknown): string | null {
@@ -297,10 +359,31 @@ function toIsoOrNull(value: unknown): string | null {
   return value instanceof Date ? value.toISOString() : (value as string)
 }
 
+// Same clean-median approach as getProductDetail's in-JS version, but as SQL
+// since a single listing's siblings aren't already fetched here - one extra
+// round trip, only run when the listing actually has a product_id.
+const SIBLING_MEDIAN_SQL = `
+  WITH product_prices AS (
+    SELECT price_amount FROM listings
+    WHERE product_id = $1 AND price_amount IS NOT NULL AND price_amount > 0
+  ),
+  raw AS (
+    SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
+    FROM product_prices
+  )
+  SELECT
+    raw.median_price AS raw_median_price,
+    raw.n AS sample_size,
+    (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
+     FROM product_prices pp
+     WHERE pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
+  FROM raw
+`
+
 export async function getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null> {
   const result = await db.query(
     `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
-            l.location_city, l.listed_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
+            l.location_city, l.listed_at, l.last_seen_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
             l.sold_at, p.base_model, p.variant_tier,
             pr.is_negotiable as price_review_is_negotiable,
             pr.price_low as price_review_low, pr.price_high as price_review_high
@@ -321,6 +404,20 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
         ? [row.primary_photo_url as string]
         : []
 
+  let discount = { discountPercent: null as number | null, referencePrice: null as number | null }
+  if (row.product_id !== null && row.product_id !== undefined) {
+    const medianResult = await db.query(SIBLING_MEDIAN_SQL, [row.product_id])
+    const medianRow = (medianResult.rows as Record<string, unknown>[])[0]
+    if (medianRow) {
+      discount = computeListingDiscount(
+        row.price_amount,
+        medianRow.raw_median_price,
+        medianRow.clean_median_price,
+        medianRow.sample_size,
+      )
+    }
+  }
+
   return {
     id: row.id as string,
     title: row.title as string,
@@ -330,11 +427,14 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     condition: row.condition as string | null,
     location_city: row.location_city as string | null,
     listed_at: toIsoOrNull(row.listed_at),
+    last_seen_at: toIsoOrNull(row.last_seen_at),
     photo_urls: photoUrls,
     product_id: row.product_id as number | null,
     base_model: row.base_model as string | null,
     variant_tier: row.variant_tier as string | null,
     sold_at: toIsoOrNull(row.sold_at),
     price_review: toPriceReview(row),
+    discount_percent: discount.discountPercent,
+    reference_price: discount.referencePrice,
   }
 }

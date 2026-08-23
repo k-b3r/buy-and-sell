@@ -46,6 +46,31 @@ function NegotiableBadge() {
   return <span style={negotiableBadgeStyle}>Negotiable</span>
 }
 
+function discountBadgeStyle(percent: number): CSSProperties {
+  return {
+    display: 'inline-block',
+    marginLeft: 8,
+    padding: '1px 8px',
+    borderRadius: 12,
+    fontSize: '0.75em',
+    background: percent > 0 ? 'var(--color-signal)' : 'var(--color-text-muted)',
+    color: 'var(--color-bg)',
+  }
+}
+
+// null covers both "not enough sibling listings to compare" and "this
+// listing's price is itself a magnitude outlier / placeholder" - see
+// computeListingDiscount. Zero is a real result (priced exactly at the
+// reference), just not worth a badge.
+function DiscountBadge({ percent }: { percent: number | null }) {
+  if (percent === null || percent === 0) return null
+  return (
+    <span style={discountBadgeStyle(percent)}>
+      {percent > 0 ? `${percent}% below avg` : `${Math.abs(percent)}% above avg`}
+    </span>
+  )
+}
+
 // price_review's range replaces the recorded price display when it has a real
 // read on it; a review row with no determinable price (both null) falls back
 // to the recorded price, same as no review row at all. is_negotiable is a
@@ -112,6 +137,7 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
                 <td className="mono">
                   {formatListingPrice(l)}
                   {l.price_review?.is_negotiable && <NegotiableBadge />}
+                  <DiscountBadge percent={l.discount_percent} />
                 </td>
               </tr>
             ))}
@@ -154,6 +180,7 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
                 <div className="mono" style={{ marginTop: 4 }}>
                   {formatListingPrice(l)}
                   {l.price_review?.is_negotiable && <NegotiableBadge />}
+                  <DiscountBadge percent={l.discount_percent} />
                 </div>
               </div>
             </Link>

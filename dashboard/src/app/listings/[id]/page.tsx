@@ -76,10 +76,39 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             Negotiable
           </span>
         )}
+        {listing.discount_percent !== null && listing.discount_percent !== 0 && (
+          <span
+            style={{
+              display: 'inline-block',
+              marginLeft: 12,
+              padding: '2px 10px',
+              borderRadius: 12,
+              fontSize: '0.5em',
+              verticalAlign: 'middle',
+              background: listing.discount_percent > 0 ? 'var(--color-signal)' : 'var(--color-text-muted)',
+              color: 'var(--color-bg)',
+            }}
+          >
+            {listing.discount_percent > 0
+              ? `${listing.discount_percent}% below avg`
+              : `${Math.abs(listing.discount_percent)}% above avg`}
+          </span>
+        )}
       </p>
+      {listing.reference_price !== null && (
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: -8 }}>
+          vs typical ₱{listing.reference_price.toLocaleString()} for this product (outliers/placeholders excluded)
+        </p>
+      )}
 
       <table cellPadding={4}>
         <tbody>
+          {listing.variant_tier && (
+            <tr>
+              <td style={{ color: 'var(--color-text-muted)' }}>Variant</td>
+              <td>{listing.variant_tier}</td>
+            </tr>
+          )}
           {listing.condition && (
             <tr>
               <td style={{ color: 'var(--color-text-muted)' }}>Condition</td>
@@ -96,6 +125,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             <tr>
               <td style={{ color: 'var(--color-text-muted)' }}>Listed</td>
               <td>{new Date(listing.listed_at).toLocaleDateString()}</td>
+            </tr>
+          )}
+          {listing.last_seen_at && (
+            <tr>
+              <td style={{ color: 'var(--color-text-muted)' }}>Last confirmed live</td>
+              <td>{new Date(listing.last_seen_at).toLocaleDateString()}</td>
             </tr>
           )}
           {listing.sold_at && (
