@@ -1,4 +1,10 @@
-import { buildNewPriceQuery, buildNewPriceSystemPrompt, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from '../src/new-price'
+import {
+  buildNewPriceQuery,
+  buildNewPriceSystemPrompt,
+  NEW_PRICE_OUTPUT_SCHEMA,
+  parseNewPriceContent,
+  extractNewPriceConfidence,
+} from '../src/new-price'
 
 test('buildNewPriceQuery includes variant tier when present', () => {
   expect(buildNewPriceQuery('Sony WH-1000XM4', 'Silent White')).toBe(
@@ -40,17 +46,52 @@ test('NEW_PRICE_OUTPUT_SCHEMA is locked (Exa structured-output request shape)', 
 })
 
 test('parseNewPriceContent returns a PriceRange when found is true with both prices', () => {
-  const result = parseNewPriceContent({ found: true, price_low: 14499, price_high: 19999 })
-  expect(result).toEqual({ low: 14499, high: 19999, currency: 'PHP' })
+  const response = { output: { content: { found: true, price_low: 14499, price_high: 19999 } } }
+  expect(parseNewPriceContent(response)).toEqual({ low: 14499, high: 19999, currency: 'PHP' })
 })
 
 test('parseNewPriceContent returns null when found is false', () => {
-  expect(parseNewPriceContent({ found: false })).toBeNull()
+  expect(parseNewPriceContent({ output: { content: { found: false } } })).toBeNull()
 })
 
 test('parseNewPriceContent returns null when found is true but prices are missing or malformed', () => {
-  expect(parseNewPriceContent({ found: true })).toBeNull()
-  expect(parseNewPriceContent({ found: true, price_low: 'not a number', price_high: 19999 })).toBeNull()
+  expect(parseNewPriceContent({ output: { content: { found: true } } })).toBeNull()
+  expect(parseNewPriceContent({ output: { content: { found: true, price_low: 'not a number', price_high: 19999 } } })).toBeNull()
   expect(parseNewPriceContent(null)).toBeNull()
   expect(parseNewPriceContent('not an object')).toBeNull()
+  expect(parseNewPriceContent({ output: null })).toBeNull()
+  expect(parseNewPriceContent({})).toBeNull()
+})
+
+test('extractNewPriceConfidence returns the grounding confidence for the price fields', () => {
+  const response = {
+    output: {
+      content: { found: true, price_low: 100, price_high: 200 },
+      grounding: [
+        { field: 'price_low', confidence: 'high' },
+        { field: 'price_high', confidence: 'high' },
+        { field: 'found', confidence: 'high' },
+      ],
+    },
+  }
+  expect(extractNewPriceConfidence(response)).toBe('high')
+})
+
+test('extractNewPriceConfidence is conservative — low if either price field is low confidence', () => {
+  const response = {
+    output: {
+      content: { found: true, price_low: 100, price_high: 200 },
+      grounding: [
+        { field: 'price_low', confidence: 'high' },
+        { field: 'price_high', confidence: 'low' },
+      ],
+    },
+  }
+  expect(extractNewPriceConfidence(response)).toBe('low')
+})
+
+test('extractNewPriceConfidence returns null when there is no grounding data', () => {
+  expect(extractNewPriceConfidence({ output: { content: {} } })).toBeNull()
+  expect(extractNewPriceConfidence(null)).toBeNull()
+  expect(extractNewPriceConfidence('not an object')).toBeNull()
 })

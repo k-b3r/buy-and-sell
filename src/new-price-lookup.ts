@@ -6,7 +6,13 @@ import type { ExaClient } from './exa'
 import { createExaClient } from './exa'
 import type { DbClient, NewPriceCandidate } from './db'
 import { createDbPool, getNewPriceCandidates, insertPriceCheck, flagProductPriceLookupExcluded } from './db'
-import { buildNewPriceQuery, buildNewPriceSystemPrompt, NEW_PRICE_OUTPUT_SCHEMA, parseNewPriceContent } from './new-price'
+import {
+  buildNewPriceQuery,
+  buildNewPriceSystemPrompt,
+  NEW_PRICE_OUTPUT_SCHEMA,
+  parseNewPriceContent,
+  extractNewPriceConfidence,
+} from './new-price'
 
 export type DelayFn = (ms: number) => Promise<void>
 const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -32,16 +38,16 @@ export async function runNewPriceLookup(
     const query = buildNewPriceQuery(product.base_model, product.variant_tier)
     const systemPrompt = buildNewPriceSystemPrompt(product.description, product.sibling_variants)
 
-    let content: unknown
+    let response: unknown
     try {
-      content = await exa.searchStructured(query, systemPrompt, NEW_PRICE_OUTPUT_SCHEMA)
+      response = await exa.searchStructured(query, systemPrompt, NEW_PRICE_OUTPUT_SCHEMA)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       logger.error(`product ${product.id} (${label}): Exa request failed (${message}), skipping`)
       continue
     }
 
-    const price = parseNewPriceContent(content)
+    const price = parseNewPriceContent(response)
     if (!price) {
       // Exa itself searched and came up empty/unusable — unlike the catch
       // block above (a request failure, could be transient), this is a real
@@ -53,8 +59,12 @@ export async function runNewPriceLookup(
       continue
     }
 
-    await insertPriceCheck(db, product.id, price, JSON.stringify(content), 'exa_new_retail', 'New')
-    logger.info(`product ${product.id} (${label}): ${price.low}-${price.high} ${price.currency}`)
+    // Store the full response (results, grounding/citations, costDollars),
+    // not just the parsed price — free extra value for later enrichment/
+    // analysis since we already paid for the search.
+    const confidence = extractNewPriceConfidence(response)
+    await insertPriceCheck(db, product.id, price, JSON.stringify(response), 'exa_new_retail', 'New', confidence)
+    logger.info(`product ${product.id} (${label}): ${price.low}-${price.high} ${price.currency} (confidence: ${confidence ?? 'unknown'})`)
   }
 }
 

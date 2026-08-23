@@ -23,8 +23,11 @@ export function createExaClient(apiKey: string): ExaClient {
         err.status = response.status
         throw err
       }
-      const json = (await response.json()) as { output?: { content?: unknown } }
-      return json.output?.content
+      // The full response (results, output.content, output.grounding,
+      // costDollars, etc.) is returned, not just output.content — callers
+      // want the citations/confidence too, and the raw body is worth keeping
+      // for later enrichment/analysis, not just the parsed price fields.
+      return await response.json()
     },
   }
 }

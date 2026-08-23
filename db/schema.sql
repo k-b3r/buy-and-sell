@@ -88,6 +88,11 @@ ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS source TEXT NOT NULL 
 -- (a "Used - Fair" and a "New" of the same product don't belong in one range).
 ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS condition TEXT;
 
+-- Exa-specific: its grounding data reports "high"/"low" confidence per
+-- extracted field (see src/new-price.ts's extractNewPriceConfidence). NULL
+-- for gemini_grounding/listing_prices, which have no equivalent signal.
+ALTER TABLE product_price_history ADD COLUMN IF NOT EXISTS confidence TEXT;
+
 -- Two-phase removal detection for check-listings: a listing that soft-walls
 -- gets flagged (not deleted) on first hit — the same /login/ redirect FB
 -- shows for a real removed listing is indistinguishable from a transient

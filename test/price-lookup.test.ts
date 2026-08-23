@@ -66,8 +66,8 @@ test('runPriceLookup inserts a price check per product and waits between calls',
 
   const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
   expect(inserts).toEqual([
-    { sql: expect.any(String), params: [1, 10000, 15000, 'PHP', 'PRICE_RANGE: 10000-15000 PHP', 'gemini_grounding', null] },
-    { sql: expect.any(String), params: [2, 40000, 55000, 'PHP', 'PRICE_RANGE: 40000-55000 PHP', 'gemini_grounding', null] },
+    { sql: expect.any(String), params: [1, 10000, 15000, 'PHP', 'PRICE_RANGE: 10000-15000 PHP', 'gemini_grounding', null, null] },
+    { sql: expect.any(String), params: [2, 40000, 55000, 'PHP', 'PRICE_RANGE: 40000-55000 PHP', 'gemini_grounding', null, null] },
   ])
   expect(delays).toEqual([15000]) // waits between the 2 calls, not before the first
 })
@@ -107,7 +107,7 @@ test('on a quota error, waits with growing backoff and keeps retrying the same p
   expect(delays[1]).toBeGreaterThan(delays[0])
   expect(delays[2]).toBeGreaterThan(delays[1])
   const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
-  expect(inserts).toEqual([{ sql: expect.any(String), params: [1, 1000, 2000, 'PHP', 'PRICE_RANGE: 1000-2000 PHP', 'gemini_grounding', null] }])
+  expect(inserts).toEqual([{ sql: expect.any(String), params: [1, 1000, 2000, 'PHP', 'PRICE_RANGE: 1000-2000 PHP', 'gemini_grounding', null, null] }])
 })
 
 test('a non-quota error still fails closed immediately, no retry loop', async () => {

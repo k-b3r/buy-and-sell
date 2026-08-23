@@ -138,6 +138,9 @@ export async function updateListingProductIds(
 // checked_at, don't just read a single "current price" column.
 export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_retail'
 
+// confidence is Exa-specific (its grounding data reports "high"/"low" per
+// field, see extractNewPriceConfidence) — null for gemini_grounding/
+// listing_prices sources, which have no equivalent signal.
 export async function insertPriceCheck(
   db: DbClient,
   productId: number,
@@ -145,11 +148,12 @@ export async function insertPriceCheck(
   rawResponse: string,
   source: PriceCheckSource,
   condition: string | null = null,
+  confidence: string | null = null,
 ): Promise<void> {
   await db.query(
-    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [productId, price.low, price.high, price.currency, rawResponse, source, condition],
+    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition, confidence)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [productId, price.low, price.high, price.currency, rawResponse, source, condition, confidence],
   )
 }
 

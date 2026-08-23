@@ -253,7 +253,7 @@ test('insertPriceCheck writes a new price_history row for the product, not an up
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toMatch(/^INSERT INTO product_price_history/)
   expect(calls[0].sql).not.toContain('ON CONFLICT')
-  expect(calls[0].params).toEqual([42, 4500, 12000, 'PHP', 'Full grounded answer text here.', 'gemini_grounding', null])
+  expect(calls[0].params).toEqual([42, 4500, 12000, 'PHP', 'Full grounded answer text here.', 'gemini_grounding', null, null])
 })
 
 test('insertPriceCheck tags a listing-derived price with the listing_prices source and a condition', async () => {
@@ -268,7 +268,7 @@ test('insertPriceCheck tags a listing-derived price with the listing_prices sour
     'Used - Good',
   )
 
-  expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'computed from 4 listings', 'listing_prices', 'Used - Good'])
+  expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'computed from 4 listings', 'listing_prices', 'Used - Good', null])
 })
 
 test('insertPriceCheck defaults condition to null when not given (e.g. a blended Gemini-grounded range)', async () => {
@@ -277,6 +277,14 @@ test('insertPriceCheck defaults condition to null when not given (e.g. a blended
   await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'text', 'gemini_grounding')
 
   expect(calls[0].params[6]).toBeNull()
+})
+
+test('insertPriceCheck stores an Exa confidence value when given', async () => {
+  const { db, calls } = mockDb()
+
+  await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'raw', 'exa_new_retail', 'New', 'high')
+
+  expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'raw', 'exa_new_retail', 'New', 'high'])
 })
 
 test('getCheckListingsCandidates orders by last_checked_at then listed_at, oldest/never-checked first', async () => {

@@ -71,6 +71,7 @@ test('runPriceFromListings inserts one listing_prices row per product/condition 
     'computed from 3 of 4 "Used - Good" listings (junk prices excluded)',
     'listing_prices',
     'Used - Good',
+    null,
   ])
   expect(inserts[1].params).toEqual([
     1,
@@ -80,5 +81,6 @@ test('runPriceFromListings inserts one listing_prices row per product/condition 
     'computed from 2 of 2 "New" listings (junk prices excluded)',
     'listing_prices',
     'New',
+    null,
   ])
 })

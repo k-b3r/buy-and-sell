@@ -41,10 +41,43 @@ interface RawNewPriceContent {
   price_high?: unknown
 }
 
-export function parseNewPriceContent(content: unknown): PriceRange | null {
+interface ExaGroundingEntry {
+  field?: unknown
+  confidence?: unknown
+}
+
+interface ExaSearchResponse {
+  output?: {
+    content?: unknown
+    grounding?: ExaGroundingEntry[]
+  } | null
+}
+
+function getOutputContent(response: unknown): unknown {
+  if (typeof response !== 'object' || response === null) return undefined
+  return (response as ExaSearchResponse).output?.content
+}
+
+export function parseNewPriceContent(response: unknown): PriceRange | null {
+  const content = getOutputContent(response)
   if (typeof content !== 'object' || content === null) return null
   const { found, price_low, price_high } = content as RawNewPriceContent
   if (found !== true) return null
   if (typeof price_low !== 'number' || typeof price_high !== 'number') return null
   return { low: price_low, high: price_high, currency: 'PHP' }
+}
+
+// Conservative: if either price field came back low-confidence, the whole
+// row is reported low — a high-confidence price_low next to a low-confidence
+// price_high isn't a high-confidence range.
+export function extractNewPriceConfidence(response: unknown): string | null {
+  if (typeof response !== 'object' || response === null) return null
+  const grounding = (response as ExaSearchResponse).output?.grounding
+  if (!Array.isArray(grounding)) return null
+  const relevant = grounding.filter((g) => g.field === 'price_low' || g.field === 'price_high')
+  if (relevant.length === 0) return null
+  const low = relevant.find((g) => g.confidence === 'low')
+  if (low) return 'low'
+  const first = relevant[0]?.confidence
+  return typeof first === 'string' ? first : null
 }
