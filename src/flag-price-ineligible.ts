@@ -22,6 +22,21 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Land Lot',
     'Lot',
     'Property',
+    // Specific PH condo/house project names — same wrong domain as the
+    // generic entries above, just not caught by exact-string matching until
+    // a full pending-candidate scan surfaced them (2026-08-23).
+    '1 Bedroom Condo Unit',
+    'Ancestral House',
+    'Arya Residences Penthouse',
+    'Commercial House',
+    'Commercial Space',
+    'Fort Victoria Condo Unit',
+    'GA Tower Condo Unit',
+    'Grass Residences Condo Unit',
+    'R Square Residences Condo Unit',
+    'SMDC Breeze Residences Condo Unit',
+    'Townhouse',
+    'Warehouse and Lot',
   ],
   too_generic: [
     'Item',
@@ -55,6 +70,9 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'CPU',
     'Intel Motherboard',
     'AM4 Motherboard',
+    'Household Appliances',
+    'Household Furniture',
+    'Power Supply Unit',
   ],
   // Unlike too_generic (no recoverable path — genuinely not a real, single
   // product), these ARE real, priceable products — they just need a pricing
@@ -79,6 +97,16 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Pre-built PC',
     'CPU Motherboard Bundle',
     'CPU Motherboard RAM Bundle',
+    'AM4 System Unit',
+    'Computer System Unit Core i5-7400',
+    'Computer System Unit Core i7-4790',
+    'Desktop System Unit',
+    'Gaming PC System Unit',
+    'Gaming System Unit',
+    'PC System Unit',
+    'PC Unit',
+    'Ryzen 3 3200G System Unit',
+    'Ryzen System Unit',
   ],
   parts_accessory: [
     'Bicycle Accessories',
