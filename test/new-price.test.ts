@@ -5,6 +5,7 @@ import {
   parseNewPriceContent,
   extractNewPriceConfidence,
   extractNewPriceMetadata,
+  isWideSpread,
 } from '../src/new-price'
 
 test('buildNewPriceQuery includes variant tier when present', () => {
@@ -124,4 +125,17 @@ test('extractNewPriceMetadata defaults both to null when absent or malformed', (
     isDiscontinued: null,
   })
   expect(extractNewPriceMetadata(null)).toEqual({ releaseYear: null, isDiscontinued: null })
+})
+
+test('isWideSpread is true when high is more than 4x low (default threshold)', () => {
+  expect(isWideSpread({ low: 4895, high: 58140, currency: 'PHP' })).toBe(true)
+})
+
+test('isWideSpread is false for a typical multi-AIB-partner spread', () => {
+  expect(isWideSpread({ low: 18150, high: 24700, currency: 'PHP' })).toBe(false)
+})
+
+test('isWideSpread is false right at the threshold, true just past it', () => {
+  expect(isWideSpread({ low: 1000, high: 4000, currency: 'PHP' })).toBe(false)
+  expect(isWideSpread({ low: 1000, high: 4001, currency: 'PHP' })).toBe(true)
 })

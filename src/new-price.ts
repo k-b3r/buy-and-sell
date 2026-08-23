@@ -86,6 +86,17 @@ export function extractNewPriceConfidence(response: unknown): string | null {
   return typeof first === 'string' ? first : null
 }
 
+const WIDE_SPREAD_RATIO = 4
+
+// A spread this wide usually means Exa grounded to a whole product tier or
+// market segment (e.g. "CPU Motherboard Bundle" returning ₱4,895-58,140),
+// not one specific product — found live 2026-08-23. Independent safety net
+// from confidence: Exa can report "high" confidence per field while the
+// combined range is still meaningless.
+export function isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean {
+  return price.high > price.low * maxRatio
+}
+
 export interface NewPriceMetadata {
   releaseYear: number | null
   isDiscontinued: boolean | null

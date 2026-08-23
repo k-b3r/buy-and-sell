@@ -47,6 +47,14 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Appliances',
     'Furniture and Appliances',
     'Speaker',
+    // Bare component category, no brand/chipset/model — same problem as bare
+    // 'GPU' above. Found live 2026-08-23: 'CPU' returned ₱11,095-38,090 (3.4x),
+    // 'Intel Motherboard' ₱3,750-30,195 (8x), 'AM4 Motherboard' ₱3,395-20,495
+    // (6x, spans budget A320 to high-end X570) — each spread spans an entire
+    // product tier, not one product.
+    'CPU',
+    'Intel Motherboard',
+    'AM4 Motherboard',
   ],
   // Unlike too_generic (no recoverable path — genuinely not a real, single
   // product), these ARE real, priceable products — they just need a pricing
@@ -58,7 +66,20 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
   // distinct reason (not folded into too_generic) so this specific group is
   // queryable and can be revisited once that feature exists — query
   // `WHERE price_lookup_excluded_reason = 'needs_component_pricing'`.
-  needs_component_pricing: ['Desktop PC Setup', 'Gaming PC Set', 'Gaming PC Setup', 'Gaming Setup', 'PC Set', 'Pre-built PC'],
+  // 'CPU Motherboard Bundle'/'CPU Motherboard RAM Bundle' belong here too —
+  // found live 2026-08-23: both returned the identical ₱4,895-58,140 (12x)
+  // range, Exa clearly grounding to the general "PC parts bundle" market
+  // rather than any specific bundle.
+  needs_component_pricing: [
+    'Desktop PC Setup',
+    'Gaming PC Set',
+    'Gaming PC Setup',
+    'Gaming Setup',
+    'PC Set',
+    'Pre-built PC',
+    'CPU Motherboard Bundle',
+    'CPU Motherboard RAM Bundle',
+  ],
   parts_accessory: [
     'Bicycle Accessories',
     'Bicycle Fork',

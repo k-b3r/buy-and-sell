@@ -13,6 +13,7 @@ import {
   parseNewPriceContent,
   extractNewPriceConfidence,
   extractNewPriceMetadata,
+  isWideSpread,
 } from './new-price'
 
 export type DelayFn = (ms: number) => Promise<void>
@@ -57,6 +58,17 @@ export async function runNewPriceLookup(
       // for the manually-curated version of the same idea).
       await flagProductPriceLookupExcluded(db, product.id, 'exa_no_result')
       logger.warn(`product ${product.id} (${label}): no reliable new-retail price found, flagged and skipping`)
+      continue
+    }
+
+    if (isWideSpread(price)) {
+      // A real answer came back, but the range itself is too wide to be one
+      // product (e.g. "CPU Motherboard Bundle" returning ₱4,895-58,140) —
+      // Exa grounded to a whole market segment, not a specific item.
+      // Independent of confidence: Exa can report "high" per-field
+      // confidence while the combined range is still meaningless.
+      await flagProductPriceLookupExcluded(db, product.id, 'exa_wide_spread')
+      logger.warn(`product ${product.id} (${label}): price range too wide (${price.low}-${price.high}), flagged and skipping`)
       continue
     }
 

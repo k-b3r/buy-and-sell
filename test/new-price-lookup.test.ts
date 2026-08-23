@@ -83,10 +83,34 @@ test('inserts release_year and is_discontinued when Exa returns them', async () 
   expect(inserts[0]).toEqual([2, 14499, 19999, 'PHP', JSON.stringify(response), 'exa_new_retail', 'New', 'high', 2021, true])
 })
 
+test('a too-wide price range is not inserted — flagged price_lookup_excluded, checked before confidence', async () => {
+  const response = {
+    output: {
+      content: { found: true, price_low: 4895, price_high: 58140 },
+      grounding: [
+        { field: 'price_low', confidence: 'high' },
+        { field: 'price_high', confidence: 'high' },
+      ],
+    },
+  }
+  const { exa } = fakeExa(response)
+  const { db, inserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const products: NewPriceCandidate[] = [
+    { id: 12, base_model: 'CPU Motherboard Bundle', variant_tier: null, description: null, sibling_variants: [] },
+  ]
+
+  await runNewPriceLookup(exa, db, logger, products)
+
+  expect(inserts).toHaveLength(1)
+  expect(inserts[0]).toEqual(['exa_wide_spread', 12])
+  expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
+})
+
 test('a low-confidence price is not inserted — flagged price_lookup_excluded with a distinct reason instead of trusted', async () => {
   const response = {
     output: {
-      content: { found: true, price_low: 5000, price_high: 999999 },
+      content: { found: true, price_low: 5000, price_high: 8000 },
       grounding: [
         { field: 'price_low', confidence: 'high' },
         { field: 'price_high', confidence: 'low' },
