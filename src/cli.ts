@@ -7,13 +7,29 @@ import { createDbPool } from './db'
 import { createR2ImageStore } from './images'
 import { checkTunnelAlive } from './tunnel'
 
+// Motivated-seller phrasing — these skew toward underpriced/urgent listings,
+// the actual "buy-and-sell opportunity" signal this project is after, more
+// than a plain product-name search does.
+export const MOTIVATED_SELLER_KEYWORDS = [
+  'rush sale',
+  'moving out',
+  'preloved',
+  'slightly used',
+  'barely used',
+  'decluttering',
+  'upgrade',
+  'for disposal',
+]
+
 async function main() {
   if (existsSync('.env')) {
     process.loadEnvFile('.env')
   }
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
-  const query = args[0] ?? 'headphones'
-  const maxItemsArg = args[1]
+  const cycle = args.includes('--cycle')
+  const rest = args.filter((arg) => arg !== '--cycle')
+  const queries = cycle ? MOTIVATED_SELLER_KEYWORDS : [rest[0] ?? 'headphones']
+  const maxItemsArg = rest[cycle ? 0 : 1]
   let maxItems: number | undefined
   if (maxItemsArg !== undefined) {
     const parsed = Number(maxItemsArg)
@@ -23,7 +39,7 @@ async function main() {
     maxItems = parsed
   }
 
-  const daysSinceListedArg = args[2]
+  const daysSinceListedArg = rest[cycle ? 1 : 2]
   let daysSinceListed: number | undefined
   if (daysSinceListedArg !== undefined) {
     const parsed = Number(daysSinceListedArg)
@@ -71,22 +87,28 @@ async function main() {
     logger.warn('R2 not configured, skipping photo download (signed CDN URLs will expire)')
   }
 
+  if (cycle) {
+    logger.info(`--cycle: rotating through ${queries.length} motivated-seller keywords, maxItems=${maxItems ?? '(unset)'} each`)
+  }
+
   try {
-    await runCollection(
-      driver,
-      logger,
-      autoApprove,
-      process.stdin,
-      process.stdout,
-      {
-        query,
-        softWallTimeoutMs: 5000,
-        maxItems,
-        daysSinceListed,
-      },
-      pool,
-      imageStore,
-    )
+    for (const query of queries) {
+      await runCollection(
+        driver,
+        logger,
+        autoApprove,
+        process.stdin,
+        process.stdout,
+        {
+          query,
+          softWallTimeoutMs: 5000,
+          maxItems,
+          daysSinceListed,
+        },
+        pool,
+        imageStore,
+      )
+    }
   } finally {
     await close()
     await pool.end()
