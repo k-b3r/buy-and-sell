@@ -3,6 +3,7 @@ import { normalizeBaseModel, normalizeVariantTier } from './products'
 import type { PriceRange } from './pricing'
 import type { EnrichmentCandidate } from './enrichment'
 import type { PriceReviewCandidate } from './price-review'
+import type { CategoryBackfillCandidate } from './category-backfill'
 
 export interface DbClient {
   query(sql: string, params: unknown[]): Promise<unknown>
@@ -452,4 +453,35 @@ export async function getBackfillCandidates(db: DbClient): Promise<BackfillCandi
 // can just be re-run through backfill, which overwrites this with real URLs.
 export async function markListingPhotosUnavailable(db: DbClient, id: string): Promise<void> {
   await db.query(`UPDATE listings SET stored_photo_urls = '[]'::jsonb WHERE id = $1`, [id])
+}
+
+// category IS NULL is both the filter and the resumability marker — no
+// separate results table needed (same pattern as getEnrichmentCandidates).
+// Only pre-existing products lack a category; extract-products.ts assigns it
+// at creation time for everything new, so this backlog only shrinks.
+export async function getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]> {
+  const result = (await db.query(
+    `SELECT id, base_model, variant_tier FROM products WHERE category IS NULL ORDER BY id`,
+    [],
+  )) as { rows: CategoryBackfillCandidate[] }
+  return result.rows
+}
+
+// Batched single round trip, same reasoning as updateListingProductIds — the
+// Neon round-trip cost dwarfs the LLM cost here.
+export async function updateProductCategories(
+  db: DbClient,
+  assignments: { id: number; category: string }[],
+): Promise<void> {
+  if (assignments.length === 0) return
+
+  const valuesSql = assignments.map((_, i) => `($${i * 2 + 1}::int, $${i * 2 + 2}::text)`).join(', ')
+  const params = assignments.flatMap((a) => [a.id, a.category])
+
+  await db.query(
+    `UPDATE products SET category = data.category
+     FROM (VALUES ${valuesSql}) AS data(id, category)
+     WHERE products.id = data.id`,
+    params,
+  )
 }

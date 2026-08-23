@@ -14,7 +14,8 @@
     "enrich-products": "tsx src/enrich-products.ts",
     "new-price-lookup": "tsx src/new-price-lookup.ts",
     "flag-price-ineligible": "tsx src/flag-price-ineligible.ts",
-    "review-listing-prices": "tsx src/review-listing-prices.ts"
+    "review-listing-prices": "tsx src/review-listing-prices.ts",
+    "backfill-categories": "tsx src/backfill-categories.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
