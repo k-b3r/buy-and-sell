@@ -6,7 +6,13 @@ import type { GeminiClient } from './gemini'
 import { createGeminiClient, createFallbackGeminiClient } from './gemini'
 import type { DbClient, ExtractionCandidate } from './db'
 import { createDbPool, findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from './db'
-import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA, normalizeBaseModel, normalizeVariantTier } from './products'
+import {
+  buildExtractionPrompt,
+  EXTRACTION_RESPONSE_SCHEMA,
+  normalizeBaseModel,
+  normalizeVariantTier,
+  PRODUCT_CATEGORIES,
+} from './products'
 
 export interface ExtractionOptions {
   batchSize: number
@@ -55,7 +61,7 @@ export async function runProductExtraction(
     const assignments: { id: string; productId: number }[] = []
     let skipped = 0
 
-    for (const item of raw as { id?: unknown; base_model?: unknown; variant?: unknown }[]) {
+    for (const item of raw as { id?: unknown; base_model?: unknown; variant?: unknown; category?: unknown }[]) {
       if (typeof item.id !== 'string' || typeof item.base_model !== 'string') {
         skipped += 1
         continue
@@ -67,10 +73,17 @@ export async function runProductExtraction(
       }
 
       const variant = typeof item.variant === 'string' && item.variant.trim() !== '' ? item.variant : null
+      // Dashboard browsing/filtering aid only - a missing/invalid category
+      // falls back to null rather than skipping the whole item, since
+      // base_model assignment matters far more than category.
+      const category =
+        typeof item.category === 'string' && (PRODUCT_CATEGORIES as readonly string[]).includes(item.category)
+          ? item.category
+          : null
       const cacheKey = `${normalizeBaseModel(item.base_model)}::${variant ? normalizeVariantTier(variant) : ''}`
       let productId = productIdCache.get(cacheKey)
       if (productId === undefined) {
-        productId = await findOrCreateProduct(db, item.base_model, variant)
+        productId = await findOrCreateProduct(db, item.base_model, variant, category)
         productIdCache.set(cacheKey, productId)
       }
 

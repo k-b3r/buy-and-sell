@@ -27,6 +27,29 @@ function formatListingLine(l: ExtractionInput): string {
   return `[id: ${l.id}] title: "${l.title}" desc: "${desc}"`
 }
 
+// Fixed, bounded list for dashboard browsing/filtering only (not used to
+// drive pipeline logic) - freeform categorization would recreate the exact
+// base_model fragmentation problem this session spent real effort cleaning
+// up (see CONTEXT.md's duplicate-product consolidation finding), just one
+// level higher. "Other" is the required catch-all for anything that doesn't
+// fit, so the model is never forced to guess a bad fit.
+export const PRODUCT_CATEGORIES = [
+  'Phones & Tablets',
+  'Computers & Laptops',
+  'PC Components',
+  'Cameras & Drones',
+  'Audio',
+  'Gaming',
+  'TVs & Monitors',
+  'Appliances',
+  'Vehicles',
+  'Real Estate',
+  'Fashion',
+  'Fitness & Outdoor',
+  'Furniture & Home',
+  'Other',
+] as const
+
 export function buildExtractionPrompt(listings: ExtractionInput[]): string {
   const lines = listings.map(formatListingLine).join('\n')
   return `Extract the base product model from each Facebook Marketplace listing below.
@@ -41,6 +64,9 @@ signals a specific edition/trim that plausibly affects its value (e.g. "Founders
 Edition", "Custom AIB/OC", "Pro", "Max"). Leave variant as an empty string ""
 when no such signal is present - do NOT use storage capacity or color as a variant.
 
+Also assign a "category" for each listing - exactly one of: ${PRODUCT_CATEGORIES.join(', ')}.
+Use "Other" if none genuinely fit rather than forcing a bad match.
+
 Listings:
 ${lines}`
 }
@@ -53,7 +79,8 @@ export const EXTRACTION_RESPONSE_SCHEMA = {
       id: { type: 'string' },
       base_model: { type: 'string' },
       variant: { type: 'string' },
+      category: { type: 'string', enum: PRODUCT_CATEGORIES },
     },
-    required: ['id', 'base_model'],
+    required: ['id', 'base_model', 'category'],
   },
 } as const

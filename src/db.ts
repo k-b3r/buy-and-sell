@@ -90,10 +90,14 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
   )
 }
 
+// category is only ever set at creation, same as base_model/variant_tier —
+// dashboard browsing/filtering only, not re-classified on subsequent
+// extraction passes that happen to match an existing product.
 export async function findOrCreateProduct(
   db: DbClient,
   baseModel: string,
   variantTier: string | null,
+  category: string | null = null,
 ): Promise<number> {
   const normalized = normalizeBaseModel(baseModel)
   const normalizedVariant = variantTier === null ? null : normalizeVariantTier(variantTier)
@@ -105,9 +109,9 @@ export async function findOrCreateProduct(
   if (existing.rows.length > 0) return existing.rows[0].id
 
   const inserted = (await db.query(
-    `INSERT INTO products (base_model, base_model_normalized, variant_tier, variant_tier_normalized)
-     VALUES ($1, $2, $3, $4) RETURNING id`,
-    [baseModel, normalized, variantTier, normalizedVariant],
+    `INSERT INTO products (base_model, base_model_normalized, variant_tier, variant_tier_normalized, category)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [baseModel, normalized, variantTier, normalizedVariant, category],
   )) as { rows: { id: number }[] }
   return inserted.rows[0].id
 }

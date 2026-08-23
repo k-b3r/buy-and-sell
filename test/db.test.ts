@@ -161,7 +161,25 @@ test('findOrCreateProduct inserts a new product when none matches, returns its i
   expect(calls[0].sql).toMatch(/^SELECT/)
   expect(calls[0].params).toEqual(['rtx 3060', null])
   expect(calls[1].sql).toMatch(/^INSERT/)
-  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, null])
+})
+
+test('findOrCreateProduct stores category on a newly-created product', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  let queryCount = 0
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      queryCount += 1
+      if (queryCount === 1) return { rows: [] }
+      return { rows: [{ id: 99 }] }
+    },
+  }
+
+  const id = await findOrCreateProduct(db, 'RTX 3060', null, 'PC Components')
+
+  expect(id).toBe(99)
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components'])
 })
 
 test('findOrCreateProduct reuses an existing product when normalized base_model + variant_tier already match', async () => {
@@ -188,7 +206,7 @@ test('findOrCreateProduct dedupes variant_tier on a normalized column, keeping t
 
   expect(id).toBe(55)
   expect(calls[0].params).toEqual(['rtx 3060', 'founders edition'])
-  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', "Founder's edition", 'founders edition'])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', "Founder's edition", 'founders edition', null])
 })
 
 test('findOrCreateProduct treats "Founders edition" and "Founder\'s edition" as the same product', async () => {

@@ -1,4 +1,10 @@
-import { normalizeBaseModel, normalizeVariantTier, buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from '../src/products'
+import {
+  normalizeBaseModel,
+  normalizeVariantTier,
+  buildExtractionPrompt,
+  EXTRACTION_RESPONSE_SCHEMA,
+  PRODUCT_CATEGORIES,
+} from '../src/products'
 
 test('normalizeBaseModel trims, lowercases, and collapses internal whitespace', () => {
   expect(normalizeBaseModel('  RTX   3060  ')).toBe('rtx 3060')
@@ -19,10 +25,30 @@ test('buildExtractionPrompt includes each listing id and title, and truncates lo
   expect(prompt).not.toContain('no scratches or dents anywhere on the case')
 })
 
-test('EXTRACTION_RESPONSE_SCHEMA is an array schema requiring id and base_model, with variant optional', () => {
+test('EXTRACTION_RESPONSE_SCHEMA is an array schema requiring id, base_model, and category, with variant optional', () => {
   expect(EXTRACTION_RESPONSE_SCHEMA.type).toBe('array')
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toEqual(['id', 'base_model'])
+  expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toEqual(['id', 'base_model', 'category'])
   expect(EXTRACTION_RESPONSE_SCHEMA.items.properties.variant.type).toBe('string')
+})
+
+// Fixed, bounded list - freeform categorization would recreate the exact
+// base_model fragmentation problem this session spent a lot of effort
+// cleaning up, just one level higher (see CONTEXT.md's duplicate-product
+// consolidation finding).
+test('EXTRACTION_RESPONSE_SCHEMA constrains category to the fixed PRODUCT_CATEGORIES enum', () => {
+  expect(EXTRACTION_RESPONSE_SCHEMA.items.properties.category.enum).toEqual(PRODUCT_CATEGORIES)
+  expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toContain('category')
+})
+
+test('PRODUCT_CATEGORIES includes Other as a catch-all', () => {
+  expect(PRODUCT_CATEGORIES).toContain('Other')
+})
+
+test('buildExtractionPrompt lists the fixed categories for the model to choose from', () => {
+  const prompt = buildExtractionPrompt([{ id: '1', title: 'RTX 3060 OC Asus', description: '' }])
+  for (const category of PRODUCT_CATEGORIES) {
+    expect(prompt).toContain(category)
+  }
 })
 
 test('buildExtractionPrompt instructs the model to leave variant empty unless clearly signaled', () => {

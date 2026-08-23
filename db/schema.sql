@@ -49,6 +49,15 @@ ALTER TABLE listings ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES prod
 -- while the raw variant_tier column keeps the original text for later review.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_tier_normalized TEXT;
 
+-- Dashboard browsing/filtering only, not used to drive pipeline logic. Fixed,
+-- bounded set (src/products.ts's PRODUCT_CATEGORIES), not a DB enum/CHECK -
+-- same flexibility as variant_tier if the list needs adjusting later. Set
+-- once at product creation by extract-products.ts's Gemini call (same pass
+-- as base_model, no extra cost), never re-classified afterward. Existing
+-- products stay NULL until a deferred batched backfill (see CONTEXT.md) -
+-- backfill must batch multiple products per LLM call, not one-per-product.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT;
+
 DROP INDEX IF EXISTS products_base_model_variant_idx;
 CREATE UNIQUE INDEX IF NOT EXISTS products_base_model_variant_normalized_idx
   ON products (base_model_normalized, COALESCE(variant_tier_normalized, ''));
