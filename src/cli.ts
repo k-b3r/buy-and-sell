@@ -88,27 +88,34 @@ async function main() {
   }
 
   if (cycle) {
-    logger.info(`--cycle: rotating through ${queries.length} motivated-seller keywords, maxItems=${maxItems ?? '(unset)'} each`)
+    logger.info(
+      `--cycle: looping indefinitely through ${queries.length} motivated-seller keywords, maxItems=${maxItems ?? '(unset)'} each — Ctrl+C to stop`,
+    )
   }
 
   try {
-    for (const query of queries) {
-      await runCollection(
-        driver,
-        logger,
-        autoApprove,
-        process.stdin,
-        process.stdout,
-        {
-          query,
-          softWallTimeoutMs: 5000,
-          maxItems,
-          daysSinceListed,
-        },
-        pool,
-        imageStore,
-      )
-    }
+    let lap = 1
+    do {
+      if (cycle) logger.info(`--cycle: lap ${lap} starting`)
+      for (const query of queries) {
+        await runCollection(
+          driver,
+          logger,
+          autoApprove,
+          process.stdin,
+          process.stdout,
+          {
+            query,
+            softWallTimeoutMs: 5000,
+            maxItems,
+            daysSinceListed,
+          },
+          pool,
+          imageStore,
+        )
+      }
+      lap++
+    } while (cycle)
   } finally {
     await close()
     await pool.end()
