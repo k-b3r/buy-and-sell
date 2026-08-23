@@ -30,6 +30,26 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           New retail price: ₱{product.new_price_low.toLocaleString()}–₱{product.new_price_high.toLocaleString()}
         </p>
       )}
+      {product.discount_bands.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+          {product.discount_bands.map((band) => (
+            <span
+              key={band.bandFloor}
+              className="mono"
+              style={{
+                padding: '2px 10px',
+                borderRadius: 12,
+                fontSize: '0.85em',
+                fontWeight: 'bold',
+                background: 'var(--color-signal)',
+                color: 'var(--color-bg)',
+              }}
+            >
+              {band.bandFloor}-{band.bandFloor + 9}% off ×{band.count}
+            </span>
+          ))}
+        </div>
+      )}
 
       {product.enrichment && (
         <section style={{ margin: '1rem 0' }}>

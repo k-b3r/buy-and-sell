@@ -5,8 +5,40 @@ import {
   getListingDetail,
   computeListingDiscount,
   isPlaceholderPrice,
+  summarizeDiscounts,
 } from '../src/lib/queries'
 import type { QueryClient } from '../src/lib/queries'
+
+test('summarizeDiscounts groups qualifying discounts into descending decade bands', () => {
+  const result = summarizeDiscounts([73, 68, 41, 22, 5, null, -10])
+  expect(result).toEqual({
+    bestDiscountPercent: 73,
+    discountedListingCount: 4,
+    bands: [
+      { bandFloor: 70, count: 1 },
+      { bandFloor: 60, count: 1 },
+      { bandFloor: 40, count: 1 },
+      { bandFloor: 20, count: 1 },
+    ],
+  })
+})
+
+test('summarizeDiscounts excludes single-digit discounts (floor at 10%)', () => {
+  expect(summarizeDiscounts([9, 5, 1])).toEqual({ bestDiscountPercent: null, discountedListingCount: 0, bands: [] })
+})
+
+test('summarizeDiscounts groups multiple listings in the same decade band together', () => {
+  expect(summarizeDiscounts([43, 41, 45])).toEqual({
+    bestDiscountPercent: 45,
+    discountedListingCount: 3,
+    bands: [{ bandFloor: 40, count: 3 }],
+  })
+})
+
+test('summarizeDiscounts returns an empty summary for no qualifying discounts', () => {
+  expect(summarizeDiscounts([])).toEqual({ bestDiscountPercent: null, discountedListingCount: 0, bands: [] })
+  expect(summarizeDiscounts([null, null])).toEqual({ bestDiscountPercent: null, discountedListingCount: 0, bands: [] })
+})
 
 test('isPlaceholderPrice flags ascending-sequential digit runs', () => {
   expect(isPlaceholderPrice(123)).toBe(true)
@@ -147,6 +179,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       secondhand_price_source: 'web_search',
       best_discount_percent: null,
       discounted_listing_count: 0,
+      discount_bands: [],
     },
     {
       id: 2,
@@ -164,6 +197,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       secondhand_price_source: null,
       best_discount_percent: null,
       discounted_listing_count: 0,
+      discount_bands: [],
     },
   ])
 })
@@ -433,6 +467,9 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
     secondhand_price_low: 15000,
     secondhand_price_high: 20000,
     secondhand_price_source: 'web_search',
+    best_discount_percent: null,
+    discounted_listing_count: 0,
+    discount_bands: [],
     enrichment: null,
     listings: [
       {
@@ -504,7 +541,97 @@ test('getProductDetail computes each listing\'s discount against the outlier-exc
   ])
 })
 
+test('getProductDetail suppresses discount computation entirely for a price_lookup_excluded product', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 429,
+              base_model: 'Product',
+              variant_tier: null,
+              price_lookup_excluded: true,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
+              enrichment_description: null,
+              enrichment_value_drivers: null,
+              enrichment_has_trained_price_knowledge: null,
+              enrichment_trained_price_low: null,
+              enrichment_trained_price_high: null,
+              enrichment_trained_price_currency: null,
+              enrichment_model: null,
+              enrichment_checked_at: null,
+            },
+          ],
+        }
+      }
+      // Real listings that would otherwise produce real (if nonsensical,
+      // since these are unrelated real items) discounts against each other.
+      return {
+        rows: [
+          { id: 'a', title: 'Sale', price_amount: '1000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          { id: 'b', title: 'Rush Sale', price_amount: '5000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 429)
+
+  expect(result?.listings.every((l) => l.discount_percent === null)).toBe(true)
+  expect(result?.best_discount_percent).toBeNull()
+  expect(result?.discount_bands).toEqual([])
+})
+
 test('getProductDetail surfaces a brand-new Exa price separately from a Groq-trained secondhand fallback', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 310,
+              base_model: 'iPhone 15',
+              variant_tier: 'Plus',
+              new_price_low: '68990',
+              new_price_high: '89990',
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
+              enrichment_description: 'desc',
+              enrichment_value_drivers: 'drivers',
+              enrichment_has_trained_price_knowledge: true,
+              enrichment_trained_price_low: '35000',
+              enrichment_trained_price_high: '40000',
+              enrichment_trained_price_currency: 'PHP',
+              enrichment_model: 'openai/gpt-oss-120b',
+              enrichment_checked_at: new Date('2026-08-22T00:00:00.000Z'),
+            },
+          ],
+        }
+      }
+      return { rows: [] }
+    },
+  }
+
+  const result = await getProductDetail(db, 310)
+
+  expect(result?.new_price_low).toBe(68990)
+  expect(result?.new_price_high).toBe(89990)
+  expect(result?.secondhand_price_low).toBe(35000)
+  expect(result?.secondhand_price_high).toBe(40000)
+  expect(result?.secondhand_price_source).toBe('groq_trained')
+})
+
+test('getProductSummaries surfaces a brand-new price from Exa independently of secondhand', async () => {
   let call = 0
   const db: QueryClient = {
     query: async () => {

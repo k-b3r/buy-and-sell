@@ -18,6 +18,38 @@ export interface ProductSummary {
   secondhand_price_source: string | null
   best_discount_percent: number | null
   discounted_listing_count: number
+  discount_bands: DiscountBand[]
+}
+
+export interface DiscountBand {
+  bandFloor: number
+  count: number
+}
+
+export interface DiscountSummary {
+  bestDiscountPercent: number | null
+  discountedListingCount: number
+  bands: DiscountBand[]
+}
+
+// Single-digit discounts (1-9%) aren't a real deal signal worth surfacing -
+// floor is 10%, per direct instruction (2026-08-23). Bands are decade-wide
+// (10-19%, 20-29%, ...), only non-empty bands included, descending order -
+// the actual spread of what a product has, not a fixed pre-declared list.
+export function summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary {
+  const qualifying = discountPercents.filter((d): d is number => d !== null && d >= 10)
+  if (qualifying.length === 0) return { bestDiscountPercent: null, discountedListingCount: 0, bands: [] }
+
+  const counts = new Map<number, number>()
+  for (const d of qualifying) {
+    const bandFloor = Math.floor(d / 10) * 10
+    counts.set(bandFloor, (counts.get(bandFloor) ?? 0) + 1)
+  }
+  const bands = [...counts.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([bandFloor, count]) => ({ bandFloor, count }))
+
+  return { bestDiscountPercent: Math.max(...qualifying), discountedListingCount: qualifying.length, bands }
 }
 
 const DEFAULT_LIMIT = 30
@@ -59,6 +91,15 @@ function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value)
 }
 
+// jsonb_agg over an empty/filtered-out set comes back as SQL NULL, not '[]'.
+function toDiscountBands(value: unknown): DiscountBand[] {
+  if (!Array.isArray(value)) return []
+  return value.map((b) => ({
+    bandFloor: Number((b as { bandFloor: unknown }).bandFloor),
+    count: Number((b as { count: unknown }).count),
+  }))
+}
+
 // Same raw-median-then-outlier-excluded-clean-median approach as
 // computeListingDiscount, computed once per product for the products-list
 // page: "best deal under this product" is the single most actionable
@@ -86,8 +127,16 @@ function notPlaceholderPriceSql(column: string): string {
 const DISCOUNT_SUMMARY_LATERAL = `
   LEFT JOIN LATERAL (
     WITH product_prices AS (
+      -- price_lookup_excluded gated here, not just on the final aggregate
+      -- below: the "bands" CTE further down is computed independently of
+      -- that later WHERE (CTEs materialize before it's applied), so an
+      -- excluded product's real discount_bands leaked through even after
+      -- best_discount_percent/discounted_listing_count correctly went null.
+      -- Confirmed live 2026-08-23: "House and Lot"/"Item"/"Desktop PC" all
+      -- still showed real band arrays despite being flagged excluded.
       SELECT price_amount FROM listings pl
       WHERE pl.product_id = p.id AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+        AND NOT p.price_lookup_excluded
         AND ${notPlaceholderPriceSql('pl.price_amount')}
     ),
     raw AS (
@@ -105,18 +154,22 @@ const DISCOUNT_SUMMARY_LATERAL = `
       FROM product_prices pp, raw, clean
       WHERE raw.n >= 2 AND raw.median_price > 0 AND clean.median_price > 0
         AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+    ),
+    -- Single-digit discounts (1-9%) aren't a real deal signal - floor is
+    -- 10%, per direct instruction (2026-08-23), mirrored in summarizeDiscounts.
+    qualifying AS (
+      SELECT discount_percent FROM discounts WHERE discount_percent >= 10
+    ),
+    bands AS (
+      SELECT (floor(discount_percent / 10) * 10)::int AS band_floor, count(*) AS band_count
+      FROM qualifying
+      GROUP BY band_floor
     )
     SELECT
-      MAX(discount_percent) FILTER (WHERE discount_percent > 0) AS best_discount_percent,
-      COUNT(*) FILTER (WHERE discount_percent > 0) AS discounted_listing_count
-    FROM discounts
-    -- price_lookup_excluded products (real_estate/too_generic/etc, see
-    -- flag-price-ineligible.ts) bundle many unrelated real items under one
-    -- fake "product" - a median across them is meaningless, same reason
-    -- they're excluded from Exa/Gemini pricing. Confirmed live 2026-08-23:
-    -- without this, "House and Lot"/"Item"/"Real Estate"/"Lot" all showed
-    -- 80-90% fake "discounts" from comparing unrelated listings to each other.
-    WHERE NOT p.price_lookup_excluded
+      MAX(discount_percent) AS best_discount_percent,
+      COUNT(*) AS discounted_listing_count,
+      (SELECT jsonb_agg(jsonb_build_object('bandFloor', band_floor, 'count', band_count) ORDER BY band_floor DESC) FROM bands) AS discount_bands
+    FROM qualifying
   ) ds ON true
 `
 
@@ -226,7 +279,8 @@ export async function getProductSummaries(
             e.trained_price_low,
             e.trained_price_high,
             ds.best_discount_percent,
-            ds.discounted_listing_count
+            ds.discounted_listing_count,
+            ds.discount_bands
      FROM products p
      JOIN listings l ON l.product_id = p.id
      ${NEW_PRICE_LATERAL}
@@ -237,7 +291,7 @@ export async function getProductSummaries(
      GROUP BY p.id, p.base_model, p.variant_tier, np.price_low, np.price_high,
               up.price_low, up.price_high, up.source,
               e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high,
-              ds.best_discount_percent, ds.discounted_listing_count
+              ds.best_discount_percent, ds.discounted_listing_count, ds.discount_bands
      ORDER BY listing_count DESC, p.id ASC
      LIMIT $2 OFFSET $3`,
     [search, limit, offset],
@@ -268,6 +322,7 @@ export async function getProductSummaries(
       secondhand_price_source: secondhand.source,
       best_discount_percent: toNullableNumber(r.best_discount_percent),
       discounted_listing_count: Number(r.discounted_listing_count ?? 0),
+      discount_bands: toDiscountBands(r.discount_bands),
     }
   })
 }
@@ -329,13 +384,16 @@ export interface ProductDetail {
   secondhand_price_low: number | null
   secondhand_price_high: number | null
   secondhand_price_source: string | null
+  best_discount_percent: number | null
+  discounted_listing_count: number
+  discount_bands: DiscountBand[]
   enrichment: ProductEnrichment | null
   listings: ProductListingSummary[]
 }
 
 export async function getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null> {
   const productResult = await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier,
+    `SELECT p.id, p.base_model, p.variant_tier, p.price_lookup_excluded,
             np.price_low as new_price_low, np.price_high as new_price_high,
             up.price_low as used_price_low, up.price_high as used_price_high, up.source as used_price_source,
             e.description as enrichment_description, e.value_drivers as enrichment_value_drivers,
@@ -388,15 +446,24 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     price_review: toPriceReview(r),
   }))
 
-  const validPrices = rawListings
-    .map((l) => l.price_amount)
-    .filter((p): p is number => p !== null && p > 0 && !isPlaceholderPrice(p))
+  // price_lookup_excluded products (real_estate/too_generic/etc) bundle
+  // unrelated real items under one fake "product" - a median across them is
+  // meaningless. Forcing an empty price set here makes computeListingDiscount
+  // return null for every listing (sampleSize < 2), same effect as
+  // DISCOUNT_SUMMARY_LATERAL's exclusion on the products-list page. Confirmed
+  // live 2026-08-23: navigating directly to an excluded product's detail page
+  // still showed 6 fake discount badges before this fix.
+  const validPrices = productRow.price_lookup_excluded
+    ? []
+    : rawListings.map((l) => l.price_amount).filter((p): p is number => p !== null && p > 0 && !isPlaceholderPrice(p))
   const { rawMedian, cleanMedian, sampleSize } = computeMedians(validPrices)
 
   const listings = rawListings.map((l) => {
     const discount = computeListingDiscount(l.price_amount, rawMedian, cleanMedian, sampleSize)
     return { ...l, discount_percent: discount.discountPercent, reference_price: discount.referencePrice }
   })
+
+  const discountSummary = summarizeDiscounts(listings.map((l) => l.discount_percent))
 
   const secondhand = resolveSecondhandPrice(
     productRow.used_price_low,
@@ -416,6 +483,9 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     secondhand_price_low: secondhand.low,
     secondhand_price_high: secondhand.high,
     secondhand_price_source: secondhand.source,
+    best_discount_percent: discountSummary.bestDiscountPercent,
+    discounted_listing_count: discountSummary.discountedListingCount,
+    discount_bands: discountSummary.bands,
     enrichment,
     listings,
   }

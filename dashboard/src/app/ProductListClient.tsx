@@ -95,23 +95,34 @@ export default function ProductListClient({ initialProducts, initialNextOffset, 
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               ) : null}
-              {p.best_discount_percent !== null && (
+              {p.discount_bands.length > 0 && (
                 <div
-                  className="mono"
                   style={{
                     position: 'absolute',
                     top: 8,
                     right: 8,
-                    padding: '2px 8px',
-                    borderRadius: 12,
-                    fontSize: '0.8em',
-                    fontWeight: 'bold',
-                    background: 'var(--color-signal)',
-                    color: 'var(--color-bg)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    alignItems: 'flex-end',
                   }}
                 >
-                  {p.best_discount_percent}% off
-                  {p.discounted_listing_count > 1 ? ` ×${p.discounted_listing_count}` : ''}
+                  {p.discount_bands.map((band) => (
+                    <div
+                      key={band.bandFloor}
+                      className="mono"
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: 12,
+                        fontSize: '0.75em',
+                        fontWeight: 'bold',
+                        background: 'var(--color-signal)',
+                        color: 'var(--color-bg)',
+                      }}
+                    >
+                      {band.bandFloor}-{band.bandFloor + 9}% {band.count}x
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
