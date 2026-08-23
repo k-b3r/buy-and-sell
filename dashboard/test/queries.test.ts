@@ -81,24 +81,28 @@ test('isPlaceholderPrice does not flag ordinary non-pattern prices', () => {
   expect(isPlaceholderPrice(32500)).toBe(false)
 })
 
-test('isListingPriceNegotiable is true when the LLM review says so, regardless of the price pattern', () => {
-  expect(isListingPriceNegotiable(17499, { is_negotiable: true, price_low: null, price_high: null })).toBe(true)
+test('isListingPriceNegotiable is true when the LLM review says so, even with a real discount value present', () => {
+  expect(isListingPriceNegotiable(17499, { is_negotiable: true, price_low: null, price_high: null }, 20)).toBe(true)
 })
 
-test('isListingPriceNegotiable is true for a placeholder-pattern price with no review row at all', () => {
-  expect(isListingPriceNegotiable(12456, null)).toBe(true)
+test('isListingPriceNegotiable is true for a placeholder-pattern price, even with a real discount value present', () => {
+  expect(isListingPriceNegotiable(12456, null, 20)).toBe(true)
 })
 
 test('isListingPriceNegotiable is true for a placeholder-pattern price even when the review row says not negotiable', () => {
-  expect(isListingPriceNegotiable(123456, { is_negotiable: false, price_low: null, price_high: null })).toBe(true)
+  expect(isListingPriceNegotiable(123456, { is_negotiable: false, price_low: null, price_high: null }, 20)).toBe(true)
 })
 
-test('isListingPriceNegotiable is false for an ordinary price with no review row', () => {
-  expect(isListingPriceNegotiable(17499, null)).toBe(false)
+test('isListingPriceNegotiable is true when there is no discount/overvalue signal to show (discount_percent null)', () => {
+  expect(isListingPriceNegotiable(17499, null, null)).toBe(true)
 })
 
-test('isListingPriceNegotiable is false when price is null and there is no review row', () => {
-  expect(isListingPriceNegotiable(null, null)).toBe(false)
+test('isListingPriceNegotiable is true when discount_percent is exactly 0 - the same condition DiscountBadge treats as "nothing to show"', () => {
+  expect(isListingPriceNegotiable(17499, null, 0)).toBe(true)
+})
+
+test('isListingPriceNegotiable is false for an ordinary price with a real nonzero discount value and no review row', () => {
+  expect(isListingPriceNegotiable(17499, null, 15)).toBe(false)
 })
 
 test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {
@@ -151,6 +155,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       id: 1,
       base_model: 'RTX 3060',
       variant_tier: null,
+      category: 'PC Components',
       listing_count: '8',
       price_min: '12000',
       price_max: '18500',
@@ -171,6 +176,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       id: 2,
       base_model: 'iPhone 13',
       variant_tier: '128GB',
+      category: null,
       listing_count: '3',
       price_min: null,
       price_max: null,
@@ -196,6 +202,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       id: 1,
       base_model: 'RTX 3060',
       variant_tier: null,
+      category: 'PC Components',
       listing_count: 8,
       price_min: 12000,
       price_max: 18500,
@@ -214,6 +221,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       id: 2,
       base_model: 'iPhone 13',
       variant_tier: '128GB',
+      category: null,
       listing_count: 3,
       price_min: null,
       price_max: null,
@@ -418,6 +426,37 @@ test('getProductSummaries passes search as an ILIKE pattern and respects offset/
   expect(capturedParams).toEqual(['%RTX%', 10, 60])
 })
 
+test('getProductSummaries filters by category when provided', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db, { category: 'Audio' })
+
+  expect(capturedSql).toContain('p.category = $')
+  expect(capturedParams).toEqual([null, 'Audio', 30, 0])
+})
+
+test('getProductSummaries omits the category filter when not provided', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db)
+
+  expect(capturedParams).toEqual([null, 30, 0])
+})
+
 test('getProductSummaries treats an empty/whitespace search as no filter', async () => {
   let capturedParams: unknown[] = []
   const db: QueryClient = {
@@ -515,6 +554,61 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
       },
     ],
   })
+})
+
+test('getProductDetail prefers a listing\'s stored_photo_urls over its primary_photo_url for the card thumbnail', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 1,
+              base_model: 'Sony WH-1000XM6',
+              variant_tier: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
+              enrichment_description: null,
+              enrichment_value_drivers: null,
+              enrichment_has_trained_price_knowledge: null,
+              enrichment_trained_price_low: null,
+              enrichment_trained_price_high: null,
+              enrichment_trained_price_currency: null,
+              enrichment_model: null,
+              enrichment_checked_at: null,
+            },
+          ],
+        }
+      }
+      return {
+        rows: [
+          {
+            id: '123',
+            title: 'Sony WH-1000XM6',
+            price_amount: '15000',
+            // primary_photo_url is Facebook's own CDN link and expires;
+            // stored_photo_urls is the durable R2-hosted copy and must win.
+            primary_photo_url: 'https://scontent.fmnl30-3.fna.fbcdn.net/expired.jpg',
+            stored_photo_urls: ['https://pub-xyz.r2.dev/listings/123/0.jpg'],
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(result?.listings[0].primary_photo_url).toBe('https://pub-xyz.r2.dev/listings/123/0.jpg')
 })
 
 test('getProductDetail computes each listing\'s discount against the outlier-excluded median of its siblings', async () => {

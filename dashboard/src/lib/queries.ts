@@ -6,6 +6,7 @@ export interface ProductSummary {
   id: number
   base_model: string
   variant_tier: string | null
+  category: string | null
   listing_count: number
   price_min: number | null
   price_max: number | null
@@ -53,6 +54,26 @@ export function summarizeDiscounts(discountPercents: (number | null)[]): Discoun
 }
 
 const DEFAULT_LIMIT = 30
+
+// Must match src/products.ts's PRODUCT_CATEGORIES (the root project's extraction
+// enum) - dashboard is a separate package with its own src, no shared import path,
+// so this list is duplicated rather than reaching across the package boundary.
+export const PRODUCT_CATEGORIES = [
+  'Phones & Tablets',
+  'Computers & Laptops',
+  'PC Components',
+  'Cameras & Drones',
+  'Audio',
+  'Gaming',
+  'TVs & Monitors',
+  'Appliances',
+  'Vehicles',
+  'Real Estate',
+  'Fashion',
+  'Fitness & Outdoor',
+  'Furniture & Home',
+  'Other',
+] as const
 
 // exa_new_retail is the only source that has ever targeted brand-new retail
 // pricing - gemini_grounding and web_search both explicitly ask for
@@ -262,20 +283,35 @@ function toPriceReview(r: Record<string, unknown>): ListingPriceReview | null {
 
 export async function getProductSummaries(
   db: QueryClient,
-  options: { search?: string; offset?: number; limit?: number } = {},
+  options: { search?: string; category?: string; offset?: number; limit?: number } = {},
 ): Promise<ProductSummary[]> {
   const trimmedSearch = options.search?.trim()
   const search = trimmedSearch ? `%${trimmedSearch}%` : null
   const limit = options.limit ?? DEFAULT_LIMIT
   const offset = options.offset ?? 0
 
+  // Category filter's placeholder is only appended (and only occupies a
+  // param slot) when actually provided - "omit means show every category"
+  // needs to stay indistinguishable from "no filter at all", unlike search's
+  // always-present-but-nullable $1 pattern, so limit/offset's placeholder
+  // numbers shift accordingly.
+  const params: unknown[] = [search]
+  let categoryClause = ''
+  if (options.category) {
+    params.push(options.category)
+    categoryClause = `AND p.category = $${params.length}`
+  }
+  const limitPlaceholder = params.length + 1
+  const offsetPlaceholder = params.length + 2
+  params.push(limit, offset)
+
   const result = await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier,
+    `SELECT p.id, p.base_model, p.variant_tier, p.category,
             count(l.id) as listing_count,
             min(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_min,
             max(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_max,
             avg(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_avg,
-            max(l.primary_photo_url) as sample_photo_url,
+            COALESCE(max(l.stored_photo_urls->>0), max(l.primary_photo_url)) as sample_photo_url,
             np.price_low as new_price_low,
             np.price_high as new_price_high,
             up.price_low as used_price_low,
@@ -293,14 +329,14 @@ export async function getProductSummaries(
      ${SECONDHAND_PRICE_LATERAL}
      ${DISCOUNT_SUMMARY_LATERAL}
      LEFT JOIN product_enrichment e ON e.product_id = p.id
-     WHERE ($1::text IS NULL OR p.base_model ILIKE $1)
-     GROUP BY p.id, p.base_model, p.variant_tier, np.price_low, np.price_high,
+     WHERE ($1::text IS NULL OR p.base_model ILIKE $1) ${categoryClause}
+     GROUP BY p.id, p.base_model, p.variant_tier, p.category, np.price_low, np.price_high,
               up.price_low, up.price_high, up.source,
               e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high,
               ds.best_discount_percent, ds.discounted_listing_count, ds.discount_bands
      ORDER BY listing_count DESC, p.id ASC
-     LIMIT $2 OFFSET $3`,
-    [search, limit, offset],
+     LIMIT $${limitPlaceholder} OFFSET $${offsetPlaceholder}`,
+    params,
   )
 
   return (result.rows as Record<string, unknown>[]).map((r) => {
@@ -316,6 +352,7 @@ export async function getProductSummaries(
       id: r.id as number,
       base_model: r.base_model as string,
       variant_tier: r.variant_tier as string | null,
+      category: r.category as string | null,
       listing_count: Number(r.listing_count),
       price_min: toNullableNumber(r.price_min),
       price_max: toNullableNumber(r.price_max),
@@ -352,14 +389,22 @@ export interface ProductListingSummary {
   reference_price: number | null
 }
 
-// Two independent sources of "don't trust this as a firm price": the LLM
-// review (magnitude-outlier prices Groq actually read and judged negotiable)
-// and the placeholder-pattern check (never sent to an LLM at all - the
-// pattern alone is confident enough on its own). Either one is enough to
-// show the badge / count as negotiable in a filter.
-export function isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null): boolean {
+// Three independent sources of "don't trust this as a firm price": the LLM
+// review (magnitude-outlier prices Groq actually read and judged negotiable),
+// the placeholder-pattern check (never sent to an LLM at all - the pattern
+// alone is confident enough on its own), and - deliberately broad - simply
+// having no discount/overvalue signal to show at all (discountPercent null or
+// 0, the exact condition under which DiscountBadge renders nothing). That
+// last one means every listing ends up showing at least one pricing-status
+// badge instead of silently showing neither.
+export function isListingPriceNegotiable(
+  priceAmount: number | null,
+  priceReview: ListingPriceReview | null,
+  discountPercent: number | null,
+): boolean {
   if (priceReview?.is_negotiable) return true
-  return priceAmount !== null && isPlaceholderPrice(priceAmount)
+  if (priceAmount !== null && isPlaceholderPrice(priceAmount)) return true
+  return discountPercent === null || discountPercent === 0
 }
 
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
@@ -408,6 +453,18 @@ export interface ProductDetail {
   listings: ProductListingSummary[]
 }
 
+// primary_photo_url is Facebook's own CDN link, which expires/requires a
+// live FB session - confirmed live 2026-08-23 against real Sony WH-1000XM6
+// listings (broken thumbnail on the product's listing cards, but fine on the
+// single listing page) because only getListingDetail's query preferred
+// stored_photo_urls (the durable R2-hosted copy); getProductDetail's listing
+// query didn't select it at all. Single source of truth for both now.
+function resolvePhotoUrls(storedPhotoUrls: unknown, primaryPhotoUrl: unknown): string[] {
+  const stored = storedPhotoUrls as string[] | null
+  if (stored && stored.length > 0) return stored
+  return primaryPhotoUrl ? [primaryPhotoUrl as string] : []
+}
+
 export async function getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null> {
   const productResult = await db.query(
     `SELECT p.id, p.base_model, p.variant_tier, p.price_lookup_excluded,
@@ -444,7 +501,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       : null
 
   const listingsResult = await db.query(
-    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.condition, l.sold_at, l.listed_at,
+    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at, l.listed_at,
             pr.is_negotiable as price_review_is_negotiable,
             pr.price_low as price_review_low, pr.price_high as price_review_high
      FROM listings l
@@ -457,7 +514,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     id: r.id as string,
     title: r.title as string,
     price_amount: toNullableNumber(r.price_amount),
-    primary_photo_url: r.primary_photo_url as string | null,
+    primary_photo_url: resolvePhotoUrls(r.stored_photo_urls, r.primary_photo_url)[0] ?? null,
     condition: r.condition as string | null,
     sold_at: toIsoOrNull(r.sold_at),
     listed_at: toIsoOrNull(r.listed_at),
@@ -572,13 +629,7 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const row = (result.rows as Record<string, unknown>[])[0]
   if (!row) return null
 
-  const storedPhotoUrls = row.stored_photo_urls as string[] | null
-  const photoUrls =
-    storedPhotoUrls && storedPhotoUrls.length > 0
-      ? storedPhotoUrls
-      : row.primary_photo_url
-        ? [row.primary_photo_url as string]
-        : []
+  const photoUrls = resolvePhotoUrls(row.stored_photo_urls, row.primary_photo_url)
 
   let discount = { discountPercent: null as number | null, referencePrice: null as number | null }
   if (row.product_id !== null && row.product_id !== undefined) {

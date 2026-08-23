@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import type { ProductSummary } from '@/lib/queries'
+import { PRODUCT_CATEGORIES, type ProductSummary } from '@/lib/queries'
 
 interface ProductsPage {
   products: ProductSummary[]
@@ -13,19 +13,27 @@ interface Props {
   initialProducts: ProductSummary[]
   initialNextOffset: number | null
   initialSearch: string
+  initialCategory: string
 }
 
-export default function ProductListClient({ initialProducts, initialNextOffset, initialSearch }: Props) {
+export default function ProductListClient({
+  initialProducts,
+  initialNextOffset,
+  initialSearch,
+  initialCategory,
+}: Props) {
   const [search, setSearch] = useState(initialSearch)
+  const [category, setCategory] = useState(initialCategory)
   const [products, setProducts] = useState(initialProducts)
   const [nextOffset, setNextOffset] = useState(initialNextOffset)
   const [loading, setLoading] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  const fetchPage = useCallback(async (q: string, offset: number, replace: boolean) => {
+  const fetchPage = useCallback(async (q: string, cat: string, offset: number, replace: boolean) => {
     setLoading(true)
     const params = new URLSearchParams({ offset: String(offset) })
     if (q) params.set('q', q)
+    if (cat) params.set('category', cat)
     const res = await fetch(`/api/products?${params}`)
     const data: ProductsPage = await res.json()
     setProducts((prev) => {
@@ -38,33 +46,53 @@ export default function ProductListClient({ initialProducts, initialNextOffset, 
   }, [])
 
   useEffect(() => {
-    if (search === initialSearch) return
-    const timeout = setTimeout(() => fetchPage(search, 0, true), 300)
+    if (search === initialSearch && category === initialCategory) return
+    const timeout = setTimeout(() => fetchPage(search, category, 0, true), 300)
     return () => clearTimeout(timeout)
-  }, [search, initialSearch, fetchPage])
+  }, [search, category, initialSearch, initialCategory, fetchPage])
 
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel || nextOffset === null) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) fetchPage(search, nextOffset, false)
+        if (entries[0].isIntersecting && !loading) fetchPage(search, category, nextOffset, false)
       },
       { rootMargin: '200px' },
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [nextOffset, loading, search, fetchPage])
+  }, [nextOffset, loading, search, category, fetchPage])
 
   return (
     <div>
-      <input
-        type="text"
-        placeholder="Search by product name..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ width: '100%', padding: 8, marginBottom: 16, boxSizing: 'border-box' }}
-      />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <input
+          type="text"
+          placeholder="Search by product name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, padding: 8, boxSizing: 'border-box' }}
+        />
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          style={{
+            padding: 8,
+            background: 'var(--color-surface)',
+            color: 'var(--color-text)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 4,
+          }}
+        >
+          <option value="">All categories</option>
+          {PRODUCT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
       <div
         style={{
           display: 'grid',
