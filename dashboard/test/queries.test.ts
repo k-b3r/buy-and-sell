@@ -1,6 +1,37 @@
 import { expect, test } from 'vitest'
-import { getProductSummaries, getProductDetail, getListingDetail, computeListingDiscount } from '../src/lib/queries'
+import {
+  getProductSummaries,
+  getProductDetail,
+  getListingDetail,
+  computeListingDiscount,
+  isPlaceholderPrice,
+} from '../src/lib/queries'
 import type { QueryClient } from '../src/lib/queries'
+
+test('isPlaceholderPrice flags ascending-sequential digit runs', () => {
+  expect(isPlaceholderPrice(123)).toBe(true)
+  expect(isPlaceholderPrice(1234)).toBe(true)
+  expect(isPlaceholderPrice(12345)).toBe(true)
+  expect(isPlaceholderPrice(123456)).toBe(true)
+})
+
+test('isPlaceholderPrice flags repeated-single-digit runs', () => {
+  expect(isPlaceholderPrice(111)).toBe(true)
+  expect(isPlaceholderPrice(9999)).toBe(true)
+  expect(isPlaceholderPrice(55555)).toBe(true)
+})
+
+test('isPlaceholderPrice does not flag real round prices', () => {
+  expect(isPlaceholderPrice(500)).toBe(false)
+  expect(isPlaceholderPrice(1000)).toBe(false)
+  expect(isPlaceholderPrice(15000)).toBe(false)
+  expect(isPlaceholderPrice(29999)).toBe(false)
+})
+
+test('isPlaceholderPrice does not flag ordinary non-pattern prices', () => {
+  expect(isPlaceholderPrice(17499)).toBe(false)
+  expect(isPlaceholderPrice(32500)).toBe(false)
+})
 
 test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {
   expect(computeListingDiscount(15000, 15000, 15000, 1)).toEqual({ discountPercent: null, referencePrice: null })
@@ -25,6 +56,14 @@ test('computeListingDiscount is negative when priced above the reference (not a 
 test('computeListingDiscount uses the outlier-excluded median as the reference, not the raw one', () => {
   // raw median pulled up by an outlier at 999999999; clean median (outlier excluded) is the real 15000
   expect(computeListingDiscount(12000, 50000, 15000, 5)).toEqual({ discountPercent: 20, referencePrice: 15000 })
+})
+
+test('computeListingDiscount is null when the listing price is a placeholder pattern, even within magnitude range', () => {
+  // ₱123,456 against a ₱150,000 median is well within the 10x magnitude
+  // threshold, but it's a classic "fake price to get attention" pattern -
+  // found live 2026-08-23: this exact case produced a nonsensical -626%
+  // "discount" against a real ₱17,000 median before this fix.
+  expect(computeListingDiscount(123456, 150000, 150000, 5)).toEqual({ discountPercent: null, referencePrice: null })
 })
 
 test('computeListingDiscount is null when price/median data is missing or non-positive', () => {
@@ -240,6 +279,58 @@ test('getProductSummaries excludes price_lookup_excluded products from the disco
   expect(capturedSql).toContain('NOT p.price_lookup_excluded')
 })
 
+test('getProductSummaries excludes placeholder-pattern prices from the price range and discount computation', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db)
+
+  const occurrences = capturedSql.split("'^(\\d)\\1+$'").length - 1
+  expect(occurrences).toBe(4) // price_min, price_max, price_avg, and the discount lateral
+})
+
+test('getListingDetail excludes placeholder-pattern prices from the sibling median query', async () => {
+  const db: QueryClient = {
+    query: async (sql: string) => {
+      if (sql.includes('WITH product_prices')) {
+        expect(sql).toContain("'^(\\d)\\1+$'")
+        return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
+      }
+      return {
+        rows: [
+          {
+            id: '123',
+            title: 'x',
+            price_amount: '12000',
+            price_currency: 'PHP',
+            description: null,
+            condition: null,
+            location_city: null,
+            listed_at: null,
+            last_seen_at: null,
+            primary_photo_url: null,
+            stored_photo_urls: null,
+            product_id: 1,
+            base_model: null,
+            variant_tier: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+        ],
+      }
+    },
+  }
+
+  await getListingDetail(db, '123')
+})
+
 test('getProductSummaries passes search as an ILIKE pattern and respects offset/limit options', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []
@@ -389,6 +480,7 @@ test('getProductDetail computes each listing\'s discount against the outlier-exc
           { id: 'b', title: 'B', price_amount: '15000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
           { id: 'c', title: 'C', price_amount: '18000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
           { id: 'd', title: 'D (swap only placeholder)', price_amount: '999999999', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          { id: 'e', title: 'E (fake attention price)', price_amount: '123456', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
         ],
       }
     },
@@ -401,6 +493,7 @@ test('getProductDetail computes each listing\'s discount against the outlier-exc
     ['b', 0, 15000],
     ['c', -20, 15000],
     ['d', null, null],
+    ['e', null, null],
   ])
 })
 

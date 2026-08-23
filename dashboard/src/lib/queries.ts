@@ -68,11 +68,27 @@ function toNullableNumber(value: unknown): number | null {
 // differently from "most of them are discounted." Only positive discounts
 // count - a product where everything's priced at/above the median has no
 // deal to advertise.
+
+// SQL equivalent of isPlaceholderPrice below - a single source-of-truth
+// snippet so the three SQL call sites (DISCOUNT_SUMMARY_LATERAL,
+// SIBLING_MEDIAN_SQL, and the price_min/max/avg aggregates) can't drift from
+// each other or from the JS version used by getProductDetail.
+function notPlaceholderPriceSql(column: string): string {
+  return `NOT (
+    length(trunc(${column})::text) >= 3
+    AND (
+      trunc(${column})::text ~ '^(\\d)\\1+$'
+      OR trunc(${column})::text = left('123456789', length(trunc(${column})::text))
+    )
+  )`
+}
+
 const DISCOUNT_SUMMARY_LATERAL = `
   LEFT JOIN LATERAL (
     WITH product_prices AS (
       SELECT price_amount FROM listings pl
       WHERE pl.product_id = p.id AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+        AND ${notPlaceholderPriceSql('pl.price_amount')}
     ),
     raw AS (
       SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
@@ -104,6 +120,22 @@ const DISCOUNT_SUMMARY_LATERAL = `
   ) ds ON true
 `
 
+// Classic "fake price to get attention" patterns real sellers use as
+// placeholders - ascending-sequential digit runs (123, 12345) and
+// repeated-single-digit runs (111, 9999). Distinct from magnitude-outlier
+// detection: found live 2026-08-23 that ₱123,456 fell well within the 10x
+// magnitude threshold of a real ₱150,000 median yet is obviously not a real
+// ask (it produced a nonsensical -626% "discount"). Deliberately narrow -
+// round numbers like 500/1000/15000 are extremely common REAL prices in
+// this marketplace and must not be flagged. Minimum length 3 for the same
+// reason (₱11, ₱99 are plausible real small-item prices).
+export function isPlaceholderPrice(price: number): boolean {
+  const digits = String(Math.trunc(Math.abs(price)))
+  if (digits.length < 3) return false
+  if (/^(\d)\1+$/.test(digits)) return true
+  return digits === '123456789'.slice(0, digits.length)
+}
+
 // Same magnitude-outlier heuristic as src/db.ts's getPriceReviewCandidates
 // (>10x or <0.1x the raw median) - a listing that far out is a placeholder
 // price ("for attention only", "for swap"), not a real ask, so it gets no
@@ -128,6 +160,7 @@ export function computeListingDiscount(
   if (price === null || n === null || n < 2) return NONE
   if (rawMedian === null || rawMedian <= 0 || cleanMedian === null || cleanMedian <= 0) return NONE
   if (price < rawMedian / 10 || price > rawMedian * 10) return NONE
+  if (isPlaceholderPrice(price)) return NONE
 
   return { discountPercent: Math.round(((cleanMedian - price) / cleanMedian) * 100), referencePrice: cleanMedian }
 }
@@ -179,9 +212,9 @@ export async function getProductSummaries(
   const result = await db.query(
     `SELECT p.id, p.base_model, p.variant_tier,
             count(l.id) as listing_count,
-            min(l.price_amount) as price_min,
-            max(l.price_amount) as price_max,
-            avg(l.price_amount) as price_avg,
+            min(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_min,
+            max(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_max,
+            avg(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_avg,
             max(l.primary_photo_url) as sample_photo_url,
             np.price_low as new_price_low,
             np.price_high as new_price_high,
@@ -356,7 +389,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
 
   const validPrices = rawListings
     .map((l) => l.price_amount)
-    .filter((p): p is number => p !== null && p > 0)
+    .filter((p): p is number => p !== null && p > 0 && !isPlaceholderPrice(p))
   const { rawMedian, cleanMedian, sampleSize } = computeMedians(validPrices)
 
   const listings = rawListings.map((l) => {
@@ -419,6 +452,7 @@ const SIBLING_MEDIAN_SQL = `
   WITH product_prices AS (
     SELECT price_amount FROM listings
     WHERE product_id = $1 AND price_amount IS NOT NULL AND price_amount > 0
+      AND ${notPlaceholderPriceSql('price_amount')}
   ),
   raw AS (
     SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
