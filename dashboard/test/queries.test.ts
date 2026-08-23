@@ -479,6 +479,7 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
         primary_photo_url: 'https://x/0.jpg',
         condition: 'Used - Like New',
         sold_at: null,
+        listed_at: null,
         price_review: null,
         discount_percent: null,
         reference_price: null,

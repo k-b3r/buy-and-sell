@@ -340,6 +340,7 @@ export interface ProductListingSummary {
   primary_photo_url: string | null
   condition: string | null
   sold_at: string | null
+  listed_at: string | null
   price_review: ListingPriceReview | null
   discount_percent: number | null
   reference_price: number | null
@@ -427,7 +428,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       : null
 
   const listingsResult = await db.query(
-    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.condition, l.sold_at,
+    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.condition, l.sold_at, l.listed_at,
             pr.is_negotiable as price_review_is_negotiable,
             pr.price_low as price_review_low, pr.price_high as price_review_high
      FROM listings l
@@ -443,6 +444,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     primary_photo_url: r.primary_photo_url as string | null,
     condition: r.condition as string | null,
     sold_at: toIsoOrNull(r.sold_at),
+    listed_at: toIsoOrNull(r.listed_at),
     price_review: toPriceReview(r),
   }))
 
