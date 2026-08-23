@@ -2,7 +2,8 @@
 
 import { useState, type CSSProperties } from 'react'
 import Link from 'next/link'
-import type { ProductListingSummary } from '@/lib/queries'
+import type { DiscountBand, ProductListingSummary } from '@/lib/queries'
+import { isInDiscountBand } from './discountBand'
 
 type View = 'list' | 'cards'
 
@@ -155,16 +156,56 @@ const selectStyle: CSSProperties = {
   fontSize: '0.9em',
 }
 
-export default function ListingsView({ listings }: { listings: ProductListingSummary[] }) {
+function discountBandBadgeStyle(active: boolean): CSSProperties {
+  return {
+    padding: '2px 10px',
+    borderRadius: 12,
+    fontSize: '0.85em',
+    fontWeight: 'bold',
+    background: 'var(--color-signal)',
+    color: 'var(--color-bg)',
+    border: active ? '2px solid var(--color-text)' : '2px solid transparent',
+    cursor: 'pointer',
+    opacity: active ? 1 : 0.85,
+  }
+}
+
+export default function ListingsView({
+  listings,
+  discountBands,
+}: {
+  listings: ProductListingSummary[]
+  discountBands: DiscountBand[]
+}) {
   const [view, setView] = useState<View>('cards')
   const [sortKey, setSortKey] = useState<SortKey>('discount_desc')
   const [listedWithinDays, setListedWithinDays] = useState(0)
   const [hideSold, setHideSold] = useState(false)
+  const [selectedBand, setSelectedBand] = useState<number | null>(null)
 
   const visibleListings = sortListings(filterListings(listings, listedWithinDays, hideSold), sortKey)
 
+  function isHighlighted(l: ProductListingSummary): boolean {
+    return selectedBand !== null && isInDiscountBand(l.discount_percent, selectedBand)
+  }
+
   return (
     <div>
+      {discountBands.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+          {discountBands.map((band) => (
+            <button
+              key={band.bandFloor}
+              className="mono"
+              onClick={() => setSelectedBand((prev) => (prev === band.bandFloor ? null : band.bandFloor))}
+              style={discountBandBadgeStyle(selectedBand === band.bandFloor)}
+            >
+              {band.bandFloor}-{band.bandFloor + 9}% off ×{band.count}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
           onClick={() => setView('cards')}
@@ -219,7 +260,14 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
           </thead>
           <tbody>
             {visibleListings.map((l) => (
-              <tr key={l.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+              <tr
+                key={l.id}
+                style={{
+                  borderBottom: '1px solid var(--color-border)',
+                  boxShadow: isHighlighted(l) ? 'inset 3px 0 0 0 var(--color-signal)' : undefined,
+                  opacity: selectedBand !== null && !isHighlighted(l) ? 0.4 : 1,
+                }}
+              >
                 <td>
                   {l.primary_photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -249,11 +297,12 @@ export default function ListingsView({ listings }: { listings: ProductListingSum
               style={{
                 display: 'block',
                 background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
+                border: isHighlighted(l) ? '2px solid var(--color-signal)' : '1px solid var(--color-border)',
                 borderRadius: 8,
                 overflow: 'hidden',
                 color: 'inherit',
                 textDecoration: 'none',
+                opacity: selectedBand !== null && !isHighlighted(l) ? 0.4 : 1,
               }}
             >
               <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)' }}>
