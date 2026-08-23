@@ -6,7 +6,7 @@ export function buildNewPriceQuery(baseModel: string, variantTier: string | null
 }
 
 const BASE_SYSTEM_PROMPT =
-  'You find current brand-new retail prices in Philippine Peso (PHP) for a consumer product, sold by official retailers or authorized dealers in the Philippines. Prefer official brand sites and known PH electronics retailers. If no reliable new-retail PHP price is found, set found to false and leave price fields null.'
+  'You find current brand-new retail prices in Philippine Peso (PHP) for a consumer product, sold by official retailers or authorized dealers in the Philippines. Prefer official brand sites and known PH electronics retailers. Report the standard/regular retail price, not a temporary promo, flash sale, or discounted price — if only a promo price is available and the regular price is unclear, set found to false rather than reporting the promo price. If no reliable new-retail PHP price is found, set found to false and leave price fields null.'
 
 // description (product_enrichment's own generated description) and
 // siblingVariants (other variant_tier values tracked under the same base

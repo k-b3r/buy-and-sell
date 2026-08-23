@@ -23,6 +23,11 @@ test('buildNewPriceSystemPrompt has the base instructions with no description or
   expect(prompt).not.toContain('Other tracked variants')
 })
 
+test('buildNewPriceSystemPrompt explicitly instructs against promo/sale pricing', () => {
+  const prompt = buildNewPriceSystemPrompt(null, [])
+  expect(prompt).toMatch(/standard.*(not|excluding).*promo/i)
+})
+
 test('buildNewPriceSystemPrompt appends the description as disambiguating context when present', () => {
   const prompt = buildNewPriceSystemPrompt('A flagship noise-cancelling over-ear headphone from Sony.', [])
   expect(prompt).toContain('Product context: A flagship noise-cancelling over-ear headphone from Sony.')
