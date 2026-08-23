@@ -73,6 +73,14 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Household Appliances',
     'Household Furniture',
     'Power Supply Unit',
+    // Found live 2026-08-23 via the dashboard's per-product discount badge -
+    // 'Product' (literally the extraction fallback placeholder, real titles
+    // were "Sale"/"Rush Sale"/"Decluter Sale") and bare 'Monitor' (no brand/
+    // model) were bundling unrelated listings under one fake product, each
+    // showing an 80-90% "discount" that was really just unrelated items
+    // being compared to each other.
+    'Product',
+    'Monitor',
   ],
   // Unlike too_generic (no recoverable path — genuinely not a real, single
   // product), these ARE real, priceable products — they just need a pricing
@@ -107,6 +115,11 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'PC Unit',
     'Ryzen 3 3200G System Unit',
     'Ryzen System Unit',
+    // Found live 2026-08-23, same reason as 'Gaming PC Set' above - bare
+    // 'Gaming PC'/'Desktop PC' bundle wildly different real builds (₱15-
+    // ₱60,000 in the real listings) under one fake product.
+    'Gaming PC',
+    'Desktop PC',
   ],
   parts_accessory: [
     'Bicycle Accessories',

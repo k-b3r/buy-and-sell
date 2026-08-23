@@ -57,6 +57,8 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       has_trained_price_knowledge: null,
       trained_price_low: null,
       trained_price_high: null,
+      best_discount_percent: null,
+      discounted_listing_count: '0',
     },
     {
       id: 2,
@@ -75,6 +77,8 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       has_trained_price_knowledge: null,
       trained_price_low: null,
       trained_price_high: null,
+      best_discount_percent: null,
+      discounted_listing_count: '0',
     },
   ])
 
@@ -95,6 +99,8 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       secondhand_price_low: 15000,
       secondhand_price_high: 20000,
       secondhand_price_source: 'web_search',
+      best_discount_percent: null,
+      discounted_listing_count: 0,
     },
     {
       id: 2,
@@ -110,8 +116,40 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       secondhand_price_low: null,
       secondhand_price_high: null,
       secondhand_price_source: null,
+      best_discount_percent: null,
+      discounted_listing_count: 0,
     },
   ])
+})
+
+test('getProductSummaries surfaces best_discount_percent and discounted_listing_count when present', async () => {
+  const db = fakeDb([
+    {
+      id: 42,
+      base_model: 'RTX 3060',
+      variant_tier: null,
+      listing_count: '4',
+      price_min: '12000',
+      price_max: '18000',
+      price_avg: '15000',
+      sample_photo_url: null,
+      new_price_low: null,
+      new_price_high: null,
+      used_price_low: null,
+      used_price_high: null,
+      used_price_source: null,
+      has_trained_price_knowledge: null,
+      trained_price_low: null,
+      trained_price_high: null,
+      best_discount_percent: '20',
+      discounted_listing_count: '2',
+    },
+  ])
+
+  const result = await getProductSummaries(db)
+
+  expect(result[0].best_discount_percent).toBe(20)
+  expect(result[0].discounted_listing_count).toBe(2)
 })
 
 test('getProductSummaries surfaces a brand-new price from Exa independently of secondhand', async () => {
@@ -186,6 +224,20 @@ test('getProductSummaries defaults to limit 30, offset 0, no search filter', asy
   await getProductSummaries(db)
 
   expect(capturedParams).toEqual([null, 30, 0])
+})
+
+test('getProductSummaries excludes price_lookup_excluded products from the discount computation', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db)
+
+  expect(capturedSql).toContain('NOT p.price_lookup_excluded')
 })
 
 test('getProductSummaries passes search as an ILIKE pattern and respects offset/limit options', async () => {

@@ -16,6 +16,8 @@ export interface ProductSummary {
   secondhand_price_low: number | null
   secondhand_price_high: number | null
   secondhand_price_source: string | null
+  best_discount_percent: number | null
+  discounted_listing_count: number
 }
 
 const DEFAULT_LIMIT = 30
@@ -56,6 +58,51 @@ const SECONDHAND_PRICE_LATERAL = `
 function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value)
 }
+
+// Same raw-median-then-outlier-excluded-clean-median approach as
+// computeListingDiscount, computed once per product for the products-list
+// page: "best deal under this product" is the single most actionable
+// indicator (the point of this dashboard is spotting deals, not showing an
+// average), paired with a count of how many listings actually qualify as
+// discounted, so "one great deal buried among ten normal ones" reads
+// differently from "most of them are discounted." Only positive discounts
+// count - a product where everything's priced at/above the median has no
+// deal to advertise.
+const DISCOUNT_SUMMARY_LATERAL = `
+  LEFT JOIN LATERAL (
+    WITH product_prices AS (
+      SELECT price_amount FROM listings pl
+      WHERE pl.product_id = p.id AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+    ),
+    raw AS (
+      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
+      FROM product_prices
+    ),
+    clean AS (
+      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
+      FROM product_prices pp, raw
+      WHERE raw.n >= 2 AND raw.median_price > 0
+        AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+    ),
+    discounts AS (
+      SELECT round(((clean.median_price - pp.price_amount) / clean.median_price) * 100) AS discount_percent
+      FROM product_prices pp, raw, clean
+      WHERE raw.n >= 2 AND raw.median_price > 0 AND clean.median_price > 0
+        AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+    )
+    SELECT
+      MAX(discount_percent) FILTER (WHERE discount_percent > 0) AS best_discount_percent,
+      COUNT(*) FILTER (WHERE discount_percent > 0) AS discounted_listing_count
+    FROM discounts
+    -- price_lookup_excluded products (real_estate/too_generic/etc, see
+    -- flag-price-ineligible.ts) bundle many unrelated real items under one
+    -- fake "product" - a median across them is meaningless, same reason
+    -- they're excluded from Exa/Gemini pricing. Confirmed live 2026-08-23:
+    -- without this, "House and Lot"/"Item"/"Real Estate"/"Lot" all showed
+    -- 80-90% fake "discounts" from comparing unrelated listings to each other.
+    WHERE NOT p.price_lookup_excluded
+  ) ds ON true
+`
 
 // Same magnitude-outlier heuristic as src/db.ts's getPriceReviewCandidates
 // (>10x or <0.1x the raw median) - a listing that far out is a placeholder
@@ -143,16 +190,20 @@ export async function getProductSummaries(
             up.source as used_price_source,
             e.has_trained_price_knowledge,
             e.trained_price_low,
-            e.trained_price_high
+            e.trained_price_high,
+            ds.best_discount_percent,
+            ds.discounted_listing_count
      FROM products p
      JOIN listings l ON l.product_id = p.id
      ${NEW_PRICE_LATERAL}
      ${SECONDHAND_PRICE_LATERAL}
+     ${DISCOUNT_SUMMARY_LATERAL}
      LEFT JOIN product_enrichment e ON e.product_id = p.id
      WHERE ($1::text IS NULL OR p.base_model ILIKE $1)
      GROUP BY p.id, p.base_model, p.variant_tier, np.price_low, np.price_high,
               up.price_low, up.price_high, up.source,
-              e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high
+              e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high,
+              ds.best_discount_percent, ds.discounted_listing_count
      ORDER BY listing_count DESC, p.id ASC
      LIMIT $2 OFFSET $3`,
     [search, limit, offset],
@@ -181,6 +232,8 @@ export async function getProductSummaries(
       secondhand_price_low: secondhand.low,
       secondhand_price_high: secondhand.high,
       secondhand_price_source: secondhand.source,
+      best_discount_percent: toNullableNumber(r.best_discount_percent),
+      discounted_listing_count: Number(r.discounted_listing_count ?? 0),
     }
   })
 }

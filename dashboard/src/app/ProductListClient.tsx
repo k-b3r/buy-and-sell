@@ -86,7 +86,7 @@ export default function ProductListClient({ initialProducts, initialNextOffset, 
               textDecoration: 'none',
             }}
           >
-            <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)' }}>
+            <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)', position: 'relative' }}>
               {p.sample_photo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -95,6 +95,25 @@ export default function ProductListClient({ initialProducts, initialNextOffset, 
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               ) : null}
+              {p.best_discount_percent !== null && (
+                <div
+                  className="mono"
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    fontSize: '0.8em',
+                    fontWeight: 'bold',
+                    background: 'var(--color-signal)',
+                    color: 'var(--color-bg)',
+                  }}
+                >
+                  {p.best_discount_percent}% off
+                  {p.discounted_listing_count > 1 ? ` ×${p.discounted_listing_count}` : ''}
+                </div>
+              )}
             </div>
             <div style={{ padding: 12 }}>
               <div style={{ fontWeight: 'bold' }}>{p.base_model}</div>
