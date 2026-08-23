@@ -89,12 +89,27 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — new-price lookup requires Postgres')
 
+  // Each search costs real money (~$0.007) unlike Groq/Gemini's free tiers —
+  // an optional limit lets a run be capped to a small batch instead of
+  // spending against the entire candidate backlog at once.
+  const limitArg = process.argv[2]
+  let limit: number | undefined
+  if (limitArg !== undefined) {
+    const parsed = Number(limitArg)
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`invalid limit argument: "${limitArg}"`)
+    }
+    limit = parsed
+  }
+
   const logger = createLogger('data/new-price-lookup.log')
   const exa = createExaClient(apiKey)
   const pool = createDbPool(dbUrl)
 
   try {
-    const products = await getNewPriceCandidates(pool)
+    const pending = await getNewPriceCandidates(pool)
+    const products = limit !== undefined ? pending.slice(0, limit) : pending
+    logger.info(`${pending.length} pending new-price lookup, processing ${products.length} this run`)
     await runNewPriceLookup(exa, pool, logger, products)
   } finally {
     await pool.end()
