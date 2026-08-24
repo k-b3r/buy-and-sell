@@ -115,7 +115,7 @@ export default function ListingDetailContent({
           )}
 
           <p>
-            <RefreshButton listingId={listing.id} />
+            <RefreshButton listingId={listing.id} productId={listing.product_id} />
           </p>
 
           <table cellPadding={4}>

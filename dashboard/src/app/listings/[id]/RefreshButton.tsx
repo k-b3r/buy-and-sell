@@ -17,7 +17,15 @@ const refreshButtonStyle: CSSProperties = {
 // the box that actually runs a browser - see that route for why. router.refresh()
 // re-fetches this server component's data on success, so a price/description
 // edit picked up by the re-scrape shows up immediately without a manual reload.
-export default function RefreshButton({ listingId }: { listingId: string }) {
+//
+// status:'removed' means checkOneListing already hard-deleted the row (see
+// src/check-listings.ts) - this page's own getListingDetail/getProductDetail
+// call would now 404. router.refresh() would re-render THIS now-gone route,
+// which - worse, inside the listing modal, a parallel-route slot - throws
+// notFound() there and takes the whole layout down instead of just this
+// slot (confirmed live 2026-08-24). Navigating away instead sidesteps
+// re-rendering the dead route at all.
+export default function RefreshButton({ listingId, productId }: { listingId: string; productId: number | null }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null)
@@ -30,6 +38,11 @@ export default function RefreshButton({ listingId }: { listingId: string }) {
       const body = await res.json()
       if (!res.ok) {
         setMessage({ text: body.error ?? 'Refresh failed', isError: true })
+        return
+      }
+      if (body.status === 'removed') {
+        setMessage({ text: 'Listing removed - going back…', isError: false })
+        router.push(productId ? `/products/${productId}` : '/')
         return
       }
       setMessage({ text: `Status: ${body.status}`, isError: false })
