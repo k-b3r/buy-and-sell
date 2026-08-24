@@ -7,11 +7,14 @@ import { launchBrowser, createBrowserDriver } from '../../src/browser'
 import { checkOneListing } from '../../src/check-listings'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshPacer } from '../refreshPacer'
+import { checkTunnelBeforeLaunch, type TunnelCheckResult } from '../tunnelGuard'
 
 export type DriverFactory = () => Promise<{ driver: PageDriver; close: () => Promise<void> }>
 
+// Always routes through SOCKS_PROXY (the laptop-relayed tunnel) - see
+// tunnelGuard.ts for why there's no direct-IP fallback.
 const defaultDriverFactory: DriverFactory = async () => {
-  const { page, close } = await launchBrowser()
+  const { page, close } = await launchBrowser({ socksProxy: process.env.SOCKS_PROXY })
   return { driver: createBrowserDriver(page), close }
 }
 
@@ -25,6 +28,7 @@ export function createRefreshHandler(
   logger: Logger,
   pacer: RefreshPacer,
   driverFactory: DriverFactory = defaultDriverFactory,
+  tunnelCheck: () => Promise<TunnelCheckResult> = checkTunnelBeforeLaunch,
 ): RouteHandler {
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
     const id = (body as Record<string, unknown> | null)?.id
@@ -37,6 +41,16 @@ export function createRefreshHandler(
     const candidate = await getListingCheckCandidate(db, id)
     if (!candidate) {
       return { statusCode: 404, body: { error: `listing ${id} not found` } }
+    }
+
+    // Fail closed if the tunnel isn't up - checked before ever touching the
+    // lock/queue, so a doomed request doesn't sit through the pacing wait
+    // first. See tunnelGuard.ts: no action is taken on the listing at all
+    // when this fails, by design.
+    const tunnel = await tunnelCheck()
+    if (!tunnel.ok) {
+      logger.error(`refusing to refresh listing ${id}: ${tunnel.error}`)
+      return { statusCode: 503, body: { error: tunnel.error } }
     }
 
     // Queues behind whatever else is using the shared browser (single-listing

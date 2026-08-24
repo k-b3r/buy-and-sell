@@ -64,6 +64,11 @@ function driverFactory(driver: PageDriver) {
   }
 }
 
+// Every test below is exercising something other than the tunnel guard
+// itself (see tunnelGuard.test.ts) - a passing check by default keeps them
+// from depending on real SOCKS_PROXY env state.
+const okTunnel = async () => ({ ok: true as const })
+
 test('rejects a missing or non-integer productId', async () => {
   const logger = createLogger(LOG_PATH)
   const lock = createRefreshLock()
@@ -75,6 +80,7 @@ test('rejects a missing or non-integer productId', async () => {
     createJobStore(),
     createRefreshPacer(lock),
     driverFactory(makeDriver()).factory,
+    okTunnel,
   )
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "productId"' } })
@@ -94,6 +100,7 @@ test('429s when the shared lock is already held', async () => {
     createJobStore(),
     createRefreshPacer(lock),
     driverFactory(makeDriver()).factory,
+    okTunnel,
   )
 
   const result = await handle({ productId: 42 })
@@ -101,12 +108,40 @@ test('429s when the shared lock is already held', async () => {
   expect(result).toEqual({ statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } })
 })
 
+test('503s and never starts a job when the tunnel is not reachable', async () => {
+  const logger = createLogger(LOG_PATH)
+  const lock = createRefreshLock()
+  const jobs = createJobStore()
+  const badTunnel = async () => ({ ok: false as const, error: 'SOCKS_PROXY is not configured' })
+  let driverFactoryCalled = false
+  const handle = createRefreshProductHandler(
+    fakeDb(),
+    fakeImageStore(),
+    logger,
+    lock,
+    jobs,
+    createRefreshPacer(lock),
+    async () => {
+      driverFactoryCalled = true
+      return { driver: makeDriver(), close: async () => {} }
+    },
+    badTunnel,
+  )
+
+  const result = await handle({ productId: 42 })
+
+  expect(result).toEqual({ statusCode: 503, body: { error: 'SOCKS_PROXY is not configured' } })
+  expect(driverFactoryCalled).toBe(false)
+  expect(lock.isBusy()).toBe(false)
+  expect(jobs.current()).toBeNull()
+})
+
 test('a product with no eligible listings completes immediately without acquiring the lock', async () => {
   const logger = createLogger(LOG_PATH)
   const db: DbClient = { query: async () => ({ rows: [] }) } // no candidates
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(db, fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), driverFactory(makeDriver()).factory)
+  const handle = createRefreshProductHandler(db, fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), driverFactory(makeDriver()).factory, okTunnel)
 
   const result = await handle({ productId: 42 })
 
@@ -127,7 +162,7 @@ test('starts the job and returns immediately, then the background loop checks ev
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory)
+  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory, okTunnel)
 
   const result = await handle({ productId: 42 })
 
@@ -158,7 +193,7 @@ test('cancellation requested after the first candidate stops the loop before the
   })
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory)
+  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory, okTunnel)
 
   await handle({ productId: 42 })
   await closed
@@ -183,7 +218,7 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory)
+  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory, okTunnel)
 
   await handle({ productId: 42 })
   await closed

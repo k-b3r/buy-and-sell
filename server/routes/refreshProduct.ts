@@ -9,9 +9,12 @@ import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
 import { launchBrowser, createBrowserDriver } from '../../src/browser'
+import { checkTunnelBeforeLaunch, type TunnelCheckResult } from '../tunnelGuard'
 
+// Always routes through SOCKS_PROXY (the laptop-relayed tunnel) - see
+// tunnelGuard.ts for why there's no direct-IP fallback.
 const defaultDriverFactory: DriverFactory = async () => {
-  const { page, close } = await launchBrowser()
+  const { page, close } = await launchBrowser({ socksProxy: process.env.SOCKS_PROXY })
   return { driver: createBrowserDriver(page), close }
 }
 
@@ -37,6 +40,7 @@ export function createRefreshProductHandler(
   jobs: JobStore,
   pacer: RefreshPacer,
   driverFactory: DriverFactory = defaultDriverFactory,
+  tunnelCheck: () => Promise<TunnelCheckResult> = checkTunnelBeforeLaunch,
 ): RouteHandler {
   return async function handleRefreshProduct(body: unknown): Promise<RouteResult> {
     const productId = (body as Record<string, unknown> | null)?.productId
@@ -45,6 +49,15 @@ export function createRefreshProductHandler(
     }
     if (lock.isBusy()) {
       return { statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } }
+    }
+
+    // Fail closed before ever starting a job - see tunnelGuard.ts. No point
+    // acquiring the lock or spending minutes navigating Facebook from a
+    // walled IP.
+    const tunnel = await tunnelCheck()
+    if (!tunnel.ok) {
+      logger.error(`refusing to bulk-refresh product ${productId}: ${tunnel.error}`)
+      return { statusCode: 503, body: { error: tunnel.error } }
     }
 
     const candidates = await getListingCheckCandidatesForProduct(db, productId)
