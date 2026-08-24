@@ -106,22 +106,16 @@ export default function Modal({ children, currentId }: { children: React.ReactNo
               ›
             </button>
           )}
-          <button
-            onClick={() => router.back()}
-            aria-label="Back to listings"
-            title="Back to listings"
-            style={{
-              ...backIconStyle,
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <BackIcon />
-          </button>
         </div>
         <div style={{ overflowY: 'auto', padding: '0 24px 24px' }}>{children}</div>
+        <button
+          onClick={() => router.back()}
+          aria-label="Back to listings"
+          title="Back to listings"
+          style={{ ...backIconStyle, position: 'absolute', bottom: 16, left: 16 }}
+        >
+          <BackIcon />
+        </button>
         {currentId && (
           // Absolute to this box (position:relative above), not fixed to
           // the viewport - stays anchored inside the modal card, unaffected

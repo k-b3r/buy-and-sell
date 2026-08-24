@@ -15,7 +15,8 @@
     "new-price-lookup": "tsx src/new-price-lookup.ts",
     "flag-price-ineligible": "tsx src/flag-price-ineligible.ts",
     "review-listing-prices": "tsx src/review-listing-prices.ts",
-    "backfill-categories": "tsx src/backfill-categories.ts"
+    "backfill-categories": "tsx src/backfill-categories.ts",
+    "deploy:server": "./scripts/deploy-server.sh"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
