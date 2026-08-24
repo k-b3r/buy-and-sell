@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { Logger } from './logger'
 import type { ReviewDecision } from './review'
@@ -11,9 +11,19 @@ import { upsertListing, getCollectedListingIds } from './db'
 import type { ImageStore } from './images'
 import { storeListingPhotos } from './images'
 
+// Diagnostic-only, never allowed to take down the caller - confirmed live
+// 2026-08-24: refresh-server.ts runs with CWD=server/ (no data/ dir there,
+// unlike the root CLI scripts' convention), and the missing directory
+// crashed the entire long-lived HTTP process uncaught, not just this one
+// request. mkdir handles the expected case; the catch is defense-in-depth
+// for anything else (disk full, permissions) that shouldn't be fatal either.
 function dumpDebugHtml(html: string): void {
-  const path = `data/debug-${Date.now()}.html`
-  writeFileSync(path, html)
+  try {
+    mkdirSync('data', { recursive: true })
+    writeFileSync(`data/debug-${Date.now()}.html`, html)
+  } catch (err) {
+    console.error('dumpDebugHtml failed, continuing without the debug dump:', err)
+  }
 }
 
 export interface RunOptions {
