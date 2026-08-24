@@ -15,6 +15,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata = {
   title: 'Ledger — Buy & Sell Dashboard',
   description: 'Price-tracking dashboard for collected marketplace listings',
+  // Belt-and-suspenders with robots.ts - a meta tag is authoritative even
+  // for a bot that ignores robots.txt, or a page that got indexed before
+  // either of these existed.
+  robots: { index: false, follow: false },
 }
 
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`

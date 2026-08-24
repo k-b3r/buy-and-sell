@@ -4,7 +4,11 @@ import { AUTH_COOKIE_NAME, isAuthCookieValid } from '@/lib/auth'
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  if (pathname === '/login' || pathname === '/api/login') {
+  // robots.txt must be reachable logged-out - crawlers don't have the auth
+  // cookie, so gating it here would hide the Disallow directive from the
+  // exact audience it's meant for (confirmed live 2026-08-24: it was
+  // redirecting to /login instead of serving the file).
+  if (pathname === '/login' || pathname === '/api/login' || pathname === '/robots.txt') {
     return NextResponse.next()
   }
 
