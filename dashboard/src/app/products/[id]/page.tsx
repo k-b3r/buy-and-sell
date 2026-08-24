@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { getPool } from '@/lib/db'
 import { getProductDetail } from '@/lib/queries'
 import ListingsView from './ListingsView'
+import BackLink from '../../BackLink'
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -13,7 +13,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   return (
     <div>
       <p>
-        <Link href="/">← Back to products</Link>
+        <BackLink href="/" label="Back to products" />
       </p>
       <h1>
         {product.base_model}

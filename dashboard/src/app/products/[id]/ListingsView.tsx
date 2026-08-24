@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import type { DiscountBand, ProductListingSummary } from '@/lib/queries'
 import { isListingPriceNegotiable } from '@/lib/queries'
 import { isInDiscountBand } from './discountBand'
+import { computeRepostIds } from './repostDetection'
+import { getActiveListingId } from '../../listings/[id]/cycle'
 
 type View = 'list' | 'cards'
 
@@ -32,6 +35,20 @@ const soldBadgeStyle: CSSProperties = {
 
 function SoldBadge() {
   return <span style={soldBadgeStyle}>Sold</span>
+}
+
+const repostBadgeStyle: CSSProperties = {
+  display: 'inline-block',
+  marginLeft: 8,
+  padding: '1px 8px',
+  borderRadius: 12,
+  fontSize: '0.75em',
+  background: 'var(--color-text-muted)',
+  color: 'var(--color-bg)',
+}
+
+function RepostBadge() {
+  return <span style={repostBadgeStyle}>Possible repost</span>
 }
 
 // Solid fill, not a border-only pill - this now also renders as an overlay
@@ -144,10 +161,12 @@ function filterListings(
   listedWithinDays: number,
   hideSold: boolean,
   negotiableOnly: boolean,
+  selectedBand: number | null,
 ): ProductListingSummary[] {
   return listings.filter((l) => {
     if (hideSold && l.sold_at) return false
     if (negotiableOnly && !isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent)) return false
+    if (selectedBand !== null && !isInDiscountBand(l.discount_percent, selectedBand)) return false
     if (listedWithinDays > 0) {
       if (!l.listed_at) return false
       const cutoff = Date.now() - listedWithinDays * 24 * 60 * 60 * 1000
@@ -180,6 +199,15 @@ function discountBandBadgeStyle(active: boolean): CSSProperties {
   }
 }
 
+// Filter defaults, not display-preference defaults (view/sort) - what
+// "Clear" resets. hideSold defaults to true (the app's normal starting
+// state, per direct instruction 2026-08-23), so Clear returns to that, not
+// to "show everything."
+const DEFAULT_LISTED_WITHIN_DAYS = 0
+const DEFAULT_HIDE_SOLD = true
+const DEFAULT_NEGOTIABLE_ONLY = false
+const DEFAULT_SELECTED_BAND = null
+
 export default function ListingsView({
   listings,
   discountBands,
@@ -189,16 +217,50 @@ export default function ListingsView({
 }) {
   const [view, setView] = useState<View>('cards')
   const [sortKey, setSortKey] = useState<SortKey>('discount_desc')
-  const [listedWithinDays, setListedWithinDays] = useState(0)
-  const [hideSold, setHideSold] = useState(true)
-  const [negotiableOnly, setNegotiableOnly] = useState(false)
-  const [selectedBand, setSelectedBand] = useState<number | null>(null)
+  const [listedWithinDays, setListedWithinDays] = useState(DEFAULT_LISTED_WITHIN_DAYS)
+  const [hideSold, setHideSold] = useState(DEFAULT_HIDE_SOLD)
+  const [negotiableOnly, setNegotiableOnly] = useState(DEFAULT_NEGOTIABLE_ONLY)
+  const [selectedBand, setSelectedBand] = useState<number | null>(DEFAULT_SELECTED_BAND)
+  const activeListingId = getActiveListingId(usePathname())
 
-  const visibleListings = sortListings(filterListings(listings, listedWithinDays, hideSold, negotiableOnly), sortKey)
+  const filtersActive =
+    listedWithinDays !== DEFAULT_LISTED_WITHIN_DAYS ||
+    hideSold !== DEFAULT_HIDE_SOLD ||
+    negotiableOnly !== DEFAULT_NEGOTIABLE_ONLY ||
+    selectedBand !== DEFAULT_SELECTED_BAND
 
-  function isHighlighted(l: ProductListingSummary): boolean {
-    return selectedBand !== null && isInDiscountBand(l.discount_percent, selectedBand)
+  function clearFilters() {
+    setListedWithinDays(DEFAULT_LISTED_WITHIN_DAYS)
+    setHideSold(DEFAULT_HIDE_SOLD)
+    setNegotiableOnly(DEFAULT_NEGOTIABLE_ONLY)
+    setSelectedBand(DEFAULT_SELECTED_BAND)
   }
+
+  // Selecting a band now filters the list down to matches (see
+  // filterListings) rather than just dimming/bordering the others - clicking
+  // a band answers "show me only these," not "point these out."
+  const visibleListings = sortListings(
+    filterListings(listings, listedWithinDays, hideSold, negotiableOnly, selectedBand),
+    sortKey,
+  )
+  // Computed over the full listings list, not visibleListings - a repost's
+  // sibling shouldn't stop being "possibly a repost" just because a filter
+  // (e.g. hide sold) currently hides the other copy.
+  const repostIds = useMemo(() => computeRepostIds(listings), [listings])
+
+  // sessionStorage, not React state/context: the listing modal is a
+  // separate intercepted route (its own component tree, see
+  // @modal/(.)listings/[id]/page.tsx), reached via full navigation from
+  // this component's perspective - there's no shared React tree to pass
+  // this through as a prop. Read by Modal.tsx to drive prev/next cycling.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('listingCycleIds', JSON.stringify(visibleListings.map((l) => l.id)))
+    } catch {
+      // sessionStorage unavailable (private browsing, disabled storage) -
+      // cycling just won't have a list to work from, not worth failing over.
+    }
+  }, [visibleListings])
 
   return (
     <div>
@@ -258,6 +320,11 @@ export default function ListingsView({
           <input type="checkbox" checked={negotiableOnly} onChange={(e) => setNegotiableOnly(e.target.checked)} />
           Negotiable only
         </label>
+        {filtersActive && (
+          <button onClick={clearFilters} style={toggleButtonStyle(false)}>
+            Clear
+          </button>
+        )}
         <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>
           {visibleListings.length} of {listings.length}
         </span>
@@ -279,8 +346,8 @@ export default function ListingsView({
                 key={l.id}
                 style={{
                   borderBottom: '1px solid var(--color-border)',
-                  boxShadow: isHighlighted(l) ? 'inset 3px 0 0 0 var(--color-signal)' : undefined,
-                  opacity: selectedBand !== null && !isHighlighted(l) ? 0.4 : 1,
+                  boxShadow: l.id === activeListingId ? 'inset 3px 0 0 0 var(--color-accent)' : undefined,
+                  background: l.id === activeListingId ? 'var(--color-surface)' : undefined,
                 }}
               >
                 <td>
@@ -297,6 +364,7 @@ export default function ListingsView({
                 <td className="mono">
                   {formatListingPrice(l)}
                   {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
+                  {repostIds.has(l.id) && <RepostBadge />}
                   <DiscountBadge percent={l.discount_percent} />
                 </td>
               </tr>
@@ -312,12 +380,11 @@ export default function ListingsView({
               style={{
                 display: 'block',
                 background: 'var(--color-surface)',
-                border: isHighlighted(l) ? '2px solid var(--color-signal)' : '1px solid var(--color-border)',
+                border: l.id === activeListingId ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
                 borderRadius: 8,
                 overflow: 'hidden',
                 color: 'inherit',
                 textDecoration: 'none',
-                opacity: selectedBand !== null && !isHighlighted(l) ? 0.4 : 1,
               }}
             >
               <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)', position: 'relative' }}>
@@ -342,6 +409,7 @@ export default function ListingsView({
                 >
                   {l.sold_at && <SoldBadge />}
                   {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
+                  {repostIds.has(l.id) && <RepostBadge />}
                   <DiscountBadge percent={l.discount_percent} />
                 </div>
               </div>

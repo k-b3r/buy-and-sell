@@ -32,6 +32,27 @@ html {
   color-scheme: light dark;
 }
 
+/* Thin scrollbars app-wide, not just the modal - the browser default is
+   heavy/boxy next to this app's otherwise minimal chrome. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 8px;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
@@ -115,6 +136,63 @@ button {
 
 table {
   color: var(--color-text);
+}
+
+/* Marketplace-style listing detail: carousel left, title/price/details right.
+   Container query, not a viewport media query - the modal variant is capped
+   at a fixed max-width (see Modal.tsx) regardless of screen size, so it must
+   react to its own box width, not the browser window's. A @media (min-width)
+   query here would wrongly go two-column inside a narrow modal on a wide
+   screen, or stay stacked inside a wide modal on a narrow one. */
+.listing-detail-container {
+  container-type: inline-size;
+}
+
+.listing-detail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Column layout so the description (below) can flex/scroll on its own while
+   title/price/condition table above it stay put, always visible - only the
+   description is likely to run long. min-height:0 overrides flex's default
+   min-height:auto, which would otherwise stop the description child from
+   shrinking below its content size and defeat its own overflow-y:auto. */
+.listing-detail-info {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The "View on Marketplace" button floats (position: fixed/absolute) over
+   this content, bottom-right - without this, the last lines scroll up
+   underneath it and become unreadable. overflow-y:auto only actually
+   scrolls once an ancestor bounds this element's height (the two-column
+   stretch below) - harmless no-op in the single-column/stacked layout. */
+.listing-description {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 72px;
+}
+
+@container (min-width: 720px) {
+  .listing-detail-layout {
+    flex-direction: row;
+    /* stretch (not flex-start) so both columns share the media column's
+       height - the description then scrolls within that height instead of
+       growing past it and dragging the whole modal/page down with it. */
+    align-items: stretch;
+  }
+  .listing-detail-media {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  .listing-detail-info {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

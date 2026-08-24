@@ -306,12 +306,33 @@ export async function getProductSummaries(
   params.push(limit, offset)
 
   const result = await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, c.name AS category,
-            count(l.id) as listing_count,
-            min(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_min,
-            max(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_max,
-            avg(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_avg,
-            COALESCE(max(l.stored_photo_urls->>0), max(l.primary_photo_url)) as sample_photo_url,
+    // The three LATERAL joins below key off p.id alone (per-product, not
+    // per-listing) - but with a plain `FROM products p JOIN listings l`,
+    // Postgres evaluates them once per LISTING row, not once per product,
+    // before GROUP BY collapses back down. For DISCOUNT_SUMMARY_LATERAL in
+    // particular (a multi-CTE percentile_cont computation), that meant a
+    // product with 20 listings paid its full cost 20x. Confirmed live
+    // 2026-08-24 via EXPLAIN ANALYZE: ~2.75s dominated by this lateral
+    // running ~6000 times (once per listing) instead of ~3800 (once per
+    // product). Pre-aggregating listings per product in a CTE - named `p`
+    // so the lateral snippets' existing p.id/p.price_lookup_excluded
+    // references keep working unchanged - means each lateral now runs
+    // exactly once per product.
+    `WITH p AS (
+       SELECT p.id, p.base_model, p.variant_tier, c.name AS category, p.price_lookup_excluded,
+              count(l.id) as listing_count,
+              min(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_min,
+              max(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_max,
+              avg(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_avg,
+              COALESCE(max(l.stored_photo_urls->>0), max(l.primary_photo_url)) as sample_photo_url
+       FROM products p
+       JOIN listings l ON l.product_id = p.id
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE ($1::text IS NULL OR p.base_model ILIKE $1) ${categoryClause}
+       GROUP BY p.id, p.base_model, p.variant_tier, c.name, p.price_lookup_excluded
+     )
+     SELECT p.id, p.base_model, p.variant_tier, p.category,
+            p.listing_count, p.price_min, p.price_max, p.price_avg, p.sample_photo_url,
             np.price_low as new_price_low,
             np.price_high as new_price_high,
             up.price_low as used_price_low,
@@ -323,19 +344,12 @@ export async function getProductSummaries(
             ds.best_discount_percent,
             ds.discounted_listing_count,
             ds.discount_bands
-     FROM products p
-     JOIN listings l ON l.product_id = p.id
-     LEFT JOIN categories c ON c.id = p.category_id
+     FROM p
      ${NEW_PRICE_LATERAL}
      ${SECONDHAND_PRICE_LATERAL}
      ${DISCOUNT_SUMMARY_LATERAL}
      LEFT JOIN product_enrichment e ON e.product_id = p.id
-     WHERE ($1::text IS NULL OR p.base_model ILIKE $1) ${categoryClause}
-     GROUP BY p.id, p.base_model, p.variant_tier, c.name, np.price_low, np.price_high,
-              up.price_low, up.price_high, up.source,
-              e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high,
-              ds.best_discount_percent, ds.discounted_listing_count, ds.discount_bands
-     ORDER BY listing_count DESC, p.id ASC
+     ORDER BY p.listing_count DESC, p.id ASC
      LIMIT $${limitPlaceholder} OFFSET $${offsetPlaceholder}`,
     params,
   )
