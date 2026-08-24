@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 
-// Hands off to refresh-server.ts running on the box that actually has
+// Hands off to the POST /refresh route on server/ (server/routes/refresh.ts,
+// registered in server/index.ts) running on the box that actually has
 // Playwright/Chromium (Vercel, where this dashboard is deployed, can't
-// reasonably run a full browser session) - see server/refresh-server.ts for
-// why this is a separate service rather than something this route does
-// itself. This route is already gated by proxy.ts's blanket auth check
-// (everything except /login and /api/login requires the dashboard cookie);
-// REFRESH_API_KEY below is a second, separate secret for the server-to-server
-// hop to that other box, never exposed to the browser.
+// reasonably run a full browser session) - see server/app.ts for why that's
+// a generic router rather than a single-purpose service. This route is
+// already gated by proxy.ts's blanket auth check (everything except /login
+// and /api/login requires the dashboard cookie); REFRESH_API_KEY below is a
+// second, separate secret for the server-to-server hop to that other box,
+// never exposed to the browser.
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 

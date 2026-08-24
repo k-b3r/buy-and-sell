@@ -1,12 +1,12 @@
 {
-  "name": "refresh-server",
+  "name": "server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "On-demand single-listing refresh HTTP service — the only piece of this repo that needs to run continuously (a long-lived process, not a one-shot CLI script), so it's a separate deployable package from the root collector scripts. Still imports shared logic (db.ts, browser.ts, check-listings.ts, ...) from ../src rather than duplicating it.",
+  "description": "Generic HTTP companion service for the collector - the one piece of this repo that needs to run continuously (a long-lived process, not a one-shot CLI script), so it's a separate deployable package from the root scripts. app.ts is a small generic JSON-in/JSON-out router (auth + routing + parsing); routes/ holds each use case's actual logic (currently just on-demand listing refresh). Still imports shared logic (db.ts, browser.ts, check-listings.ts, ...) from ../src rather than duplicating it.",
   "scripts": {
-    "start": "tsx refresh-server.ts",
-    "dev": "tsx watch refresh-server.ts",
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts",
     "test": "vitest run"
   },
   "devDependencies": {

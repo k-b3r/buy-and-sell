@@ -1,12 +1,11 @@
 import { existsSync, rmSync } from 'node:fs'
-import { createRefreshHandler } from '../refresh-server'
-import { createLogger } from '../../src/logger'
-import type { PageDriver } from '../../src/driver'
-import type { DbClient } from '../../src/db'
-import type { ImageStore } from '../../src/images'
+import { createRefreshHandler } from '../../routes/refresh'
+import { createLogger } from '../../../src/logger'
+import type { PageDriver } from '../../../src/driver'
+import type { DbClient } from '../../../src/db'
+import type { ImageStore } from '../../../src/images'
 
-const LOG_PATH = 'test/tmp-refresh-server.log'
-const API_KEY = 'test-secret'
+const LOG_PATH = 'test/tmp-refresh.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
@@ -56,40 +55,21 @@ function driverFactory(driver: PageDriver) {
   }
 }
 
-test('rejects a request with the wrong or missing API key', async () => {
-  const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(API_KEY, fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
-
-  const wrongKey = await handle('1', 'Bearer nope')
-  expect(wrongKey).toEqual({ statusCode: 401, body: { error: 'unauthorized' } })
-
-  const noHeader = await handle('1', undefined)
-  expect(noHeader).toEqual({ statusCode: 401, body: { error: 'unauthorized' } })
-})
-
 test('rejects a missing or non-string id', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(API_KEY, fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
 
-  expect(await handle(undefined, `Bearer ${API_KEY}`)).toEqual({
-    statusCode: 400,
-    body: { error: 'missing or invalid "id"' },
-  })
-  expect(await handle(42, `Bearer ${API_KEY}`)).toEqual({
-    statusCode: 400,
-    body: { error: 'missing or invalid "id"' },
-  })
-  expect(await handle('  ', `Bearer ${API_KEY}`)).toEqual({
-    statusCode: 400,
-    body: { error: 'missing or invalid "id"' },
-  })
+  expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
+  expect(await handle({ id: 42 })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
+  expect(await handle({ id: '  ' })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
+  expect(await handle(null)).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
 })
 
 test('404s when the listing id does not exist', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(API_KEY, fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
 
-  const result = await handle('does-not-exist', `Bearer ${API_KEY}`)
+  const result = await handle({ id: 'does-not-exist' })
   expect(result).toEqual({ statusCode: 404, body: { error: 'listing does-not-exist not found' } })
 })
 
@@ -103,9 +83,9 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
     },
   })
   const { factory, wasClosed } = driverFactory(driver)
-  const handle = createRefreshHandler(API_KEY, fakeDb(), fakeImageStore(), logger, factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, factory)
 
-  const result = await handle('1', `Bearer ${API_KEY}`)
+  const result = await handle({ id: '1' })
 
   expect(result).toEqual({ statusCode: 200, body: { status: 'alive' } })
   expect(openedId).toBe('1')
@@ -124,11 +104,11 @@ test('a second request while one is in flight gets 429, not a concurrent browser
     await firstGate
     return { driver: makeDriver({ getDetailHtml: async () => realListingDetailHtml }), close: async () => {} }
   }
-  const handle = createRefreshHandler(API_KEY, fakeDb(), fakeImageStore(), logger, slowFactory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, slowFactory)
 
-  const firstRequest = handle('1', `Bearer ${API_KEY}`)
+  const firstRequest = handle({ id: '1' })
   await Promise.resolve() // let the first request reach the driver factory before firing the second
-  const secondResult = await handle('1', `Bearer ${API_KEY}`)
+  const secondResult = await handle({ id: '1' })
 
   expect(secondResult).toEqual({
     statusCode: 429,
@@ -144,10 +124,10 @@ test('a second request while one is in flight gets 429, not a concurrent browser
 test('the busy flag clears after a request finishes, so a later request succeeds', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
-  const handle = createRefreshHandler(API_KEY, fakeDb(), fakeImageStore(), logger, driverFactory(driver).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, driverFactory(driver).factory)
 
-  const first = await handle('1', `Bearer ${API_KEY}`)
-  const second = await handle('1', `Bearer ${API_KEY}`)
+  const first = await handle({ id: '1' })
+  const second = await handle({ id: '1' })
 
   expect(first.statusCode).toBe(200)
   expect(second.statusCode).toBe(200)
