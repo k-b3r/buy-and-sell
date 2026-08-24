@@ -59,6 +59,11 @@ body {
   color: var(--color-text);
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Defense-in-depth against the flexbox min-width:auto trap (confirmed live
+     2026-08-24: a non-shrinking <select> forced the whole page wide on
+     mobile) - a future instance of the same bug class stays contained
+     instead of dragging the page into horizontal scroll. */
+  overflow-x: hidden;
 }
 
 h1,

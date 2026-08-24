@@ -66,18 +66,20 @@ export default function ProductListClient({
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <input
           type="text"
           placeholder="Search by product name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, padding: 8, boxSizing: 'border-box' }}
+          style={{ flex: '1 1 200px', minWidth: 0, padding: 8, boxSizing: 'border-box' }}
         />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           style={{
+            flex: '1 1 160px',
+            minWidth: 0,
             padding: 8,
             background: 'var(--color-surface)',
             color: 'var(--color-text)',
