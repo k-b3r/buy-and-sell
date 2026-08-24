@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { getPool } from '@/lib/db'
 import { getProductDetail } from '@/lib/queries'
 import ListingsView from './ListingsView'
+import RefreshProductButton from './RefreshProductButton'
 import BackLink from '../../BackLink'
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,7 +58,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         </section>
       )}
 
-      <h2>Listings ({product.listings.length})</h2>
+      <h2>
+        Listings ({product.listings.length}){' '}
+        <span style={{ fontSize: '0.6em', verticalAlign: 'middle' }}>
+          <RefreshProductButton productId={product.id} />
+        </span>
+      </h2>
       <ListingsView listings={product.listings} discountBands={product.discount_bands} />
     </div>
   )

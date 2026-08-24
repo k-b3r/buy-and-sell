@@ -6,6 +6,7 @@ import type { PageDriver } from '../../src/driver'
 import { launchBrowser, createBrowserDriver } from '../../src/browser'
 import { checkOneListing } from '../../src/check-listings'
 import type { RouteHandler, RouteResult } from '../app'
+import type { RefreshLock } from '../refreshLock'
 
 export type DriverFactory = () => Promise<{ driver: PageDriver; close: () => Promise<void> }>
 
@@ -22,25 +23,23 @@ export function createRefreshHandler(
   db: DbClient,
   imageStore: ImageStore,
   logger: Logger,
+  lock: RefreshLock,
   driverFactory: DriverFactory = defaultDriverFactory,
 ): RouteHandler {
-  // Closure-scoped, not module-level - the VPS this runs on has ~2GB RAM
-  // (confirmed live 2026-08-23), not enough headroom for two concurrent
-  // Chromium instances. A second request while one's in flight gets a clean
-  // 429 rather than risking an OOM kill of both. Scoped per-handler (not a
-  // module-level flag) so tests creating separate handlers don't share state.
-  let busy = false
-
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
     const id = (body as Record<string, unknown> | null)?.id
     if (typeof id !== 'string' || id.trim() === '') {
       return { statusCode: 400, body: { error: 'missing or invalid "id"' } }
     }
-    if (busy) {
+    // Shared with the bulk product-refresh handler (see routes/refreshProduct.ts)
+    // - the VPS this runs on has ~2GB RAM, not enough for two concurrent
+    // Chromium instances, so a single-listing refresh and a bulk job must
+    // never run simultaneously either.
+    if (lock.isBusy()) {
       return { statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } }
     }
 
-    busy = true
+    lock.acquire()
     try {
       const candidate = await getListingCheckCandidate(db, id)
       if (!candidate) {
@@ -57,7 +56,7 @@ export function createRefreshHandler(
         await close()
       }
     } finally {
-      busy = false
+      lock.release()
     }
   }
 }

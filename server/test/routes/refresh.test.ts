@@ -1,5 +1,6 @@
 import { existsSync, rmSync } from 'node:fs'
 import { createRefreshHandler } from '../../routes/refresh'
+import { createRefreshLock } from '../../refreshLock'
 import { createLogger } from '../../../src/logger'
 import type { PageDriver } from '../../../src/driver'
 import type { DbClient } from '../../../src/db'
@@ -57,7 +58,7 @@ function driverFactory(driver: PageDriver) {
 
 test('rejects a missing or non-string id', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), driverFactory(makeDriver()).factory)
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
   expect(await handle({ id: 42 })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
@@ -67,7 +68,7 @@ test('rejects a missing or non-string id', async () => {
 
 test('404s when the listing id does not exist', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, driverFactory(makeDriver()).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), driverFactory(makeDriver()).factory)
 
   const result = await handle({ id: 'does-not-exist' })
   expect(result).toEqual({ statusCode: 404, body: { error: 'listing does-not-exist not found' } })
@@ -83,7 +84,7 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
     },
   })
   const { factory, wasClosed } = driverFactory(driver)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), factory)
 
   const result = await handle({ id: '1' })
 
@@ -104,7 +105,7 @@ test('a second request while one is in flight gets 429, not a concurrent browser
     await firstGate
     return { driver: makeDriver({ getDetailHtml: async () => realListingDetailHtml }), close: async () => {} }
   }
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, slowFactory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), slowFactory)
 
   const firstRequest = handle({ id: '1' })
   await Promise.resolve() // let the first request reach the driver factory before firing the second
@@ -121,10 +122,21 @@ test('a second request while one is in flight gets 429, not a concurrent browser
   expect(firstResult.statusCode).toBe(200)
 })
 
+test('an externally-held lock blocks the handler too - the lock is shared, not just internal state', async () => {
+  const logger = createLogger(LOG_PATH)
+  const lock = createRefreshLock()
+  lock.acquire() // e.g. a bulk product-refresh job holding it
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, lock, driverFactory(makeDriver()).factory)
+
+  const result = await handle({ id: '1' })
+
+  expect(result).toEqual({ statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } })
+})
+
 test('the busy flag clears after a request finishes, so a later request succeeds', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, driverFactory(driver).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), driverFactory(driver).factory)
 
   const first = await handle({ id: '1' })
   const second = await handle({ id: '1' })

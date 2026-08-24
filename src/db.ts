@@ -253,6 +253,25 @@ export async function getCheckListingsCandidates(db: DbClient, limit: number): P
   return result.rows
 }
 
+// Scoped counterpart to getCheckListingsCandidates, for the dashboard's
+// per-product bulk refresh (see server/routes/refreshProduct.ts) - same
+// sold-exclusion and staleness ordering, just narrowed to one product's
+// listings instead of the whole backlog. No LIMIT - a bulk job checks every
+// eligible listing under the product, not a capped batch.
+export async function getListingCheckCandidatesForProduct(
+  db: DbClient,
+  productId: number,
+): Promise<CheckListingsCandidate[]> {
+  const result = (await db.query(
+    `SELECT id, flagged_removed_at FROM listings
+     WHERE product_id = $1
+     AND sold_at IS NULL
+     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
+    [productId],
+  )) as { rows: CheckListingsCandidate[] }
+  return result.rows
+}
+
 // Single-listing counterpart to getCheckListingsCandidates, for the on-demand
 // refresh path (see refresh-server.ts) - same shape (id + flagged_removed_at)
 // so checkOneListing's two-phase soft-wall logic works identically whether

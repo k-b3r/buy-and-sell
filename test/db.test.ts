@@ -5,6 +5,7 @@ import {
   upsertListing,
   insertPriceCheck,
   getCheckListingsCandidates,
+  getListingCheckCandidatesForProduct,
   markListingAlive,
   flagListingRemoved,
   deleteListing,
@@ -395,6 +396,23 @@ test('getCheckListingsCandidates orders by last_checked_at then listed_at, oldes
   expect(calls[0].sql).toContain('LIMIT $1')
   expect(calls[0].sql).toContain('WHERE sold_at IS NULL')
   expect(calls[0].params).toEqual([50])
+})
+
+test('getListingCheckCandidatesForProduct scopes to one product, excludes sold, orders oldest/never-checked first', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await getListingCheckCandidatesForProduct(db, 42)
+
+  expect(calls[0].sql).toContain('WHERE product_id = $1')
+  expect(calls[0].sql).toContain('AND sold_at IS NULL')
+  expect(calls[0].sql).toContain('ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST')
+  expect(calls[0].params).toEqual([42])
 })
 
 test('markListingAlive sets last_checked_at and clears any removal flag and sold flag', async () => {
