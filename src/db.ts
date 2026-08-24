@@ -253,6 +253,19 @@ export async function getCheckListingsCandidates(db: DbClient, limit: number): P
   return result.rows
 }
 
+// Single-listing counterpart to getCheckListingsCandidates, for the on-demand
+// refresh path (see refresh-server.ts) - same shape (id + flagged_removed_at)
+// so checkOneListing's two-phase soft-wall logic works identically whether
+// the candidate came from the batch query or a one-off request. Does NOT
+// filter on sold_at IS NULL - a sold listing can still be manually refreshed
+// (e.g. to double-check it wasn't a false positive).
+export async function getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null> {
+  const result = (await db.query(`SELECT id, flagged_removed_at FROM listings WHERE id = $1`, [
+    id,
+  ])) as { rows: CheckListingsCandidate[] }
+  return result.rows[0] ?? null
+}
+
 // Real content found — clears any prior removal flag too, treating a listing
 // that recovers after being flagged as a false positive, not something to
 // silently leave flagged. Also clears sold_at, for the same reason (a listing

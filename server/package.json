@@ -1,0 +1,25 @@
+{
+  "name": "refresh-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "On-demand single-listing refresh HTTP service — the only piece of this repo that needs to run continuously (a long-lived process, not a one-shot CLI script), so it's a separate deployable package from the root collector scripts. Still imports shared logic (db.ts, browser.ts, check-listings.ts, ...) from ../src rather than duplicating it.",
+  "scripts": {
+    "start": "tsx refresh-server.ts",
+    "dev": "tsx watch refresh-server.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1113.0",
+    "pg": "^8.23.0",
+    "playwright": "^1.47.0",
+    "sharp": "^0.35.3"
+  }
+}

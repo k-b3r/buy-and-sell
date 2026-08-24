@@ -1,6 +1,7 @@
 import { isListingPriceNegotiable } from '@/lib/queries'
 import type { ListingDetail } from '@/lib/queries'
 import ListingCarousel from './ListingCarousel'
+import RefreshButton from './RefreshButton'
 import BackLink from '../../BackLink'
 import { marketplaceButtonStyle } from '../../marketplaceButtonStyle'
 import FacebookIcon from '../../FacebookIcon'
@@ -112,6 +113,10 @@ export default function ListingDetailContent({
               vs typical ₱{listing.reference_price.toLocaleString()} for this product (outliers/placeholders excluded)
             </p>
           )}
+
+          <p>
+            <RefreshButton listingId={listing.id} />
+          </p>
 
           <table cellPadding={4}>
             <tbody>

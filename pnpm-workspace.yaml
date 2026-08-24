@@ -1,3 +1,7 @@
+packages:
+  - '.'
+  - 'server'
+
 allowBuilds:
   '@google/genai': true
   esbuild: true
