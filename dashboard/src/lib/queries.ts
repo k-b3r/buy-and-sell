@@ -299,14 +299,14 @@ export async function getProductSummaries(
   let categoryClause = ''
   if (options.category) {
     params.push(options.category)
-    categoryClause = `AND p.category = $${params.length}`
+    categoryClause = `AND c.name = $${params.length}`
   }
   const limitPlaceholder = params.length + 1
   const offsetPlaceholder = params.length + 2
   params.push(limit, offset)
 
   const result = await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, p.category,
+    `SELECT p.id, p.base_model, p.variant_tier, c.name AS category,
             count(l.id) as listing_count,
             min(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_min,
             max(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_max,
@@ -325,12 +325,13 @@ export async function getProductSummaries(
             ds.discount_bands
      FROM products p
      JOIN listings l ON l.product_id = p.id
+     LEFT JOIN categories c ON c.id = p.category_id
      ${NEW_PRICE_LATERAL}
      ${SECONDHAND_PRICE_LATERAL}
      ${DISCOUNT_SUMMARY_LATERAL}
      LEFT JOIN product_enrichment e ON e.product_id = p.id
      WHERE ($1::text IS NULL OR p.base_model ILIKE $1) ${categoryClause}
-     GROUP BY p.id, p.base_model, p.variant_tier, p.category, np.price_low, np.price_high,
+     GROUP BY p.id, p.base_model, p.variant_tier, c.name, np.price_low, np.price_high,
               up.price_low, up.price_high, up.source,
               e.has_trained_price_knowledge, e.trained_price_low, e.trained_price_high,
               ds.best_discount_percent, ds.discounted_listing_count, ds.discount_bands

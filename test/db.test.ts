@@ -22,6 +22,7 @@ import {
   flagProductPriceLookupExcluded,
   mergeDuplicateProduct,
   updateProductCategories,
+  getCategoryBackfillCandidates,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -277,7 +278,23 @@ test('updateProductCategories issues a single multi-row UPDATE for all assignmen
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toMatch(/^UPDATE products/)
   expect(calls[0].sql).toContain('FROM (VALUES')
+  expect(calls[0].sql).toContain('JOIN categories')
   expect(calls[0].params).toEqual([1, 'Gaming', 2, 'Audio'])
+})
+
+test('getCategoryBackfillCandidates returns products with no category assigned yet', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 1, base_model: 'RTX 3060', variant_tier: null }] }
+    },
+  }
+
+  const result = await getCategoryBackfillCandidates(db)
+
+  expect(calls[0].sql).toContain('category_id IS NULL')
+  expect(result).toEqual([{ id: 1, base_model: 'RTX 3060', variant_tier: null }])
 })
 
 test('insertPriceCheck writes a new price_history row for the product, not an upsert', async () => {
@@ -420,7 +437,7 @@ test('getEnrichmentCandidates returns products without an enrichment row, with s
 
   expect(calls[0].sql).toContain('NOT EXISTS')
   expect(calls[0].sql).toContain('product_enrichment')
-  expect(calls[0].sql).toContain('p.category')
+  expect(calls[0].sql).toContain('categories')
   expect(result).toEqual([
     {
       id: 363,

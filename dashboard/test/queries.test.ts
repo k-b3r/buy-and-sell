@@ -439,7 +439,7 @@ test('getProductSummaries filters by category when provided', async () => {
 
   await getProductSummaries(db, { category: 'Audio' })
 
-  expect(capturedSql).toContain('p.category = $')
+  expect(capturedSql).toContain('c.name = $')
   expect(capturedParams).toEqual([null, 'Audio', 30, 0])
 })
 

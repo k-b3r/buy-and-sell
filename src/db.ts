@@ -110,8 +110,8 @@ export async function findOrCreateProduct(
   if (existing.rows.length > 0) return existing.rows[0].id
 
   const inserted = (await db.query(
-    `INSERT INTO products (base_model, base_model_normalized, variant_tier, variant_tier_normalized, category)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    `INSERT INTO products (base_model, base_model_normalized, variant_tier, variant_tier_normalized, category_id)
+     VALUES ($1, $2, $3, $4, (SELECT id FROM categories WHERE name = $5)) RETURNING id`,
     [baseModel, normalized, variantTier, normalizedVariant, category],
   )) as { rows: { id: number }[] }
   return inserted.rows[0].id
@@ -300,7 +300,7 @@ export async function mergeDuplicateProduct(db: DbClient, survivorId: number, lo
 
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {
   const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, p.category,
+    `SELECT p.id, p.base_model, p.variant_tier, c.name AS category,
        COALESCE(
          (SELECT array_agg(DISTINCT COALESCE(p2.variant_tier, '(base, no variant)'))
           FROM products p2
@@ -308,6 +308,7 @@ export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentC
          ARRAY[]::text[]
        ) as sibling_variants
      FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id
      WHERE NOT EXISTS (SELECT 1 FROM product_enrichment e WHERE e.product_id = p.id)
      ORDER BY p.id`,
     [],
@@ -455,20 +456,23 @@ export async function markListingPhotosUnavailable(db: DbClient, id: string): Pr
   await db.query(`UPDATE listings SET stored_photo_urls = '[]'::jsonb WHERE id = $1`, [id])
 }
 
-// category IS NULL is both the filter and the resumability marker — no
+// category_id IS NULL is both the filter and the resumability marker — no
 // separate results table needed (same pattern as getEnrichmentCandidates).
 // Only pre-existing products lack a category; extract-products.ts assigns it
 // at creation time for everything new, so this backlog only shrinks.
 export async function getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]> {
   const result = (await db.query(
-    `SELECT id, base_model, variant_tier FROM products WHERE category IS NULL ORDER BY id`,
+    `SELECT id, base_model, variant_tier FROM products WHERE category_id IS NULL ORDER BY id`,
     [],
   )) as { rows: CategoryBackfillCandidate[] }
   return result.rows
 }
 
 // Batched single round trip, same reasoning as updateListingProductIds — the
-// Neon round-trip cost dwarfs the LLM cost here.
+// Neon round-trip cost dwarfs the LLM cost here. Assignments carry the
+// category NAME (from the LLM response / caller), resolved to category_id
+// via the join below — categories is a small fixed seeded set, never
+// written to here.
 export async function updateProductCategories(
   db: DbClient,
   assignments: { id: number; category: string }[],
@@ -479,8 +483,9 @@ export async function updateProductCategories(
   const params = assignments.flatMap((a) => [a.id, a.category])
 
   await db.query(
-    `UPDATE products SET category = data.category
+    `UPDATE products SET category_id = c.id
      FROM (VALUES ${valuesSql}) AS data(id, category)
+     JOIN categories c ON c.name = data.category
      WHERE products.id = data.id`,
     params,
   )

@@ -165,6 +165,35 @@ CREATE TABLE IF NOT EXISTS listing_price_review (
   checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Normalizes the fixed 14-value category list (src/products.ts's
+-- PRODUCT_CATEGORIES) out of products.category (plain TEXT, no referential
+-- integrity - a typo or drift from the enum would silently sit in the
+-- column forever) into its own table with an FK. Seeded once with the fixed
+-- set; nothing else ever inserts into this table. The guard only touches
+-- products.category if that column still exists, so this whole file stays
+-- safe to replay after the one-time backfill+drop below has already run.
+CREATE TABLE IF NOT EXISTS categories (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL
+);
+
+INSERT INTO categories (name) VALUES
+  ('Phones & Tablets'), ('Computers & Laptops'), ('PC Components'),
+  ('Cameras & Drones'), ('Audio'), ('Gaming'), ('TVs & Monitors'),
+  ('Appliances'), ('Vehicles'), ('Real Estate'), ('Fashion'),
+  ('Fitness & Outdoor'), ('Furniture & Home'), ('Other')
+ON CONFLICT (name) DO NOTHING;
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES categories(id);
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'category') THEN
+    UPDATE products p SET category_id = c.id FROM categories c WHERE c.name = p.category AND p.category_id IS NULL;
+    ALTER TABLE products DROP COLUMN category;
+  END IF;
+END $$;
+
 -- Some base_model values aren't real, priceable products (real estate, bare
 -- category placeholders like "GPU"/"Item", parts/accessories with no single
 -- fixed retail price, services). "New-retail price" is a meaningless concept
