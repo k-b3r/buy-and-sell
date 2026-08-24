@@ -34,14 +34,17 @@ function SoldBadge() {
   return <span style={soldBadgeStyle}>Sold</span>
 }
 
+// Solid fill, not a border-only pill - this now also renders as an overlay
+// on top of arbitrary product photos (card view), where an outline-only
+// badge wouldn't reliably read against a busy image.
 const negotiableBadgeStyle: CSSProperties = {
   display: 'inline-block',
   marginLeft: 8,
   padding: '1px 8px',
   borderRadius: 12,
   fontSize: '0.75em',
-  border: '1px solid var(--color-accent)',
-  color: 'var(--color-accent)',
+  background: 'var(--color-accent)',
+  color: 'var(--color-bg)',
 }
 
 function NegotiableBadge() {
@@ -144,7 +147,7 @@ function filterListings(
 ): ProductListingSummary[] {
   return listings.filter((l) => {
     if (hideSold && l.sold_at) return false
-    if (negotiableOnly && !isListingPriceNegotiable(l.price_amount, l.price_review)) return false
+    if (negotiableOnly && !isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent)) return false
     if (listedWithinDays > 0) {
       if (!l.listed_at) return false
       const cutoff = Date.now() - listedWithinDays * 24 * 60 * 60 * 1000
@@ -293,7 +296,7 @@ export default function ListingsView({
                 <td>{l.condition ?? '—'}</td>
                 <td className="mono">
                   {formatListingPrice(l)}
-                  {isListingPriceNegotiable(l.price_amount, l.price_review) && <NegotiableBadge />}
+                  {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
                   <DiscountBadge percent={l.discount_percent} />
                 </td>
               </tr>
@@ -317,7 +320,7 @@ export default function ListingsView({
                 opacity: selectedBand !== null && !isHighlighted(l) ? 0.4 : 1,
               }}
             >
-              <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)' }}>
+              <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)', position: 'relative' }}>
                 {l.primary_photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -326,19 +329,29 @@ export default function ListingsView({
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
                 ) : null}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: 4,
+                  }}
+                >
+                  {l.sold_at && <SoldBadge />}
+                  {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
+                  <DiscountBadge percent={l.discount_percent} />
+                </div>
               </div>
               <div style={{ padding: 10 }}>
-                <div style={{ fontSize: '0.9em' }}>
-                  {l.title}
-                  {l.sold_at && <SoldBadge />}
-                </div>
+                <div style={{ fontSize: '0.9em' }}>{l.title}</div>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>
                   {l.condition ?? '—'}
                 </div>
                 <div className="mono" style={{ marginTop: 4 }}>
                   {formatListingPrice(l)}
-                  {isListingPriceNegotiable(l.price_amount, l.price_review) && <NegotiableBadge />}
-                  <DiscountBadge percent={l.discount_percent} />
                 </div>
               </div>
             </Link>

@@ -60,7 +60,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       <p className="mono" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
         {formatListingPrice(listing)}
-        {isListingPriceNegotiable(listing.price_amount, listing.price_review) && (
+        {isListingPriceNegotiable(listing.price_amount, listing.price_review, listing.discount_percent) && (
           <span
             style={{
               display: 'inline-block',
