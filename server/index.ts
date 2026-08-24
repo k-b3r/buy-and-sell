@@ -9,6 +9,7 @@ import { createRefreshProductHandler } from './routes/refreshProduct'
 import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
 import { createRefreshLock } from './refreshLock'
+import { createRefreshPacer } from './refreshPacer'
 import { createJobStore } from './jobState'
 
 // Run from within server/ (`pnpm start` / `pnpm dev`) - .env is resolved
@@ -44,16 +45,21 @@ async function main() {
   // this VPS can't run two concurrent Chromium instances (~2GB RAM), so
   // either use case must lock the other out. jobs is likewise one shared
   // in-memory slot (see jobState.ts) - only one job can ever be running at
-  // a time anyway, since they share this same lock.
+  // a time anyway, since they share this same lock. refreshPacer wraps the
+  // lock with queueing + human pacing for single-listing requests (see
+  // refreshPacer.ts) - bulk keeps using the raw lock directly (it already
+  // paces itself internally) but still reports into the same pacer so a
+  // single-listing request right after a bulk job doesn't skip the gap.
   const refreshLock = createRefreshLock()
+  const refreshPacer = createRefreshPacer(refreshLock)
   const jobs = createJobStore()
 
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const app = createApp(apiKey, {
-    'POST /refresh': createRefreshHandler(pool, imageStore, logger, refreshLock),
-    'POST /refresh-product': createRefreshProductHandler(pool, imageStore, logger, refreshLock, jobs),
+    'POST /refresh': createRefreshHandler(pool, imageStore, logger, refreshPacer),
+    'POST /refresh-product': createRefreshProductHandler(pool, imageStore, logger, refreshLock, jobs, refreshPacer),
     'GET /refresh-job': createRefreshJobStatusHandler(jobs),
     'POST /refresh-job/cancel': createCancelRefreshJobHandler(jobs),
   })

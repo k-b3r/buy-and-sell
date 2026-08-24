@@ -5,6 +5,7 @@ import type { ImageStore } from '../../src/images'
 import { checkOneListing } from '../../src/check-listings'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshLock } from '../refreshLock'
+import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
 import { launchBrowser, createBrowserDriver } from '../../src/browser'
@@ -34,6 +35,7 @@ export function createRefreshProductHandler(
   logger: Logger,
   lock: RefreshLock,
   jobs: JobStore,
+  pacer: RefreshPacer,
   driverFactory: DriverFactory = defaultDriverFactory,
 ): RouteHandler {
   return async function handleRefreshProduct(body: unknown): Promise<RouteResult> {
@@ -83,8 +85,12 @@ export function createRefreshProductHandler(
       } finally {
         // Release before closing, not after - a new request needs the lock
         // free to launch its own separate browser; it doesn't need to wait
-        // for this one to finish tearing down first.
+        // for this one to finish tearing down first. recordActionComplete
+        // keeps the single-listing pacer's clock honest - without it, a
+        // single-listing refresh right after this job finishes would see no
+        // recent action and skip its own pacing gap entirely.
         lock.release()
+        pacer.recordActionComplete()
         await close()
       }
     })()

@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { createRefreshProductHandler } from '../../routes/refreshProduct'
 import { createRefreshLock } from '../../refreshLock'
+import { createRefreshPacer } from '../../refreshPacer'
 import { createJobStore } from '../../jobState'
 import { createLogger } from '../../../src/logger'
 import type { PageDriver } from '../../../src/driver'
@@ -65,12 +66,14 @@ function driverFactory(driver: PageDriver) {
 
 test('rejects a missing or non-integer productId', async () => {
   const logger = createLogger(LOG_PATH)
+  const lock = createRefreshLock()
   const handle = createRefreshProductHandler(
     fakeDb(),
     fakeImageStore(),
     logger,
-    createRefreshLock(),
+    lock,
     createJobStore(),
+    createRefreshPacer(lock),
     driverFactory(makeDriver()).factory,
   )
 
@@ -89,6 +92,7 @@ test('429s when the shared lock is already held', async () => {
     logger,
     lock,
     createJobStore(),
+    createRefreshPacer(lock),
     driverFactory(makeDriver()).factory,
   )
 
@@ -102,7 +106,7 @@ test('a product with no eligible listings completes immediately without acquirin
   const db: DbClient = { query: async () => ({ rows: [] }) } // no candidates
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(db, fakeImageStore(), logger, lock, jobs, driverFactory(makeDriver()).factory)
+  const handle = createRefreshProductHandler(db, fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), driverFactory(makeDriver()).factory)
 
   const result = await handle({ productId: 42 })
 
@@ -123,7 +127,7 @@ test('starts the job and returns immediately, then the background loop checks ev
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, factory)
+  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory)
 
   const result = await handle({ productId: 42 })
 
@@ -154,7 +158,7 @@ test('cancellation requested after the first candidate stops the loop before the
   })
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, factory)
+  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory)
 
   await handle({ productId: 42 })
   await closed
@@ -179,7 +183,7 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, factory)
+  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory)
 
   await handle({ productId: 42 })
   await closed

@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { createRefreshHandler } from '../../routes/refresh'
 import { createRefreshLock } from '../../refreshLock'
+import { createRefreshPacer } from '../../refreshPacer'
 import { createLogger } from '../../../src/logger'
 import type { PageDriver } from '../../../src/driver'
 import type { DbClient } from '../../../src/db'
@@ -56,9 +57,31 @@ function driverFactory(driver: PageDriver) {
   }
 }
 
+// No pacing gap to wait out and an already-free lock - real timers are fine
+// for a single call, since recordActionComplete never having fired means no
+// delay() call happens at all.
+function instantPacer(lock = createRefreshLock()) {
+  return createRefreshPacer(lock)
+}
+
+// For tests that make more than one call through the same pacer - after the
+// first call's recordActionComplete, a real pacer would actually wait out
+// the 4-10s gap with real timers. Auto-advancing fake time keeps the real
+// pacing logic under test without the test itself taking seconds.
+function fastPacer(lock = createRefreshLock()) {
+  let time = 0
+  return createRefreshPacer(
+    lock,
+    () => time,
+    async (ms) => {
+      time += ms
+    },
+  )
+}
+
 test('rejects a missing or non-string id', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), driverFactory(makeDriver()).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, instantPacer(), driverFactory(makeDriver()).factory)
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
   expect(await handle({ id: 42 })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
@@ -66,9 +89,9 @@ test('rejects a missing or non-string id', async () => {
   expect(await handle(null)).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
 })
 
-test('404s when the listing id does not exist', async () => {
+test('404s when the listing id does not exist, without ever queueing', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), driverFactory(makeDriver()).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, instantPacer(), driverFactory(makeDriver()).factory)
 
   const result = await handle({ id: 'does-not-exist' })
   expect(result).toEqual({ statusCode: 404, body: { error: 'listing does-not-exist not found' } })
@@ -84,7 +107,7 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
     },
   })
   const { factory, wasClosed } = driverFactory(driver)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, instantPacer(), factory)
 
   const result = await handle({ id: '1' })
 
@@ -93,7 +116,7 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
   expect(wasClosed()).toBe(true)
 })
 
-test('a second request while one is in flight gets 429, not a concurrent browser launch', async () => {
+test('a second request while one is in flight queues and succeeds once the first releases the lock', async () => {
   const logger = createLogger(LOG_PATH)
   let resolveFirst: () => void = () => {}
   const firstGate = new Promise<void>((resolve) => {
@@ -105,38 +128,44 @@ test('a second request while one is in flight gets 429, not a concurrent browser
     await firstGate
     return { driver: makeDriver({ getDetailHtml: async () => realListingDetailHtml }), close: async () => {} }
   }
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), slowFactory)
+  const pacer = fastPacer()
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, pacer, slowFactory)
 
   const firstRequest = handle({ id: '1' })
   await Promise.resolve() // let the first request reach the driver factory before firing the second
-  const secondResult = await handle({ id: '1' })
-
-  expect(secondResult).toEqual({
-    statusCode: 429,
-    body: { error: 'a refresh is already in progress, try again shortly' },
-  })
-  expect(launchCount).toBe(1)
+  const secondRequest = handle({ id: '1' })
 
   resolveFirst()
-  const firstResult = await firstRequest
+  const [firstResult, secondResult] = await Promise.all([firstRequest, secondRequest])
+
   expect(firstResult.statusCode).toBe(200)
+  expect(secondResult.statusCode).toBe(200)
+  // Queued behind the first, not run concurrently - one browser launch each,
+  // in sequence, not two racing.
+  expect(launchCount).toBe(2)
 })
 
-test('an externally-held lock blocks the handler too - the lock is shared, not just internal state', async () => {
+test('gives up with 429 if the lock never frees within the max queue wait', async () => {
   const logger = createLogger(LOG_PATH)
   const lock = createRefreshLock()
-  lock.acquire() // e.g. a bulk product-refresh job holding it
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, lock, driverFactory(makeDriver()).factory)
+  lock.acquire() // e.g. a bulk product-refresh job holding it, never released in this test
+  let time = 0
+  const now = () => time
+  const delay = async (ms: number) => {
+    time += ms
+  }
+  const pacer = createRefreshPacer(lock, now, delay)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, pacer, driverFactory(makeDriver()).factory)
 
   const result = await handle({ id: '1' })
 
   expect(result).toEqual({ statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } })
 })
 
-test('the busy flag clears after a request finishes, so a later request succeeds', async () => {
+test('a later request succeeds after an earlier one completes and releases', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, createRefreshLock(), driverFactory(driver).factory)
+  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, fastPacer(), driverFactory(driver).factory)
 
   const first = await handle({ id: '1' })
   const second = await handle({ id: '1' })
