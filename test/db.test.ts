@@ -23,6 +23,7 @@ import {
   mergeDuplicateProduct,
   updateProductCategories,
   getCategoryBackfillCandidates,
+  refreshListingFields,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -76,6 +77,32 @@ test('upsertListing extracts known fields and stores the full raw object as json
   expect(photoUrl).toBe('https://scontent.example/photo.jpg')
   expect(storedPhotoUrls).toBeNull()
   expect((listedAt as Date).getTime()).toBe(1786660802 * 1000)
+  expect(JSON.parse(rawJson as string)).toEqual(listing)
+})
+
+test('refreshListingFields updates title/price/description/condition/raw_json, keyed by id', async () => {
+  const { db, calls } = mockDb()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6 (price cut!)',
+    listing_price: { amount: '13500.00', currency: 'PHP' },
+    redacted_description: { text: 'Now negotiable, moving out soon.' },
+    attribute_data: [{ label: 'Used - Fair', value: 'used_fair', attribute_name: 'Condition' }],
+  }
+
+  await refreshListingFields(db, listing)
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toMatch(/^UPDATE listings SET/)
+  expect(calls[0].sql).not.toContain('primary_photo_url')
+  expect(calls[0].sql).not.toContain('stored_photo_urls')
+  const [id, title, priceAmount, priceCurrency, description, condition, rawJson] = calls[0].params
+  expect(id).toBe('12345')
+  expect(title).toBe('Sony WH-1000XM6 (price cut!)')
+  expect(priceAmount).toBe(13500)
+  expect(priceCurrency).toBe('PHP')
+  expect(description).toBe('Now negotiable, moving out soon.')
+  expect(condition).toBe('Used - Fair')
   expect(JSON.parse(rawJson as string)).toEqual(listing)
 })
 

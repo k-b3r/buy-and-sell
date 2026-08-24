@@ -12,6 +12,7 @@ import {
   markListingSold,
   flagListingRemoved,
   deleteListing,
+  refreshListingFields,
 } from './db'
 import type { ImageStore } from './images'
 import { createR2ImageStore, deleteListingPhotos } from './images'
@@ -65,7 +66,9 @@ export async function runCheckListings(
       continue
     }
 
-    if (extractDetailFields(result.html).is_sold === true) {
+    const detailFields = extractDetailFields(result.html)
+
+    if (detailFields.is_sold === true) {
       logger.info(`listing ${candidate.id} detected as sold`)
       await markListingSold(db, candidate.id)
       continue
@@ -74,6 +77,10 @@ export async function runCheckListings(
     if (candidate.flagged_removed_at) {
       logger.info(`listing ${candidate.id} recovered — was flagged, now accessible again, clearing flag`)
     }
+    // Still live — sync title/price/description/condition in case the
+    // seller edited them since we first saw this listing (see
+    // refreshListingFields; photos are deliberately left untouched).
+    await refreshListingFields(db, detailFields)
     await markListingAlive(db, candidate.id)
   }
 }

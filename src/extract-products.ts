@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from './logger'
 import { createLogger } from './logger'
 import type { GeminiClient } from './gemini'
-import { createGeminiClient, createFallbackGeminiClient } from './gemini'
+import { createGeminiClient, createFallbackGeminiClient, isQuotaError } from './gemini'
 import type { DbClient, ExtractionCandidate } from './db'
 import { createDbPool, findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from './db'
 import {
@@ -22,6 +22,18 @@ export interface ExtractionOptions {
 export type DelayFn = (ms: number) => Promise<void>
 
 const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Gemini's free tier throws real 503s under load ("This model is currently
+// experiencing high demand... usually temporary") — confirmed live
+// 2026-08-24 on Hetzner, which crashed the whole run uncaught. Exponential
+// backoff starting at 30s (not enrich-products.ts's 3s) because "usually
+// temporary" for a model-capacity spike plausibly means minutes, not
+// seconds — 5 attempts caps the wait at 30+60+120+240 = ~7.5 minutes before
+// giving up. A real quota error (429, all fallback keys exhausted) is not
+// retried — same reasoning as enrich-products.ts, retrying can't fix an
+// exhausted quota.
+const MAX_ATTEMPTS = 5
+const RETRY_BASE_DELAY_MS = 30000
 
 export async function runProductExtraction(
   gemini: GeminiClient,
@@ -49,7 +61,33 @@ export async function runProductExtraction(
     const batch = candidates.slice(i, i + options.batchSize)
     logger.info(`batch ${batchNum}/${totalBatches}: sending ${batch.length} listings to Gemini`)
     const prompt = buildExtractionPrompt(batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })))
-    const raw = await gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
+
+    let raw: unknown
+    let fatal = false
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        raw = await gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
+        break
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (isQuotaError(err)) {
+          logger.error(`batch ${batchNum}/${totalBatches}: Gemini quota exhausted across all configured keys (${message}), stopping run`)
+          fatal = true
+          break
+        }
+        if (attempt === MAX_ATTEMPTS) {
+          logger.error(`batch ${batchNum}/${totalBatches}: Gemini request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`)
+          fatal = true
+          break
+        }
+        const retryDelay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+        logger.warn(
+          `batch ${batchNum}/${totalBatches}: Gemini request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying in ${retryDelay}ms`,
+        )
+        await delay(retryDelay)
+      }
+    }
+    if (fatal) break
 
     if (!Array.isArray(raw)) {
       logger.error(`batch ${batchNum}/${totalBatches}: unexpected response shape (not an array), skipping batch`)

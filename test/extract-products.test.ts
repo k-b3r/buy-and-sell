@@ -300,6 +300,90 @@ test('a malformed batch response is logged and skipped, without crashing the run
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
 })
 
+test('a transient (non-quota) Gemini error is retried with exponential backoff and can still succeed', async () => {
+  let callCount = 0
+  const gemini: GeminiClient = {
+    generateJson: async () => {
+      callCount += 1
+      if (callCount < 3) {
+        const err = new Error(
+          '{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}',
+        )
+        throw err
+      }
+      return [{ id: '1', base_model: 'RTX 3060' }]
+    },
+    generateGroundedText: async () => {
+      throw new Error('not used by product extraction')
+    },
+  }
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
+  const { db, calls } = fakeDbWithCalls()
+  const delays: number[] = []
+
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 }, async (ms) => {
+    delays.push(ms)
+  })
+
+  expect(callCount).toBe(3)
+  expect(delays).toEqual([30000, 60000])
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(true)
+})
+
+test('a persistent non-quota Gemini error gives up after 5 attempts, logged, stops the run cleanly', async () => {
+  let callCount = 0
+  const gemini: GeminiClient = {
+    generateJson: async () => {
+      callCount += 1
+      throw new Error('503 UNAVAILABLE: high demand')
+    },
+    generateGroundedText: async () => {
+      throw new Error('not used by product extraction')
+    },
+  }
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 }, async () => {})
+
+  expect(callCount).toBe(5)
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
+  const log = readFileSync(LOG_PATH, 'utf-8')
+  expect(log).toContain('[ERROR]')
+  expect(log).toContain('after 5 attempts')
+})
+
+test('a real Gemini quota error (429) is not retried — stops the run immediately', async () => {
+  let callCount = 0
+  const gemini: GeminiClient = {
+    generateJson: async () => {
+      callCount += 1
+      const err = new Error('RESOURCE_EXHAUSTED: quota exceeded') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+    generateGroundedText: async () => {
+      throw new Error('not used by product extraction')
+    },
+  }
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
+  const { db, calls } = fakeDbWithCalls()
+  const delays: number[] = []
+
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 }, async (ms) => {
+    delays.push(ms)
+  })
+
+  expect(callCount).toBe(1)
+  expect(delays).toEqual([])
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
+  const log = readFileSync(LOG_PATH, 'utf-8')
+  expect(log).toContain('quota exhausted')
+})
+
 test('a null description is sent to Gemini as an empty string, not "null"', async () => {
   let capturedPrompt = ''
   const gemini: GeminiClient = {

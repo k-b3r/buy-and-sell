@@ -63,9 +63,26 @@ test('real content found: marks the listing alive, does not flag or delete', asy
 
   await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }])
 
-  expect(calls).toHaveLength(1)
-  expect(calls[0].sql).toContain('last_checked_at = now()')
-  expect(calls[0].sql).toContain('flagged_removed_at = NULL')
+  const aliveCall = calls.find((c) => c.sql.includes('last_checked_at = now()'))
+  expect(aliveCall?.sql).toContain('flagged_removed_at = NULL')
+})
+
+test('real content found: refreshes title/price/description/condition, but not photos', async () => {
+  const html = `<script type="application/json">{"id":"1","marketplace_listing_title":"RTX 3060 (price cut)","listing_price":{"amount":"12000","currency":"PHP"}}</script>`
+  const driver = makeDriver({ getDetailHtml: async () => html })
+  const { db, calls } = fakeDb()
+  const { store } = fakeImageStore()
+  const logger = createLogger(LOG_PATH)
+
+  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }])
+
+  const refreshCall = calls.find((c) => c.sql.includes('last_seen_at = now()'))
+  expect(refreshCall).toBeDefined()
+  expect(refreshCall?.sql).not.toContain('primary_photo_url')
+  expect(refreshCall?.sql).not.toContain('stored_photo_urls')
+  expect(refreshCall?.params[0]).toBe('1')
+  expect(refreshCall?.params[1]).toBe('RTX 3060 (price cut)')
+  expect(refreshCall?.params[2]).toBe(12000)
 })
 
 test('real content found with is_sold true: marks the listing sold, not alive', async () => {

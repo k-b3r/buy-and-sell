@@ -20,7 +20,26 @@ function extractField(listing: Record<string, unknown>, ...keys: string[]): unkn
   return null
 }
 
-export async function upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void> {
+interface ParsedListingFields {
+  id: string
+  title: string | null
+  priceAmount: number | null
+  priceCurrency: string | null
+  description: string | null
+  condition: string | null
+  categoryId: string | null
+  locationLat: number | null
+  locationLng: number | null
+  locationCity: string | null
+  primaryPhotoUrl: string | null
+  storedPhotoUrls: string[] | null
+  listedAt: Date | null
+}
+
+// Shared by upsertListing (full insert/refresh, including photos) and
+// refreshListingFields (text/price-only refresh, see below) so the two
+// can't drift on how a raw Facebook listing object gets parsed.
+function parseListingFields(listing: Record<string, unknown>): ParsedListingFields {
   const id = String(listing.id)
   const title = extractField(listing, 'marketplace_listing_title', 'custom_title') as string | null
 
@@ -50,6 +69,26 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
   const creationTime = listing.creation_time as number | undefined
   const listedAt = creationTime ? new Date(creationTime * 1000) : null
 
+  return {
+    id,
+    title,
+    priceAmount,
+    priceCurrency,
+    description,
+    condition,
+    categoryId,
+    locationLat,
+    locationLng,
+    locationCity,
+    primaryPhotoUrl,
+    storedPhotoUrls,
+    listedAt,
+  }
+}
+
+export async function upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void> {
+  const f = parseListingFields(listing)
+
   await db.query(
     `INSERT INTO listings (
        id, title, price_amount, price_currency, description, condition, category_id,
@@ -73,21 +112,48 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
        last_seen_at = now(),
        updated_at = now()`,
     [
-      id,
-      title,
-      priceAmount,
-      priceCurrency,
-      description,
-      condition,
-      categoryId,
-      locationLat,
-      locationLng,
-      locationCity,
-      primaryPhotoUrl,
-      storedPhotoUrls ? JSON.stringify(storedPhotoUrls) : null,
-      listedAt,
+      f.id,
+      f.title,
+      f.priceAmount,
+      f.priceCurrency,
+      f.description,
+      f.condition,
+      f.categoryId,
+      f.locationLat,
+      f.locationLng,
+      f.locationCity,
+      f.primaryPhotoUrl,
+      f.storedPhotoUrls ? JSON.stringify(f.storedPhotoUrls) : null,
+      f.listedAt,
       JSON.stringify(listing),
     ],
+  )
+}
+
+// check-listings.ts calls this when a re-checked listing is confirmed still
+// live (not sold/removed) - a re-scraped detail page reflects whatever the
+// seller has since edited (price cut, updated description, corrected
+// condition), so without this the stored row would only ever show its
+// first-seen snapshot forever. Deliberately excludes photo fields
+// (primary_photo_url/stored_photo_urls) and category_id/location - a plain
+// detail-page scrape has no knowledge of the R2-uploaded copy backfill.ts
+// already produced, and overwriting with the raw FB CDN link (or null)
+// would silently undo that work.
+export async function refreshListingFields(db: DbClient, listing: Record<string, unknown>): Promise<void> {
+  const f = parseListingFields(listing)
+
+  await db.query(
+    `UPDATE listings SET
+       title = $2,
+       price_amount = $3,
+       price_currency = $4,
+       description = $5,
+       condition = $6,
+       raw_json = $7,
+       last_seen_at = now(),
+       updated_at = now()
+     WHERE id = $1`,
+    [f.id, f.title, f.priceAmount, f.priceCurrency, f.description, f.condition, JSON.stringify(listing)],
   )
 }
 
