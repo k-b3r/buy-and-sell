@@ -47,7 +47,9 @@ export default function RootLayout({
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <nav>
-              <Link href="/saved">Saved</Link>
+              <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                My Saved Listings
+              </Link>
             </nav>
             <ThemeToggle />
           </div>
