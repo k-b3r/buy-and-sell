@@ -30,6 +30,13 @@ const MODEL = 'openai/gpt-oss-120b'
 export type DelayFn = (ms: number) => Promise<void>
 const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Runs forever, not once - re-queries getEnrichmentCandidates every lap so
+// newly-extracted products (extract-products.ts adds more over time) get
+// picked up without a restart, and a lap that stopped early (Groq quota
+// exhausted, a persistent malformed-response error) just gets retried after
+// the pause instead of requiring the script to be manually re-run each time.
+const LOOP_DELAY_MS = 30000
+
 // gpt-oss-120b occasionally (non-deterministically) wraps the array as
 // {"results":{"items":[...]}} instead of {"results":[...]} — confirmed live
 // (2026-08-22): replaying the exact same failing batch, attempt 1 and 2
@@ -173,13 +180,20 @@ async function main() {
   const groq = createFallbackGroqClient(clients)
   const pool = createDbPool(dbUrl)
 
+  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
   try {
-    const candidates = await getEnrichmentCandidates(pool)
-    await runProductEnrichment(groq, pool, logger, candidates)
+    let lap = 1
+    for (;;) {
+      logger.info(`lap ${lap} starting`)
+      const candidates = await getEnrichmentCandidates(pool)
+      await runProductEnrichment(groq, pool, logger, candidates)
+      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      lap++
+      await realDelay(LOOP_DELAY_MS)
+    }
   } finally {
     await pool.end()
   }
-  logger.info('product enrichment complete')
 }
 
 // Guard so importing this module (e.g. from tests) doesn't also run main() —
