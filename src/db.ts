@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import { normalizeBaseModel, normalizeVariantTier } from './products'
+import { matchesNegotiableKeyword } from './negotiable-keywords'
 import type { PriceRange } from './pricing'
 import type { EnrichmentCandidate } from './enrichment'
 import type { PriceReviewCandidate } from './price-review'
@@ -128,6 +129,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
       JSON.stringify(listing),
     ],
   )
+  await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 }
 
 // check-listings.ts calls this when a re-checked listing is confirmed still
@@ -155,6 +157,7 @@ export async function refreshListingFields(db: DbClient, listing: Record<string,
      WHERE id = $1`,
     [f.id, f.title, f.priceAmount, f.priceCurrency, f.description, f.condition, JSON.stringify(listing)],
   )
+  await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 }
 
 // category is only ever set at creation, same as base_model/variant_tier —
@@ -511,6 +514,70 @@ export async function upsertListingPriceReview(
        checked_at = now()`,
     [listingId, data.isNegotiable, data.priceLow, data.priceHigh, data.reasoning, model],
   )
+}
+
+// Deliberately narrower than upsertListingPriceReview: only ever flips
+// is_negotiable to true, never touches price_low/price_high/reasoning/model
+// on an existing row. A keyword hit is a weaker, purely textual signal next
+// to the LLM price-review's actual read of the listing (which also produces
+// a real price estimate) - overwriting that with nulls here would be a
+// regression, not an improvement. Safe to call unconditionally on every
+// match; it's a no-op once a listing is already flagged negotiable.
+export async function upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void> {
+  await db.query(
+    `INSERT INTO listing_price_review (listing_id, is_negotiable, price_low, price_high, reasoning, model)
+     VALUES ($1, true, NULL, NULL, $2, 'keyword-scan')
+     ON CONFLICT (listing_id) DO UPDATE SET
+       is_negotiable = true,
+       checked_at = now()`,
+    [listingId, `keyword match: "${matchedKeyword}"`],
+  )
+}
+
+// Shared by upsertListing and refreshListingFields - the deterministic
+// keyword sibling to the LLM-based price review (which only ever runs on
+// price-outlier candidates, see getPriceReviewCandidates). Runs on every
+// write instead, independent of whether the recorded price looks valid, so
+// "nego"/"negotiable" in the text surfaces the badge even on a normally
+// priced listing. No-op (no extra round trip) when nothing matches, which
+// is the common case.
+async function flagNegotiableFromKeywords(
+  db: DbClient,
+  listingId: string,
+  title: string | null,
+  description: string | null,
+): Promise<void> {
+  const matched = matchesNegotiableKeyword(title, description)
+  if (!matched) return
+  await upsertKeywordNegotiable(db, listingId, matched)
+}
+
+export interface NegotiableKeywordCandidate {
+  id: string
+  title: string
+  description: string | null
+}
+
+// Backfill's candidate set: every listing not already flagged negotiable -
+// includes ones with no listing_price_review row at all, and ones an LLM
+// review already looked at but read as false (a keyword hit here can still
+// upgrade that, see upsertKeywordNegotiable; it never downgrades). Deliberately
+// not limited to price-outlier listings the way getPriceReviewCandidates is -
+// the whole point is to catch "nego" on a normally-priced listing too.
+export async function getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]> {
+  const result = (await db.query(
+    `SELECT l.id, l.title, l.description
+     FROM listings l
+     WHERE NOT EXISTS (
+       SELECT 1 FROM listing_price_review pr WHERE pr.listing_id = l.id AND pr.is_negotiable = true
+     )`,
+    [],
+  )) as { rows: Record<string, unknown>[] }
+  return result.rows.map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    description: r.description as string | null,
+  }))
 }
 
 // Dedup source for collection runs — replaces the old JSONL-file-based

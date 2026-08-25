@@ -25,6 +25,8 @@ import {
   updateProductCategories,
   getCategoryBackfillCandidates,
   refreshListingFields,
+  upsertKeywordNegotiable,
+  getNegotiableKeywordCandidates,
 } from '../src/db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -93,7 +95,9 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
 
   await refreshListingFields(db, listing)
 
-  expect(calls).toHaveLength(1)
+  // Two calls: the field update, plus the keyword scan's price-review
+  // upsert - the description says "Now negotiable", so it should fire.
+  expect(calls).toHaveLength(2)
   expect(calls[0].sql).toMatch(/^UPDATE listings SET/)
   expect(calls[0].sql).not.toContain('primary_photo_url')
   expect(calls[0].sql).not.toContain('stored_photo_urls')
@@ -105,6 +109,9 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
   expect(description).toBe('Now negotiable, moving out soon.')
   expect(condition).toBe('Used - Fair')
   expect(JSON.parse(rawJson as string)).toEqual(listing)
+
+  expect(calls[1].sql).toContain('INSERT INTO listing_price_review')
+  expect(calls[1].params).toEqual(['12345', 'keyword match: "negotiable"'])
 })
 
 test('upsertListing extracts condition from attribute_data, not a top-level field', async () => {
@@ -658,6 +665,62 @@ test('upsertListingPriceReview stores null price range when no real price could 
   )
 
   expect(calls[0].params).toEqual(['123', false, null, null, 'No price mentioned anywhere in the text.', 'openai/gpt-oss-120b'])
+})
+
+test('upsertKeywordNegotiable inserts is_negotiable=true with no price estimate, tagged as a keyword-scan match', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertKeywordNegotiable(db, '123', 'nego')
+
+  expect(calls[0].sql).toMatch(/^INSERT INTO listing_price_review/)
+  expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
+  expect(calls[0].sql).not.toContain('price_low = EXCLUDED')
+  expect(calls[0].sql).not.toContain('reasoning = EXCLUDED')
+  expect(calls[0].params).toEqual(['123', 'keyword match: "nego"'])
+})
+
+test('upsertListing runs the keyword scan and flags negotiable when the description matches', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertListing(db, {
+    id: '1',
+    marketplace_listing_title: 'RTX 3060',
+    listing_price: { amount: '15000', currency: 'PHP' },
+    redacted_description: { text: 'Nego pa presyo, message me' },
+  })
+
+  expect(calls).toHaveLength(2)
+  expect(calls[1].sql).toMatch(/^INSERT INTO listing_price_review/)
+  expect(calls[1].params).toEqual(['1', 'keyword match: "nego"'])
+})
+
+test('upsertListing does not touch listing_price_review when nothing matches', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertListing(db, {
+    id: '1',
+    marketplace_listing_title: 'RTX 3060',
+    listing_price: { amount: '15000', currency: 'PHP' },
+    redacted_description: { text: 'Barely used, comes with box.' },
+  })
+
+  expect(calls).toHaveLength(1)
+})
+
+test('getNegotiableKeywordCandidates returns listings not already flagged negotiable', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: '1', title: 'RTX 3060', description: 'nego pa' }] }
+    },
+  }
+
+  const result = await getNegotiableKeywordCandidates(db)
+
+  expect(calls[0].sql).toContain('NOT EXISTS')
+  expect(calls[0].sql).toContain('is_negotiable = true')
+  expect(result).toEqual([{ id: '1', title: 'RTX 3060', description: 'nego pa' }])
 })
 
 test('getCollectedListingIds returns every listing id as a Set, for dedup during collection', async () => {
