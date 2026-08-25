@@ -1,7 +1,28 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
+
+const TOAST_DURATION_MS = 4000
+
+const toastStyle: CSSProperties = {
+  position: 'fixed',
+  bottom: 24,
+  right: 24,
+  zIndex: 200,
+  padding: '10px 16px',
+  borderRadius: 8,
+  color: '#fff',
+  boxShadow: '0 4px 12px var(--color-overlay)',
+  fontSize: '0.85em',
+}
+
+// alive is the only outcome that means "still a real, available listing" -
+// everything else (sold, removed, flagged, a hard-block, or a request that
+// failed outright) reads as red, per direct instruction.
+const TOAST_GREEN = '#16a34a'
+const TOAST_RED = '#dc2626'
+type ToastTone = 'green' | 'red'
 
 const refreshButtonStyle: CSSProperties = {
   background: 'transparent',
@@ -28,7 +49,15 @@ const refreshButtonStyle: CSSProperties = {
 export default function RefreshButton({ listingId, productId }: { listingId: string; productId: number | null }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null)
+  const [message, setMessage] = useState<{ text: string; tone: ToastTone } | null>(null)
+
+  // Auto-dismiss - a toast that lingers forever just becomes a second
+  // permanent status line, defeating the point of it being a toast.
+  useEffect(() => {
+    if (!message) return
+    const timeout = setTimeout(() => setMessage(null), TOAST_DURATION_MS)
+    return () => clearTimeout(timeout)
+  }, [message])
 
   async function handleClick() {
     setLoading(true)
@@ -37,18 +66,18 @@ export default function RefreshButton({ listingId, productId }: { listingId: str
       const res = await fetch(`/api/listings/${listingId}/refresh`, { method: 'POST' })
       const body = await res.json()
       if (!res.ok) {
-        setMessage({ text: body.error ?? 'Refresh failed', isError: true })
+        setMessage({ text: body.error ?? 'Refresh failed', tone: 'red' })
         return
       }
       if (body.status === 'removed') {
-        setMessage({ text: 'Listing removed - going back…', isError: false })
+        setMessage({ text: 'Listing removed - going back…', tone: 'red' })
         router.push(productId ? `/products/${productId}` : '/')
         return
       }
-      setMessage({ text: `Status: ${body.status}`, isError: false })
+      setMessage({ text: `Status: ${body.status}`, tone: body.status === 'alive' ? 'green' : 'red' })
       router.refresh()
     } catch {
-      setMessage({ text: 'Refresh failed - could not reach the refresh service', isError: true })
+      setMessage({ text: 'Refresh failed - could not reach the refresh service', tone: 'red' })
     } finally {
       setLoading(false)
     }
@@ -60,13 +89,15 @@ export default function RefreshButton({ listingId, productId }: { listingId: str
         {loading ? 'Refreshing…' : '↻ Refresh'}
       </button>
       {message && (
+        // span, not div - this component renders inside a <p> in
+        // ListingDetailContent.tsx, and HTML forbids a block element there
+        // (real hydration error, confirmed live). position:fixed below
+        // blockifies it visually regardless of tag, per the CSS spec.
         <span
-          style={{
-            fontSize: '0.8em',
-            color: message.isError ? 'var(--color-signal)' : 'var(--color-text-muted)',
-          }}
+          className="mono"
+          style={{ ...toastStyle, background: message.tone === 'green' ? TOAST_GREEN : TOAST_RED }}
         >
-          {message.text}
+          {listingId}: {message.text}
         </span>
       )}
     </span>
