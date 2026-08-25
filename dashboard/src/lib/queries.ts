@@ -481,23 +481,38 @@ function resolvePhotoUrls(storedPhotoUrls: unknown, primaryPhotoUrl: unknown): s
 }
 
 export async function getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null> {
-  const productResult = await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, p.price_lookup_excluded,
-            np.price_low as new_price_low, np.price_high as new_price_high,
-            up.price_low as used_price_low, up.price_high as used_price_high, up.source as used_price_source,
-            e.description as enrichment_description, e.value_drivers as enrichment_value_drivers,
-            e.has_trained_price_knowledge as enrichment_has_trained_price_knowledge,
-            e.trained_price_low as enrichment_trained_price_low,
-            e.trained_price_high as enrichment_trained_price_high,
-            e.trained_price_currency as enrichment_trained_price_currency,
-            e.model as enrichment_model, e.checked_at as enrichment_checked_at
-     FROM products p
-     ${NEW_PRICE_LATERAL}
-     ${SECONDHAND_PRICE_LATERAL}
-     LEFT JOIN product_enrichment e ON e.product_id = p.id
-     WHERE p.id = $1`,
-    [productId],
-  )
+  // Run alongside productResult, not after it - listingsResult only needs
+  // productId, not anything from the product row, so there's no reason to
+  // pay two round trips back-to-back.
+  const [productResult, listingsResult] = await Promise.all([
+    db.query(
+      `SELECT p.id, p.base_model, p.variant_tier, p.price_lookup_excluded,
+              np.price_low as new_price_low, np.price_high as new_price_high,
+              up.price_low as used_price_low, up.price_high as used_price_high, up.source as used_price_source,
+              e.description as enrichment_description, e.value_drivers as enrichment_value_drivers,
+              e.has_trained_price_knowledge as enrichment_has_trained_price_knowledge,
+              e.trained_price_low as enrichment_trained_price_low,
+              e.trained_price_high as enrichment_trained_price_high,
+              e.trained_price_currency as enrichment_trained_price_currency,
+              e.model as enrichment_model, e.checked_at as enrichment_checked_at
+       FROM products p
+       ${NEW_PRICE_LATERAL}
+       ${SECONDHAND_PRICE_LATERAL}
+       LEFT JOIN product_enrichment e ON e.product_id = p.id
+       WHERE p.id = $1`,
+      [productId],
+    ),
+    db.query(
+      `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at, l.listed_at,
+              pr.is_negotiable as price_review_is_negotiable,
+              pr.price_low as price_review_low, pr.price_high as price_review_high
+       FROM listings l
+       LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
+       WHERE l.product_id = $1
+       ORDER BY l.title`,
+      [productId],
+    ),
+  ])
   const productRow = (productResult.rows as Record<string, unknown>[])[0]
   if (!productRow) return null
 
@@ -515,16 +530,6 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
         }
       : null
 
-  const listingsResult = await db.query(
-    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at, l.listed_at,
-            pr.is_negotiable as price_review_is_negotiable,
-            pr.price_low as price_review_low, pr.price_high as price_review_high
-     FROM listings l
-     LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
-     WHERE l.product_id = $1
-     ORDER BY l.title`,
-    [productId],
-  )
   const rawListings = (listingsResult.rows as Record<string, unknown>[]).map((r) => ({
     id: r.id as string,
     title: r.title as string,

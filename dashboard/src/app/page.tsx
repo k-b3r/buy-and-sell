@@ -1,5 +1,5 @@
 import { getPool } from '@/lib/db'
-import { getProductSummaries } from '@/lib/queries'
+import { getProductSummariesCached } from '@/lib/cachedQueries'
 import ProductListClient from './ProductListClient'
 
 const PAGE_SIZE = 30
@@ -7,7 +7,7 @@ const PAGE_SIZE = 30
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string }> }) {
   const { q, category } = await searchParams
   const search = q ?? ''
-  const products = await getProductSummaries(getPool(), { search, category, offset: 0, limit: PAGE_SIZE })
+  const products = await getProductSummariesCached(getPool(), { search, category, offset: 0, limit: PAGE_SIZE })
   const nextOffset = products.length === PAGE_SIZE ? PAGE_SIZE : null
 
   return (

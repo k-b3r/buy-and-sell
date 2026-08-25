@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getPool } from '@/lib/db'
-import { getProductDetail } from '@/lib/queries'
+import { getProductDetailCached } from '@/lib/cachedQueries'
 import ListingsView from './ListingsView'
 import RefreshProductButton from './RefreshProductButton'
 import BackLink from '../../BackLink'
@@ -8,7 +8,7 @@ import BackLink from '../../BackLink'
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const productId = Number(id)
-  const product = await getProductDetail(getPool(), productId)
+  const product = await getProductDetailCached(getPool(), productId)
   if (!product) notFound()
 
   return (

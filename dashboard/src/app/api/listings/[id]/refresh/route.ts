@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
+import { getPool } from '@/lib/db'
 
 // Hands off to the POST /refresh route on server/ (server/routes/refresh.ts,
 // registered in server/index.ts) running on the box that actually has
@@ -24,5 +26,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     body: JSON.stringify({ id }),
   })
   const body = await res.json()
+
+  // Page data is cached (see lib/cachedQueries.ts) since it rarely changes
+  // on its own - this refresh just happened, so bust the listing/product/list
+  // caches now instead of waiting out the TTL. { expire: 0 } for immediate
+  // expiry, not the "max" stale-while-revalidate default - the very next
+  // page load after a refresh should show fresh data, not last-known-stale.
+  if (res.ok) {
+    revalidateTag(`listing:${id}`, { expire: 0 })
+    revalidateTag('products-list', { expire: 0 })
+    const productRow = await getPool()
+      .query('SELECT product_id FROM listings WHERE id = $1', [id])
+      .then((r) => (r.rows as { product_id: number | null }[])[0])
+    if (productRow?.product_id != null) revalidateTag(`product:${productRow.product_id}`, { expire: 0 })
+  }
+
   return NextResponse.json(body, { status: res.status })
 }
