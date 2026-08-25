@@ -8,6 +8,7 @@ import { isListingPriceNegotiable } from '@/lib/queries'
 import { isInDiscountBand } from './discountBand'
 import { computeRepostIds } from './repostDetection'
 import { getActiveListingId } from '../../listings/[id]/cycle'
+import SaveButton from '../../SaveButton'
 
 type View = 'list' | 'cards'
 
@@ -211,9 +212,11 @@ const DEFAULT_SELECTED_BAND = null
 export default function ListingsView({
   listings,
   discountBands,
+  productId,
 }: {
   listings: ProductListingSummary[]
   discountBands: DiscountBand[]
+  productId: number
 }) {
   const [view, setView] = useState<View>('cards')
   const [sortKey, setSortKey] = useState<SortKey>('discount_desc')
@@ -359,6 +362,9 @@ export default function ListingsView({
                 <td>
                   <Link href={`/listings/${l.id}`}>{l.title}</Link>
                   {l.sold_at && <SoldBadge />}
+                  <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+                    <SaveButton listingId={l.id} productId={productId} initialSaved={l.is_saved} variant="icon" />
+                  </span>
                 </td>
                 <td>{l.condition ?? '—'}</td>
                 <td className="mono">
@@ -411,6 +417,9 @@ export default function ListingsView({
                   {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
                   {repostIds.has(l.id) && <RepostBadge />}
                   <DiscountBadge percent={l.discount_percent} />
+                </div>
+                <div style={{ position: 'absolute', top: 6, left: 6 }}>
+                  <SaveButton listingId={l.id} productId={productId} initialSaved={l.is_saved} variant="icon" />
                 </div>
               </div>
               <div style={{ padding: 10 }}>

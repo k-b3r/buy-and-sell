@@ -45,7 +45,12 @@ export default function RootLayout({
           <Link href="/" className="wordmark">
             Ledger
           </Link>
-          <ThemeToggle />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <nav>
+              <Link href="/saved">Saved</Link>
+            </nav>
+            <ThemeToggle />
+          </div>
         </header>
         <main className="page">{children}</main>
         {modal}

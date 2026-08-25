@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
-import { getProductSummaries, getProductDetail, getListingDetail } from './queries'
-import type { QueryClient, ProductSummary, ProductDetail, ListingDetail } from './queries'
+import { getProductSummaries, getProductDetail, getListingDetail, getSavedListings } from './queries'
+import type { QueryClient, ProductSummary, ProductDetail, ListingDetail, SavedListingSummary } from './queries'
 
 // Kept out of queries.ts on purpose: that module is imported directly by
 // vitest (queries.test.ts), and next/cache's unstable_cache touches Next's
@@ -32,6 +32,13 @@ export function getProductDetailCached(db: QueryClient, productId: number): Prom
 export function getListingDetailCached(db: QueryClient, listingId: string): Promise<ListingDetail | null> {
   return unstable_cache(() => getListingDetail(db, listingId), ['listing-detail', listingId], {
     tags: [`listing:${listingId}`],
+    revalidate: REVALIDATE_SECONDS,
+  })()
+}
+
+export function getSavedListingsCached(db: QueryClient): Promise<SavedListingSummary[]> {
+  return unstable_cache(() => getSavedListings(db), ['saved-listings'], {
+    tags: ['saved-listings'],
     revalidate: REVALIDATE_SECONDS,
   })()
 }

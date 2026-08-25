@@ -5,6 +5,7 @@ import RefreshButton from './RefreshButton'
 import BackLink from '../../BackLink'
 import { marketplaceButtonStyle } from '../../marketplaceButtonStyle'
 import FacebookIcon from '../../FacebookIcon'
+import SaveButton from '../../SaveButton'
 
 // price_review's range replaces the recorded price when it has a real read on
 // it; a review row with no determinable price (both null) falls back to the
@@ -114,8 +115,9 @@ export default function ListingDetailContent({
             </p>
           )}
 
-          <p>
+          <p style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <RefreshButton listingId={listing.id} productId={listing.product_id} />
+            <SaveButton listingId={listing.id} productId={listing.product_id} initialSaved={listing.is_saved} />
           </p>
 
           <table cellPadding={4}>

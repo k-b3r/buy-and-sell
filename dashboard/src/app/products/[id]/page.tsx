@@ -64,7 +64,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <RefreshProductButton productId={product.id} />
         </span>
       </h2>
-      <ListingsView listings={product.listings} discountBands={product.discount_bands} />
+      <ListingsView listings={product.listings} discountBands={product.discount_bands} productId={product.id} />
     </div>
   )
 }

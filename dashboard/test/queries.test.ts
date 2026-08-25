@@ -7,6 +7,9 @@ import {
   isPlaceholderPrice,
   isListingPriceNegotiable,
   summarizeDiscounts,
+  saveListing,
+  unsaveListing,
+  getSavedListings,
 } from '../src/lib/queries'
 import type { QueryClient } from '../src/lib/queries'
 
@@ -1205,4 +1208,119 @@ test('getListingDetail returns an empty photo_urls array when neither is present
   const result = await getListingDetail(db, '125')
 
   expect(result?.photo_urls).toEqual([])
+})
+
+test('getListingDetail sets is_saved true when a saved_listings row exists', async () => {
+  const db = fakeDb([
+    {
+      id: '123',
+      title: 'x',
+      price_amount: null,
+      price_currency: null,
+      description: null,
+      condition: null,
+      location_city: null,
+      listed_at: null,
+      primary_photo_url: null,
+      stored_photo_urls: null,
+      product_id: null,
+      base_model: null,
+      variant_tier: null,
+      is_saved: true,
+    },
+  ])
+
+  const result = await getListingDetail(db, '123')
+
+  expect(result?.is_saved).toBe(true)
+})
+
+test('saveListing inserts into saved_listings, ignoring an already-saved listing', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await saveListing(db, '123')
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('INSERT INTO saved_listings')
+  expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO NOTHING')
+  expect(calls[0].params).toEqual(['123'])
+})
+
+test('unsaveListing deletes the saved_listings row for the given listing', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await unsaveListing(db, '123')
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('DELETE FROM saved_listings')
+  expect(calls[0].params).toEqual(['123'])
+})
+
+test('getSavedListings maps joined rows into SavedListingSummary shape, most recently saved first', async () => {
+  const db = fakeDb([
+    {
+      id: '123',
+      title: 'Sony WH-1000XM6',
+      price_amount: '15000',
+      primary_photo_url: 'https://x/0.jpg',
+      stored_photo_urls: null,
+      condition: 'Used - like new',
+      sold_at: null,
+      product_id: 1,
+      base_model: 'Sony WH-1000XM6',
+      variant_tier: null,
+      saved_at: '2026-08-25T00:00:00.000Z',
+    },
+  ])
+
+  const result = await getSavedListings(db)
+
+  expect(result).toEqual([
+    {
+      id: '123',
+      title: 'Sony WH-1000XM6',
+      price_amount: 15000,
+      primary_photo_url: 'https://x/0.jpg',
+      condition: 'Used - like new',
+      sold_at: null,
+      product_id: 1,
+      base_model: 'Sony WH-1000XM6',
+      variant_tier: null,
+      saved_at: '2026-08-25T00:00:00.000Z',
+    },
+  ])
+})
+
+test('getSavedListings prefers stored_photo_urls over primary_photo_url', async () => {
+  const db = fakeDb([
+    {
+      id: '123',
+      title: 'x',
+      price_amount: null,
+      primary_photo_url: 'https://x/expired.jpg',
+      stored_photo_urls: ['https://r2/0.jpg'],
+      condition: null,
+      sold_at: null,
+      product_id: null,
+      base_model: null,
+      variant_tier: null,
+      saved_at: '2026-08-25T00:00:00.000Z',
+    },
+  ])
+
+  const result = await getSavedListings(db)
+
+  expect(result[0].primary_photo_url).toBe('https://r2/0.jpg')
 })

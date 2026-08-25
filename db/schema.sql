@@ -202,3 +202,15 @@ END $$;
 -- Manually curated (src/flag-price-ineligible.ts), not auto-classified.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded_reason TEXT;
+
+-- Dashboard-only bookmark list (no scraper/src writes or reads this). One
+-- shared saved-list, not per-user — the dashboard has a single shared
+-- password, no account system. ON DELETE CASCADE deliberately, unlike
+-- listing_price_review's plain REFERENCES above: check-listings.ts's
+-- deleteListing() does a bare DELETE FROM listings with no child-row
+-- cleanup, so a saved listing that later gets confirmed-removed must not
+-- FK-block that delete.
+CREATE TABLE IF NOT EXISTS saved_listings (
+  listing_id TEXT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

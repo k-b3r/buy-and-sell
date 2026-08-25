@@ -402,6 +402,7 @@ export interface ProductListingSummary {
   price_review: ListingPriceReview | null
   discount_percent: number | null
   reference_price: number | null
+  is_saved: boolean
 }
 
 // Three independent sources of "don't trust this as a firm price": the LLM
@@ -505,9 +506,11 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     db.query(
       `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at, l.listed_at,
               pr.is_negotiable as price_review_is_negotiable,
-              pr.price_low as price_review_low, pr.price_high as price_review_high
+              pr.price_low as price_review_low, pr.price_high as price_review_high,
+              sv.listing_id IS NOT NULL as is_saved
        FROM listings l
        LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
+       LEFT JOIN saved_listings sv ON sv.listing_id = l.id
        WHERE l.product_id = $1
        ORDER BY l.title`,
       [productId],
@@ -539,6 +542,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     sold_at: toIsoOrNull(r.sold_at),
     listed_at: toIsoOrNull(r.listed_at),
     price_review: toPriceReview(r),
+    is_saved: r.is_saved as boolean,
   }))
 
   // price_lookup_excluded products (real_estate/too_generic/etc) bundle
@@ -604,6 +608,7 @@ export interface ListingDetail {
   price_review: ListingPriceReview | null
   discount_percent: number | null
   reference_price: number | null
+  is_saved: boolean
 }
 
 function toIsoOrNull(value: unknown): string | null {
@@ -639,10 +644,12 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
             l.location_city, l.listed_at, l.last_seen_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
             l.sold_at, p.base_model, p.variant_tier,
             pr.is_negotiable as price_review_is_negotiable,
-            pr.price_low as price_review_low, pr.price_high as price_review_high
+            pr.price_low as price_review_low, pr.price_high as price_review_high,
+            sv.listing_id IS NOT NULL as is_saved
      FROM listings l
      LEFT JOIN products p ON p.id = l.product_id
      LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
+     LEFT JOIN saved_listings sv ON sv.listing_id = l.id
      WHERE l.id = $1`,
     [listingId],
   )
@@ -683,5 +690,53 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     price_review: toPriceReview(row),
     discount_percent: discount.discountPercent,
     reference_price: discount.referencePrice,
+    is_saved: row.is_saved as boolean,
   }
+}
+
+// Dashboard-wide bookmark list (see db/schema.sql's saved_listings) - no
+// per-user scoping, the dashboard has a single shared password.
+export async function saveListing(db: QueryClient, listingId: string): Promise<void> {
+  await db.query(`INSERT INTO saved_listings (listing_id) VALUES ($1) ON CONFLICT (listing_id) DO NOTHING`, [listingId])
+}
+
+export async function unsaveListing(db: QueryClient, listingId: string): Promise<void> {
+  await db.query(`DELETE FROM saved_listings WHERE listing_id = $1`, [listingId])
+}
+
+export interface SavedListingSummary {
+  id: string
+  title: string
+  price_amount: number | null
+  primary_photo_url: string | null
+  condition: string | null
+  sold_at: string | null
+  product_id: number | null
+  base_model: string | null
+  variant_tier: string | null
+  saved_at: string
+}
+
+export async function getSavedListings(db: QueryClient): Promise<SavedListingSummary[]> {
+  const result = await db.query(
+    `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at,
+            l.product_id, p.base_model, p.variant_tier, sv.saved_at
+     FROM saved_listings sv
+     JOIN listings l ON l.id = sv.listing_id
+     LEFT JOIN products p ON p.id = l.product_id
+     ORDER BY sv.saved_at DESC`,
+    [],
+  )
+  return (result.rows as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    price_amount: toNullableNumber(r.price_amount),
+    primary_photo_url: resolvePhotoUrls(r.stored_photo_urls, r.primary_photo_url)[0] ?? null,
+    condition: r.condition as string | null,
+    sold_at: toIsoOrNull(r.sold_at),
+    product_id: r.product_id as number | null,
+    base_model: r.base_model as string | null,
+    variant_tier: r.variant_tier as string | null,
+    saved_at: toIsoOrNull(r.saved_at) as string,
+  }))
 }
