@@ -125,6 +125,21 @@ export default function ProductListClient({
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               ) : null}
+              <span
+                className="mono"
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  left: 8,
+                  padding: '2px 8px',
+                  borderRadius: 12,
+                  fontSize: '0.75em',
+                  background: 'var(--color-overlay-strong)',
+                  color: '#fff',
+                }}
+              >
+                {p.listing_count} listings
+              </span>
               {p.discount_bands.length > 0 && (
                 <div
                   style={{
@@ -157,32 +172,65 @@ export default function ProductListClient({
               )}
             </div>
             <div style={{ padding: 12 }}>
-              <div style={{ fontWeight: 'bold' }}>{p.base_model}</div>
-              {p.variant_tier && (
-                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9em' }}>{p.variant_tier}</div>
-              )}
-              <div className="mono" style={{ marginTop: 4 }}>
-                {p.price_min !== null && p.price_max !== null
-                  ? `₱${p.price_min.toLocaleString()}–₱${p.price_max.toLocaleString()}`
-                  : 'No price data'}
+              <div>
+                <div style={{ fontWeight: 'bold' }}>{p.base_model}</div>
+                {p.variant_tier && (
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9em' }}>{p.variant_tier}</div>
+                )}
               </div>
-              {p.price_avg !== null && (
-                <div className="mono" style={{ color: 'var(--color-text-muted)', fontSize: '0.9em' }}>
-                  avg ₱{Math.round(p.price_avg).toLocaleString()}
+              <div style={{ marginTop: 12 }}>
+                <div className="mono" style={{ fontSize: '0.9em' }}>
+                  {p.price_min !== null && p.price_max !== null
+                    ? `₱${p.price_min.toLocaleString()}–₱${p.price_max.toLocaleString()}`
+                    : 'No price data'}
                 </div>
-              )}
-              {p.secondhand_price_low !== null && p.secondhand_price_high !== null && (
-                <div className="mono" style={{ color: 'var(--color-signal)', fontSize: '0.9em', marginTop: 4 }}>
-                  Secondhand: ₱{p.secondhand_price_low.toLocaleString()}–₱{p.secondhand_price_high.toLocaleString()}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                  {p.price_avg !== null && (
+                    <span
+                      className="mono"
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 8,
+                        fontSize: '0.65em',
+                        background: 'var(--color-bg)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-muted)',
+                      }}
+                    >
+                      avg ₱{Math.round(p.price_avg).toLocaleString()}
+                    </span>
+                  )}
+                  {p.secondhand_price_low !== null && p.secondhand_price_high !== null && (
+                    <span
+                      className="mono"
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 8,
+                        fontSize: '0.65em',
+                        fontWeight: 'bold',
+                        background: 'var(--color-signal)',
+                        color: 'var(--color-bg)',
+                      }}
+                    >
+                      Secondhand ₱{p.secondhand_price_low.toLocaleString()}–₱{p.secondhand_price_high.toLocaleString()}
+                    </span>
+                  )}
+                  {p.new_price_low !== null && p.new_price_high !== null && (
+                    <span
+                      className="mono"
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 8,
+                        fontSize: '0.65em',
+                        background: 'var(--color-bg)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-muted)',
+                      }}
+                    >
+                      New ₱{p.new_price_low.toLocaleString()}–₱{p.new_price_high.toLocaleString()}
+                    </span>
+                  )}
                 </div>
-              )}
-              {p.new_price_low !== null && p.new_price_high !== null && (
-                <div className="mono" style={{ color: 'var(--color-text-muted)', fontSize: '0.9em' }}>
-                  New: ₱{p.new_price_low.toLocaleString()}–₱{p.new_price_high.toLocaleString()}
-                </div>
-              )}
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 4 }}>
-                {p.listing_count} listings
               </div>
             </div>
           </Link>
