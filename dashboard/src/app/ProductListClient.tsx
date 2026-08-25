@@ -184,7 +184,7 @@ export default function ProductListClient({
                     ? `₱${p.price_min.toLocaleString()}–₱${p.price_max.toLocaleString()}`
                     : 'No price data'}
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 6 }}>
                   {p.price_avg !== null && (
                     <span
                       className="mono"
@@ -197,7 +197,7 @@ export default function ProductListClient({
                         color: 'var(--color-text-muted)',
                       }}
                     >
-                      avg ₱{Math.round(p.price_avg).toLocaleString()}
+                      Avg ₱{Math.round(p.price_avg).toLocaleString()}
                     </span>
                   )}
                   {p.secondhand_price_low !== null && p.secondhand_price_high !== null && (
@@ -212,7 +212,7 @@ export default function ProductListClient({
                         color: 'var(--color-bg)',
                       }}
                     >
-                      Secondhand ₱{p.secondhand_price_low.toLocaleString()}–₱{p.secondhand_price_high.toLocaleString()}
+                      Used ₱{p.secondhand_price_low.toLocaleString()}–₱{p.secondhand_price_high.toLocaleString()}
                     </span>
                   )}
                   {p.new_price_low !== null && p.new_price_high !== null && (
@@ -222,9 +222,11 @@ export default function ProductListClient({
                         padding: '1px 6px',
                         borderRadius: 8,
                         fontSize: '0.65em',
-                        background: 'var(--color-bg)',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-text-muted)',
+                        // Fixed light blue, not var(--color-accent) - that
+                        // swaps hue per theme, and black text needs a light
+                        // fill regardless of theme to stay readable.
+                        background: '#60a5fa',
+                        color: '#000',
                       }}
                     >
                       New ₱{p.new_price_low.toLocaleString()}–₱{p.new_price_high.toLocaleString()}
