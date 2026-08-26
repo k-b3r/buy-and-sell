@@ -1,5 +1,5 @@
-import type { GeminiClient } from '../src/gemini'
-import { createFallbackGeminiClient } from '../src/gemini'
+import type { GeminiClient } from './gemini'
+import { createFallbackGeminiClient } from './gemini'
 
 function quotaError(): Error & { status: number } {
   const err = new Error('quota exceeded') as Error & { status: number }

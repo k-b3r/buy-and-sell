@@ -1,7 +1,7 @@
 import sharp from 'sharp'
-import type { Logger } from '../src/logger'
-import type { ImageStore, FetchBytes, CompressImage } from '../src/images'
-import { storeListingPhotos, defaultCompressImage, defaultFetchBytes, deleteListingPhotos } from '../src/images'
+import type { Logger } from './logger'
+import type { ImageStore, FetchBytes, CompressImage } from './images'
+import { storeListingPhotos, defaultCompressImage, defaultFetchBytes, deleteListingPhotos } from './images'
 
 // Identity pass-through — real compression (sharp) is exercised separately;
 // these tests only care about the download/store orchestration.

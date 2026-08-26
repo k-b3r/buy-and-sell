@@ -1,5 +1,5 @@
 import { Readable, Writable } from 'node:stream'
-import { promptReview, autoApprove } from '../src/review'
+import { promptReview, autoApprove } from './review'
 
 function mockInput(...lines: string[]): Readable {
   return Readable.from(lines.map((l) => l + '\n').join(''))

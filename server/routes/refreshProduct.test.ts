@@ -1,14 +1,14 @@
 import { existsSync, rmSync } from 'node:fs'
-import { createRefreshProductHandler } from '../../routes/refreshProduct'
-import { createRefreshLock } from '../../refreshLock'
-import { createRefreshPacer } from '../../refreshPacer'
-import { createJobStore } from '../../jobState'
-import { createLogger } from '../../../src/logger'
-import type { PageDriver } from '../../../src/driver'
-import type { DbClient } from '../../../src/db'
-import type { ImageStore } from '../../../src/images'
+import { createRefreshProductHandler } from './refreshProduct'
+import { createRefreshLock } from '../refreshLock'
+import { createRefreshPacer } from '../refreshPacer'
+import { createJobStore } from '../jobState'
+import { createLogger } from '../../src/logger'
+import type { PageDriver } from '../../src/driver'
+import type { DbClient } from '../../src/db'
+import type { ImageStore } from '../../src/images'
 
-const LOG_PATH = 'test/tmp-refresh-product.log'
+const LOG_PATH = 'data/tmp-refresh-product.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

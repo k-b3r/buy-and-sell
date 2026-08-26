@@ -1,10 +1,10 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { getPriceLookupCandidates, runPriceLookup } from '../src/price-lookup'
-import { createLogger } from '../src/logger'
-import type { GeminiClient } from '../src/gemini'
-import type { DbClient } from '../src/db'
+import { getPriceLookupCandidates, runPriceLookup } from './price-lookup'
+import { createLogger } from './logger'
+import type { GeminiClient } from './gemini'
+import type { DbClient } from './db'
 
-const LOG_PATH = 'test/tmp-price-lookup.log'
+const LOG_PATH = 'data/tmp-price-lookup.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

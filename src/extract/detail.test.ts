@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { extractDetailFields } from '../../src/extract/detail'
+import { extractDetailFields } from './detail'
 
 test('extracts the richest listing-shaped object with all its fields', () => {
   const html = readFileSync('fixtures/detail-page.html', 'utf-8')

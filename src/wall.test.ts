@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { detectPageState } from '../src/wall'
+import { detectPageState } from './wall'
 
 test('normal page with no wall markers', () => {
   const html = readFileSync('fixtures/normal-page.html', 'utf-8')

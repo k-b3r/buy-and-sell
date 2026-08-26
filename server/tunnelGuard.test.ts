@@ -1,4 +1,4 @@
-import { checkTunnelBeforeLaunch } from '../tunnelGuard'
+import { checkTunnelBeforeLaunch } from './tunnelGuard'
 
 const ORIGINAL_ENV = process.env.SOCKS_PROXY
 const ORIGINAL_SKIP = process.env.SKIP_TUNNEL_CHECK

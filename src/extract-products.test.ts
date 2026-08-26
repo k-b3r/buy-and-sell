@@ -1,11 +1,11 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runProductExtraction } from '../src/extract-products'
-import { createLogger } from '../src/logger'
-import { normalizeVariantTier } from '../src/products'
-import type { GeminiClient } from '../src/gemini'
-import type { DbClient, ExtractionCandidate } from '../src/db'
+import { runProductExtraction } from './extract-products'
+import { createLogger } from './logger'
+import { normalizeVariantTier } from './products'
+import type { GeminiClient } from './gemini'
+import type { DbClient, ExtractionCandidate } from './db'
 
-const LOG_PATH = 'test/tmp-extract.log'
+const LOG_PATH = 'data/tmp-extract.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

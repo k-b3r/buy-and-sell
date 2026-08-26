@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { isInDiscountBand } from '../src/app/products/[id]/discountBand'
+import { isInDiscountBand } from './discountBand'
 
 test('isInDiscountBand matches a percent within the band decade', () => {
   expect(isInDiscountBand(15, 10)).toBe(true)

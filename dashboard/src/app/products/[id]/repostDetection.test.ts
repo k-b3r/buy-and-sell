@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { computeRepostIds } from '../src/app/products/[id]/repostDetection'
+import { computeRepostIds } from './repostDetection'
 
 test('flags both listings when their titles are byte-identical', () => {
   const result = computeRepostIds([

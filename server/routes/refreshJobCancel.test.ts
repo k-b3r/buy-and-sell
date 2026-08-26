@@ -1,5 +1,5 @@
-import { createCancelRefreshJobHandler } from '../../routes/refreshJobCancel'
-import { createJobStore } from '../../jobState'
+import { createCancelRefreshJobHandler } from './refreshJobCancel'
+import { createJobStore } from '../jobState'
 
 test('400s when no job is running', async () => {
   const jobs = createJobStore()

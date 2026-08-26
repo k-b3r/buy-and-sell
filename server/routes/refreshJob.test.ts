@@ -1,5 +1,5 @@
-import { createRefreshJobStatusHandler } from '../../routes/refreshJob'
-import { createJobStore } from '../../jobState'
+import { createRefreshJobStatusHandler } from './refreshJob'
+import { createJobStore } from '../jobState'
 
 test('returns null when no job has ever started', async () => {
   const handle = createRefreshJobStatusHandler(createJobStore())

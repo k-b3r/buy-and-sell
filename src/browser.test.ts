@@ -1,4 +1,4 @@
-import { shouldBlockResource } from '../src/browser'
+import { shouldBlockResource } from './browser'
 
 test('blocks image, font, stylesheet, and media resource types', () => {
   expect(shouldBlockResource('image')).toBe(true)

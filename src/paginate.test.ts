@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { extractCursor, extractLsd, parsePaginationResponse } from '../src/paginate'
+import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 
 test('extractCursor reads pg and keeps raw string for reuse', () => {
   const html = readFileSync('fixtures/ssr-page-with-cursor.html', 'utf-8')

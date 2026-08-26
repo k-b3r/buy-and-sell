@@ -1,12 +1,12 @@
 import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
-import type { PageDriver } from '../src/driver'
-import type { GridListing } from '../src/extract/grid'
-import type { DbClient } from '../src/db'
-import { runCollection, resolvePageState } from '../src/run'
-import { createLogger } from '../src/logger'
+import type { PageDriver } from './driver'
+import type { GridListing } from './extract/grid'
+import type { DbClient } from './db'
+import { runCollection, resolvePageState } from './run'
+import { createLogger } from './logger'
 
-const LOG_PATH = 'test/tmp-run.log'
+const LOG_PATH = 'data/tmp-run.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

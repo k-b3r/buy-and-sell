@@ -1,4 +1,4 @@
-import { createRateLimiter } from '../rateLimiter'
+import { createRateLimiter } from './rateLimiter'
 
 test('not blocked before any failures', () => {
   const limiter = createRateLimiter(3, 60000)

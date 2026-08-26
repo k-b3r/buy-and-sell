@@ -1,6 +1,6 @@
-import { handleRequest } from '../app'
-import type { RouteTable } from '../app'
-import { createRateLimiter } from '../rateLimiter'
+import { handleRequest } from './app'
+import type { RouteTable } from './app'
+import { createRateLimiter } from './rateLimiter'
 
 const API_KEY = 'test-secret'
 const IP = '1.2.3.4'

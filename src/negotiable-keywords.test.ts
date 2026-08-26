@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { matchesNegotiableKeyword } from '../src/negotiable-keywords'
+import { matchesNegotiableKeyword } from './negotiable-keywords'
 
 test('matches "negotiable"', () => {
   expect(matchesNegotiableKeyword('Price is negotiable, DM me')).toBe('negotiable')

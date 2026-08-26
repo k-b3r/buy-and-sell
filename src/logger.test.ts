@@ -1,7 +1,7 @@
 import { readFileSync, rmSync, existsSync } from 'node:fs'
-import { createLogger } from '../src/logger'
+import { createLogger } from './logger'
 
-const LOG_PATH = 'test/tmp-logger.log'
+const LOG_PATH = 'data/tmp-logger.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

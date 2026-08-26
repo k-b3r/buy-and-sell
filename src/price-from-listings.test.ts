@@ -1,9 +1,9 @@
 import { existsSync, rmSync } from 'node:fs'
-import { computePriceRangeFromPrices, getListingPricesByProduct, runPriceFromListings } from '../src/price-from-listings'
-import { createLogger } from '../src/logger'
-import type { DbClient } from '../src/db'
+import { computePriceRangeFromPrices, getListingPricesByProduct, runPriceFromListings } from './price-from-listings'
+import { createLogger } from './logger'
+import type { DbClient } from './db'
 
-const LOG_PATH = 'test/tmp-price-from-listings.log'
+const LOG_PATH = 'data/tmp-price-from-listings.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

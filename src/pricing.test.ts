@@ -1,4 +1,4 @@
-import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../src/pricing'
+import { buildPriceLookupPrompt, parsePriceRangeResponse } from './pricing'
 
 test('buildPriceLookupPrompt names the product and asks for a parseable trailing line', () => {
   const prompt = buildPriceLookupPrompt('Sony WH-1000XM4', null)

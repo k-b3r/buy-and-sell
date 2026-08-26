@@ -1,4 +1,4 @@
-import type { ExaClient } from '../src/exa'
+import type { ExaClient } from './exa'
 
 // createExaClient itself wraps the real fetch call to api.exa.ai and is not
 // unit tested here — same precedent as createGroqClient/createGeminiClient

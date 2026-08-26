@@ -1,11 +1,11 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runNewPriceLookup } from '../src/new-price-lookup'
-import { createLogger } from '../src/logger'
-import type { ExaClient } from '../src/exa'
-import type { DbClient } from '../src/db'
-import type { NewPriceCandidate } from '../src/db'
+import { runNewPriceLookup } from './new-price-lookup'
+import { createLogger } from './logger'
+import type { ExaClient } from './exa'
+import type { DbClient } from './db'
+import type { NewPriceCandidate } from './db'
 
-const LOG_PATH = 'test/tmp-new-price.log'
+const LOG_PATH = 'data/tmp-new-price.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

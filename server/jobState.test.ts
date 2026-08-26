@@ -1,4 +1,4 @@
-import { createJobStore } from '../jobState'
+import { createJobStore } from './jobState'
 
 test('no job before anything starts', () => {
   const jobs = createJobStore()

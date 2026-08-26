@@ -1,11 +1,11 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runProductEnrichment } from '../src/enrich-products'
-import { createLogger } from '../src/logger'
-import type { GroqClient } from '../src/groq'
-import type { DbClient } from '../src/db'
-import type { EnrichmentCandidate } from '../src/enrichment'
+import { runProductEnrichment } from './enrich-products'
+import { createLogger } from './logger'
+import type { GroqClient } from './groq'
+import type { DbClient } from './db'
+import type { EnrichmentCandidate } from './enrichment'
 
-const LOG_PATH = 'test/tmp-enrich.log'
+const LOG_PATH = 'data/tmp-enrich.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

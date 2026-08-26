@@ -1,9 +1,9 @@
 import { existsSync, rmSync } from 'node:fs'
-import { runFlagNegotiableKeywords } from '../src/flag-negotiable-keywords'
-import { createLogger } from '../src/logger'
-import type { DbClient, NegotiableKeywordCandidate } from '../src/db'
+import { runFlagNegotiableKeywords } from './flag-negotiable-keywords'
+import { createLogger } from './logger'
+import type { DbClient, NegotiableKeywordCandidate } from './db'
 
-const LOG_PATH = 'test/tmp-flag-negotiable-keywords.log'
+const LOG_PATH = 'data/tmp-flag-negotiable-keywords.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

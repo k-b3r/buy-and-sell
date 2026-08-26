@@ -1,6 +1,6 @@
-import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../src/enrichment'
-import type { EnrichmentCandidate } from '../src/enrichment'
-import { PRODUCT_CATEGORIES } from '../src/products'
+import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from './enrichment'
+import type { EnrichmentCandidate } from './enrichment'
+import { PRODUCT_CATEGORIES } from './products'
 
 test('buildEnrichmentPrompt includes each product id/label, and sibling variants only when present', () => {
   const products: EnrichmentCandidate[] = [

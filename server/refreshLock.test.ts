@@ -1,4 +1,4 @@
-import { createRefreshLock } from '../refreshLock'
+import { createRefreshLock } from './refreshLock'
 
 test('not busy before anything acquires it', () => {
   const lock = createRefreshLock()

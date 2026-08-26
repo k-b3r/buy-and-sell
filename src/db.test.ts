@@ -1,4 +1,4 @@
-import type { DbClient } from '../src/db'
+import type { DbClient } from './db'
 import {
   findOrCreateProduct,
   updateListingProductIds,
@@ -27,7 +27,7 @@ import {
   refreshListingFields,
   upsertKeywordNegotiable,
   getNegotiableKeywordCandidates,
-} from '../src/db'
+} from './db'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

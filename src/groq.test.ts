@@ -1,5 +1,5 @@
-import type { GroqClient } from '../src/groq'
-import { isQuotaError, createFallbackGroqClient } from '../src/groq'
+import type { GroqClient } from './groq'
+import { isQuotaError, createFallbackGroqClient } from './groq'
 
 // createGroqClient itself wraps the real SDK and is not unit tested here —
 // same precedent as createGeminiClient/createDbPool elsewhere in this repo.

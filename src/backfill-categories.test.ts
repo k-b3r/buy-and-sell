@@ -1,11 +1,11 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runCategoryBackfill } from '../src/backfill-categories'
-import { createLogger } from '../src/logger'
-import type { GroqClient } from '../src/groq'
-import type { DbClient } from '../src/db'
-import type { CategoryBackfillCandidate } from '../src/category-backfill'
+import { runCategoryBackfill } from './backfill-categories'
+import { createLogger } from './logger'
+import type { GroqClient } from './groq'
+import type { DbClient } from './db'
+import type { CategoryBackfillCandidate } from './category-backfill'
 
-const LOG_PATH = 'test/tmp-backfill-categories.log'
+const LOG_PATH = 'data/tmp-backfill-categories.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

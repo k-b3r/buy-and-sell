@@ -10,8 +10,8 @@ import {
   saveListing,
   unsaveListing,
   getSavedListings,
-} from '../src/lib/queries'
-import type { QueryClient } from '../src/lib/queries'
+} from './queries'
+import type { QueryClient } from './queries'
 
 test('summarizeDiscounts groups qualifying discounts into descending decade bands', () => {
   const result = summarizeDiscounts([73, 68, 41, 22, 5, null, -10])

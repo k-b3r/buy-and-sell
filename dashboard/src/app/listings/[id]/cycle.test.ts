@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { getActiveListingId, getCycleTarget } from '../src/app/listings/[id]/cycle'
+import { getActiveListingId, getCycleTarget } from './cycle'
 
 test('getActiveListingId extracts the id from a masked /listings/<id> pathname', () => {
   expect(getActiveListingId('/listings/100000000000004')).toBe('100000000000004')

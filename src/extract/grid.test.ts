@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { extractGridListings } from '../../src/extract/grid'
+import { extractGridListings } from './grid'
 
 test('extracts listing-shaped objects from embedded JSON, keeping whatever fields exist', () => {
   const html = readFileSync('fixtures/grid-page.html', 'utf-8')

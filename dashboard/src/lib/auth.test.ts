@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { hashPassword, isAuthCookieValid, AUTH_COOKIE_NAME } from '../src/lib/auth'
+import { hashPassword, isAuthCookieValid, AUTH_COOKIE_NAME } from './auth'
 
 test('AUTH_COOKIE_NAME is a stable, non-empty cookie name', () => {
   expect(AUTH_COOKIE_NAME).toBe('dashboard_auth')

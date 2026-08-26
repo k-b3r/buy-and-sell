@@ -1,13 +1,13 @@
 import { existsSync, rmSync } from 'node:fs'
-import { createRefreshHandler } from '../../routes/refresh'
-import { createRefreshLock } from '../../refreshLock'
-import { createRefreshPacer } from '../../refreshPacer'
-import { createLogger } from '../../../src/logger'
-import type { PageDriver } from '../../../src/driver'
-import type { DbClient } from '../../../src/db'
-import type { ImageStore } from '../../../src/images'
+import { createRefreshHandler } from './refresh'
+import { createRefreshLock } from '../refreshLock'
+import { createRefreshPacer } from '../refreshPacer'
+import { createLogger } from '../../src/logger'
+import type { PageDriver } from '../../src/driver'
+import type { DbClient } from '../../src/db'
+import type { ImageStore } from '../../src/images'
 
-const LOG_PATH = 'test/tmp-refresh.log'
+const LOG_PATH = 'data/tmp-refresh.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

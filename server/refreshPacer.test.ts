@@ -1,5 +1,5 @@
-import { createRefreshPacer } from '../refreshPacer'
-import { createRefreshLock } from '../refreshLock'
+import { createRefreshPacer } from './refreshPacer'
+import { createRefreshLock } from './refreshLock'
 
 test('acquires immediately when the lock is free and there is no prior action', async () => {
   const lock = createRefreshLock()

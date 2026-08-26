@@ -6,7 +6,7 @@ import {
   extractNewPriceConfidence,
   extractNewPriceMetadata,
   isWideSpread,
-} from '../src/new-price'
+} from './new-price'
 
 test('buildNewPriceQuery includes variant tier when present', () => {
   expect(buildNewPriceQuery('Sony WH-1000XM4', 'Silent White')).toBe(

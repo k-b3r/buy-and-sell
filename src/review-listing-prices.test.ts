@@ -1,11 +1,11 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runPriceReview } from '../src/review-listing-prices'
-import { createLogger } from '../src/logger'
-import type { GroqClient } from '../src/groq'
-import type { DbClient } from '../src/db'
-import type { PriceReviewCandidate } from '../src/price-review'
+import { runPriceReview } from './review-listing-prices'
+import { createLogger } from './logger'
+import type { GroqClient } from './groq'
+import type { DbClient } from './db'
+import type { PriceReviewCandidate } from './price-review'
 
-const LOG_PATH = 'test/tmp-review-listing-prices.log'
+const LOG_PATH = 'data/tmp-review-listing-prices.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)

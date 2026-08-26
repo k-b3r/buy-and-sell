@@ -4,7 +4,7 @@ import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
   PRODUCT_CATEGORIES,
-} from '../src/products'
+} from './products'
 
 test('normalizeBaseModel trims, lowercases, and collapses internal whitespace', () => {
   expect(normalizeBaseModel('  RTX   3060  ')).toBe('rtx 3060')

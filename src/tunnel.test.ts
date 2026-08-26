@@ -1,5 +1,5 @@
-import type { SocksConnect } from '../src/tunnel'
-import { checkTunnelAlive } from '../src/tunnel'
+import type { SocksConnect } from './tunnel'
+import { checkTunnelAlive } from './tunnel'
 
 test('returns true when the proxy relays a real connection through', async () => {
   const connect: SocksConnect = async () => ({ destroy: () => {} })

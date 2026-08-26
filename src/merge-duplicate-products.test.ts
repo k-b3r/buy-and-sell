@@ -1,5 +1,5 @@
-import { mergeDuplicateProducts } from '../src/merge-duplicate-products'
-import type { DbClient } from '../src/db'
+import { mergeDuplicateProducts } from './merge-duplicate-products'
+import type { DbClient } from './db'
 
 function scriptedDb(script: (sql: string, params: unknown[]) => unknown): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

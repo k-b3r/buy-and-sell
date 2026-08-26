@@ -1,6 +1,6 @@
-import { buildCategoryBackfillPrompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA } from '../src/category-backfill'
-import type { CategoryBackfillCandidate } from '../src/category-backfill'
-import { PRODUCT_CATEGORIES } from '../src/products'
+import { buildCategoryBackfillPrompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA } from './category-backfill'
+import type { CategoryBackfillCandidate } from './category-backfill'
+import { PRODUCT_CATEGORIES } from './products'
 
 test('buildCategoryBackfillPrompt includes each product id/label and the fixed category list', () => {
   const products: CategoryBackfillCandidate[] = [

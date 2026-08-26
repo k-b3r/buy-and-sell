@@ -1,11 +1,11 @@
 import { existsSync, rmSync } from 'node:fs'
-import { runCheckListings, checkOneListing } from '../src/check-listings'
-import { createLogger } from '../src/logger'
-import type { PageDriver } from '../src/driver'
-import type { DbClient } from '../src/db'
-import type { ImageStore } from '../src/images'
+import { runCheckListings, checkOneListing } from './check-listings'
+import { createLogger } from './logger'
+import type { PageDriver } from './driver'
+import type { DbClient } from './db'
+import type { ImageStore } from './images'
 
-const LOG_PATH = 'test/tmp-check-listings.log'
+const LOG_PATH = 'data/tmp-check-listings.log'
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
