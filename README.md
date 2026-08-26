@@ -82,7 +82,7 @@ src/
   driver.ts, browser.ts                # browser abstraction (real Playwright implementation)
   run.ts                               # orchestration loop
   cli.ts                               # entrypoint
-test/, fixtures/                       # unit tests against real-shaped fixture data
+*.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
 docs/superpowers/plans/                # implementation plans this was built from
 ```
 

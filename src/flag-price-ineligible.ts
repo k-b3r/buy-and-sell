@@ -1,6 +1,13 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createDbPool, flagPriceLookupExcluded } from './db'
+import { createLogger } from './logger'
+
+// Cheap, DB-only, idempotent (UPDATE ... WHERE base_model = ANY(...)) - safe
+// to loop forever like the other Group A workers. Only catches base_model
+// values already on the curated list below; new junk terms extraction turns
+// up still need a human to spot them and add an entry (see PRICE_INELIGIBLE_CATEGORIES).
+const LOOP_DELAY_MS = 300000
 
 // Manually curated (2026-08-23) from a real scan of distinct products.base_model
 // values — "new-retail price" is a meaningless concept for these, so both
@@ -81,6 +88,31 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     // being compared to each other.
     'Product',
     'Monitor',
+    // Found live 2026-08-26 via random-sampled candidate pool while testing
+    // pricing sources — none of these are a single priceable product, same
+    // reasoning as 'Item'/'GPU'/'CPU' above.
+    'Other',
+    'Miscellaneous',
+    'Household Items',
+    'Cellphone',
+    'Smartphone',
+    'System Unit',
+    'Motherboard',
+    'PC Parts Bundle',
+    'Motherboard Bundle',
+    'Furniture',
+    'Clothes',
+    'Dress',
+    'Tops',
+    'Preloved Clothes',
+    'Office Clothes',
+    'Formal Gown',
+    'Cardigan',
+    'Wheelset',
+    // Real brand, no model/series number - same wide-spread problem as bare
+    // 'Motherboard'/'CPU': real ThinkPad pricing spans PHP57,000-126,000+
+    // depending on series (X/T/P/A/Yoga), confirmed live 2026-08-26.
+    'Lenovo Thinkpad',
   ],
   // Unlike too_generic (no recoverable path — genuinely not a real, single
   // product), these ARE real, priceable products — they just need a pricing
@@ -162,11 +194,18 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env')
 
+  const logger = createLogger('data/flag-price-ineligible.log')
   const pool = createDbPool(dbUrl)
   try {
-    for (const [reason, baseModels] of Object.entries(PRICE_INELIGIBLE_CATEGORIES)) {
-      await flagPriceLookupExcluded(pool, baseModels, reason)
-      console.log(`flagged ${baseModels.length} base_model values as '${reason}'`)
+    logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
+    for (let lap = 1; ; lap++) {
+      logger.info(`lap ${lap} starting`)
+      for (const [reason, baseModels] of Object.entries(PRICE_INELIGIBLE_CATEGORIES)) {
+        await flagPriceLookupExcluded(pool, baseModels, reason)
+        logger.info(`flagged ${baseModels.length} base_model values as '${reason}'`)
+      }
+      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      await new Promise((resolve) => setTimeout(resolve, LOOP_DELAY_MS))
     }
   } finally {
     await pool.end()
