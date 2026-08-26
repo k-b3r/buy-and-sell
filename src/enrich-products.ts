@@ -35,7 +35,7 @@ const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, 
 // picked up without a restart, and a lap that stopped early (Groq quota
 // exhausted, a persistent malformed-response error) just gets retried after
 // the pause instead of requiring the script to be manually re-run each time.
-const LOOP_DELAY_MS = 30000
+const LOOP_DELAY_MS = 300000
 
 // gpt-oss-120b occasionally (non-deterministically) wraps the array as
 // {"results":{"items":[...]}} instead of {"results":[...]} — confirmed live
