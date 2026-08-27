@@ -1,7 +1,7 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runProductEnrichment } from './index'
 import { createLogger } from '../../platform/logger'
-import type { GroqClient } from '../../groq'
+import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { EnrichmentCandidate } from '../../enrichment'
 

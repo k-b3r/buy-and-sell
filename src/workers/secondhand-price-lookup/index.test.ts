@@ -1,7 +1,7 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runPriceLookup } from './index'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient } from '../../gemini'
+import type { GeminiClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 
 const LOG_PATH = 'data/tmp-price-lookup.log'

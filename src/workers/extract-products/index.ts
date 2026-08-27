@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient } from '../../gemini'
-import { createGeminiClient, createFallbackGeminiClient, isQuotaError } from '../../gemini'
+import type { GeminiClient } from '../../domains/llm-clients'
+import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -75,7 +75,7 @@ export async function runProductExtraction(
         break
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
-        if (isQuotaError(err)) {
+        if (isGeminiQuotaError(err)) {
           logger.error(`batch ${batchNum}/${totalBatches}: Gemini quota exhausted across all configured keys (${message}), stopping run`)
           fatal = true
           break

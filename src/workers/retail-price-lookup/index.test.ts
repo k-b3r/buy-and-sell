@@ -1,7 +1,7 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runNewPriceLookup } from './index'
 import { createLogger } from '../../platform/logger'
-import type { ExaClient } from '../../exa'
+import type { ExaClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { NewPriceCandidate } from '../../new-price'
 

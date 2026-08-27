@@ -2,7 +2,7 @@ import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runProductExtraction } from './index'
 import { createLogger } from '../../platform/logger'
 import { normalizeVariantTier } from '../../products'
-import type { GeminiClient } from '../../gemini'
+import type { GeminiClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { ExtractionCandidate } from './storage'
 

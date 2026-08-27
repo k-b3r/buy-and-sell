@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient } from '../../gemini'
-import { createGeminiClient, createFallbackGeminiClient, isQuotaError } from '../../gemini'
+import type { GeminiClient } from '../../domains/llm-clients'
+import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -35,7 +35,7 @@ async function generateGroundedTextWithRetry(
     try {
       return await gemini.generateGroundedText(prompt)
     } catch (err) {
-      if (!isQuotaError(err)) throw err
+      if (!isGeminiQuotaError(err)) throw err
       logger.warn(`quota exhausted, waiting ${backoffMs}ms before retrying this batch`)
       await delay(backoffMs)
       backoffMs = Math.min(backoffMs * 2, MAX_QUOTA_BACKOFF_MS)
