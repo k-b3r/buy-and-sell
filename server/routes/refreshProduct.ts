@@ -1,6 +1,6 @@
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
-import { getListingCheckCandidatesForProduct } from '../../src/workers/check-listings/storage'
+import { getListingCheckCandidatesForProduct } from '../../src/domains/marketplace/storage/listings'
 import type { ImageStore } from '../../src/platform/images'
 import { checkOneListing } from '../../src/workers/check-listings'
 import type { RouteHandler, RouteResult } from '../app'

@@ -36,7 +36,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // existingIds simulates listings Postgres already has (from any prior run, any
 // machine) — the dedup source runCollection reads once at the start via
 // getCollectedListingIds. upsertCalls captures every upsertListing call this
-// run makes, in full param-array form (see src/db.ts's upsertListing for the
+// run makes, in full param-array form (see domains/marketplace/storage/listings.ts's upsertListing for the
 // positional layout: [0]=id, [1]=title, [5]=condition, [11]=stored_photo_urls).
 function fakeDb(existingIds: string[] = []): { db: DbClient; upsertCalls: unknown[][] } {
   const upsertCalls: unknown[][] = []

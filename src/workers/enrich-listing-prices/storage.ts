@@ -102,8 +102,8 @@ export async function upsertKeywordNegotiable(db: DbClient, listingId: string, m
   )
 }
 
-// Shared by cli/storage.ts's upsertListing and check-listings/storage.ts's
-// refreshListingFields (both cross-worker imports of this file) - the
+// Shared by domains/marketplace/storage/listings.ts's upsertListing and
+// refreshListingFields (both cross-domain imports of this file) - the
 // deterministic keyword sibling to the LLM-based price review (which only
 // ever runs on price-outlier candidates, see getPriceReviewCandidates above).
 // Runs on every write instead, independent of whether the recorded price

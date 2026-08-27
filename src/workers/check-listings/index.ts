@@ -6,7 +6,7 @@ import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import type { CheckListingsCandidate } from './storage'
+import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
 import {
   getCheckListingsCandidates,
   markListingAlive,
@@ -14,7 +14,7 @@ import {
   flagListingRemoved,
   deleteListing,
   refreshListingFields,
-} from './storage'
+} from '../../domains/marketplace/storage/listings'
 import type { ImageStore } from '../../platform/images'
 import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'

@@ -1,6 +1,6 @@
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
-import { getListingCheckCandidate } from '../../src/workers/check-listings/storage'
+import { getListingCheckCandidate } from '../../src/domains/marketplace/storage/listings'
 import type { ImageStore } from '../../src/platform/images'
 import type { PageDriver } from '../../src/domains/marketplace'
 import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace'

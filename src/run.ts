@@ -7,7 +7,7 @@ import { extractGridListings, looksLikeListing } from './domains/marketplace'
 import { extractDetailFields } from './domains/marketplace'
 import { extractCursor, extractLsd, parsePaginationResponse } from './domains/marketplace'
 import type { DbClient } from './platform/storage'
-import { upsertListing, getCollectedListingIds } from './workers/collect/storage'
+import { upsertListing, getCollectedListingIds } from './domains/marketplace/storage/listings'
 import type { ImageStore } from './platform/images'
 import { storeListingPhotos } from './platform/images'
 

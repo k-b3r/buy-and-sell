@@ -10,8 +10,8 @@ import { upsertKeywordNegotiable } from '../../workers/enrich-listing-prices/sto
 import { matchesNegotiableKeyword } from '../../domains/marketplace'
 
 // One-off/rerunnable sweep over EXISTING listings for the negotiability
-// keyword scan that cli/storage.ts's upsertListing and check-listings/storage.ts's
-// refreshListingFields now run automatically going forward (see
+// keyword scan that domains/marketplace/storage/listings.ts's upsertListing
+// and refreshListingFields now run automatically going forward (see
 // enrich-listing-prices/storage.ts's flagNegotiableFromKeywords) - this
 // covers everything collected before that wiring existed. Deterministic
 // pattern match, no LLM call, so safe to run against the whole table in one pass.
