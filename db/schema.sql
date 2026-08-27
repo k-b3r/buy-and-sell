@@ -143,6 +143,17 @@ CREATE TABLE IF NOT EXISTS product_enrichment (
   checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Groq's own judgment (same call as the rest of this row) of whether this
+-- base_model names one real, specific, priceable product at all - not a price
+-- opinion, a category-error catch (e.g. "Furniture"/"Lenovo Thinkpad" get
+-- recognized and could get a confident-sounding price, but aren't one thing).
+-- confidence accounts for training-cutoff gaps: a genuinely new/obscure
+-- product should come back 'low' rather than a confident guess either way.
+-- Nullable - rows written before this shipped have neither; left alone, not
+-- backfilled (see applyEligibilityFromEnrichment in db.ts).
+ALTER TABLE product_enrichment ADD COLUMN IF NOT EXISTS is_specific_product BOOLEAN;
+ALTER TABLE product_enrichment ADD COLUMN IF NOT EXISTS confidence TEXT;
+
 -- Sold is a terminal status Facebook reports directly (raw_json.is_sold), unlike
 -- removed/deleted which is inferred from a soft-wall and needs two-phase
 -- confirmation (see flagged_removed_at above) because a soft-wall is
@@ -199,9 +210,19 @@ END $$;
 -- fixed retail price, services). "New-retail price" is a meaningless concept
 -- for these — both new-price-lookup.ts (Exa, costs real money per call) and
 -- price-lookup.ts (Gemini grounding, burns quota) skip anything flagged here.
--- Manually curated (src/flag-price-ineligible.ts), not auto-classified.
+-- Two writers: the manually curated list (src/flag-price-ineligible.ts) for
+-- known junk, and product_enrichment.is_specific_product/confidence (same
+-- worker, see applyEligibilityFromEnrichment in db.ts) for everything else.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded_reason TEXT;
+
+-- Set when product_enrichment.confidence comes back 'low' - Groq itself isn't
+-- sure whether this base_model is a real specific product (could be outside
+-- its training knowledge either way). NULL = no open question. Candidate
+-- queries (getPriceLookupCandidates, getNewPriceCandidates) skip anything
+-- flagged here until a human resolves it via the (not yet built) admin
+-- review page - never auto-resolves.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_review_status TEXT;
 
 -- Dashboard-only bookmark list (no scraper/src writes or reads this). One
 -- shared saved-list, not per-user — the dashboard has a single shared
