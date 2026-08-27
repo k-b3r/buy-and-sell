@@ -5,7 +5,7 @@ import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import { realDelay, loadEnvFile } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
 import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace/storage/listings'
@@ -95,7 +95,11 @@ async function main() {
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getPriceReviewCandidates(pool)
-      await runPriceReview(groq, pool, logger, candidates)
+      if (isTestRun()) {
+        logger.info(`TEST_RUN: marketplace will call Groq for price review on ${candidates.length} listings this lap`)
+      } else {
+        await runPriceReview(groq, pool, logger, candidates)
+      }
       logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
       lap++
       await realDelay(LOOP_DELAY_MS)

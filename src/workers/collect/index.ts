@@ -3,7 +3,7 @@ import { runCollection } from '../../run'
 import { createLogger } from '../../platform/logger'
 import { autoApprove } from '../../platform/review'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile } from '../../platform/utils'
+import { loadEnvFile, realDelay, isTestRun } from '../../platform/utils'
 import { createR2ImageStore } from '../../platform/images'
 import { checkTunnelAlive } from '../../domains/marketplace'
 
@@ -20,6 +20,12 @@ export const MOTIVATED_SELLER_KEYWORDS = [
   'upgrade',
   'for disposal',
 ]
+
+// Real mode paces itself per-listing (driver.waitRandom, 4-10s) inside
+// runCollection - TEST_RUN skips that entirely (no live Facebook calls at
+// all), so --cycle needs its own pacing here or it would spin logging as
+// fast as the loop can run.
+const TEST_RUN_LOOP_DELAY_MS = 5000
 
 async function main() {
   loadEnvFile()
@@ -96,22 +102,27 @@ async function main() {
     do {
       if (cycle) logger.info(`--cycle: lap ${lap} starting`)
       for (const query of queries) {
-        await runCollection(
-          driver,
-          logger,
-          autoApprove,
-          process.stdin,
-          process.stdout,
-          {
-            query,
-            softWallTimeoutMs: 5000,
-            maxItems,
-            daysSinceListed,
-          },
-          pool,
-          imageStore,
-        )
+        if (isTestRun()) {
+          logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
+        } else {
+          await runCollection(
+            driver,
+            logger,
+            autoApprove,
+            process.stdin,
+            process.stdout,
+            {
+              query,
+              softWallTimeoutMs: 5000,
+              maxItems,
+              daysSinceListed,
+            },
+            pool,
+            imageStore,
+          )
+        }
       }
+      if (cycle && isTestRun()) await realDelay(TEST_RUN_LOOP_DELAY_MS)
       lap++
     } while (cycle)
   } finally {

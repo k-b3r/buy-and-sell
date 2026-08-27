@@ -6,7 +6,7 @@ import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } fr
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
 import {
@@ -187,13 +187,17 @@ async function main() {
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getExtractionCandidates(pool)
-      await runProductExtraction(gemini, pool, logger, candidates, {
-        // Free tier is 20 requests/DAY for gemini-2.5-flash (confirmed live 2026-08-20
-        // via a real 429 — NOT the ~1,500/day figure researched earlier, which turned
-        // out to be the separate Google Search grounding quota, not base generateContent).
-        batchSize: 100,
-        delayMs: 5000,
-      })
+      if (isTestRun()) {
+        logger.info(`TEST_RUN: marketplace will call Gemini for extraction on ${candidates.length} listings this lap`)
+      } else {
+        await runProductExtraction(gemini, pool, logger, candidates, {
+          // Free tier is 20 requests/DAY for gemini-2.5-flash (confirmed live 2026-08-20
+          // via a real 429 — NOT the ~1,500/day figure researched earlier, which turned
+          // out to be the separate Google Search grounding quota, not base generateContent).
+          batchSize: 100,
+          delayMs: 5000,
+        })
+      }
       logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
       lap++
       await realDelay(LOOP_DELAY_MS)

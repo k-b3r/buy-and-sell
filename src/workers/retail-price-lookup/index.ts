@@ -6,7 +6,7 @@ import { createExaClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
 import type { NewPriceCandidate } from '../../domains/marketplace'
 import {
   buildNewPriceQuery,
@@ -134,7 +134,11 @@ async function main() {
       const pending = await getNewPriceCandidates(pool)
       const products = pending.slice(0, limit)
       logger.info(`${pending.length} pending new-price lookup, processing ${products.length} this lap`)
-      await runNewPriceLookup(exa, pool, logger, products)
+      if (isTestRun()) {
+        logger.info(`TEST_RUN: marketplace will call Exa for retail price-lookup on ${products.length} products this lap`)
+      } else {
+        await runNewPriceLookup(exa, pool, logger, products)
+      }
       logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
       lap++
       await realDelay(LOOP_DELAY_MS)

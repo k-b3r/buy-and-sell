@@ -6,7 +6,7 @@ import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } fr
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
 import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../../domains/marketplace'
 import type { PriceLookupCandidate } from '../../domains/marketplace'
 import { getPriceLookupCandidates, insertPriceCheck } from '../../domains/marketplace/storage/pricing'
@@ -136,11 +136,15 @@ async function main() {
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const products = await getPriceLookupCandidates(pool)
-      // Gemini 2.5 Flash's free tier is 5 RPM (confirmed live via the AI Studio
-      // rate-limit dashboard, 2026-08-20) — this is per call now, not per
-      // product (BATCH_SIZE=5 products/call), so the same 15s pacing covers 5x
-      // the throughput it used to. 15s keeps us under 5 RPM with margin.
-      await runPriceLookup(gemini, pool, logger, products, { delayMs: 15000 })
+      if (isTestRun()) {
+        logger.info(`TEST_RUN: marketplace will call Gemini grounding for secondhand price-lookup on ${products.length} products this lap`)
+      } else {
+        // Gemini 2.5 Flash's free tier is 5 RPM (confirmed live via the AI Studio
+        // rate-limit dashboard, 2026-08-20) — this is per call now, not per
+        // product (BATCH_SIZE=5 products/call), so the same 15s pacing covers 5x
+        // the throughput it used to. 15s keeps us under 5 RPM with margin.
+        await runPriceLookup(gemini, pool, logger, products, { delayMs: 15000 })
+      }
       logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
       lap++
       await realDelay(LOOP_DELAY_MS)

@@ -5,7 +5,7 @@ import type { PageDriver } from '../../domains/marketplace'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile } from '../../platform/utils'
+import { loadEnvFile, isTestRun } from '../../platform/utils'
 import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
 import {
   getCheckListingsCandidates,
@@ -148,7 +148,11 @@ async function main() {
 
   try {
     const candidates = await getCheckListingsCandidates(pool, limit)
-    await runCheckListings(driver, pool, imageStore, logger, candidates)
+    if (isTestRun()) {
+      logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
+    } else {
+      await runCheckListings(driver, pool, imageStore, logger, candidates)
+    }
   } finally {
     await close()
     await pool.end()

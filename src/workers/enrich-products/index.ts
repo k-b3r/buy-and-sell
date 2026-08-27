@@ -6,7 +6,7 @@ import { createGroqClient, createFallbackGroqClient } from '../../domains/llm-cl
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { EnrichmentCandidate } from '../../domains/marketplace'
 import {
@@ -196,14 +196,18 @@ async function main() {
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getEnrichmentCandidates(pool)
-      await runProductEnrichment(groq, pool, logger, candidates)
-      // Applies this lap's freshly-produced is_specific_product/confidence
-      // judgments to price_lookup_excluded/price_lookup_review_status - lives
-      // here rather than in flag-price-ineligible.ts (which only handles the
-      // human-curated list, run manually) because this needs to react to new
-      // enrichment rows on the same cadence they're produced, not on a
-      // human's edit schedule.
-      await applyEligibilityFromEnrichment(pool)
+      if (isTestRun()) {
+        logger.info(`TEST_RUN: marketplace will call Groq for enrichment on ${candidates.length} products this lap`)
+      } else {
+        await runProductEnrichment(groq, pool, logger, candidates)
+        // Applies this lap's freshly-produced is_specific_product/confidence
+        // judgments to price_lookup_excluded/price_lookup_review_status - lives
+        // here rather than in flag-price-ineligible.ts (which only handles the
+        // human-curated list, run manually) because this needs to react to new
+        // enrichment rows on the same cadence they're produced, not on a
+        // human's edit schedule.
+        await applyEligibilityFromEnrichment(pool)
+      }
       logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
       lap++
       await realDelay(LOOP_DELAY_MS)
