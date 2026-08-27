@@ -8,6 +8,7 @@ import { createRefreshHandler } from './routes/refresh'
 import { createRefreshProductHandler } from './routes/refreshProduct'
 import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
+import { createLogsHandler } from './routes/logs'
 import { createRefreshLock } from './refreshLock'
 import { createRefreshPacer } from './refreshPacer'
 import { createJobStore } from './jobState'
@@ -62,6 +63,7 @@ async function main() {
     'POST /refresh-product': createRefreshProductHandler(pool, imageStore, logger, refreshLock, jobs, refreshPacer),
     'GET /refresh-job': createRefreshJobStatusHandler(jobs),
     'POST /refresh-job/cancel': createCancelRefreshJobHandler(jobs),
+    'POST /logs': createLogsHandler(),
   })
 
   app.listen(port, () => {
