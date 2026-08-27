@@ -9,7 +9,7 @@ import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
 import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../../domains/marketplace'
 import type { PriceLookupCandidate } from '../../domains/marketplace'
-import { getPriceLookupCandidates, insertPriceCheck } from './storage'
+import { getPriceLookupCandidates, insertPriceCheck } from '../../domains/marketplace/storage/pricing'
 
 export interface PriceLookupOptions {
   delayMs: number

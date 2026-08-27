@@ -4,10 +4,9 @@ import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import { insertPriceCheck } from '../../workers/secondhand-price-lookup/storage'
 import type { PriceRange } from '../../domains/marketplace'
-import type { ListingPricesForProductCondition } from './storage'
-import { getListingPricesByProduct } from './storage'
+import type { ListingPricesForProductCondition } from '../../domains/marketplace/storage/pricing'
+import { insertPriceCheck, getListingPricesByProduct } from '../../domains/marketplace/storage/pricing'
 
 // No real secondhand electronics listing on this marketplace goes below this
 // — anything under it is a placeholder/joke price ("₱12", "₱20"), not a real

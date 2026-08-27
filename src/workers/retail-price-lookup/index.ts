@@ -7,7 +7,6 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import { insertPriceCheck } from '../secondhand-price-lookup/storage'
 import type { NewPriceCandidate } from '../../domains/marketplace'
 import {
   buildNewPriceQuery,
@@ -18,7 +17,7 @@ import {
   extractNewPriceMetadata,
   isWideSpread,
 } from '../../domains/marketplace'
-import { getNewPriceCandidates, flagProductPriceLookupExcluded } from './storage'
+import { insertPriceCheck, getNewPriceCandidates, flagProductPriceLookupExcluded } from '../../domains/marketplace/storage/pricing'
 
 // Runs forever, not once - re-queries getNewPriceCandidates every lap, same
 // pattern as enrich-products.ts. Unlike the free/quota-bounded workers,
