@@ -1,6 +1,7 @@
 import type { DbClient } from '../../../platform/storage'
 import { normalizeBaseModel, normalizeVariantTier } from '../products'
 import type { EnrichmentCandidate, EnrichmentData } from '../enrichment'
+import type { CategoryBackfillCandidate } from '../products'
 
 // category is only ever set at creation, same as base_model/variant_tier —
 // dashboard browsing/filtering only, not re-classified on subsequent
@@ -145,4 +146,71 @@ export async function applyEligibilityFromEnrichment(db: DbClient): Promise<void
        AND p.price_lookup_review_status IS DISTINCT FROM 'needs_review'`,
     [],
   )
+}
+
+// category_id IS NULL is both the filter and the resumability marker — no
+// separate results table needed (same pattern as the enrichment candidate
+// query above). Only pre-existing products lack a category; extract-products
+// assigns it at creation time for everything new, so this backlog only shrinks.
+export async function getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]> {
+  const result = (await db.query(
+    `SELECT id, base_model, variant_tier FROM products WHERE category_id IS NULL ORDER BY id`,
+    [],
+  )) as { rows: CategoryBackfillCandidate[] }
+  return result.rows
+}
+
+// Batched single round trip, same reasoning as updateListingProductIds above
+// — the Neon round-trip cost dwarfs the LLM cost here. Assignments carry the
+// category NAME (from the LLM response / caller), resolved to category_id via
+// the join below — categories is a small fixed seeded set, never written to
+// here. Also used by enrich-products, which assigns a category at
+// first-enrichment time too.
+export async function updateProductCategories(
+  db: DbClient,
+  assignments: { id: number; category: string }[],
+): Promise<void> {
+  if (assignments.length === 0) return
+
+  const valuesSql = assignments.map((_, i) => `($${i * 2 + 1}::int, $${i * 2 + 2}::text)`).join(', ')
+  const params = assignments.flatMap((a) => [a.id, a.category])
+
+  await db.query(
+    `UPDATE products SET category_id = c.id
+     FROM (VALUES ${valuesSql}) AS data(id, category)
+     JOIN categories c ON c.name = data.category
+     WHERE products.id = data.id`,
+    params,
+  )
+}
+
+// Merges loserId into survivorId — same real product, split into two rows by
+// inconsistent extraction text (e.g. "PS5" vs "PlayStation 5"). Reassigns real
+// scraped/paid data (listings, product_price_history) unconditionally. For
+// product_enrichment (product_id is its PRIMARY KEY, so both rows can't keep
+// one each): migrates the loser's row over only if the survivor doesn't
+// already have one, otherwise just drops the loser's — it's free/regenerable
+// via Groq, not worth reconciling two descriptions. Caller is responsible for
+// deciding survivor/loser and must not call this if it would collide with a
+// still-existing third row.
+export async function mergeDuplicateProduct(db: DbClient, survivorId: number, loserId: number): Promise<void> {
+  await db.query(`UPDATE listings SET product_id = $1 WHERE product_id = $2`, [survivorId, loserId])
+  await db.query(`UPDATE product_price_history SET product_id = $1 WHERE product_id = $2`, [survivorId, loserId])
+  await db.query(
+    `UPDATE product_enrichment SET product_id = $1
+     WHERE product_id = $2 AND NOT EXISTS (SELECT 1 FROM product_enrichment WHERE product_id = $1)`,
+    [survivorId, loserId],
+  )
+  await db.query(`DELETE FROM product_enrichment WHERE product_id = $1`, [loserId])
+  await db.query(`DELETE FROM products WHERE id = $1`, [loserId])
+}
+
+// Manually curated categories (real estate, bare placeholders, parts with no
+// single fixed price, services) — see db/schema.sql. Idempotent: matches on
+// base_model text, safe to re-run as more junk categories turn up over time.
+export async function flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void> {
+  await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE base_model = ANY($2)`, [
+    reason,
+    baseModels,
+  ])
 }

@@ -6,6 +6,10 @@ import {
   getEnrichmentCandidates,
   upsertProductEnrichment,
   applyEligibilityFromEnrichment,
+  getCategoryBackfillCandidates,
+  updateProductCategories,
+  mergeDuplicateProduct,
+  flagPriceLookupExcluded,
 } from './products'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -245,4 +249,70 @@ test('applyEligibilityFromEnrichment auto-excludes high-confidence non-specific 
   expect(calls[1].sql).toContain("UPDATE products p SET price_lookup_review_status = 'needs_review'")
   expect(calls[1].sql).toContain("e.confidence = 'low'")
   expect(calls[1].sql).toContain('NOT p.price_lookup_excluded')
+})
+
+test('getCategoryBackfillCandidates returns products with no category assigned yet', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 1, base_model: 'RTX 3060', variant_tier: null }] }
+    },
+  }
+
+  const result = await getCategoryBackfillCandidates(db)
+
+  expect(calls[0].sql).toContain('category_id IS NULL')
+  expect(result).toEqual([{ id: 1, base_model: 'RTX 3060', variant_tier: null }])
+})
+
+test('updateProductCategories does nothing (no query) when given an empty array', async () => {
+  const { db, calls } = mockDb()
+
+  await updateProductCategories(db, [])
+
+  expect(calls).toHaveLength(0)
+})
+
+test('updateProductCategories issues a single multi-row UPDATE for all assignments', async () => {
+  const { db, calls } = mockDb()
+
+  await updateProductCategories(db, [
+    { id: 1, category: 'Gaming' },
+    { id: 2, category: 'Audio' },
+  ])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toMatch(/^UPDATE products/)
+  expect(calls[0].sql).toContain('FROM (VALUES')
+  expect(calls[0].sql).toContain('JOIN categories')
+  expect(calls[0].params).toEqual([1, 'Gaming', 2, 'Audio'])
+})
+
+test('mergeDuplicateProduct reassigns listings, price history, and enrichment (skipping it if the survivor already has one), then deletes the loser', async () => {
+  const { db, calls } = mockDb()
+
+  await mergeDuplicateProduct(db, 100, 200)
+
+  expect(calls).toHaveLength(5)
+  expect(calls[0].sql).toBe('UPDATE listings SET product_id = $1 WHERE product_id = $2')
+  expect(calls[0].params).toEqual([100, 200])
+  expect(calls[1].sql).toBe('UPDATE product_price_history SET product_id = $1 WHERE product_id = $2')
+  expect(calls[1].params).toEqual([100, 200])
+  expect(calls[2].sql).toContain('UPDATE product_enrichment SET product_id = $1')
+  expect(calls[2].sql).toContain('NOT EXISTS')
+  expect(calls[2].params).toEqual([100, 200])
+  expect(calls[3].sql).toBe('DELETE FROM product_enrichment WHERE product_id = $1')
+  expect(calls[3].params).toEqual([200])
+  expect(calls[4].sql).toBe('DELETE FROM products WHERE id = $1')
+  expect(calls[4].params).toEqual([200])
+})
+
+test('flagPriceLookupExcluded updates products matching any of the given base_model values', async () => {
+  const { db, calls } = mockDb()
+
+  await flagPriceLookupExcluded(db, ['Condo', 'House and Lot'], 'real_estate')
+
+  expect(calls[0].sql).toMatch(/^UPDATE products SET price_lookup_excluded = true/)
+  expect(calls[0].params).toEqual(['real_estate', ['Condo', 'House and Lot']])
 })

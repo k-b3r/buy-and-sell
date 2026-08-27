@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import { mergeDuplicateProduct } from './storage'
+import { mergeDuplicateProduct } from '../../domains/marketplace/storage/products'
 import { normalizeBaseModel, CANONICAL_BASE_MODEL } from '../../domains/marketplace'
 
 interface ProductRow {

@@ -9,9 +9,13 @@ import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { EnrichmentCandidate } from '../../domains/marketplace'
-import { getEnrichmentCandidates, upsertProductEnrichment, applyEligibilityFromEnrichment } from '../../domains/marketplace/storage/products'
+import {
+  getEnrichmentCandidates,
+  upsertProductEnrichment,
+  applyEligibilityFromEnrichment,
+  updateProductCategories,
+} from '../../domains/marketplace/storage/products'
 import { PRODUCT_CATEGORIES } from '../../domains/marketplace'
-import { updateProductCategories } from '../../utils/backfill-categories/storage'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before

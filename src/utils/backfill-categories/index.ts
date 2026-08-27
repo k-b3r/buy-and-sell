@@ -7,7 +7,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import { getCategoryBackfillCandidates, updateProductCategories } from './storage'
+import { getCategoryBackfillCandidates, updateProductCategories } from '../../domains/marketplace/storage/products'
 import { buildCategoryBackfillPrompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA, PRODUCT_CATEGORIES } from '../../domains/marketplace'
 import type { CategoryBackfillCandidate } from '../../domains/marketplace'
 
