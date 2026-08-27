@@ -6,7 +6,7 @@ import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } fr
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
 import {
@@ -167,6 +167,7 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
 
   const logger = createLogger('data/extract-products.log')
+  writePidFile('data/extract-products.pid')
 
   // Free tier is 20 requests/day per project per model — a second key from a
   // different Google account is a different project, so it has its own

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-// Mirrors server/routes/logs.ts's WORKER_LOG_FILES keys - kept in sync by
-// hand since dashboard/ and server/ are separate packages with no shared
-// import path.
+// Mirrors server/routes/logs.ts's WORKER_LOG_FILES / workerControl.ts's
+// WORKER_PID_FILES keys - kept in sync by hand since dashboard/ and server/
+// are separate packages with no shared import path.
 const WORKERS = [
   'collect',
   'check-listings',
@@ -22,9 +22,16 @@ interface LogsResponse {
   nextOffset: number
 }
 
+interface StatusResponse {
+  running: boolean
+}
+
 export default function LogsPage() {
   const [worker, setWorker] = useState<(typeof WORKERS)[number]>('collect')
   const [lines, setLines] = useState<string[]>([])
+  const [running, setRunning] = useState<boolean | null>(null)
+  const [actionPending, setActionPending] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const offsetRef = useRef<number | undefined>(undefined)
   const paneRef = useRef<HTMLPreElement>(null)
   const stickToBottomRef = useRef(true)
@@ -35,6 +42,8 @@ export default function LogsPage() {
     let cancelled = false
     offsetRef.current = undefined
     setLines([])
+    setRunning(null)
+    setActionError(null)
     stickToBottomRef.current = true
 
     async function poll() {
@@ -53,8 +62,26 @@ export default function LogsPage() {
       }
     }
 
+    async function pollStatus() {
+      try {
+        const res = await fetch('/api/worker-control', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ worker, action: 'status' }),
+        })
+        const body: StatusResponse = await res.json()
+        if (!cancelled && res.ok) setRunning(body.running)
+      } catch {
+        // transient network hiccup - next tick tries again
+      }
+    }
+
     poll()
-    const interval = setInterval(poll, POLL_INTERVAL_MS)
+    pollStatus()
+    const interval = setInterval(() => {
+      poll()
+      pollStatus()
+    }, POLL_INTERVAL_MS)
     return () => {
       cancelled = true
       clearInterval(interval)
@@ -74,10 +101,33 @@ export default function LogsPage() {
     stickToBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 40
   }
 
+  async function handleToggleRunning() {
+    if (running === null) return
+    setActionPending(true)
+    setActionError(null)
+    try {
+      const res = await fetch('/api/worker-control', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ worker, action: running ? 'stop' : 'start' }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setActionError(body.error ?? 'Action failed')
+        return
+      }
+      setRunning((body as StatusResponse).running)
+    } catch {
+      setActionError('Could not reach the refresh service')
+    } finally {
+      setActionPending(false)
+    }
+  }
+
   return (
     <div>
       <h1>Worker logs</h1>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
         {WORKERS.map((w) => (
           <button
             key={w}
@@ -95,6 +145,29 @@ export default function LogsPage() {
             {w}
           </button>
         ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <span className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>
+          {running === null ? 'checking status…' : running ? 'running' : 'stopped'}
+        </span>
+        <button
+          onClick={handleToggleRunning}
+          disabled={running === null || actionPending}
+          style={{
+            background: 'transparent',
+            color: running ? 'var(--color-signal)' : 'var(--color-text)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 8,
+            padding: '4px 10px',
+            fontSize: '0.85em',
+            cursor: running === null || actionPending ? 'default' : 'pointer',
+          }}
+        >
+          {actionPending ? 'Working…' : running ? 'Stop' : 'Start'}
+        </button>
+        {actionError && (
+          <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{actionError}</span>
+        )}
       </div>
       <pre
         ref={paneRef}

@@ -3,7 +3,7 @@ import { runCollection } from '../../run'
 import { createLogger } from '../../platform/logger'
 import { autoApprove } from '../../platform/review'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile, realDelay, isTestRun } from '../../platform/utils'
+import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
 import { createR2ImageStore } from '../../platform/images'
 import { checkTunnelAlive } from '../../domains/marketplace'
 
@@ -54,6 +54,7 @@ async function main() {
   }
 
   const logger = createLogger('data/collector.log')
+  writePidFile('data/collector.pid')
 
   const socksProxy = process.env.SOCKS_PROXY
   if (socksProxy) {

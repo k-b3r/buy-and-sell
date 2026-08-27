@@ -5,7 +5,7 @@ import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
 import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace/storage/listings'
@@ -86,6 +86,7 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price review requires Postgres')
 
   const logger = createLogger('data/enrich-listing-prices.log')
+  writePidFile('data/enrich-listing-prices.pid')
   const groq = createGroqClient(apiKey, MODEL)
   const pool = createDbPool(dbUrl)
 

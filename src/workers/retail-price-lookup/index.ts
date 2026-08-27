@@ -6,7 +6,7 @@ import { createExaClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { NewPriceCandidate } from '../../domains/marketplace'
 import {
   buildNewPriceQuery,
@@ -123,6 +123,7 @@ async function main() {
   }
 
   const logger = createLogger('data/retail-price-lookup.log')
+  writePidFile('data/retail-price-lookup.pid')
   const exa = createExaClient(apiKey)
   const pool = createDbPool(dbUrl)
 

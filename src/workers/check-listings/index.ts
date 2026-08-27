@@ -5,7 +5,7 @@ import type { PageDriver } from '../../domains/marketplace'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile, realDelay, isTestRun } from '../../platform/utils'
+import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
 import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
 import {
   getCheckListingsCandidates,
@@ -138,6 +138,7 @@ async function main() {
   }
 
   const logger = createLogger('data/check-listings.log')
+  writePidFile('data/check-listings.pid')
   const pool = createDbPool(dbUrl)
   const imageStore = createR2ImageStore({
     accountId: R2_ACCOUNT_ID,

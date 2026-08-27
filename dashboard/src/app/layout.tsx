@@ -42,9 +42,14 @@ export default function RootLayout({
       </head>
       <body>
         <header className="site-header">
-          <Link href="/" className="wordmark">
-            Ledger
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Link href="/" className="wordmark">
+              Ledger
+            </Link>
+            <Link href="/admin/logs" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+              Workers
+            </Link>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <nav>
               <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>

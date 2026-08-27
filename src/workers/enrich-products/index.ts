@@ -6,7 +6,7 @@ import { createGroqClient, createFallbackGroqClient } from '../../domains/llm-cl
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { EnrichmentCandidate } from '../../domains/marketplace'
 import {
@@ -181,6 +181,7 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
   const logger = createLogger('data/enrich-products.log')
+  writePidFile('data/enrich-products.pid')
   const clients = [createGroqClient(apiKey, MODEL), createGroqClient(apiKey, 'openai/gpt-oss-20b')]
   const altApiKey = process.env.ALT_FREE_GROQ_API_KEY
   if (altApiKey) {

@@ -6,7 +6,7 @@ import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } fr
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun } from '../../platform/utils'
+import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../../domains/marketplace'
 import type { PriceLookupCandidate } from '../../domains/marketplace'
 import { getPriceLookupCandidates, insertPriceCheck } from '../../domains/marketplace/storage/pricing'
@@ -119,6 +119,7 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price lookup requires Postgres')
 
   const logger = createLogger('data/secondhand-price-lookup.log')
+  writePidFile('data/secondhand-price-lookup.pid')
 
   const altApiKey = process.env.ALT_FREE_GEMINI_API_KEY
   const gemini = altApiKey
