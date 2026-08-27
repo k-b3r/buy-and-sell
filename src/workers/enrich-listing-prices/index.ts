@@ -8,7 +8,7 @@ import { createDbPool } from '../../platform/storage'
 import { realDelay, loadEnvFile } from '../../platform/utils'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
-import { getPriceReviewCandidates, upsertListingPriceReview } from './storage'
+import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace/storage/listings'
 
 const BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'

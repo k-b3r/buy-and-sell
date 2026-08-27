@@ -217,7 +217,7 @@ export function isPlaceholderPrice(price: number): boolean {
   return ASCENDING_RUN_RE.test(digits)
 }
 
-// Same magnitude-outlier heuristic as src/db.ts's getPriceReviewCandidates
+// Same magnitude-outlier heuristic as domains/marketplace/storage/listings.ts's getPriceReviewCandidates
 // (>10x or <0.1x the raw median) - exactly the pre-filter that makes a
 // listing an enrich-listing-prices candidate, independent of whether that
 // worker has actually reviewed it yet. Used two ways: computeListingDiscount
