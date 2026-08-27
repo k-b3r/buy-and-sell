@@ -11,7 +11,7 @@ import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../enrichm
 import type { EnrichmentCandidate } from '../../enrichment'
 import { getEnrichmentCandidates, upsertProductEnrichment, applyEligibilityFromEnrichment } from './storage'
 import { PRODUCT_CATEGORIES } from '../../products'
-import { updateProductCategories } from '../backfill-categories/storage'
+import { updateProductCategories } from '../../utils/backfill-categories/storage'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before

@@ -74,17 +74,22 @@ Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orches
 ```
 src/
   logger.ts, review.ts                 # logging, auto-approve review fn
-  db.ts                                 # Postgres upsert — the sole persistence layer
+  storage/client.ts                    # DbClient/createDbPool — Postgres connection, sole entry point
   images.ts                            # downloads + re-hosts photo carousel to R2 (optional)
   wall.ts                              # detects soft login-walls vs hard blocks
   extract/grid.ts, extract/detail.ts   # parse listing data out of Facebook's embedded JSON
   paginate.ts                          # cursor/token extraction, pagination response parsing
   driver.ts, browser.ts                # browser abstraction (real Playwright implementation)
   run.ts                               # orchestration loop
-  workers/                             # every entrypoint script (1 file = 1 worker/process, run via `pnpm run <name>`)
-    cli.ts                             # collect entrypoint
-    extract-products.ts, enrich-products.ts, price-lookup.ts, new-price-lookup.ts,
-    enrich-listing-prices.ts, check-listings.ts, ...           # see package.json scripts for the full list
+  utils.ts                             # generic non-domain helpers (DelayFn, realDelay, loadEnvFile)
+  workers/                             # the 7 looping, continuously-running processes
+    cli/, check-listings/              # Group B: collection (independent pacing)
+    extract-products/, enrich-products/, price-lookup/, new-price-lookup/,
+    enrich-listing-prices/             # Group A: pricing pipeline (shared pacing)
+  utils/                               # one-off scripts, run by hand, not looped/deployed
+    backfill/, backfill-categories/, flag-negotiable-keywords/,
+    flag-price-ineligible/, merge-duplicate-products/, price-from-listings/
+  each worker/util dir: index.ts (entrypoint) + storage.ts (its DB queries)
 *.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
 docs/superpowers/plans/                # implementation plans this was built from
 ```
