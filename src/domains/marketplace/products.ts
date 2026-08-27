@@ -2,6 +2,50 @@ export function normalizeBaseModel(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+// Manually identified (2026-08-23) from a real scan of distinct base_model
+// text — same real product, split into separate rows purely by inconsistent
+// extraction text (abbreviation, spacing, "Galaxy" present or not). Every key
+// here is an exact base_model string to retire in favor of its value.
+export const CANONICAL_BASE_MODEL: Record<string, string> = {
+  Airfryer: 'Air Fryer',
+  Ebike: 'E-Bike',
+  'GTX 1660Ti': 'GTX 1660 Ti',
+  'Huawei MateBook D15': 'Huawei MateBook D 15',
+  'Infinix GT30': 'Infinix GT 30',
+  'JBL Party Box 320': 'JBL PartyBox 320',
+  'Nvision Monitor': 'N-Vision Monitor',
+  'RTX 3070ti': 'RTX 3070 Ti',
+  'Samsung A07': 'Samsung Galaxy A07',
+  'Samsung A16': 'Samsung Galaxy A16',
+  'Samsung A36': 'Samsung Galaxy A36',
+  'Samsung A54': 'Samsung Galaxy A54',
+  'Samsung A55': 'Samsung Galaxy A55',
+  'Samsung A57': 'Samsung Galaxy A57',
+  'Samsung S21': 'Samsung Galaxy S21',
+  'Samsung S22': 'Samsung Galaxy S22',
+  'Samsung S23': 'Samsung Galaxy S23',
+  'Samsung S24': 'Samsung Galaxy S24',
+  'Samsung S25': 'Samsung Galaxy S25',
+  'Samsung Galaxy S25 Series': 'Samsung Galaxy S25',
+  'Samsung S26': 'Samsung Galaxy S26',
+  'Samsung Galaxy Watch5': 'Samsung Galaxy Watch 5',
+  'Samsung Galaxy Watch6': 'Samsung Galaxy Watch 6',
+  'Samsung Z Flip 3': 'Samsung Galaxy Z Flip 3',
+  'Samsung Z Flip 4': 'Samsung Galaxy Z Flip 4',
+  'Samsung Z Flip 5': 'Samsung Galaxy Z Flip 5',
+  'Samsung Galaxy Z Flip5': 'Samsung Galaxy Z Flip 5',
+  'Samsung Galaxy Z Flip6': 'Samsung Galaxy Z Flip 6',
+  'Samsung Z Flip 6': 'Samsung Galaxy Z Flip 6',
+  'Samsung Z Flip6': 'Samsung Galaxy Z Flip 6',
+  'Samsung Z Flip 7': 'Samsung Galaxy Z Flip 7',
+  'Sony CH520': 'Sony CH-520',
+  'Sony Wireless Headphones': 'Sony Headphones',
+  'Sony WH1000XM5': 'Sony WH-1000XM5',
+  'Tecno Mega Pad': 'Tecno MegaPad',
+  PS4: 'PlayStation 4',
+  PS5: 'PlayStation 5',
+}
+
 // Light-touch only — catches trivial noise (case, whitespace, contraction
 // apostrophes like "Founder's" vs "Founders") without doing any real semantic
 // merging (e.g. "FE" vs "Founders Edition" still land as separate products).

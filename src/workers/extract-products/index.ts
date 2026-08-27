@@ -15,8 +15,8 @@ import {
   normalizeBaseModel,
   normalizeVariantTier,
   PRODUCT_CATEGORIES,
+  CANONICAL_BASE_MODEL,
 } from '../../domains/marketplace'
-import { CANONICAL_BASE_MODEL } from '../../utils/merge-duplicate-products'
 
 export interface ExtractionOptions {
   batchSize: number
