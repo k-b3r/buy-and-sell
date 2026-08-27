@@ -4,6 +4,8 @@ import {
   getProductDetail,
   getListingDetail,
   computeListingDiscount,
+  isMagnitudeOutlier,
+  isPriceInvalidated,
   isPlaceholderPrice,
   isListingPriceNegotiable,
   summarizeDiscounts,
@@ -106,6 +108,30 @@ test('isListingPriceNegotiable is true when discount_percent is exactly 0 - the 
 
 test('isListingPriceNegotiable is false for an ordinary price with a real nonzero discount value and no review row', () => {
   expect(isListingPriceNegotiable(17499, null, 15)).toBe(false)
+})
+
+test('isMagnitudeOutlier is true for a price >10x or <0.1x the raw median', () => {
+  expect(isMagnitudeOutlier(999999999, 15000)).toBe(true)
+  expect(isMagnitudeOutlier(10, 15000)).toBe(true)
+})
+
+test('isMagnitudeOutlier is false for a price within 10x of the raw median', () => {
+  expect(isMagnitudeOutlier(12000, 15000)).toBe(false)
+  expect(isMagnitudeOutlier(150000, 15000)).toBe(false) // exactly 10x, boundary inclusive
+})
+
+test('isMagnitudeOutlier is false when there is no valid raw median to compare against', () => {
+  expect(isMagnitudeOutlier(12000, null)).toBe(false)
+  expect(isMagnitudeOutlier(12000, 0)).toBe(false)
+})
+
+test('isPriceInvalidated is true for either a magnitude outlier or a placeholder pattern, even in-range', () => {
+  expect(isPriceInvalidated(999999999, 15000)).toBe(true) // magnitude outlier
+  expect(isPriceInvalidated(12345, 15000)).toBe(true) // placeholder pattern (ascending run), well within 10x range
+})
+
+test('isPriceInvalidated is false for an ordinary in-range, non-placeholder price', () => {
+  expect(isPriceInvalidated(12000, 15000)).toBe(false)
 })
 
 test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {
@@ -412,6 +438,83 @@ test('getListingDetail excludes placeholder-pattern prices from the sibling medi
   await getListingDetail(db, '123')
 })
 
+test('getListingDetail hides price_amount entirely when it is a magnitude outlier vs. the sibling median', async () => {
+  const db: QueryClient = {
+    query: async (sql: string) => {
+      if (sql.includes('WITH product_prices')) {
+        return { rows: [{ raw_median_price: '15000', sample_size: '5', clean_median_price: '15000' }] }
+      }
+      return {
+        rows: [
+          {
+            id: '123',
+            title: 'x',
+            price_amount: '999999999',
+            price_currency: 'PHP',
+            description: null,
+            condition: null,
+            location_city: null,
+            listed_at: null,
+            last_seen_at: null,
+            primary_photo_url: null,
+            stored_photo_urls: null,
+            product_id: 1,
+            base_model: null,
+            variant_tier: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getListingDetail(db, '123')
+
+  expect(result?.price_amount).toBeNull()
+  expect(result?.discount_percent).toBeNull()
+})
+
+test('getListingDetail keeps a normal in-range price_amount as-is', async () => {
+  const db: QueryClient = {
+    query: async (sql: string) => {
+      if (sql.includes('WITH product_prices')) {
+        return { rows: [{ raw_median_price: '15000', sample_size: '5', clean_median_price: '15000' }] }
+      }
+      return {
+        rows: [
+          {
+            id: '123',
+            title: 'x',
+            price_amount: '12000',
+            price_currency: 'PHP',
+            description: null,
+            condition: null,
+            location_city: null,
+            listed_at: null,
+            last_seen_at: null,
+            primary_photo_url: null,
+            stored_photo_urls: null,
+            product_id: 1,
+            base_model: null,
+            variant_tier: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getListingDetail(db, '123')
+
+  expect(result?.price_amount).toBe(12000)
+})
+
 test('getProductSummaries passes search as an ILIKE pattern and respects offset/limit options', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []
@@ -665,6 +768,18 @@ test('getProductDetail computes each listing\'s discount against the outlier-exc
     ['c', -20, 15000],
     ['d', null, null],
     ['e', null, null],
+  ])
+  // 'd' is a magnitude outlier (999999999 vs a 15000 median) and 'e' is a
+  // placeholder digit pattern (123456, an embedded ascending run) - both get
+  // their price hidden entirely, matching enrich-listing-prices.ts's full
+  // candidate criteria (magnitude outlier OR placeholder pattern), not just
+  // the magnitude check.
+  expect(result?.listings.map((l) => [l.id, l.price_amount])).toEqual([
+    ['a', 12000],
+    ['b', 15000],
+    ['c', 18000],
+    ['d', null],
+    ['e', null],
   ])
 })
 

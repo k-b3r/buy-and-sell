@@ -218,10 +218,28 @@ export function isPlaceholderPrice(price: number): boolean {
 }
 
 // Same magnitude-outlier heuristic as src/db.ts's getPriceReviewCandidates
-// (>10x or <0.1x the raw median) - a listing that far out is a placeholder
-// price ("for attention only", "for swap"), not a real ask, so it gets no
-// discount shown and is excluded from the reference price itself (a single
-// ₱999,999,999 placeholder would otherwise blow up a plain average).
+// (>10x or <0.1x the raw median) - exactly the pre-filter that makes a
+// listing an enrich-listing-prices candidate, independent of whether that
+// worker has actually reviewed it yet. Used two ways: computeListingDiscount
+// below excludes it from discount/reference-price analysis, and callers
+// (getProductDetail/getListingDetail) also null out the listing's own
+// price_amount entirely - a mathematically-outlier price isn't shown, not
+// just unscored, since a >10x-median number is almost always a placeholder/
+// scam/typo, not a real ask worth displaying at all.
+export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
+  if (rawMedianPrice === null || rawMedianPrice <= 0) return false
+  return price < rawMedianPrice / 10 || price > rawMedianPrice * 10
+}
+
+// Matches enrich-listing-prices.ts's full candidate criteria (src/db.ts's
+// getPriceReviewCandidates): magnitude outlier OR a placeholder digit
+// pattern, independent of magnitude (e.g. "123"/"999" can sit well within
+// 10x of a real median and still not be a real ask). Either condition means
+// the price gets hidden entirely, not just excluded from discount scoring.
+export function isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean {
+  return isMagnitudeOutlier(price, rawMedianPrice) || isPlaceholderPrice(price)
+}
+
 // rawMedianPrice decides whether THIS listing is an outlier; cleanMedianPrice
 // (computed with outliers already excluded) is the actual reference used for
 // the percentage, so the reference isn't itself skewed by the outliers it's
@@ -240,7 +258,7 @@ export function computeListingDiscount(
 
   if (price === null || n === null || n < 2) return NONE
   if (rawMedian === null || rawMedian <= 0 || cleanMedian === null || cleanMedian <= 0) return NONE
-  if (price < rawMedian / 10 || price > rawMedian * 10) return NONE
+  if (isMagnitudeOutlier(price, rawMedian)) return NONE
   if (isPlaceholderPrice(price)) return NONE
 
   return { discountPercent: Math.round(((cleanMedian - price) / cleanMedian) * 100), referencePrice: cleanMedian }
@@ -559,7 +577,8 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
 
   const listings = rawListings.map((l) => {
     const discount = computeListingDiscount(l.price_amount, rawMedian, cleanMedian, sampleSize)
-    return { ...l, discount_percent: discount.discountPercent, reference_price: discount.referencePrice }
+    const priceAmount = l.price_amount !== null && isPriceInvalidated(l.price_amount, rawMedian) ? null : l.price_amount
+    return { ...l, price_amount: priceAmount, discount_percent: discount.discountPercent, reference_price: discount.referencePrice }
   })
 
   const discountSummary = summarizeDiscounts(listings.map((l) => l.discount_percent))
@@ -659,10 +678,12 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const photoUrls = resolvePhotoUrls(row.stored_photo_urls, row.primary_photo_url)
 
   let discount = { discountPercent: null as number | null, referencePrice: null as number | null }
+  let rawMedian: number | null = null
   if (row.product_id !== null && row.product_id !== undefined) {
     const medianResult = await db.query(SIBLING_MEDIAN_SQL, [row.product_id])
     const medianRow = (medianResult.rows as Record<string, unknown>[])[0]
     if (medianRow) {
+      rawMedian = toNullableNumber(medianRow.raw_median_price)
       discount = computeListingDiscount(
         row.price_amount,
         medianRow.raw_median_price,
@@ -672,10 +693,12 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     }
   }
 
+  const priceAmount = toNullableNumber(row.price_amount)
+
   return {
     id: row.id as string,
     title: row.title as string,
-    price_amount: toNullableNumber(row.price_amount),
+    price_amount: priceAmount !== null && isPriceInvalidated(priceAmount, rawMedian) ? null : priceAmount,
     price_currency: row.price_currency as string | null,
     description: row.description as string | null,
     condition: row.condition as string | null,
