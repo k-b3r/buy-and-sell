@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
-import type { DbClient } from '../../storage/client'
-import { createDbPool } from '../../storage/client'
+import type { DbClient } from '../../storage'
+import { createDbPool } from '../../storage'
 import { loadEnvFile } from '../../utils'
 import { mergeDuplicateProduct } from './storage'
 import { normalizeBaseModel } from '../../products'

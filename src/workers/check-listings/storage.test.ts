@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import {
   getCheckListingsCandidates,
   getListingCheckCandidatesForProduct,

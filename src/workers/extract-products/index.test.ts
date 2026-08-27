@@ -3,7 +3,7 @@ import { runProductExtraction } from './index'
 import { createLogger } from '../../logger'
 import { normalizeVariantTier } from '../../products'
 import type { GeminiClient } from '../../gemini'
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import type { ExtractionCandidate } from './storage'
 
 const LOG_PATH = 'data/tmp-extract.log'

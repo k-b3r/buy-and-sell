@@ -74,7 +74,7 @@ Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orches
 ```
 src/
   logger.ts, review.ts                 # logging, auto-approve review fn
-  storage/client.ts                    # DbClient/createDbPool — Postgres connection, sole entry point
+  storage.ts                           # DbClient/createDbPool — Postgres connection, sole entry point
   images.ts                            # downloads + re-hosts photo carousel to R2 (optional)
   wall.ts                              # detects soft login-walls vs hard blocks
   extract/grid.ts, extract/detail.ts   # parse listing data out of Facebook's embedded JSON

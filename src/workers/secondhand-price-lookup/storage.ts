@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import type { PriceLookupCandidate, PriceRange } from '../../pricing'
 
 // A market range is more meaningful with more than one data point, and it

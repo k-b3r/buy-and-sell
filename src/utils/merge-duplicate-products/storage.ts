@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 
 // Merges loserId into survivorId — same real product, split into two rows by
 // inconsistent extraction text (e.g. "PS5" vs "PlayStation 5"). Reassigns real

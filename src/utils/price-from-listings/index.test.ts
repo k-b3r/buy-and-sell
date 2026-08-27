@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { computePriceRangeFromPrices, getListingPricesByProduct, runPriceFromListings } from './index'
 import { createLogger } from '../../logger'
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 
 const LOG_PATH = 'data/tmp-price-from-listings.log'
 

@@ -2,7 +2,7 @@ import { existsSync, rmSync } from 'node:fs'
 import { runCheckListings, checkOneListing } from './index'
 import { createLogger } from '../../logger'
 import type { PageDriver } from '../../driver'
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import type { ImageStore } from '../../images'
 
 const LOG_PATH = 'data/tmp-check-listings.log'

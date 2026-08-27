@@ -2,7 +2,7 @@ import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runNewPriceLookup } from './index'
 import { createLogger } from '../../logger'
 import type { ExaClient } from '../../exa'
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import type { NewPriceCandidate } from '../../new-price'
 
 const LOG_PATH = 'data/tmp-new-price.log'

@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import type { CategoryBackfillCandidate } from '../../products'
 
 // category_id IS NULL is both the filter and the resumability marker — no

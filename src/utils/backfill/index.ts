@@ -1,4 +1,4 @@
-import { createDbPool } from '../../storage/client'
+import { createDbPool } from '../../storage'
 import { loadEnvFile } from '../../utils'
 import { launchBrowser, createBrowserDriver } from '../../browser'
 import { createLogger } from '../../logger'

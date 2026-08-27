@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { createDbPool } from '../../storage/client'
+import { createDbPool } from '../../storage'
 import { loadEnvFile } from '../../utils'
 import { flagPriceLookupExcluded } from './storage'
 import { createLogger } from '../../logger'

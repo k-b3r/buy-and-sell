@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import { mergeDuplicateProduct } from './storage'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

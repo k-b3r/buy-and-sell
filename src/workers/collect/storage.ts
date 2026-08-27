@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage/client'
+import type { DbClient } from '../../storage'
 import { flagNegotiableFromKeywords } from '../enrich-listing-prices/storage'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
