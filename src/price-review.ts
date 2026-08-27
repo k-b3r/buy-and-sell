@@ -51,3 +51,10 @@ export const PRICE_REVIEW_RESPONSE_SCHEMA = {
   required: ['results'],
   additionalProperties: false,
 } as const
+
+export interface PriceReviewData {
+  isNegotiable: boolean
+  priceLow: number | null
+  priceHigh: number | null
+  reasoning: string
+}
