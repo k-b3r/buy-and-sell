@@ -73,25 +73,29 @@ Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orches
 
 ```
 src/
-  logger.ts, review.ts                 # logging, auto-approve review fn
-  storage.ts                           # DbClient/createDbPool — Postgres connection, sole entry point
-  images.ts                            # downloads + re-hosts photo carousel to R2 (optional)
-  wall.ts                              # detects soft login-walls vs hard blocks
-  extract/grid.ts, extract/detail.ts   # parse listing data out of Facebook's embedded JSON
-  paginate.ts                          # cursor/token extraction, pagination response parsing
-  driver.ts, browser.ts                # browser abstraction (real Playwright implementation)
-  run.ts                               # orchestration loop
-  utils.ts                             # generic non-domain helpers (DelayFn, realDelay, loadEnvFile)
-  workers/                             # the 7 looping, continuously-running processes
-    collect/, check-listings/          # Group B: collection (independent pacing)
+  run.ts                                # orchestration loop, above domain code (not part of a domain)
+  domains/
+    marketplace/                        # all scraping/pricing/product business logic + persistence
+      browser.ts, driver.ts, paginate.ts, wall.ts, tunnel.ts, extract/grid.ts, extract/detail.ts
+      pricing.ts, new-price.ts, price-review.ts, products.ts, enrichment.ts, negotiable-keywords.ts
+      storage/listings.ts, storage/products.ts, storage/pricing.ts   # every DB query, grouped by table area
+      index.ts                          # barrel — the only import path other code should use
+    llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (spans marketplace concerns)
+      index.ts                          # barrel
+  platform/                             # cross-cutting, not a domain
+    storage.ts                          # DbClient/createDbPool — Postgres connection, sole entry point
+    images.ts, logger.ts, review.ts, utils.ts
+  workers/                              # the 7 looping, continuously-running processes
+    collect/, check-listings/           # Group B: collection (independent pacing)
     extract-products/, enrich-products/, secondhand-price-lookup/, retail-price-lookup/,
-    enrich-listing-prices/             # Group A: pricing pipeline (shared pacing)
-  utils/                               # one-off scripts, run by hand, not looped/deployed
-    backfill/, backfill-categories/, flag-negotiable-keywords/,
-    flag-price-ineligible/, merge-duplicate-products/, price-from-listings/
-  each worker/util dir: index.ts (entrypoint) + storage.ts (its DB queries)
+    enrich-listing-prices/              # Group A: pricing pipeline (shared pacing)
+  utils/                                # one-off scripts, run by hand, not looped/deployed — no domain
+    backfill/, backfill-categories/     # logic of their own, everything domain-shaped lives in domains/
+    flag-negotiable-keywords/, flag-price-ineligible/
+    merge-duplicate-products/, price-from-listings/
+  each worker/util dir: index.ts only (entrypoint — calls into domains/marketplace for everything else)
 *.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
-docs/superpowers/plans/                # implementation plans this was built from
+docs/superpowers/plans/                 # implementation plans this was built from
 ```
 
 ## Safety notes
