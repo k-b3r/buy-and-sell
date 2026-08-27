@@ -5,7 +5,7 @@ import type { PageDriver } from '../../domains/marketplace'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile, isTestRun } from '../../platform/utils'
+import { loadEnvFile, realDelay, isTestRun } from '../../platform/utils'
 import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
 import {
   getCheckListingsCandidates,
@@ -92,6 +92,11 @@ export async function checkOneListing(
   return { status: 'alive' }
 }
 
+// Runs forever, not once - re-queries getCheckListingsCandidates every lap so
+// newly-collected listings (collect.ts adds more over time) get picked up
+// without a restart, same pattern as the other workers.
+const LOOP_DELAY_MS = 300000
+
 // Postgres-only, same as every other script now (see CONTEXT.md on removing
 // the local JSONL file that used to double as a second source of truth) —
 // safe to run at the same time as `collect`, ordinary row-level upserts/deletes.
@@ -146,18 +151,25 @@ async function main() {
   const { page, close } = await launchBrowser({ socksProxy })
   const driver = createBrowserDriver(page)
 
+  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
   try {
-    const candidates = await getCheckListingsCandidates(pool, limit)
-    if (isTestRun()) {
-      logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
-    } else {
-      await runCheckListings(driver, pool, imageStore, logger, candidates)
+    let lap = 1
+    for (;;) {
+      logger.info(`lap ${lap} starting`)
+      const candidates = await getCheckListingsCandidates(pool, limit)
+      if (isTestRun()) {
+        logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
+      } else {
+        await runCheckListings(driver, pool, imageStore, logger, candidates)
+      }
+      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      lap++
+      await realDelay(LOOP_DELAY_MS)
     }
   } finally {
     await close()
     await pool.end()
   }
-  logger.info('check-listings complete')
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
