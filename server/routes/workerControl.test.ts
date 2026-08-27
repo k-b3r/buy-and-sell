@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createWorkerControlHandler } from './workerControl'
@@ -131,5 +131,26 @@ test(
 
     expect(spawn).not.toHaveBeenCalled()
     expect(result).toEqual({ statusCode: 409, body: { error: 'collect is already running' } })
+  }),
+)
+
+test(
+  'start: clears the worker\'s existing log file',
+  withTmpDir(async (dir) => {
+    writeFileSync(path.join(dir, 'collector.log'), 'old run output\nmore old output\n')
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false }))
+    await handle({ worker: 'collect', action: 'start' })
+
+    expect(readFileSync(path.join(dir, 'collector.log'), 'utf8')).toBe('')
+  }),
+)
+
+test(
+  'start: no-op if there is no existing log file yet',
+  withTmpDir(async (dir) => {
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false }))
+    await handle({ worker: 'collect', action: 'start' })
+
+    expect(existsSync(path.join(dir, 'collector.log'))).toBe(false)
   }),
 )

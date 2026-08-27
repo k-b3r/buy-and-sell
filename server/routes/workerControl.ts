@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawn as spawnProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { RouteHandler, RouteResult } from '../app'
+import { WORKER_LOG_FILES } from './logs'
 
 // Same worker-key allowlist as logs.ts, extended with the pid-file name each
 // worker writes on startup (src/platform/utils.ts's writePidFile) - matches
@@ -102,6 +103,12 @@ export function createWorkerControlHandler(
     if (currentPid !== null) {
       return { statusCode: 409, body: { error: `${worker} is already running` } }
     }
+    // Fresh run, fresh log - a Start click means "show me this run", not the
+    // last one's output still sitting above it. Only this route's own start
+    // clears it; createLogger itself still just appends, so a hand-started
+    // `pnpm run <worker>` keeps its history like before.
+    const logFile = path.join(dataDir, WORKER_LOG_FILES[worker])
+    if (existsSync(logFile)) writeFileSync(logFile, '')
     // detached + unref + stdio ignore: this process outlives the request/the
     // server itself, same as a hand-started `pnpm run <worker>` would. No env
     // override - the worker's own loadEnvFile() picks up repoRoot's .env same
