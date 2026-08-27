@@ -8,6 +8,16 @@ export interface EnrichmentCandidate {
   category: string | null
 }
 
+export interface EnrichmentData {
+  description: string
+  valueDrivers: string
+  hasTrainedPriceKnowledge: boolean
+  trainedPriceLow: number | null
+  trainedPriceHigh: number | null
+  isSpecificProduct: boolean
+  confidence: 'high' | 'low'
+}
+
 function formatProductLine(p: EnrichmentCandidate): string {
   const label = p.variant_tier ? `${p.base_model} (${p.variant_tier})` : p.base_model
   const siblings =
@@ -35,6 +45,14 @@ recognize, provide:
   of your training data; null otherwise
 - category: exactly one of: ${PRODUCT_CATEGORIES.join(', ')}. Use "Other" if none
   genuinely fit rather than forcing a bad match.
+- is_specific_product: true only if this base model names one real, specific,
+  priceable product (a model/SKU/nameplate) - not a generic category noun like
+  "Furniture" or "Motherboard", and not a bare brand with no model like
+  "Lenovo Thinkpad" (real prices for that span too wide a range to mean
+  anything as one product), even if you recognize the words.
+- confidence: "high" if you're sure of your is_specific_product judgment,
+  "low" if this could plausibly be outside your training knowledge either way
+  (a genuinely new or obscure product) - don't force a confident guess.
 
 Do not search - answer only from what you already know. If you do not recognize a
 product at all (the name doesn't correspond to anything you actually know), omit it from the results array entirely - do not fabricate a description for a
@@ -61,6 +79,8 @@ export const ENRICHMENT_RESPONSE_SCHEMA = {
           trained_price_low: { type: ['number', 'null'] },
           trained_price_high: { type: ['number', 'null'] },
           category: { type: 'string', enum: PRODUCT_CATEGORIES },
+          is_specific_product: { type: 'boolean' },
+          confidence: { type: 'string', enum: ['high', 'low'] },
         },
         required: [
           'id',
@@ -70,6 +90,8 @@ export const ENRICHMENT_RESPONSE_SCHEMA = {
           'trained_price_low',
           'trained_price_high',
           'category',
+          'is_specific_product',
+          'confidence',
         ],
         additionalProperties: false,
       },

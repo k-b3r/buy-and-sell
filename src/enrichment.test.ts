@@ -44,7 +44,7 @@ test('buildEnrichmentPrompt includes the fixed category list', () => {
   expect(prompt).toContain(PRODUCT_CATEGORIES.join(', '))
 })
 
-test('ENRICHMENT_RESPONSE_SCHEMA requires a results array with all seven fields per item', () => {
+test('ENRICHMENT_RESPONSE_SCHEMA requires a results array with all nine fields per item', () => {
   expect(ENRICHMENT_RESPONSE_SCHEMA.type).toBe('object')
   expect(ENRICHMENT_RESPONSE_SCHEMA.required).toEqual(['results'])
   expect(ENRICHMENT_RESPONSE_SCHEMA.properties.results.items.required).toEqual([
@@ -55,6 +55,20 @@ test('ENRICHMENT_RESPONSE_SCHEMA requires a results array with all seven fields 
     'trained_price_low',
     'trained_price_high',
     'category',
+    'is_specific_product',
+    'confidence',
   ])
   expect(ENRICHMENT_RESPONSE_SCHEMA.properties.results.items.properties.category.enum).toEqual(PRODUCT_CATEGORIES)
+  expect(ENRICHMENT_RESPONSE_SCHEMA.properties.results.items.properties.confidence.enum).toEqual(['high', 'low'])
+})
+
+test('buildEnrichmentPrompt instructs the model on is_specific_product/confidence semantics', () => {
+  const products: EnrichmentCandidate[] = [
+    { id: 1, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [], category: null },
+  ]
+
+  const prompt = buildEnrichmentPrompt(products)
+
+  expect(prompt).toContain('is_specific_product')
+  expect(prompt).toContain('confidence')
 })
