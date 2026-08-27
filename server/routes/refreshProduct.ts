@@ -1,5 +1,5 @@
 import type { Logger } from '../../src/logger'
-import type { DbClient } from '../../src/storage/client'
+import type { DbClient } from '../../src/storage'
 import { getListingCheckCandidatesForProduct } from '../../src/workers/check-listings/storage'
 import type { ImageStore } from '../../src/images'
 import { checkOneListing } from '../../src/workers/check-listings'

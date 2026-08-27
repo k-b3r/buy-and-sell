@@ -5,7 +5,7 @@ import { createRefreshPacer } from '../refreshPacer'
 import { createJobStore } from '../jobState'
 import { createLogger } from '../../src/logger'
 import type { PageDriver } from '../../src/driver'
-import type { DbClient } from '../../src/storage/client'
+import type { DbClient } from '../../src/storage'
 import type { ImageStore } from '../../src/images'
 
 const LOG_PATH = 'data/tmp-refresh-product.log'
