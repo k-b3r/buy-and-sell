@@ -1,11 +1,11 @@
-import { launchBrowser, createBrowserDriver } from '../../browser'
+import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import { runCollection } from '../../run'
 import { createLogger } from '../../platform/logger'
 import { autoApprove } from '../../platform/review'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { createR2ImageStore } from '../../platform/images'
-import { checkTunnelAlive } from '../../tunnel'
+import { checkTunnelAlive } from '../../domains/marketplace'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent listings,
 // the actual "buy-and-sell opportunity" signal this project is after, more

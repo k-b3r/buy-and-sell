@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import type { EnrichmentCandidate } from '../../enrichment'
+import type { EnrichmentCandidate } from '../../domains/marketplace'
 
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {
   const result = (await db.query(

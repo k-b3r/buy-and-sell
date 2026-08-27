@@ -1,11 +1,11 @@
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import { launchBrowser, createBrowserDriver } from '../../browser'
+import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import { createLogger } from '../../platform/logger'
 import { upsertListing } from '../../workers/collect/storage'
 import { getBackfillCandidates, markListingPhotosUnavailable } from './storage'
 import { createR2ImageStore, storeListingPhotos } from '../../platform/images'
-import { extractDetailFields } from '../../extract/detail'
+import { extractDetailFields } from '../../domains/marketplace'
 import { resolvePageState } from '../../run'
 
 // One-off backfill for listings collected before the listing_photos extraction

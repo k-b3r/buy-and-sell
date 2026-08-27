@@ -8,7 +8,7 @@ import type { RefreshLock } from '../refreshLock'
 import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
-import { launchBrowser, createBrowserDriver } from '../../src/browser'
+import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace'
 import { checkTunnelBeforeLaunch, type TunnelCheckResult } from '../tunnelGuard'
 
 // Always routes through SOCKS_PROXY (the laptop-relayed tunnel) - see

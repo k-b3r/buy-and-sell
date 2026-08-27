@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
-import type { PriceReviewCandidate } from '../../price-review'
-import { matchesNegotiableKeyword } from '../../negotiable-keywords'
+import type { PriceReviewCandidate } from '../../domains/marketplace'
+import { matchesNegotiableKeyword } from '../../domains/marketplace'
 
 // Same digit-pattern heuristic as the dashboard's isPlaceholderPrice/
 // notPlaceholderPriceSql (dashboard/src/lib/queries.ts) - kept as a separate

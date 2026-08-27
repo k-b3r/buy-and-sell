@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import { normalizeBaseModel, normalizeVariantTier } from '../../products'
+import { normalizeBaseModel, normalizeVariantTier } from '../../domains/marketplace'
 
 // category is only ever set at creation, same as base_model/variant_tier —
 // dashboard browsing/filtering only, not re-classified on subsequent

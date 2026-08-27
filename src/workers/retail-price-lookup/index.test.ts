@@ -3,7 +3,7 @@ import { runNewPriceLookup } from './index'
 import { createLogger } from '../../platform/logger'
 import type { ExaClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { NewPriceCandidate } from '../../new-price'
+import type { NewPriceCandidate } from '../../domains/marketplace'
 
 const LOG_PATH = 'data/tmp-new-price.log'
 

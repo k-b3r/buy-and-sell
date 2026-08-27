@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { PageDriver } from '../../driver'
-import { launchBrowser, createBrowserDriver } from '../../browser'
+import type { PageDriver } from '../../domains/marketplace'
+import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
@@ -17,7 +17,7 @@ import {
 } from './storage'
 import type { ImageStore } from '../../platform/images'
 import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
-import { extractDetailFields } from '../../extract/detail'
+import { extractDetailFields } from '../../domains/marketplace'
 import { resolvePageState } from '../../run'
 
 export type CheckOneListingResult =

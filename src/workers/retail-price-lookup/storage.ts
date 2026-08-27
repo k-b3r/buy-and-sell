@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import type { NewPriceCandidate } from '../../new-price'
+import type { NewPriceCandidate } from '../../domains/marketplace'
 
 // New-retail price is a per-model fact, not tied to condition or how many
 // listings we've collected of it — unlike price-lookup's candidate query

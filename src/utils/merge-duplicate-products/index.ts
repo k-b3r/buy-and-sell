@@ -3,7 +3,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { mergeDuplicateProduct } from './storage'
-import { normalizeBaseModel } from '../../products'
+import { normalizeBaseModel } from '../../domains/marketplace'
 
 // Manually identified (2026-08-23) from a real scan of distinct base_model
 // text — same real product, split into separate rows purely by inconsistent

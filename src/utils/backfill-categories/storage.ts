@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import type { CategoryBackfillCandidate } from '../../products'
+import type { CategoryBackfillCandidate } from '../../domains/marketplace'
 
 // category_id IS NULL is both the filter and the resumability marker — no
 // separate results table needed (same pattern as enrich-products' candidate

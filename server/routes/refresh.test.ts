@@ -3,7 +3,7 @@ import { createRefreshHandler } from './refresh'
 import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createLogger } from '../../src/platform/logger'
-import type { PageDriver } from '../../src/driver'
+import type { PageDriver } from '../../src/domains/marketplace'
 import type { DbClient } from '../../src/platform/storage'
 import type { ImageStore } from '../../src/platform/images'
 

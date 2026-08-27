@@ -1,4 +1,4 @@
-import { checkTunnelAlive } from '../src/tunnel'
+import { checkTunnelAlive } from '../src/domains/marketplace'
 
 export type TunnelChecker = (proxyUrl: string) => Promise<boolean>
 

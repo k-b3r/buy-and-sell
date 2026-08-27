@@ -5,7 +5,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { insertPriceCheck } from '../../workers/secondhand-price-lookup/storage'
-import type { PriceRange } from '../../pricing'
+import type { PriceRange } from '../../domains/marketplace'
 import type { ListingPricesForProductCondition } from './storage'
 import { getListingPricesByProduct } from './storage'
 

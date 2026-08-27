@@ -6,8 +6,8 @@ import { createGroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../price-review'
-import type { PriceReviewCandidate } from '../../price-review'
+import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
+import type { PriceReviewCandidate } from '../../domains/marketplace'
 import { getPriceReviewCandidates, upsertListingPriceReview } from './storage'
 
 const BATCH_SIZE = 35

@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import type { PriceLookupCandidate, PriceRange } from '../../pricing'
+import type { PriceLookupCandidate, PriceRange } from '../../domains/marketplace'
 
 // A market range is more meaningful with more than one data point, and it
 // keeps the per-run request volume to a small, deliberately-scoped subset of

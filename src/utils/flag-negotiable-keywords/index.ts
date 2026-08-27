@@ -7,7 +7,7 @@ import { loadEnvFile } from '../../platform/utils'
 import type { NegotiableKeywordCandidate } from './storage'
 import { getNegotiableKeywordCandidates } from './storage'
 import { upsertKeywordNegotiable } from '../../workers/enrich-listing-prices/storage'
-import { matchesNegotiableKeyword } from '../../negotiable-keywords'
+import { matchesNegotiableKeyword } from '../../domains/marketplace'
 
 // One-off/rerunnable sweep over EXISTING listings for the negotiability
 // keyword scan that cli/storage.ts's upsertListing and check-listings/storage.ts's

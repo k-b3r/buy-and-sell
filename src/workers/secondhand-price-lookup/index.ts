@@ -7,8 +7,8 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../../pricing'
-import type { PriceLookupCandidate } from '../../pricing'
+import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../../domains/marketplace'
+import type { PriceLookupCandidate } from '../../domains/marketplace'
 import { getPriceLookupCandidates, insertPriceCheck } from './storage'
 
 export interface PriceLookupOptions {

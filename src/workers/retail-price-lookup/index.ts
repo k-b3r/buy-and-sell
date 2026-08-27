@@ -8,7 +8,7 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
 import { insertPriceCheck } from '../secondhand-price-lookup/storage'
-import type { NewPriceCandidate } from '../../new-price'
+import type { NewPriceCandidate } from '../../domains/marketplace'
 import {
   buildNewPriceQuery,
   buildNewPriceSystemPrompt,
@@ -17,7 +17,7 @@ import {
   extractNewPriceConfidence,
   extractNewPriceMetadata,
   isWideSpread,
-} from '../../new-price'
+} from '../../domains/marketplace'
 import { getNewPriceCandidates, flagProductPriceLookupExcluded } from './storage'
 
 // Runs forever, not once - re-queries getNewPriceCandidates every lap, same

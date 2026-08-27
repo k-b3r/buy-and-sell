@@ -8,8 +8,8 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
 import { getCategoryBackfillCandidates, updateProductCategories } from './storage'
-import { buildCategoryBackfillPrompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA, PRODUCT_CATEGORIES } from '../../products'
-import type { CategoryBackfillCandidate } from '../../products'
+import { buildCategoryBackfillPrompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA, PRODUCT_CATEGORIES } from '../../domains/marketplace'
+import type { CategoryBackfillCandidate } from '../../domains/marketplace'
 
 // Output per item here is just {id, category} — far smaller than
 // enrich-products.ts's multi-field payload, so this tolerates a much larger
