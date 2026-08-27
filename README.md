@@ -83,7 +83,7 @@ src/
   run.ts                               # orchestration loop
   utils.ts                             # generic non-domain helpers (DelayFn, realDelay, loadEnvFile)
   workers/                             # the 7 looping, continuously-running processes
-    cli/, check-listings/              # Group B: collection (independent pacing)
+    collect/, check-listings/          # Group B: collection (independent pacing)
     extract-products/, enrich-products/, price-lookup/, new-price-lookup/,
     enrich-listing-prices/             # Group A: pricing pipeline (shared pacing)
   utils/                               # one-off scripts, run by hand, not looped/deployed

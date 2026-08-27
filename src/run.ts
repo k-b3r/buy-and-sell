@@ -7,7 +7,7 @@ import { extractGridListings, looksLikeListing } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 import type { DbClient } from './storage/client'
-import { upsertListing, getCollectedListingIds } from './workers/cli/storage'
+import { upsertListing, getCollectedListingIds } from './workers/collect/storage'
 import type { ImageStore } from './images'
 import { storeListingPhotos } from './images'
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "collect": "tsx src/workers/cli/index.ts",
+    "collect": "tsx src/workers/collect/index.ts",
     "backfill-images": "tsx src/utils/backfill/index.ts",
     "extract-products": "tsx src/workers/extract-products/index.ts",
     "price-lookup": "tsx src/workers/price-lookup/index.ts",

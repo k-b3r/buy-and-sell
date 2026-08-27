@@ -1,5 +1,5 @@
 import type { DbClient } from '../../storage/client'
-import { parseListingFields } from '../cli/storage'
+import { parseListingFields } from '../collect/storage'
 import { flagNegotiableFromKeywords } from '../enrich-listing-prices/storage'
 
 export interface CheckListingsCandidate {
