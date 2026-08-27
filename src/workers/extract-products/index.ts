@@ -7,8 +7,8 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import type { ExtractionCandidate } from './storage'
-import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from './storage'
+import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
+import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
 import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
