@@ -1,5 +1,13 @@
 import type { PriceRange } from './pricing'
 
+export interface NewPriceCandidate {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  description: string | null
+  sibling_variants: string[]
+}
+
 export function buildNewPriceQuery(baseModel: string, variantTier: string | null): string {
   const productName = variantTier ? `${baseModel} (${variantTier})` : baseModel
   return `${productName} brand new retail price Philippines`
