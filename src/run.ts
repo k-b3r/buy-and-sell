@@ -1,15 +1,15 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
 import type { PageDriver } from './driver'
-import type { Logger } from './logger'
-import type { ReviewDecision } from './review'
+import type { Logger } from './platform/logger'
+import type { ReviewDecision } from './platform/review'
 import { detectPageState } from './wall'
 import { extractGridListings, looksLikeListing } from './extract/grid'
 import { extractDetailFields } from './extract/detail'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
-import type { DbClient } from './storage'
+import type { DbClient } from './platform/storage'
 import { upsertListing, getCollectedListingIds } from './workers/collect/storage'
-import type { ImageStore } from './images'
-import { storeListingPhotos } from './images'
+import type { ImageStore } from './platform/images'
+import { storeListingPhotos } from './platform/images'
 
 // Diagnostic-only, never allowed to take down the caller - confirmed live
 // 2026-08-24: refresh-server.ts runs with CWD=server/ (no data/ dir there,

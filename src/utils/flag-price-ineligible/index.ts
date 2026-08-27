@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
-import { createDbPool } from '../../storage'
-import { loadEnvFile } from '../../utils'
+import { createDbPool } from '../../platform/storage'
+import { loadEnvFile } from '../../platform/utils'
 import { flagPriceLookupExcluded } from './storage'
-import { createLogger } from '../../logger'
+import { createLogger } from '../../platform/logger'
 
 // NOT a continuously-running worker, deliberately - unlike the automatic
 // Groq-derived half of eligibility gating (applyEligibilityFromEnrichment,

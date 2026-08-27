@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import type { NewPriceCandidate } from '../../new-price'
 
 // New-retail price is a per-model fact, not tied to condition or how many

@@ -1,11 +1,11 @@
 import { fileURLToPath } from 'node:url'
-import type { Logger } from '../../logger'
-import { createLogger } from '../../logger'
+import type { Logger } from '../../platform/logger'
+import { createLogger } from '../../platform/logger'
 import type { PageDriver } from '../../driver'
 import { launchBrowser, createBrowserDriver } from '../../browser'
-import type { DbClient } from '../../storage'
-import { createDbPool } from '../../storage'
-import { loadEnvFile } from '../../utils'
+import type { DbClient } from '../../platform/storage'
+import { createDbPool } from '../../platform/storage'
+import { loadEnvFile } from '../../platform/utils'
 import type { CheckListingsCandidate } from './storage'
 import {
   getCheckListingsCandidates,
@@ -15,8 +15,8 @@ import {
   deleteListing,
   refreshListingFields,
 } from './storage'
-import type { ImageStore } from '../../images'
-import { createR2ImageStore, deleteListingPhotos } from '../../images'
+import type { ImageStore } from '../../platform/images'
+import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../extract/detail'
 import { resolvePageState } from '../../run'
 

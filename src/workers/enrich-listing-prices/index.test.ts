@@ -1,8 +1,8 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runPriceReview } from './index'
-import { createLogger } from '../../logger'
+import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../groq'
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate } from '../../price-review'
 
 const LOG_PATH = 'data/tmp-enrich-listing-prices.log'

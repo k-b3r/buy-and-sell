@@ -1,10 +1,10 @@
 import { launchBrowser, createBrowserDriver } from '../../browser'
 import { runCollection } from '../../run'
-import { createLogger } from '../../logger'
-import { autoApprove } from '../../review'
-import { createDbPool } from '../../storage'
-import { loadEnvFile } from '../../utils'
-import { createR2ImageStore } from '../../images'
+import { createLogger } from '../../platform/logger'
+import { autoApprove } from '../../platform/review'
+import { createDbPool } from '../../platform/storage'
+import { loadEnvFile } from '../../platform/utils'
+import { createR2ImageStore } from '../../platform/images'
 import { checkTunnelAlive } from '../../tunnel'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent listings,

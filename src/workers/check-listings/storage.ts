@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import { parseListingFields } from '../collect/storage'
 import { flagNegotiableFromKeywords } from '../enrich-listing-prices/storage'
 

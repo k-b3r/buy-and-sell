@@ -2,9 +2,9 @@ import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { GridListing } from './extract/grid'
-import type { DbClient } from './storage'
+import type { DbClient } from './platform/storage'
 import { runCollection, resolvePageState } from './run'
-import { createLogger } from './logger'
+import { createLogger } from './platform/logger'
 
 const LOG_PATH = 'data/tmp-run.log'
 

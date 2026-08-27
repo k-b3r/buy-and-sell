@@ -2,10 +2,10 @@ import { existsSync, rmSync } from 'node:fs'
 import { createRefreshHandler } from './refresh'
 import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
-import { createLogger } from '../../src/logger'
+import { createLogger } from '../../src/platform/logger'
 import type { PageDriver } from '../../src/driver'
-import type { DbClient } from '../../src/storage'
-import type { ImageStore } from '../../src/images'
+import type { DbClient } from '../../src/platform/storage'
+import type { ImageStore } from '../../src/platform/images'
 
 const LOG_PATH = 'data/tmp-refresh.log'
 

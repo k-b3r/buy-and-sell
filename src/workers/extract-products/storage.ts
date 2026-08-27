@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import { normalizeBaseModel, normalizeVariantTier } from '../../products'
 
 // category is only ever set at creation, same as base_model/variant_tier —

@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 
 export interface ListingPricesForProductCondition {
   id: number

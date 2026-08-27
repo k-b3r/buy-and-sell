@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { runFlagNegotiableKeywords } from './index'
-import { createLogger } from '../../logger'
-import type { DbClient } from '../../storage'
+import { createLogger } from '../../platform/logger'
+import type { DbClient } from '../../platform/storage'
 import type { NegotiableKeywordCandidate } from './storage'
 
 const LOG_PATH = 'data/tmp-flag-negotiable-keywords.log'

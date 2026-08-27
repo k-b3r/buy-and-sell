@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import { getEnrichmentCandidates, upsertProductEnrichment, applyEligibilityFromEnrichment } from './storage'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

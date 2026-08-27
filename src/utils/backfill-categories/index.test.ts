@@ -1,8 +1,8 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runCategoryBackfill } from './index'
-import { createLogger } from '../../logger'
+import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../groq'
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import type { CategoryBackfillCandidate } from '../../products'
 
 const LOG_PATH = 'data/tmp-backfill-categories.log'

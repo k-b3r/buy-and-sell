@@ -1,9 +1,9 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runProductExtraction } from './index'
-import { createLogger } from '../../logger'
+import { createLogger } from '../../platform/logger'
 import { normalizeVariantTier } from '../../products'
 import type { GeminiClient } from '../../gemini'
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import type { ExtractionCandidate } from './storage'
 
 const LOG_PATH = 'data/tmp-extract.log'

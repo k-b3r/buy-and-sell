@@ -3,10 +3,10 @@ import { createRefreshProductHandler } from './refreshProduct'
 import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createJobStore } from '../jobState'
-import { createLogger } from '../../src/logger'
+import { createLogger } from '../../src/platform/logger'
 import type { PageDriver } from '../../src/driver'
-import type { DbClient } from '../../src/storage'
-import type { ImageStore } from '../../src/images'
+import type { DbClient } from '../../src/platform/storage'
+import type { ImageStore } from '../../src/platform/images'
 
 const LOG_PATH = 'data/tmp-refresh-product.log'
 

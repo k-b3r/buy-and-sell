@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 
 // Manually curated categories (real estate, bare placeholders, parts with no
 // single fixed price, services) — see db/schema.sql. Idempotent: matches on

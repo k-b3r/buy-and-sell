@@ -1,4 +1,4 @@
-import type { DbClient } from '../../storage'
+import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate } from '../../price-review'
 import { matchesNegotiableKeyword } from '../../negotiable-keywords'
 
