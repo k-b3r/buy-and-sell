@@ -7,7 +7,7 @@ import type { DbClient } from '../../storage/client'
 import { createDbPool } from '../../storage/client'
 import type { DelayFn } from '../../utils'
 import { realDelay, loadEnvFile } from '../../utils'
-import { insertPriceCheck } from '../price-lookup/storage'
+import { insertPriceCheck } from '../secondhand-price-lookup/storage'
 import type { NewPriceCandidate } from '../../new-price'
 import {
   buildNewPriceQuery,
@@ -123,7 +123,7 @@ async function main() {
     limit = parsed
   }
 
-  const logger = createLogger('data/new-price-lookup.log')
+  const logger = createLogger('data/retail-price-lookup.log')
   const exa = createExaClient(apiKey)
   const pool = createDbPool(dbUrl)
 

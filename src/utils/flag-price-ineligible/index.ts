@@ -14,7 +14,7 @@ import { createLogger } from '../../logger'
 //
 // Manually curated (2026-08-23) from a real scan of distinct products.base_model
 // values — "new-retail price" is a meaningless concept for these, so both
-// new-price-lookup.ts (Exa, costs money) and price-lookup.ts (Gemini, burns
+// retail-price-lookup.ts (Exa, costs money) and secondhand-price-lookup.ts (Gemini, burns
 // quota) waste a call on them otherwise. Re-run whenever a new batch of
 // extraction turns up more junk categories — idempotent, matches on
 // base_model text.

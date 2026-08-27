@@ -77,7 +77,7 @@ export async function runProductEnrichment(
     // on the full backlog, and a truncated/malformed response can throw a JSON
     // parse error inside generateJson too — either way this must be a recorded,
     // clean stop, not an uncaught throw that silently truncates the log and kills
-    // the process (see src/price-lookup.ts's generateGroundedTextWithRetry for the
+    // the process (see src/workers/secondhand-price-lookup's generateGroundedTextWithRetry for the
     // same "don't let this class of error crash uncaught" precedent).
     let raw: { results?: unknown } | undefined
     let fatal = false

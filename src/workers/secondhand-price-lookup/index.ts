@@ -118,7 +118,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price lookup requires Postgres')
 
-  const logger = createLogger('data/price-lookup.log')
+  const logger = createLogger('data/secondhand-price-lookup.log')
 
   const altApiKey = process.env.ALT_FREE_GEMINI_API_KEY
   const gemini = altApiKey
