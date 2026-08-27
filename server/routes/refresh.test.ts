@@ -4,7 +4,7 @@ import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createLogger } from '../../src/logger'
 import type { PageDriver } from '../../src/driver'
-import type { DbClient } from '../../src/db'
+import type { DbClient } from '../../src/storage/client'
 import type { ImageStore } from '../../src/images'
 
 const LOG_PATH = 'data/tmp-refresh.log'

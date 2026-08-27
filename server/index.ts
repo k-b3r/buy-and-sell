@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/logger'
-import { createDbPool } from '../src/db'
+import { createDbPool } from '../src/storage/client'
 import { createR2ImageStore } from '../src/images'
 import { createApp } from './app'
 import { createRefreshHandler } from './routes/refresh'

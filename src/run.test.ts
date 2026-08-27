@@ -2,7 +2,7 @@ import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { GridListing } from './extract/grid'
-import type { DbClient } from './db'
+import type { DbClient } from './storage/client'
 import { runCollection, resolvePageState } from './run'
 import { createLogger } from './logger'
 

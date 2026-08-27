@@ -1,8 +1,8 @@
 import type { Logger } from '../../src/logger'
-import type { DbClient } from '../../src/db'
-import { getListingCheckCandidatesForProduct } from '../../src/db'
+import type { DbClient } from '../../src/storage/client'
+import { getListingCheckCandidatesForProduct } from '../../src/workers/check-listings/storage'
 import type { ImageStore } from '../../src/images'
-import { checkOneListing } from '../../src/check-listings'
+import { checkOneListing } from '../../src/workers/check-listings'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshLock } from '../refreshLock'
 import type { RefreshPacer } from '../refreshPacer'
@@ -18,7 +18,7 @@ const defaultDriverFactory: DriverFactory = async () => {
   return { driver: createBrowserDriver(page), close }
 }
 
-// Same human-paced gap as the CLI's batch loop (src/check-listings.ts's
+// Same human-paced gap as the CLI's batch loop (src/workers/check-listings.ts's
 // runCheckListings) - this hits live Facebook, so a dashboard-triggered bulk
 // job gets no less pacing than the scheduled one does.
 const MIN_PAUSE_MS = 4000

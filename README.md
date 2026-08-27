@@ -81,7 +81,10 @@ src/
   paginate.ts                          # cursor/token extraction, pagination response parsing
   driver.ts, browser.ts                # browser abstraction (real Playwright implementation)
   run.ts                               # orchestration loop
-  cli.ts                               # entrypoint
+  workers/                             # every entrypoint script (1 file = 1 worker/process, run via `pnpm run <name>`)
+    cli.ts                             # collect entrypoint
+    extract-products.ts, enrich-products.ts, price-lookup.ts, new-price-lookup.ts,
+    enrich-listing-prices.ts, check-listings.ts, ...           # see package.json scripts for the full list
 *.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
 docs/superpowers/plans/                # implementation plans this was built from
 ```
