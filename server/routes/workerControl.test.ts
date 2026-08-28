@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createWorkerControlHandler } from './workerControl'
@@ -146,11 +146,25 @@ test(
 )
 
 test(
-  'start: no-op if there is no existing log file yet',
+  'start: creates an empty log file if there was none before',
   withTmpDir(async (dir) => {
     const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false }))
     await handle({ worker: 'collect', action: 'start' })
 
-    expect(existsSync(path.join(dir, 'collector.log'))).toBe(false)
+    expect(readFileSync(path.join(dir, 'collector.log'), 'utf8')).toBe('')
+  }),
+)
+
+test(
+  'start: redirects stderr to the log file instead of discarding it (stdout stays ignored - createLogger already writes there too)',
+  withTmpDir(async (dir) => {
+    const spawn = vi.fn(() => ({ pid: 4242 }))
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false, spawn }))
+    await handle({ worker: 'collect', action: 'start' })
+
+    const options = spawn.mock.calls[0][2] as { stdio: unknown[] }
+    expect(options.stdio[0]).toBe('ignore')
+    expect(options.stdio[1]).toBe('ignore')
+    expect(typeof options.stdio[2]).toBe('number')
   }),
 )

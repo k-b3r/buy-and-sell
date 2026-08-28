@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawn as spawnProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,7 +27,7 @@ function scriptPathFor(worker: string): string {
 export interface WorkerControlDeps {
   isAlive: (pid: number) => boolean
   kill: (pid: number, signal: NodeJS.Signals) => void
-  spawn: (command: string, args: string[], options: { cwd: string; detached: boolean; stdio: 'ignore' }) => { pid?: number }
+  spawn: (command: string, args: string[], options: { cwd: string; detached: boolean; stdio: ['ignore', 'ignore', number] }) => { pid?: number }
 }
 
 const defaultDeps: WorkerControlDeps = {
@@ -109,11 +109,25 @@ export function createWorkerControlHandler(
     // `pnpm run <worker>` keeps its history like before.
     const logFile = path.join(dataDir, WORKER_LOG_FILES[worker])
     if (existsSync(logFile)) writeFileSync(logFile, '')
-    // detached + unref + stdio ignore: this process outlives the request/the
-    // server itself, same as a hand-started `pnpm run <worker>` would. No env
+    // stderr only, redirected into the worker's own log file instead of
+    // discarded - a worker crashing (uncaught exception, Playwright/Chromium
+    // dying) hits its top-level `main().catch(err => console.error(err))`
+    // guard, which used to go to stdio:'ignore' and vanish, leaving the log
+    // looking like it just stopped for no reason with nothing to debug
+    // (confirmed live). stdout stays 'ignore': createLogger's logger.info/warn
+    // already writes each line to BOTH stdout (console.log) and this same
+    // file (appendFileSync) - redirecting stdout here too would duplicate
+    // every normal line (confirmed live: each line appeared twice).
+    const logFd = openSync(logFile, 'a')
+    // detached + unref: this process outlives the request/the server
+    // itself, same as a hand-started `pnpm run <worker>` would. No env
     // override - the worker's own loadEnvFile() picks up repoRoot's .env same
     // as always, since cwd is set to repoRoot below.
-    const child = deps.spawn('npx', ['tsx', scriptPathFor(worker)], { cwd: repoRoot, detached: true, stdio: 'ignore' })
+    const child = deps.spawn('npx', ['tsx', scriptPathFor(worker)], { cwd: repoRoot, detached: true, stdio: ['ignore', 'ignore', logFd] })
+    // The child has its own duped copy of the fd once spawned - this
+    // process's own reference must be closed or it leaks for the server's
+    // entire (long) lifetime, one per worker start.
+    closeSync(logFd)
     if (typeof (child as { unref?: () => void }).unref === 'function') {
       ;(child as { unref: () => void }).unref()
     }
