@@ -40,7 +40,15 @@ async function main() {
   // still overrides it exactly as before.
   const queries = cycle || rest[0] === undefined ? MOTIVATED_SELLER_KEYWORDS : [rest[0]]
   const maxItemsArg = rest[cycle ? 0 : 1]
-  let maxItems: number | undefined
+  // run.ts's pagination loop treats an unset maxItems as "just the first
+  // page" (its target defaults to whatever the first batch happened to
+  // contain, not a real cap) - confirmed live 2026-08-28: every run.ts
+  // caller here (manual `pnpm run collect` with no args, and the
+  // dashboard's Start button, which spawns with zero args) hit exactly that
+  // and silently never paginated past page 1. DEFAULT_MAX_ITEMS gives every
+  // no-args run a real per-query target instead.
+  const DEFAULT_MAX_ITEMS = 100
+  let maxItems: number = DEFAULT_MAX_ITEMS
   if (maxItemsArg !== undefined) {
     const parsed = Number(maxItemsArg)
     if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
@@ -100,7 +108,7 @@ async function main() {
 
   if (cycle) {
     logger.info(
-      `--cycle: looping indefinitely through ${queries.length} motivated-seller keywords, maxItems=${maxItems ?? '(unset)'} each — Ctrl+C to stop`,
+      `--cycle: looping indefinitely through ${queries.length} motivated-seller keywords, maxItems=${maxItems} each — Ctrl+C to stop`,
     )
   }
 
