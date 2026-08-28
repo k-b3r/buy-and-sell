@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { ExaClient } from '../../domains/llm-clients'
-import { createExaClient } from '../../domains/llm-clients'
+import { createExaClient, createFallbackExaClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -124,7 +124,13 @@ async function main() {
 
   const logger = createLogger('data/retail-price-lookup.log')
   writePidFile('data/retail-price-lookup.pid')
-  const exa = createExaClient(apiKey)
+
+  const altApiKey = process.env.ALT_EXA_API_KEY
+  const exa = altApiKey ? createFallbackExaClient([createExaClient(apiKey), createExaClient(altApiKey)]) : createExaClient(apiKey)
+  if (altApiKey) {
+    logger.info('ALT_EXA_API_KEY configured, will fall back to it once the primary key runs out of credits')
+  }
+
   const pool = createDbPool(dbUrl)
 
   logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs, up to ${limit} products/lap — Ctrl+C to stop`)
