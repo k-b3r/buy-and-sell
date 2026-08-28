@@ -32,7 +32,13 @@ async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const cycle = args.includes('--cycle')
   const rest = args.filter((arg) => arg !== '--cycle')
-  const queries = cycle ? MOTIVATED_SELLER_KEYWORDS : [rest[0] ?? 'headphones']
+  // No explicit query and not --cycle (the dashboard's Start button, and a
+  // bare `pnpm run collect`) used to fall back to a single hardcoded
+  // "headphones" test query - now runs one pass through the full
+  // motivated-seller list instead, same list --cycle loops forever through.
+  // An explicit single query (e.g. `pnpm run collect -- "gaming chair"`)
+  // still overrides it exactly as before.
+  const queries = cycle || rest[0] === undefined ? MOTIVATED_SELLER_KEYWORDS : [rest[0]]
   const maxItemsArg = rest[cycle ? 0 : 1]
   let maxItems: number | undefined
   if (maxItemsArg !== undefined) {
