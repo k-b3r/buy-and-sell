@@ -15,6 +15,8 @@ const WORKERS = [
   'enrich-listing-prices',
 ] as const
 
+type Worker = (typeof WORKERS)[number]
+
 const POLL_INTERVAL_MS = 3000
 
 interface LogsResponse {
@@ -24,34 +26,39 @@ interface LogsResponse {
 
 interface StatusResponse {
   running: boolean
+  lastRunErrored: boolean
 }
 
 export default function LogsPage() {
-  const [worker, setWorker] = useState<(typeof WORKERS)[number]>('collect')
+  const [worker, setWorker] = useState<Worker>('collect')
   const [lines, setLines] = useState<string[]>([])
-  const [running, setRunning] = useState<boolean | null>(null)
+  const [statuses, setStatuses] = useState<Partial<Record<Worker, StatusResponse>>>({})
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const offsetRef = useRef<number | undefined>(undefined)
   const paneRef = useRef<HTMLPreElement>(null)
   const stickToBottomRef = useRef(true)
-  // Guards against the 3s status poll and a manual Start/Stop click racing
-  // each other - whichever fetch resolves LAST otherwise wins regardless of
-  // which was actually more recent, so a poll issued right before a click
-  // could overwrite that click's fresher result a moment later (confirmed
-  // live: button flips back to "Start" briefly, next click then 409s
-  // because the worker was never actually stopped). Bumping this on every
-  // status-affecting request and checking it on resolution makes only the
-  // most-recently-issued request's result ever apply.
-  const statusRequestIdRef = useRef(0)
+  // Guards against the 3s status poll (now a batch across all 7 workers) and
+  // a manual Start/Stop click racing each other - whichever fetch resolves
+  // LAST otherwise wins regardless of which was actually more recent, so a
+  // poll issued right before a click could overwrite that click's fresher
+  // result a moment later (confirmed live: button flips back to "Start"
+  // briefly, next click then 409s because the worker was never actually
+  // stopped). Bumping this on every status-affecting request and checking it
+  // on resolution makes only the most-recently-issued request's result ever
+  // apply - a stale batch poll gets discarded wholesale, not just the one
+  // worker an action touched.
+  const requestIdRef = useRef(0)
 
-  // Worker switch: clear the pane and start over from a fresh tail rather
-  // than waiting for the next poll tick.
+  const selectedStatus = statuses[worker]
+  const running = selectedStatus?.running ?? null
+
+  // Log tail for the selected worker only - clear the pane and start over
+  // from a fresh tail on switch rather than waiting for the next poll tick.
   useEffect(() => {
     let cancelled = false
     offsetRef.current = undefined
     setLines([])
-    setRunning(null)
     setActionError(null)
     stickToBottomRef.current = true
 
@@ -71,32 +78,53 @@ export default function LogsPage() {
       }
     }
 
-    async function pollStatus() {
-      const requestId = ++statusRequestIdRef.current
-      try {
-        const res = await fetch('/api/worker-control', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ worker, action: 'status' }),
-        })
-        const body: StatusResponse = await res.json()
-        if (!cancelled && res.ok && requestId === statusRequestIdRef.current) setRunning(body.running)
-      } catch {
-        // transient network hiccup - next tick tries again
-      }
-    }
-
     poll()
-    pollStatus()
-    const interval = setInterval(() => {
-      poll()
-      pollStatus()
-    }, POLL_INTERVAL_MS)
+    const interval = setInterval(poll, POLL_INTERVAL_MS)
     return () => {
       cancelled = true
       clearInterval(interval)
     }
   }, [worker])
+
+  // Status for ALL workers, not just the selected one - drives the spinner
+  // and error-red on every tab, not only the currently-viewed one.
+  useEffect(() => {
+    let cancelled = false
+
+    async function pollAllStatuses() {
+      const requestId = ++requestIdRef.current
+      try {
+        const results = await Promise.all(
+          WORKERS.map(async (w) => {
+            const res = await fetch('/api/worker-control', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ worker: w, action: 'status' }),
+            })
+            if (!res.ok) return null
+            return [w, (await res.json()) as StatusResponse] as const
+          }),
+        )
+        if (cancelled || requestId !== requestIdRef.current) return
+        setStatuses((prev) => {
+          const next = { ...prev }
+          for (const entry of results) {
+            if (entry) next[entry[0]] = entry[1]
+          }
+          return next
+        })
+      } catch {
+        // transient network hiccup - next tick tries again
+      }
+    }
+
+    pollAllStatuses()
+    const interval = setInterval(pollAllStatuses, POLL_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
 
   // Auto-scroll to bottom on new lines, unless the user has scrolled up to
   // read earlier output - don't yank them back down mid-read.
@@ -117,8 +145,8 @@ export default function LogsPage() {
     setActionError(null)
     // Bumped up front, before the request even goes out - invalidates any
     // status poll already in flight so its (now-stale) result can't land
-    // after this action's and overwrite it. See statusRequestIdRef's comment.
-    const requestId = ++statusRequestIdRef.current
+    // after this action's and overwrite it. See requestIdRef's comment.
+    const requestId = ++requestIdRef.current
     try {
       const res = await fetch('/api/worker-control', {
         method: 'POST',
@@ -130,7 +158,9 @@ export default function LogsPage() {
         setActionError(body.error ?? 'Action failed')
         return
       }
-      if (requestId === statusRequestIdRef.current) setRunning((body as StatusResponse).running)
+      if (requestId === requestIdRef.current) {
+        setStatuses((prev) => ({ ...prev, [worker]: body as StatusResponse }))
+      }
     } catch {
       setActionError('Could not reach the refresh service')
     } finally {
@@ -140,25 +170,37 @@ export default function LogsPage() {
 
   return (
     <div>
-      <h1>Worker logs</h1>
+      <h1>Workers</h1>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
-        {WORKERS.map((w) => (
-          <button
-            key={w}
-            onClick={() => setWorker(w)}
-            style={{
-              background: w === worker ? 'var(--color-accent)' : 'transparent',
-              color: w === worker ? 'var(--color-bg)' : 'var(--color-text)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 8,
-              padding: '4px 10px',
-              fontSize: '0.85em',
-              cursor: 'pointer',
-            }}
-          >
-            {w}
-          </button>
-        ))}
+        {WORKERS.map((w) => {
+          const status = statuses[w]
+          const isSelected = w === worker
+          // Red means "last run ended badly AND it's not running now" - once
+          // restarted, the spinner already shows it's active, so red would
+          // just read as stale/confusing layered on top of that.
+          const isError = (status?.lastRunErrored ?? false) && !status?.running
+          return (
+            <button
+              key={w}
+              onClick={() => setWorker(w)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: isSelected ? 'var(--color-accent)' : isError ? 'var(--color-danger-bg)' : 'transparent',
+                color: isSelected ? 'var(--color-bg)' : isError ? 'var(--color-danger)' : 'var(--color-text)',
+                border: `1px solid ${isError && !isSelected ? 'var(--color-danger)' : 'var(--color-border)'}`,
+                borderRadius: 8,
+                padding: '4px 10px',
+                fontSize: '0.85em',
+                cursor: 'pointer',
+              }}
+            >
+              {status?.running && <span className="spinner" aria-label="running" />}
+              {w}
+            </button>
+          )
+        })}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
         <span className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>
@@ -179,9 +221,7 @@ export default function LogsPage() {
         >
           {actionPending ? 'Working…' : running ? 'Stop' : 'Start'}
         </button>
-        {actionError && (
-          <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{actionError}</span>
-        )}
+        {actionError && <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{actionError}</span>}
       </div>
       <pre
         ref={paneRef}

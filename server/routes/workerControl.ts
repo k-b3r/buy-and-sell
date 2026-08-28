@@ -27,7 +27,11 @@ function scriptPathFor(worker: string): string {
 export interface WorkerControlDeps {
   isAlive: (pid: number) => boolean
   kill: (pid: number, signal: NodeJS.Signals) => void
-  spawn: (command: string, args: string[], options: { cwd: string; detached: boolean; stdio: ['ignore', 'ignore', number] }) => { pid?: number }
+  spawn: (
+    command: string,
+    args: string[],
+    options: { cwd: string; detached: boolean; stdio: ['ignore', 'ignore', number] },
+  ) => { pid?: number; on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => void }
 }
 
 const defaultDeps: WorkerControlDeps = {
@@ -67,6 +71,27 @@ export function createWorkerControlHandler(
   deps: WorkerControlDeps = defaultDeps,
   repoRoot: string = defaultRepoRoot,
 ): RouteHandler {
+  // In-memory only, per running server process - tracks whether each
+  // worker's most recently FINISHED run (spawned via this route) ended in a
+  // genuine code-level error, for the dashboard's red-on-error tab styling.
+  // Only ever set from the spawned child's own 'exit' event below, never
+  // cleared by a later Start action itself - a crash should stay visibly red
+  // until the NEXT run actually concludes, not the moment you retry it.
+  // Can't track a hand-started worker's crash this way (no child handle to
+  // listen on) - same inherent limitation as the pid-file-race fix, only
+  // covers runs started through this route.
+  const lastRunErrored = new Map<string, boolean>()
+  // Set by the 'stop' action right before signaling, checked first in the
+  // exit handler below - NOT relying on the exit event's own (code, signal)
+  // shape to recognize "this was an intentional stop". Confirmed live: our
+  // own SIGTERM goes to the pid-file PID (the true leaf worker once
+  // self-registered), but child.on('exit') below fires for the spawned NPX
+  // WRAPPER process instead (a different PID higher up the npx->sh->tsx-cli
+  // chain) - npm's wrapper often relays its child's signal-kill as its OWN
+  // plain non-zero exit *code* with signal=null, which the naive
+  // code/signal heuristic misread as a real crash on every ordinary Stop.
+  const stoppedIntentionally = new Set<string>()
+
   return async function handleWorkerControl(body: unknown): Promise<RouteResult> {
     const req = (body as Record<string, unknown> | null) ?? {}
     const worker = req.worker
@@ -82,7 +107,7 @@ export function createWorkerControlHandler(
     const currentPid = readAlivePid(pidFile, deps.isAlive)
 
     if (action === 'status') {
-      return { statusCode: 200, body: { running: currentPid !== null } }
+      return { statusCode: 200, body: { running: currentPid !== null, lastRunErrored: lastRunErrored.get(worker) ?? false } }
     }
 
     if (action === 'stop') {
@@ -95,8 +120,11 @@ export function createWorkerControlHandler(
       // actually exit (confirmed live, ~1-3s) rather than dying instantly -
       // the UI's status poll just needs to catch up, no code-level fix
       // needed for that.
-      if (currentPid !== null) deps.kill(currentPid, 'SIGTERM')
-      return { statusCode: 200, body: { running: false } }
+      if (currentPid !== null) {
+        stoppedIntentionally.add(worker)
+        deps.kill(currentPid, 'SIGTERM')
+      }
+      return { statusCode: 200, body: { running: false, lastRunErrored: lastRunErrored.get(worker) ?? false } }
     }
 
     // start
@@ -142,6 +170,23 @@ export function createWorkerControlHandler(
     if (typeof (child as { unref?: () => void }).unref === 'function') {
       ;(child as { unref: () => void }).unref()
     }
-    return { statusCode: 200, body: { running: true } }
+    // A stop for THIS worker requested before this new run's own exit fires
+    // is treated as intentional regardless of what (code, signal) shape the
+    // wrapper reports - see stoppedIntentionally's comment. Otherwise, a
+    // real exit code from the worker's own process.exit (its main().catch
+    // guard uses exit(1)) counts as an error; signal !== null with no prior
+    // stop request means something external killed it, also not a coded
+    // failure. Deliberately does NOT clear a prior true value just because a
+    // new run started - see lastRunErrored's own comment.
+    child.on('exit', (code, signal) => {
+      if (stoppedIntentionally.delete(worker)) {
+        lastRunErrored.set(worker, false)
+      } else if (signal === null && code !== 0) {
+        lastRunErrored.set(worker, true)
+      } else if (signal === null && code === 0) {
+        lastRunErrored.set(worker, false)
+      }
+    })
+    return { statusCode: 200, body: { running: true, lastRunErrored: lastRunErrored.get(worker) ?? false } }
   }
 }
