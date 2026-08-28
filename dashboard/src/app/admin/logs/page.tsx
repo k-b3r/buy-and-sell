@@ -35,6 +35,15 @@ export default function LogsPage() {
   const offsetRef = useRef<number | undefined>(undefined)
   const paneRef = useRef<HTMLPreElement>(null)
   const stickToBottomRef = useRef(true)
+  // Guards against the 3s status poll and a manual Start/Stop click racing
+  // each other - whichever fetch resolves LAST otherwise wins regardless of
+  // which was actually more recent, so a poll issued right before a click
+  // could overwrite that click's fresher result a moment later (confirmed
+  // live: button flips back to "Start" briefly, next click then 409s
+  // because the worker was never actually stopped). Bumping this on every
+  // status-affecting request and checking it on resolution makes only the
+  // most-recently-issued request's result ever apply.
+  const statusRequestIdRef = useRef(0)
 
   // Worker switch: clear the pane and start over from a fresh tail rather
   // than waiting for the next poll tick.
@@ -63,6 +72,7 @@ export default function LogsPage() {
     }
 
     async function pollStatus() {
+      const requestId = ++statusRequestIdRef.current
       try {
         const res = await fetch('/api/worker-control', {
           method: 'POST',
@@ -70,7 +80,7 @@ export default function LogsPage() {
           body: JSON.stringify({ worker, action: 'status' }),
         })
         const body: StatusResponse = await res.json()
-        if (!cancelled && res.ok) setRunning(body.running)
+        if (!cancelled && res.ok && requestId === statusRequestIdRef.current) setRunning(body.running)
       } catch {
         // transient network hiccup - next tick tries again
       }
@@ -105,6 +115,10 @@ export default function LogsPage() {
     if (running === null) return
     setActionPending(true)
     setActionError(null)
+    // Bumped up front, before the request even goes out - invalidates any
+    // status poll already in flight so its (now-stale) result can't land
+    // after this action's and overwrite it. See statusRequestIdRef's comment.
+    const requestId = ++statusRequestIdRef.current
     try {
       const res = await fetch('/api/worker-control', {
         method: 'POST',
@@ -116,7 +130,7 @@ export default function LogsPage() {
         setActionError(body.error ?? 'Action failed')
         return
       }
-      setRunning((body as StatusResponse).running)
+      if (requestId === statusRequestIdRef.current) setRunning((body as StatusResponse).running)
     } catch {
       setActionError('Could not reach the refresh service')
     } finally {
