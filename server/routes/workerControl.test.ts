@@ -156,6 +156,24 @@ test(
 )
 
 test(
+  'start: immediately writes the spawned pid, closing the race before the worker self-registers',
+  withTmpDir(async (dir) => {
+    const spawn = vi.fn(() => ({ pid: 4242 }))
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: (pid) => pid === 4242, spawn }))
+    await handle({ worker: 'collect', action: 'start' })
+
+    expect(readFileSync(path.join(dir, 'collector.pid'), 'utf8')).toBe('4242')
+
+    // A second start right after, before a real worker would have had any
+    // chance to self-register via its own writePidFile (confirmed live: this
+    // exact gap let a second click spawn a duplicate collect process).
+    const result = await handle({ worker: 'collect', action: 'start' })
+    expect(spawn).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({ statusCode: 409, body: { error: 'collect is already running' } })
+  }),
+)
+
+test(
   'start: redirects stderr to the log file instead of discarding it (stdout stays ignored - createLogger already writes there too)',
   withTmpDir(async (dir) => {
     const spawn = vi.fn(() => ({ pid: 4242 }))

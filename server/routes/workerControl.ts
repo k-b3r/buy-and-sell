@@ -128,6 +128,17 @@ export function createWorkerControlHandler(
     // process's own reference must be closed or it leaks for the server's
     // entire (long) lifetime, one per worker start.
     closeSync(logFd)
+    // Written immediately with the spawned (wrapper) pid, not left to the
+    // worker's own self-registration - that takes a real few seconds (tsx
+    // startup, imports, Playwright launch), and until it happens the pid
+    // file still shows the PREVIOUS run's stale/dead pid. A status poll or
+    // second Start click landing in that window would see "not running" and
+    // either flip the button back or spawn a duplicate process - confirmed
+    // live: a second click during exactly this gap ran two concurrent
+    // `collect` instances against the same DB. The worker's own writePidFile
+    // overwrites this moments later with its more precise leaf pid; until
+    // then this wrapper pid is a correct enough "something is running" fact.
+    if (child.pid !== undefined) writeFileSync(pidFile, String(child.pid))
     if (typeof (child as { unref?: () => void }).unref === 'function') {
       ;(child as { unref: () => void }).unref()
     }
