@@ -9,8 +9,20 @@ import { isInDiscountBand } from './discountBand'
 import { computeRepostIds } from './repostDetection'
 import { getActiveListingId } from '../../listings/[id]/cycle'
 import SaveButton from '../../SaveButton'
-
-type View = 'list' | 'cards'
+import {
+  DEFAULT_HIDE_SOLD,
+  DEFAULT_LISTED_WITHIN_DAYS,
+  DEFAULT_NEGOTIABLE_ONLY,
+  DEFAULT_SELECTED_BAND,
+  DEFAULT_SORT_KEY,
+  DEFAULT_VIEW,
+  LISTED_WITHIN_OPTIONS,
+  SORT_OPTIONS,
+  buildListingsQueryString,
+  type ListingsFilters,
+  type SortKey,
+  type View,
+} from './listingsFilters'
 
 function toggleButtonStyle(active: boolean): CSSProperties {
   return {
@@ -111,17 +123,6 @@ function formatListingPrice(l: ProductListingSummary): string {
   return l.price_amount !== null ? `₱${l.price_amount.toLocaleString()}` : '—'
 }
 
-type SortKey = 'discount_desc' | 'discount_asc' | 'price_asc' | 'price_desc' | 'listed_newest' | 'listed_oldest'
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'discount_desc', label: 'Discount: high to low' },
-  { value: 'discount_asc', label: 'Discount: low to high' },
-  { value: 'price_asc', label: 'Price: low to high' },
-  { value: 'price_desc', label: 'Price: high to low' },
-  { value: 'listed_newest', label: 'Listed: newest first' },
-  { value: 'listed_oldest', label: 'Listed: oldest first' },
-]
-
 // Nulls always sort last, regardless of direction - a listing with no
 // discount/date data shouldn't jump to the front just because "low to high"
 // treats null as 0.
@@ -149,13 +150,6 @@ function sortListings(listings: ProductListingSummary[], sortKey: SortKey): Prod
       return sorted.sort((a, b) => compareNullableNumbers(a.listed_at ? Date.parse(a.listed_at) : null, b.listed_at ? Date.parse(b.listed_at) : null, 1))
   }
 }
-
-const LISTED_WITHIN_OPTIONS = [
-  { value: 0, label: 'Any time' },
-  { value: 7, label: 'Last 7 days' },
-  { value: 30, label: 'Last 30 days' },
-  { value: 90, label: 'Last 90 days' },
-]
 
 function filterListings(
   listings: ProductListingSummary[],
@@ -200,31 +194,30 @@ function discountBandBadgeStyle(active: boolean): CSSProperties {
   }
 }
 
-// Filter defaults, not display-preference defaults (view/sort) - what
-// "Clear" resets. hideSold defaults to true (the app's normal starting
-// state, per direct instruction 2026-08-23), so Clear returns to that, not
-// to "show everything."
-const DEFAULT_LISTED_WITHIN_DAYS = 0
-const DEFAULT_HIDE_SOLD = true
-const DEFAULT_NEGOTIABLE_ONLY = false
-const DEFAULT_SELECTED_BAND = null
-
 export default function ListingsView({
   listings,
   discountBands,
   productId,
+  initialFilters,
 }: {
   listings: ProductListingSummary[]
   discountBands: DiscountBand[]
   productId: number
+  initialFilters?: ListingsFilters
 }) {
-  const [view, setView] = useState<View>('cards')
-  const [sortKey, setSortKey] = useState<SortKey>('discount_desc')
-  const [listedWithinDays, setListedWithinDays] = useState(DEFAULT_LISTED_WITHIN_DAYS)
-  const [hideSold, setHideSold] = useState(DEFAULT_HIDE_SOLD)
-  const [negotiableOnly, setNegotiableOnly] = useState(DEFAULT_NEGOTIABLE_ONLY)
-  const [selectedBand, setSelectedBand] = useState<number | null>(DEFAULT_SELECTED_BAND)
+  const [view, setView] = useState<View>(initialFilters?.view ?? DEFAULT_VIEW)
+  const [sortKey, setSortKey] = useState<SortKey>(initialFilters?.sortKey ?? DEFAULT_SORT_KEY)
+  const [listedWithinDays, setListedWithinDays] = useState(initialFilters?.listedWithinDays ?? DEFAULT_LISTED_WITHIN_DAYS)
+  const [hideSold, setHideSold] = useState(initialFilters?.hideSold ?? DEFAULT_HIDE_SOLD)
+  const [negotiableOnly, setNegotiableOnly] = useState(initialFilters?.negotiableOnly ?? DEFAULT_NEGOTIABLE_ONLY)
+  const [selectedBand, setSelectedBand] = useState<number | null>(initialFilters?.selectedBand ?? DEFAULT_SELECTED_BAND)
   const activeListingId = getActiveListingId(usePathname())
+
+  // Carried on every listing link as `?back=` so that link's "Back to
+  // {product}" button (ListingDetailContent) returns here with these same
+  // filters applied, instead of the product page resetting to its defaults.
+  const backQueryString = buildListingsQueryString({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand })
+  const listingHref = (listingId: string) => (backQueryString ? `/listings/${listingId}?back=${encodeURIComponent(backQueryString)}` : `/listings/${listingId}`)
 
   const filtersActive =
     listedWithinDays !== DEFAULT_LISTED_WITHIN_DAYS ||
@@ -360,7 +353,7 @@ export default function ListingsView({
                   ) : null}
                 </td>
                 <td>
-                  <Link href={`/listings/${l.id}`}>{l.title}</Link>
+                  <Link href={listingHref(l.id)}>{l.title}</Link>
                   {l.sold_at && <SoldBadge />}
                   <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
                     <SaveButton listingId={l.id} productId={productId} initialSaved={l.is_saved} variant="icon" />
@@ -382,7 +375,7 @@ export default function ListingsView({
           {visibleListings.map((l) => (
             <Link
               key={l.id}
-              href={`/listings/${l.id}`}
+              href={listingHref(l.id)}
               style={{
                 display: 'block',
                 background: 'var(--color-surface)',

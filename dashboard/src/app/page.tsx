@@ -1,13 +1,22 @@
 import { getPool } from '@/lib/db'
-import { getProductSummariesCached } from '@/lib/cachedQueries'
+import { getProductSummariesCached, getSubCategoryTreeCached } from '@/lib/cachedQueries'
 import ProductListClient from './ProductListClient'
 
 const PAGE_SIZE = 30
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string }> }) {
-  const { q, category } = await searchParams
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string | string[]; subCategory?: string | string[] }>
+}) {
+  const { q, category, subCategory } = await searchParams
   const search = q ?? ''
-  const products = await getProductSummariesCached(getPool(), { search, category, offset: 0, limit: PAGE_SIZE })
+  const categories = category === undefined ? [] : Array.isArray(category) ? category : [category]
+  const subCategories = subCategory === undefined ? [] : Array.isArray(subCategory) ? subCategory : [subCategory]
+  const [products, subCategoryTree] = await Promise.all([
+    getProductSummariesCached(getPool(), { search, categories, subCategories, offset: 0, limit: PAGE_SIZE }),
+    getSubCategoryTreeCached(getPool()),
+  ])
   const nextOffset = products.length === PAGE_SIZE ? PAGE_SIZE : null
 
   return (
@@ -17,7 +26,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         initialProducts={products}
         initialNextOffset={nextOffset}
         initialSearch={search}
-        initialCategory={category ?? ''}
+        initialCategories={categories}
+        initialSubCategories={subCategories}
+        subCategoryTree={subCategoryTree}
       />
     </div>
   )

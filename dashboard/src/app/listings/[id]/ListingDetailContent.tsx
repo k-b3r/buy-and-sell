@@ -30,16 +30,24 @@ function formatListingPrice(listing: ListingDetail): string {
 export default function ListingDetailContent({
   listing,
   showBackLink = true,
+  back,
 }: {
   listing: ListingDetail
   showBackLink?: boolean
+  // Raw querystring ListingsView's listing links carried (sort/hide-sold/
+  // discount-band/etc. - see parseListingsFilters), so "Back to {product}"
+  // returns to that exact filtered view instead of resetting to defaults.
+  back?: string
 }) {
   return (
     <div className="listing-detail-container">
       {showBackLink && (
         <p>
           {listing.product_id ? (
-            <BackLink href={`/products/${listing.product_id}`} label={`Back to ${listing.base_model}`} />
+            <BackLink
+              href={back ? `/products/${listing.product_id}?${back}` : `/products/${listing.product_id}`}
+              label={`Back to ${listing.base_model}`}
+            />
           ) : (
             <BackLink href="/" label="Back to products" />
           )}

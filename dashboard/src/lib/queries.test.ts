@@ -12,6 +12,8 @@ import {
   saveListing,
   unsaveListing,
   getSavedListings,
+  getSoldCountsByCategory,
+  getSubCategoryTree,
 } from './queries'
 import type { QueryClient } from './queries'
 
@@ -401,6 +403,20 @@ test('getProductSummaries excludes placeholder-pattern prices from the price ran
   expect(occurrences).toBe(4) // price_min, price_max, price_avg, and the discount lateral
 })
 
+test('getProductSummaries excludes sold listings from the listing aggregation join', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db)
+
+  expect(capturedSql).toContain('l.sold_at IS NULL')
+})
+
 test('getListingDetail excludes placeholder-pattern prices from the sibling median query', async () => {
   const db: QueryClient = {
     query: async (sql: string) => {
@@ -543,10 +559,24 @@ test('getProductSummaries filters by category when provided', async () => {
     },
   }
 
-  await getProductSummaries(db, { category: 'Audio' })
+  await getProductSummaries(db, { categories: ['Audio'] })
 
-  expect(capturedSql).toContain('c.name = $')
-  expect(capturedParams).toEqual([null, 'Audio', 30, 0])
+  expect(capturedSql).toContain('c.name = ANY($')
+  expect(capturedParams).toEqual([null, ['Audio'], 30, 0])
+})
+
+test('getProductSummaries filters by multiple categories when provided', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db, { categories: ['Audio', 'Gaming'] })
+
+  expect(capturedParams).toEqual([null, ['Audio', 'Gaming'], 30, 0])
 })
 
 test('getProductSummaries omits the category filter when not provided', async () => {
@@ -561,6 +591,101 @@ test('getProductSummaries omits the category filter when not provided', async ()
   await getProductSummaries(db)
 
   expect(capturedParams).toEqual([null, 30, 0])
+})
+
+test('getProductSummaries filters by sub-category when provided', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db, { subCategories: ['Speakers'] })
+
+  expect(capturedSql).toContain('sc.name = ANY($')
+  expect(capturedParams).toEqual([null, ['Speakers'], 30, 0])
+})
+
+test('getProductSummaries filters by multiple sub-categories when provided', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db, { subCategories: ['Speakers', 'Consoles'] })
+
+  expect(capturedParams).toEqual([null, ['Speakers', 'Consoles'], 30, 0])
+})
+
+test('getProductSummaries omits the sub-category filter when not provided', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db)
+
+  expect(capturedParams).toEqual([null, 30, 0])
+})
+
+test('getProductSummaries combines category and sub-category filters, category param first', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db, { categories: ['Audio'], subCategories: ['Speakers'] })
+
+  expect(capturedParams).toEqual([null, ['Audio'], ['Speakers'], 30, 0])
+})
+
+test('getProductSummaries maps sub_category onto the returned rows', async () => {
+  const db: QueryClient = {
+    query: async () => ({
+      rows: [
+        {
+          id: 1,
+          base_model: 'Sony WH-1000XM5',
+          variant_tier: null,
+          category: 'Audio',
+          sub_category: 'Headphones & Earphones',
+          listing_count: '3',
+          price_min: null,
+          price_max: null,
+          price_avg: null,
+          sample_photo_url: null,
+          new_price_low: null,
+          new_price_high: null,
+          used_price_low: null,
+          used_price_high: null,
+          used_price_source: null,
+          has_trained_price_knowledge: null,
+          trained_price_low: null,
+          trained_price_high: null,
+          best_discount_percent: null,
+          discounted_listing_count: '0',
+          discount_bands: null,
+        },
+      ],
+    }),
+  }
+
+  const result = await getProductSummaries(db)
+
+  expect(result[0].sub_category).toBe('Headphones & Earphones')
 })
 
 test('getProductSummaries treats an empty/whitespace search as no filter', async () => {
@@ -1438,4 +1563,99 @@ test('getSavedListings prefers stored_photo_urls over primary_photo_url', async 
   const result = await getSavedListings(db)
 
   expect(result[0].primary_photo_url).toBe('https://r2/0.jpg')
+})
+
+test('getSoldCountsByCategory queries only sold listings, zero-filling weeks in SQL', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getSoldCountsByCategory(db)
+
+  expect(capturedSql).toContain('sold_at IS NOT NULL')
+  expect(capturedSql).toContain('CROSS JOIN weeks')
+})
+
+test('getSoldCountsByCategory groups rows under their category, most-sold category first, carrying each week\'s avg price', async () => {
+  // Simulates rows already ordered by the SQL (highest total_sold first,
+  // weeks ascending within a category) - grouping is a consecutive-run
+  // collapse, not a re-sort.
+  const db = fakeDb([
+    { category: 'Audio', total_sold: '3', week_start: new Date('2026-08-10T00:00:00.000Z'), count: '2', avg_price: '7500' },
+    { category: 'Audio', total_sold: '3', week_start: new Date('2026-08-17T00:00:00.000Z'), count: '1', avg_price: '9000' },
+    { category: 'Gaming', total_sold: '1', week_start: new Date('2026-08-10T00:00:00.000Z'), count: '0', avg_price: null },
+    { category: 'Gaming', total_sold: '1', week_start: new Date('2026-08-17T00:00:00.000Z'), count: '1', avg_price: '15000' },
+  ])
+
+  const result = await getSoldCountsByCategory(db)
+
+  expect(result).toEqual([
+    {
+      category: 'Audio',
+      totalSold: 3,
+      weeklyCounts: [
+        { weekStart: '2026-08-10T00:00:00.000Z', count: 2, avgPrice: 7500 },
+        { weekStart: '2026-08-17T00:00:00.000Z', count: 1, avgPrice: 9000 },
+      ],
+    },
+    {
+      category: 'Gaming',
+      totalSold: 1,
+      weeklyCounts: [
+        { weekStart: '2026-08-10T00:00:00.000Z', count: 0, avgPrice: null },
+        { weekStart: '2026-08-17T00:00:00.000Z', count: 1, avgPrice: 15000 },
+      ],
+    },
+  ])
+})
+
+test('getSoldCountsByCategory excludes placeholder-pattern prices from the weekly average', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getSoldCountsByCategory(db)
+
+  expect(capturedSql).toContain("'^(\\d+)\\1+$'")
+})
+
+test('getSoldCountsByCategory returns an empty array when nothing is sold', async () => {
+  const db = fakeDb([])
+  const result = await getSoldCountsByCategory(db)
+  expect(result).toEqual([])
+})
+
+test('getSubCategoryTree joins leaves to their parent via categories.parent_id, scoped to the 14 categories, plus Other', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return {
+        rows: [
+          { sub_category: 'Speakers', parent_category: 'Audio' },
+          { sub_category: 'Other', parent_category: 'Other' },
+        ],
+      }
+    },
+  }
+
+  const result = await getSubCategoryTree(db)
+
+  expect(capturedSql).toContain('sub.parent_id')
+  expect(capturedSql).toContain('parent.name = ANY($1)')
+  expect(capturedParams).toEqual([expect.arrayContaining(['Audio', 'Other'])])
+  expect(result).toEqual([
+    { subCategory: 'Speakers', parentCategory: 'Audio' },
+    { subCategory: 'Other', parentCategory: 'Other' },
+  ])
 })

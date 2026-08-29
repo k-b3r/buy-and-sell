@@ -2,19 +2,39 @@ import { notFound } from 'next/navigation'
 import { getPool } from '@/lib/db'
 import { getProductDetailCached } from '@/lib/cachedQueries'
 import ListingsView from './ListingsView'
+import { parseListingsFilters } from './listingsFilters'
 import RefreshProductButton from './RefreshProductButton'
 import BackLink from '../../BackLink'
 
-export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProductDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | undefined>>
+}) {
   const { id } = await params
+  const sp = await searchParams
+  const from = sp.from
   const productId = Number(id)
   const product = await getProductDetailCached(getPool(), productId)
   if (!product) notFound()
 
+  // A listing link back here (see ListingsView's `back` param) carries the
+  // listing-view filters (sort/hide-sold/discount-band/etc.) it was clicked
+  // from - seed ListingsView with them instead of always starting over.
+  const initialFilters = parseListingsFilters(
+    new URLSearchParams(Object.entries(sp).filter((entry): entry is [string, string] => entry[1] !== undefined)),
+  )
+
   return (
     <div>
       <p>
-        <BackLink href="/" label="Back to products" />
+        {/* from carries the product list's filters (category/sub-category/
+            search) as a raw querystring - set by ProductListClient's card
+            links (see its `from` param comment) so this button returns to
+            the exact filtered view instead of resetting to "/". */}
+        <BackLink href={from ? `/?${from}` : '/'} label="Back to products" />
       </p>
       <h1>
         {product.base_model}
@@ -64,7 +84,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <RefreshProductButton productId={product.id} />
         </span>
       </h2>
-      <ListingsView listings={product.listings} discountBands={product.discount_bands} productId={product.id} />
+      <ListingsView
+        listings={product.listings}
+        discountBands={product.discount_bands}
+        productId={product.id}
+        initialFilters={initialFilters}
+      />
     </div>
   )
 }

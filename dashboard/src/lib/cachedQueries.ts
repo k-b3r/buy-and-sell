@@ -1,6 +1,14 @@
 import { unstable_cache } from 'next/cache'
-import { getProductSummaries, getProductDetail, getListingDetail, getSavedListings } from './queries'
-import type { QueryClient, ProductSummary, ProductDetail, ListingDetail, SavedListingSummary } from './queries'
+import { getProductSummaries, getProductDetail, getListingDetail, getSavedListings, getSoldCountsByCategory, getSubCategoryTree } from './queries'
+import type {
+  QueryClient,
+  ProductSummary,
+  ProductDetail,
+  ListingDetail,
+  SavedListingSummary,
+  CategoryWeeklySoldCounts,
+  SubCategoryTreeEntry,
+} from './queries'
 
 // Kept out of queries.ts on purpose: that module is imported directly by
 // vitest (queries.test.ts), and next/cache's unstable_cache touches Next's
@@ -13,12 +21,29 @@ const REVALIDATE_SECONDS = 300
 
 export function getProductSummariesCached(
   db: QueryClient,
-  options: { search?: string; category?: string; offset?: number; limit?: number } = {},
+  options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {},
 ): Promise<ProductSummary[]> {
-  const { search = '', category = '', offset = 0, limit } = options
-  return unstable_cache(() => getProductSummaries(db, options), ['product-summaries', search, category, String(offset), String(limit)], {
-    tags: ['products-list'],
-    revalidate: REVALIDATE_SECONDS,
+  const { search = '', categories = [], subCategories = [], offset = 0, limit } = options
+  // Sorted-join so selection order never fragments the cache (['a','b'] and
+  // ['b','a'] must hit the same entry).
+  const categoryKey = [...categories].sort().join(',')
+  const subCategoryKey = [...subCategories].sort().join(',')
+  return unstable_cache(
+    () => getProductSummaries(db, options),
+    ['product-summaries', search, categoryKey, subCategoryKey, String(offset), String(limit)],
+    {
+      tags: ['products-list'],
+      revalidate: REVALIDATE_SECONDS,
+    },
+  )()
+}
+
+// Sub-category tree is static (categories.parent_id seeding, not per-user
+// input) - no revalidate window needed, just a tag so it can be busted
+// alongside the rest of the categories table if that ever gets re-seeded.
+export function getSubCategoryTreeCached(db: QueryClient): Promise<SubCategoryTreeEntry[]> {
+  return unstable_cache(() => getSubCategoryTree(db), ['sub-category-tree'], {
+    tags: ['categories'],
   })()
 }
 
@@ -39,6 +64,13 @@ export function getListingDetailCached(db: QueryClient, listingId: string): Prom
 export function getSavedListingsCached(db: QueryClient): Promise<SavedListingSummary[]> {
   return unstable_cache(() => getSavedListings(db), ['saved-listings'], {
     tags: ['saved-listings'],
+    revalidate: REVALIDATE_SECONDS,
+  })()
+}
+
+export function getSoldCountsByCategoryCached(db: QueryClient): Promise<CategoryWeeklySoldCounts[]> {
+  return unstable_cache(() => getSoldCountsByCategory(db), ['sold-counts-by-category'], {
+    tags: ['sold-listings'],
     revalidate: REVALIDATE_SECONDS,
   })()
 }
