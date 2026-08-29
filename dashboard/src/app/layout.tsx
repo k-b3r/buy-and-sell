@@ -51,7 +51,10 @@ export default function RootLayout({
             </Link>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <nav>
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                Analytics
+              </Link>
               <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
                 My Saved Listings
               </Link>
