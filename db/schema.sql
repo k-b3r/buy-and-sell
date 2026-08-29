@@ -205,6 +205,85 @@ BEGIN
   END IF;
 END $$;
 
+-- Main-category grouping layer over the 14 categories above (dashboard
+-- request 2026-08-28: too many flat categories to browse/chart at once).
+-- Self-referencing rather than a separate main_categories table - these 14
+-- rows are already the whole "categories" concept, a main category is just
+-- one more row of the same shape with children pointing at it. Deliberately
+-- does NOT touch products.category_id or re-run any LLM classification:
+-- every existing product already has a valid sub-category, and main is a
+-- pure presentation-layer join over that - see queries.ts.
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES categories(id);
+
+INSERT INTO categories (name) VALUES
+  ('Phones & Computing'), ('Home Electronics & Gaming'), ('Home & Furniture'),
+  ('Fashion & Lifestyle')
+ON CONFLICT (name) DO NOTHING;
+-- Vehicles, Real Estate, and Other are each their own main category too
+-- (single-child group - see dashboard's CategorySoldChart design notes) but
+-- need no new row: a sub-category with no parent_id is its own main.
+
+UPDATE categories SET parent_id = (SELECT id FROM categories WHERE name = 'Phones & Computing')
+  WHERE name IN ('Phones & Tablets', 'Computers & Laptops', 'PC Components') AND parent_id IS NULL;
+UPDATE categories SET parent_id = (SELECT id FROM categories WHERE name = 'Home Electronics & Gaming')
+  WHERE name IN ('TVs & Monitors', 'Audio', 'Gaming', 'Cameras & Drones') AND parent_id IS NULL;
+UPDATE categories SET parent_id = (SELECT id FROM categories WHERE name = 'Home & Furniture')
+  WHERE name IN ('Appliances', 'Furniture & Home') AND parent_id IS NULL;
+UPDATE categories SET parent_id = (SELECT id FROM categories WHERE name = 'Fashion & Lifestyle')
+  WHERE name IN ('Fashion', 'Fitness & Outdoor') AND parent_id IS NULL;
+
+-- Third tree level: finer sub-categories under each of the 14 categories
+-- above (dashboard request 2026-08-28 - "can we properly categorize these
+-- products" led to the existing 14 being judged too coarse to browse by).
+-- products.sub_category_id is a NEW, separate column from category_id, not
+-- a repoint of it - category_id keeps meaning exactly what every existing
+-- dashboard query/filter/icon already assumes it means (one of the 14), so
+-- none of that breaks. sub_category_id is additive: NULL until the
+-- backfill-sub-categories worker (mirrors backfill-categories) sets it.
+-- 'Other' is deliberately NOT split further (it's the catch-all - see
+-- products.ts's SUB_CATEGORIES comment) and gets no new child row; it's
+-- reused as-is as one of the fixed leaf options every product can land on.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sub_category_id INTEGER REFERENCES categories(id);
+
+INSERT INTO categories (name, parent_id) VALUES
+  ('Smartphones', (SELECT id FROM categories WHERE name = 'Phones & Tablets')),
+  ('Tablets', (SELECT id FROM categories WHERE name = 'Phones & Tablets')),
+  ('Phone & Tablet Accessories', (SELECT id FROM categories WHERE name = 'Phones & Tablets')),
+  ('Laptops', (SELECT id FROM categories WHERE name = 'Computers & Laptops')),
+  ('Desktops', (SELECT id FROM categories WHERE name = 'Computers & Laptops')),
+  ('Graphics Cards', (SELECT id FROM categories WHERE name = 'PC Components')),
+  ('Processors & Motherboards', (SELECT id FROM categories WHERE name = 'PC Components')),
+  ('Storage & Memory', (SELECT id FROM categories WHERE name = 'PC Components')),
+  ('Power Supplies & Cases', (SELECT id FROM categories WHERE name = 'PC Components')),
+  ('TVs', (SELECT id FROM categories WHERE name = 'TVs & Monitors')),
+  ('Monitors', (SELECT id FROM categories WHERE name = 'TVs & Monitors')),
+  ('Headphones & Earphones', (SELECT id FROM categories WHERE name = 'Audio')),
+  ('Speakers', (SELECT id FROM categories WHERE name = 'Audio')),
+  ('Consoles', (SELECT id FROM categories WHERE name = 'Gaming')),
+  ('Games & Accessories', (SELECT id FROM categories WHERE name = 'Gaming')),
+  ('Cameras', (SELECT id FROM categories WHERE name = 'Cameras & Drones')),
+  ('Drones', (SELECT id FROM categories WHERE name = 'Cameras & Drones')),
+  ('Camera Accessories', (SELECT id FROM categories WHERE name = 'Cameras & Drones')),
+  ('Small Appliances', (SELECT id FROM categories WHERE name = 'Appliances')),
+  ('Large Appliances', (SELECT id FROM categories WHERE name = 'Appliances')),
+  ('Furniture', (SELECT id FROM categories WHERE name = 'Furniture & Home')),
+  ('Home Decor & Household Items', (SELECT id FROM categories WHERE name = 'Furniture & Home')),
+  ('Cars', (SELECT id FROM categories WHERE name = 'Vehicles')),
+  ('Motorcycles', (SELECT id FROM categories WHERE name = 'Vehicles')),
+  ('Bicycles', (SELECT id FROM categories WHERE name = 'Vehicles')),
+  ('Vehicle Parts & Accessories', (SELECT id FROM categories WHERE name = 'Vehicles')),
+  ('House & Lot', (SELECT id FROM categories WHERE name = 'Real Estate')),
+  ('Condo/Apartment', (SELECT id FROM categories WHERE name = 'Real Estate')),
+  ('Land', (SELECT id FROM categories WHERE name = 'Real Estate')),
+  ('Rentals', (SELECT id FROM categories WHERE name = 'Real Estate')),
+  ('Women''s Clothing', (SELECT id FROM categories WHERE name = 'Fashion')),
+  ('Men''s Clothing', (SELECT id FROM categories WHERE name = 'Fashion')),
+  ('Bags', (SELECT id FROM categories WHERE name = 'Fashion')),
+  ('Shoes', (SELECT id FROM categories WHERE name = 'Fashion')),
+  ('Exercise Equipment', (SELECT id FROM categories WHERE name = 'Fitness & Outdoor')),
+  ('Outdoor & Camping Gear', (SELECT id FROM categories WHERE name = 'Fitness & Outdoor'))
+ON CONFLICT (name) DO NOTHING;
+
 -- Some base_model values aren't real, priceable products (real estate, bare
 -- category placeholders like "GPU"/"Item", parts/accessories with no single
 -- fixed retail price, services). "New-retail price" is a meaningless concept
