@@ -1,38 +1,18 @@
 import type { DbClient } from '../../../platform/storage'
-import type { PriceLookupCandidate, PriceRange } from '../pricing'
-import type { NewPriceCandidate } from '../new-price'
-
-// A market range is more meaningful with more than one data point, and it
-// keeps the per-run request volume to a small, deliberately-scoped subset of
-// the full product list rather than every single-listing product too.
-export async function getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]> {
-  const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier
-     FROM products p
-     JOIN listings l ON l.product_id = p.id
-     WHERE NOT p.price_lookup_excluded
-       AND p.price_lookup_review_status IS DISTINCT FROM 'needs_review'
-     GROUP BY p.id, p.base_model, p.variant_tier
-     HAVING count(l.id) >= 2
-     ORDER BY count(l.id) DESC`,
-    [],
-  )) as { rows: PriceLookupCandidate[] }
-  return result.rows
-}
+import type { ClaudePriceCandidate, PriceRange } from '../claude-price'
 
 // Always an INSERT, never an upsert — each price check is a new point in the
 // product's price history, not a replacement of the last one. This is what
 // makes a price trend possible: query product_price_history ordered by
-// checked_at, don't just read a single "current price" column. Also used by
-// retail-price-lookup and price-from-listings, which write different
-// `source` values into the same shared table.
+// checked_at, don't just read a single "current price" column.
+// gemini_grounding/exa_new_retail are retired sources (kept here so any
+// historical rows still typecheck) — claude-price-lookup writes 'web_search'
+// for both new and used prices now (one row per condition per call).
 export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_retail' | 'web_search'
 
-// confidence is Exa-specific (its grounding data reports "high"/"low" per
-// field, see new-price.ts's extractNewPriceConfidence) — null for
-// gemini_grounding/listing_prices sources, which have no equivalent signal.
-// releaseYear/isDiscontinued are likewise Exa-only (extractNewPriceMetadata)
-// — free extra fields from the same already-paid-for search.
+// confidence/releaseYear/isDiscontinued were Exa-specific extras — always
+// null for the current web_search/listing_prices sources, which have no
+// equivalent signal.
 export async function insertPriceCheck(
   db: DbClient,
   productId: number,
@@ -51,18 +31,17 @@ export async function insertPriceCheck(
   )
 }
 
-// New-retail price is a per-model fact, not tied to condition or how many
-// listings we've collected of it — unlike getPriceLookupCandidates (which
-// only bothers with products that have >=2 listings), every product is a
-// candidate. Skips any product with a price row from ANY source (not just
-// exa_new_retail) — a product already priced by gemini_grounding or
-// listing_prices doesn't need an Exa call too (each Exa search costs real
-// money, unlike Groq/Gemini's free tiers). Resumable via NOT EXISTS, first-
-// pass fill, not a re-check-every-run trend. description/sibling_variants
-// (same LEFT JOIN / sibling-lookup shape as the enrichment candidate query)
-// give Exa's search disambiguating context — description may be null if this
-// product hasn't been through enrich-products yet.
-export async function getNewPriceCandidates(db: DbClient): Promise<NewPriceCandidate[]> {
+// Both retail and secondhand prices come from one paid Claude call per
+// product now, so every non-excluded product is a candidate regardless of
+// listing count. Skips any product with a price row from ANY source — a
+// product already priced (by a retired gemini_grounding/exa_new_retail row,
+// or a prior web_search row) doesn't need another paid call. Resumable via
+// NOT EXISTS, a first-pass fill rather than a re-check-every-run trend —
+// each web_search call costs real money, unlike Gemini's old free tier.
+// description/sibling_variants (same LEFT JOIN / sibling-lookup shape as the
+// enrichment candidate query) disambiguate the search — description may be
+// null if this product hasn't been through enrich-products yet.
+export async function getWebSearchPriceCandidates(db: DbClient): Promise<ClaudePriceCandidate[]> {
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier, e.description,
        COALESCE(
@@ -80,11 +59,11 @@ export async function getNewPriceCandidates(db: DbClient): Promise<NewPriceCandi
        )
      ORDER BY p.id`,
     [],
-  )) as { rows: NewPriceCandidate[] }
+  )) as { rows: ClaudePriceCandidate[] }
   return result.rows
 }
 
-// Per-product, not per-category — called when Exa itself searched and came up
+// Per-product, not per-category — called when the search itself came up
 // empty for this specific product, not for a transient request failure. One
 // real "no result" is a strong enough signal not to keep paying for the same
 // search again on every future run.

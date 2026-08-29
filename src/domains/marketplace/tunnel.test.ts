@@ -42,3 +42,30 @@ test('passes the parsed proxy host/port and destination through to connect', asy
     timeoutMs: 5000,
   })
 })
+
+test('passes username/password through to connect when the proxy URL has credentials', async () => {
+  let received: Parameters<SocksConnect>[0] | undefined
+  const connect: SocksConnect = async (opts) => {
+    received = opts
+    return { destroy: () => {} }
+  }
+
+  await checkTunnelAlive('socks5://myuser:mypass@p.webshare.io:1080', { connect })
+
+  expect(received).toEqual(
+    expect.objectContaining({ host: 'p.webshare.io', port: 1080, userId: 'myuser', password: 'mypass' }),
+  )
+})
+
+test('omits userId/password when the proxy URL has no credentials', async () => {
+  let received: Parameters<SocksConnect>[0] | undefined
+  const connect: SocksConnect = async (opts) => {
+    received = opts
+    return { destroy: () => {} }
+  }
+
+  await checkTunnelAlive('socks5://127.0.0.1:1080', { connect })
+
+  expect(received?.userId).toBeUndefined()
+  expect(received?.password).toBeUndefined()
+})

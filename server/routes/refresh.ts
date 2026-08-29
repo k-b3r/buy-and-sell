@@ -2,19 +2,20 @@ import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
 import { getListingCheckCandidate } from '../../src/domains/marketplace/storage/listings'
 import type { ImageStore } from '../../src/platform/images'
-import type { PageDriver } from '../../src/domains/marketplace'
+import type { PageDriver, ResolvedProxy } from '../../src/domains/marketplace'
 import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace'
 import { checkOneListing } from '../../src/workers/check-listings'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshPacer } from '../refreshPacer'
-import { checkTunnelBeforeLaunch, type TunnelCheckResult } from '../tunnelGuard'
+import { checkProxyBeforeLaunch, type TunnelCheckResult } from '../proxyGuard'
 
-export type DriverFactory = () => Promise<{ driver: PageDriver; close: () => Promise<void> }>
+export type DriverFactory = (proxy?: ResolvedProxy) => Promise<{ driver: PageDriver; close: () => Promise<void> }>
 
-// Always routes through SOCKS_PROXY (the laptop-relayed tunnel) - see
-// tunnelGuard.ts for why there's no direct-IP fallback.
-const defaultDriverFactory: DriverFactory = async () => {
-  const { page, close } = await launchBrowser({ socksProxy: process.env.SOCKS_PROXY })
+// Routes through whichever egress checkProxyBeforeLaunch resolved (Webshare
+// or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
+// direct-IP fallback.
+const defaultDriverFactory: DriverFactory = async (proxy) => {
+  const { page, close } = await launchBrowser({ proxy })
   return { driver: createBrowserDriver(page), close }
 }
 
@@ -28,7 +29,7 @@ export function createRefreshHandler(
   logger: Logger,
   pacer: RefreshPacer,
   driverFactory: DriverFactory = defaultDriverFactory,
-  tunnelCheck: () => Promise<TunnelCheckResult> = checkTunnelBeforeLaunch,
+  tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch,
 ): RouteHandler {
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
     const id = (body as Record<string, unknown> | null)?.id
@@ -45,7 +46,7 @@ export function createRefreshHandler(
 
     // Fail closed if the tunnel isn't up - checked before ever touching the
     // lock/queue, so a doomed request doesn't sit through the pacing wait
-    // first. See tunnelGuard.ts: no action is taken on the listing at all
+    // first. See proxyGuard.ts: no action is taken on the listing at all
     // when this fails, by design.
     const tunnel = await tunnelCheck()
     if (!tunnel.ok) {
@@ -65,7 +66,7 @@ export function createRefreshHandler(
     }
 
     try {
-      const { driver, close } = await driverFactory()
+      const { driver, close } = await driverFactory(tunnel.proxy)
       try {
         logger.info(`on-demand refresh: listing ${id}`)
         await driver.openListing({ id })

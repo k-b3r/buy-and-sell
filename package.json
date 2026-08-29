@@ -8,11 +8,10 @@
     "collect": "tsx src/workers/collect/index.ts",
     "backfill-images": "tsx src/utils/backfill/index.ts",
     "extract-products": "tsx src/workers/extract-products/index.ts",
-    "secondhand-price-lookup": "tsx src/workers/secondhand-price-lookup/index.ts",
+    "claude-price-lookup": "tsx src/workers/claude-price-lookup/index.ts",
     "price-from-listings": "tsx src/utils/price-from-listings/index.ts",
     "check-listings": "tsx src/workers/check-listings/index.ts",
     "enrich-products": "tsx src/workers/enrich-products/index.ts",
-    "retail-price-lookup": "tsx src/workers/retail-price-lookup/index.ts",
     "flag-price-ineligible": "tsx src/utils/flag-price-ineligible/index.ts",
     "enrich-listing-prices": "tsx src/workers/enrich-listing-prices/index.ts",
     "flag-negotiable-keywords": "tsx src/utils/flag-negotiable-keywords/index.ts",
@@ -20,7 +19,8 @@
     "backfill-sub-categories": "tsx src/utils/backfill-sub-categories/index.ts",
     "merge-duplicate-products": "tsx src/utils/merge-duplicate-products/index.ts",
     "detect-generic-products": "tsx src/utils/detect-generic-products/index.ts",
-    "deploy:server": "./scripts/deploy-server.sh"
+    "deploy:server": "./scripts/deploy-server.sh",
+    "tunnel": "./scripts/tunnel.sh"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
@@ -31,11 +31,15 @@
     "vitest": "^2.1.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@aws-sdk/client-s3": "^3.1113.0",
     "@google/genai": "^2.18.0",
     "groq-sdk": "^1.5.0",
     "pg": "^8.23.0",
     "sharp": "^0.35.3",
     "socks": "^2.8.9"
+  },
+  "overrides": {
+    "standardwebhooks": "1.0.0"
   }
 }

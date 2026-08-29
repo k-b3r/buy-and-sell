@@ -13,8 +13,7 @@ export const WORKER_PID_FILES: Record<string, string> = {
   'check-listings': 'check-listings.pid',
   'extract-products': 'extract-products.pid',
   'enrich-products': 'enrich-products.pid',
-  'secondhand-price-lookup': 'secondhand-price-lookup.pid',
-  'retail-price-lookup': 'retail-price-lookup.pid',
+  'claude-price-lookup': 'claude-price-lookup.pid',
   'enrich-listing-prices': 'enrich-listing-prices.pid',
 }
 

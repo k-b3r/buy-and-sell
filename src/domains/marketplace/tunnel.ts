@@ -5,11 +5,13 @@ export type SocksConnect = (opts: {
   port: number
   destination: { host: string; port: number }
   timeoutMs: number
+  userId?: string
+  password?: string
 }) => Promise<{ destroy: () => void }>
 
-export const defaultSocksConnect: SocksConnect = async ({ host, port, destination, timeoutMs }) => {
+export const defaultSocksConnect: SocksConnect = async ({ host, port, destination, timeoutMs, userId, password }) => {
   const { socket } = await SocksClient.createConnection({
-    proxy: { host, port, type: 5 },
+    proxy: { host, port, type: 5, userId, password },
     command: 'connect',
     destination,
     timeout: timeoutMs,
@@ -34,7 +36,14 @@ export async function checkTunnelAlive(
   const url = new URL(proxyUrl)
 
   try {
-    const socket = await connect({ host: url.hostname, port: Number(url.port), destination, timeoutMs })
+    const socket = await connect({
+      host: url.hostname,
+      port: Number(url.port),
+      destination,
+      timeoutMs,
+      userId: url.username || undefined,
+      password: url.password || undefined,
+    })
     socket.destroy()
     return true
   } catch {

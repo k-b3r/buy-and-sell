@@ -9,12 +9,13 @@ import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
 import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace'
-import { checkTunnelBeforeLaunch, type TunnelCheckResult } from '../tunnelGuard'
+import { checkProxyBeforeLaunch, type TunnelCheckResult } from '../proxyGuard'
 
-// Always routes through SOCKS_PROXY (the laptop-relayed tunnel) - see
-// tunnelGuard.ts for why there's no direct-IP fallback.
-const defaultDriverFactory: DriverFactory = async () => {
-  const { page, close } = await launchBrowser({ socksProxy: process.env.SOCKS_PROXY })
+// Routes through whichever egress checkProxyBeforeLaunch resolved (Webshare
+// or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
+// direct-IP fallback.
+const defaultDriverFactory: DriverFactory = async (proxy) => {
+  const { page, close } = await launchBrowser({ proxy })
   return { driver: createBrowserDriver(page), close }
 }
 
@@ -40,7 +41,7 @@ export function createRefreshProductHandler(
   jobs: JobStore,
   pacer: RefreshPacer,
   driverFactory: DriverFactory = defaultDriverFactory,
-  tunnelCheck: () => Promise<TunnelCheckResult> = checkTunnelBeforeLaunch,
+  tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch,
 ): RouteHandler {
   return async function handleRefreshProduct(body: unknown): Promise<RouteResult> {
     const productId = (body as Record<string, unknown> | null)?.productId
@@ -51,7 +52,7 @@ export function createRefreshProductHandler(
       return { statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } }
     }
 
-    // Fail closed before ever starting a job - see tunnelGuard.ts. No point
+    // Fail closed before ever starting a job - see proxyGuard.ts. No point
     // acquiring the lock or spending minutes navigating Facebook from a
     // walled IP.
     const tunnel = await tunnelCheck()
@@ -73,7 +74,7 @@ export function createRefreshProductHandler(
     // Detached on purpose - see the function doc comment above. Errors are
     // logged, not thrown, since nothing is awaiting this promise.
     void (async () => {
-      const { driver, close } = await driverFactory()
+      const { driver, close } = await driverFactory(tunnel.proxy)
       try {
         for (const candidate of candidates) {
           if (jobs.isCancelRequested()) {

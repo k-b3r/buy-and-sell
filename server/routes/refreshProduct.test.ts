@@ -65,7 +65,7 @@ function driverFactory(driver: PageDriver) {
 }
 
 // Every test below is exercising something other than the tunnel guard
-// itself (see tunnelGuard.test.ts) - a passing check by default keeps them
+// itself (see proxyGuard.test.ts) - a passing check by default keeps them
 // from depending on real SOCKS_PROXY env state.
 const okTunnel = async () => ({ ok: true as const })
 

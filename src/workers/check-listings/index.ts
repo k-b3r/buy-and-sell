@@ -6,6 +6,7 @@ import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
+import { resolveProxy } from '../../domains/marketplace'
 import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
 import {
   getCheckListingsCandidates,
@@ -148,8 +149,22 @@ async function main() {
     publicBaseUrl: R2_PUBLIC_BASE_URL,
   })
 
-  const socksProxy = process.env.SOCKS_PROXY
-  const { page, close } = await launchBrowser({ socksProxy })
+  // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
+  // local run already on a residential IP, no egress check needed. Either
+  // one configured means it must actually work - fail closed rather than
+  // silently launching direct.
+  let proxy: Awaited<ReturnType<typeof resolveProxy>>['proxy']
+  if (process.env.WEBSHARE_PROXY || process.env.SOCKS_PROXY) {
+    const resolution = await resolveProxy()
+    if (!resolution.ok) {
+      logger.error(resolution.error!)
+      process.exit(1)
+    }
+    proxy = resolution.proxy
+    logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
+  }
+
+  const { page, close } = await launchBrowser({ proxy })
   const driver = createBrowserDriver(page)
 
   logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)

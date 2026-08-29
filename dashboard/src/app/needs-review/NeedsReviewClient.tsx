@@ -83,10 +83,12 @@ function formatTrainedPrice(product: ProductNeedingReview): string | null {
 // resolutions of the needs_review state, there's nothing to revert *to*.
 function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onResolved: (id: number) => void }) {
   const [loading, setLoading] = useState<'reviewed' | 'excluded' | 'prices' | null>(null)
+  const [confirming, setConfirming] = useState<'reviewed' | 'excluded' | 'prices' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [prices, setPrices] = useState(() => initialPriceFields(product))
 
   async function resolve(action: 'mark-reviewed' | 'exclude', kind: 'reviewed' | 'excluded') {
+    setConfirming(null)
     setLoading(kind)
     setError(null)
     try {
@@ -124,6 +126,7 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
       return
     }
 
+    setConfirming(null)
     setLoading('prices')
     setError(null)
     try {
@@ -268,30 +271,66 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
               <PriceHistoryList entries={secondhandHistory} />
             </div>
           </div>
-          <button
-            onClick={savePrices}
-            disabled={loading !== null}
-            style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
-          >
-            {loading === 'prices' ? 'Saving...' : 'Save prices'}
-          </button>
+          {confirming === 'prices' ? (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85em' }}>
+              Save these prices?
+              <button onClick={savePrices} disabled={loading !== null} style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}>
+                {loading === 'prices' ? 'Saving...' : 'Yes'}
+              </button>
+              <button onClick={() => setConfirming(null)} disabled={loading !== null} style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}>
+                No
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirming('prices')}
+              disabled={loading !== null || confirming !== null}
+              style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
+            >
+              Save prices
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
-          <button
-            onClick={() => resolve('mark-reviewed', 'reviewed')}
-            disabled={loading !== null}
-            style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}
-          >
-            {loading === 'reviewed' ? 'Marking...' : 'Mark reviewed'}
-          </button>
-          <button
-            onClick={() => resolve('exclude', 'excluded')}
-            disabled={loading !== null}
-            style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
-          >
-            {loading === 'excluded' ? 'Excluding...' : 'Exclude from price lookup'}
-          </button>
+          {confirming === 'reviewed' ? (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85em' }}>
+              Mark reviewed?
+              <button onClick={() => resolve('mark-reviewed', 'reviewed')} disabled={loading !== null} style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}>
+                {loading === 'reviewed' ? 'Marking...' : 'Yes'}
+              </button>
+              <button onClick={() => setConfirming(null)} disabled={loading !== null} style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}>
+                No
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirming('reviewed')}
+              disabled={loading !== null || confirming !== null}
+              style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}
+            >
+              Mark reviewed
+            </button>
+          )}
+          {confirming === 'excluded' ? (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85em' }}>
+              Exclude from price lookup?
+              <button onClick={() => resolve('exclude', 'excluded')} disabled={loading !== null} style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}>
+                {loading === 'excluded' ? 'Excluding...' : 'Yes'}
+              </button>
+              <button onClick={() => setConfirming(null)} disabled={loading !== null} style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}>
+                No
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirming('excluded')}
+              disabled={loading !== null || confirming !== null}
+              style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
+            >
+              Exclude from price lookup
+            </button>
+          )}
           {error && <span style={{ color: 'var(--color-signal)', fontSize: '0.85em' }}>{error}</span>}
         </div>
       </div>

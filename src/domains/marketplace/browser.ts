@@ -17,12 +17,18 @@ export function shouldBlockResource(resourceType: string): boolean {
   return BLOCKED_RESOURCE_TYPES.has(resourceType)
 }
 
+export interface BrowserProxy {
+  server: string
+  username?: string
+  password?: string
+}
+
 export async function launchBrowser(
-  options: { headless?: boolean; socksProxy?: string } = {},
+  options: { headless?: boolean; proxy?: BrowserProxy } = {},
 ): Promise<{ close: () => Promise<void>; page: Page }> {
   const browser = await chromium.launch({
     headless: options.headless ?? true,
-    proxy: options.socksProxy ? { server: options.socksProxy } : undefined,
+    proxy: options.proxy,
     args: [
       '--disable-gpu',
       '--disable-extensions',

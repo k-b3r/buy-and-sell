@@ -6,3 +6,6 @@ export { createExaClient, createFallbackExaClient, isExaCreditsError } from './e
 
 export type { GroqClient } from './groq'
 export { createGroqClient, createFallbackGroqClient, isQuotaError as isGroqQuotaError } from './groq'
+
+export type { AnthropicClient } from './anthropic'
+export { createAnthropicClient, createFallbackAnthropicClient, isAnthropicRateLimitError } from './anthropic'

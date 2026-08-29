@@ -14,8 +14,8 @@ import { createLogger } from '../../platform/logger'
 //
 // Manually curated (2026-08-23) from a real scan of distinct products.base_model
 // values — "new-retail price" is a meaningless concept for these, so both
-// retail-price-lookup.ts (Exa, costs money) and secondhand-price-lookup.ts (Gemini, burns
-// quota) waste a call on them otherwise. Re-run whenever a new batch of
+// claude-price-lookup.ts would otherwise waste a paid web_search call on
+// them. Re-run whenever a new batch of
 // extraction turns up more junk categories — idempotent, matches on
 // base_model text.
 export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
@@ -112,6 +112,29 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Villa Olympia 6 House',
     'Vista Plumeria Condo',
     'Zadia Tower 3 Condo Unit',
+    // Found live 2026-08-29 via detect-generic-products (src/domains/
+    // marketplace/generic-products.ts), reviewed before curating - 4 of the
+    // detector's raw real_estate matches were dropped as false positives
+    // ("Adjustable Learning Tower"/"Cougar Panzer Full Tower Casing" matched
+    // on "tower", "KKV Area-X Patrick Star House Lego"/"Sylvanian Families
+    // Waterside Red Roof House" matched on "house" - all real toys/PC parts,
+    // not real estate), and 2 more ("Action Figure Lot"/"Action Figures
+    // Lot", "lot" meaning a bundle here) moved to too_generic below instead.
+    '2-Storey House',
+    'Beach Property',
+    'Bungalow Unit',
+    'Condo Unit Grand Residences España 2',
+    'Eagle Ridge Lot',
+    'Greenwoods Lot',
+    'Lawn Lot',
+    'Lourdes Residences',
+    'Palos Verdes Land Lot',
+    'Resort',
+    'Shore 2 Residences Unit',
+    'Southplains Lot',
+    'Studio Condo Unit',
+    'Victoria De Morato Condo Unit',
+    'Zuri Residences House & Lot',
   ],
   too_generic: [
     'Item',
@@ -386,6 +409,80 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Vans Shoes',
     'Zara Pants',
     'Zara Shorts',
+    // Found live 2026-08-29 via detect-generic-products, reviewed and
+    // applied (see the flag-price-ineligible.ts CLI script and generic-
+    // products.ts for the detector itself).
+    'ASICS Shoes',
+    'Air Fryer',
+    'American Home Microwave',
+    'American Home Washing Machine',
+    'American Standard Toilet Bowl',
+    'Asahi Ceiling Fan',
+    'Asahi Stand Fan',
+    'Astron Split Type Air Conditioner',
+    'Battery',
+    'Blouse',
+    'Bluetooth Speaker',
+    'Cabinet',
+    'Cap',
+    'Coach Tote Bag',
+    'Condura Air Conditioner',
+    'Condura Chest Freezer',
+    'Condura Washing Machine',
+    'Daikin Air Conditioner',
+    'Dehumidifier',
+    'Devant Speaker',
+    'Fujidenzo Chest Freezer',
+    'H&M Polo Shirt',
+    'Haier Refrigerator',
+    'Huawei Laptop',
+    'IKEA Chair',
+    'Ikea Backpack',
+    'Imarflex Induction Cooker',
+    'Jeans',
+    'Kate Spade Tote Bag',
+    'Kelvinator Refrigerator',
+    'Kolin Water Dispenser',
+    'LG Laptop',
+    'MacBook',
+    'MacBook Air',
+    'MacBook Pro',
+    'Micromatic Flat Iron',
+    'Nike Shoes',
+    'Onitsuka Tiger Shoes',
+    'Panasonic Aircon',
+    'Panasonic Refrigerator',
+    'Panasonic Washing Machine',
+    'Powerbank',
+    'Realme Earbuds',
+    'Realme Phone',
+    'Rice Cooker',
+    'Samsung Monitor',
+    'Sharp Refrigerator',
+    'Shirt',
+    'Sony Earbuds',
+    'TCL Mini Fridge',
+    'TCL Refrigerator',
+    'Top',
+    'Treadmill',
+    'Uniqlo Jacket',
+    'Vacuum Cleaner',
+    'Washing Machine',
+    'Water Dispenser',
+    'Water Heater',
+    'Whirlpool Refrigerator',
+    'Xiaomi Monitor',
+    'Zara Blazer',
+    'iPad',
+    'iPad Air',
+    'iPad Pro',
+    'iPad mini',
+    'iPhone',
+    // moved from the real_estate list above - "lot" here means a bundle of
+    // unrelated figures, not land (same shape as "Toy Lot" in an earlier
+    // pass).
+    'Action Figure Lot',
+    'Action Figures Lot',
   ],
   // Unlike too_generic (no recoverable path — genuinely not a real, single
   // product), these ARE real, priceable products — they just need a pricing
@@ -510,6 +607,52 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Wheel and Rim',
     'Wheels & Tires',
     "Women's Clothes Bundle",
+    // Found live 2026-08-29 via detect-generic-products, reviewed and
+    // applied. "Case"/"Tire"/"Wheel" hints deliberately aren't exact-match
+    // (unlike too_generic above) - a case/tire/wheel is treated as non-
+    // singularly-priceable regardless of how specific its brand/model name
+    // is, same convention as the original 'Phone Case'/'Car Wheels' entries
+    // above (e.g. "Ground Zero VM-Grid PC Case" is a real named product, but
+    // still excluded - a deliberate category-wide call, not a detector bug).
+    'Aircon Bundle',
+    'Appliance Bundle',
+    'Best Flash Tires',
+    'Black Mamba Rims with Tires',
+    'Bridgestone Dueler HT Tires',
+    'CVT Parts',
+    'CVT Upgrade Parts',
+    'Casetify iPhone Case',
+    'Cellphones Bundle',
+    'Computer Case',
+    'Computer Parts Bundle',
+    'Ground Zero VM-Grid PC Case',
+    'Home Appliances Bundle',
+    'Household Appliances & Furniture Bundle',
+    'Household Items Bundle',
+    'Kate Spade iPhone Case',
+    'Kingston Computer Parts',
+    'LAUT iPhone Air Case',
+    'MTB Parts',
+    'Mitsubishi Triton Wheels',
+    'Mountainpeak Air Fork',
+    'OtterBox React Case',
+    'PC Case',
+    'Panaracer Gravel King Tires',
+    'Printer and Phone Bundle',
+    'Quad Lock Case',
+    'RAKK PC Case',
+    'Rota Wheels',
+    'Sim Racing Bundle',
+    'Spigen Case',
+    'Spigen Liquid Air Case',
+    'Steering Wheel Arcade',
+    'Tire',
+    'Tire Sealant',
+    'Tires',
+    'Wanli Tires',
+    'Wheel Set',
+    'Zagg Pro Keyboard Case',
+    'iPhone Case',
   ],
   service: [
     'Phone Upgrade Service',
@@ -533,6 +676,13 @@ export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
     'Scrap Buying Service',
     'Septic Tank/Drainage Cleaning Service',
     'TV Repair Service',
+    // Found live 2026-08-29 via detect-generic-products, reviewed and applied.
+    'Amplifier Service',
+    'Financial Service',
+    'PC Repair and Upgrade Service',
+    'PCAB License Assistance Service',
+    'Piso Wifi Setup Service',
+    'Service',
   ],
 }
 

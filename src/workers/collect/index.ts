@@ -5,7 +5,7 @@ import { autoApprove } from '../../platform/review'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
 import { createR2ImageStore } from '../../platform/images'
-import { checkTunnelAlive } from '../../domains/marketplace'
+import { resolveProxy } from '../../domains/marketplace'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent listings,
 // the actual "buy-and-sell opportunity" signal this project is after, more
@@ -70,19 +70,22 @@ async function main() {
   const logger = createLogger('data/collector.log')
   writePidFile('data/collector.pid')
 
-  const socksProxy = process.env.SOCKS_PROXY
-  if (socksProxy) {
-    const alive = await checkTunnelAlive(socksProxy)
-    if (!alive) {
-      logger.error(
-        `SOCKS_PROXY is set to ${socksProxy} but the tunnel isn't reachable — start the laptop-side ssh -R tunnel before running collect`,
-      )
+  // Opt-in, same as before: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
+  // local run already on a residential IP, no egress check needed. Either
+  // one configured means it must actually work - fail closed rather than
+  // silently launching direct.
+  let proxy: Awaited<ReturnType<typeof resolveProxy>>['proxy']
+  if (process.env.WEBSHARE_PROXY || process.env.SOCKS_PROXY) {
+    const resolution = await resolveProxy()
+    if (!resolution.ok) {
+      logger.error(resolution.error!)
       process.exit(1)
     }
-    logger.info(`laptop tunnel confirmed alive via ${socksProxy}`)
+    proxy = resolution.proxy
+    logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
   }
 
-  const { page, close } = await launchBrowser({ socksProxy })
+  const { page, close } = await launchBrowser({ proxy })
   const driver = createBrowserDriver(page)
 
   const dbUrl = process.env.DATABASE_URL

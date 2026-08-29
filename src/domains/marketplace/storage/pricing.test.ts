@@ -1,8 +1,7 @@
 import type { DbClient } from '../../../platform/storage'
 import {
-  getPriceLookupCandidates,
   insertPriceCheck,
-  getNewPriceCandidates,
+  getWebSearchPriceCandidates,
   flagProductPriceLookupExcluded,
 } from './pricing'
 
@@ -18,30 +17,6 @@ function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] }
     },
   }
 }
-
-test('getPriceLookupCandidates only selects products with at least 2 listings', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return {
-        rows: [
-          { id: 1, base_model: 'RTX 3060', variant_tier: null },
-          { id: 2, base_model: 'iPhone 13', variant_tier: 'Pro Max' },
-        ],
-      }
-    },
-  }
-
-  const result = await getPriceLookupCandidates(db)
-
-  expect(calls[0].sql).toContain('HAVING count(l.id) >= 2')
-  expect(calls[0].sql).toContain("price_lookup_review_status IS DISTINCT FROM 'needs_review'")
-  expect(result).toEqual([
-    { id: 1, base_model: 'RTX 3060', variant_tier: null },
-    { id: 2, base_model: 'iPhone 13', variant_tier: 'Pro Max' },
-  ])
-})
 
 test('insertPriceCheck writes a new price_history row for the product, not an upsert', async () => {
   const { db, calls } = mockDb()
@@ -99,7 +74,7 @@ test('insertPriceCheck stores release_year and is_discontinued when given', asyn
   expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'raw', 'exa_new_retail', 'New', 'high', 2021, true])
 })
 
-test('getNewPriceCandidates skips a product with a price row from ANY source, not just exa_new_retail', async () => {
+test('getWebSearchPriceCandidates skips a product with a price row from ANY source', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {
     query: async (sql: string, params: unknown[]) => {
@@ -108,7 +83,7 @@ test('getNewPriceCandidates skips a product with a price row from ANY source, no
     },
   }
 
-  await getNewPriceCandidates(db)
+  await getWebSearchPriceCandidates(db)
 
   expect(calls[0].sql).toContain('NOT EXISTS')
   expect(calls[0].sql).toContain('product_price_history')
