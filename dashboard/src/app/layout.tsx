@@ -73,6 +73,9 @@ export default function RootLayout({
               <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
                 Analytics
               </Link>
+              <Link href="/needs-review" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                Needs Review
+              </Link>
             </nav>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

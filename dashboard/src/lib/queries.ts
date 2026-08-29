@@ -91,12 +91,17 @@ export const PRODUCT_CATEGORIES = [
 // lateral rather than a third parallel column. Ordered after exa_new_retail
 // (ASC on the boolean puts exa_new_retail - false - first) since Exa is the
 // paid, purpose-built source; Claude's ad-hoc web search is the fallback.
+// manual_new_retail: a human directly typed this in on the needs-review page
+// (setManualPrice) - ranked above every automated source since a human
+// already looked at the specific product, not a generic search result.
+// Outranks even a later automated run: once a human has vetted the price,
+// nothing here re-promotes an automated guess back over it.
 const NEW_PRICE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT price_low, price_high, source
     FROM product_price_history h
-    WHERE h.product_id = p.id AND h.source IN ('exa_new_retail', 'claude_code_new_retail')
-    ORDER BY (h.source = 'claude_code_new_retail') ASC, h.checked_at DESC
+    WHERE h.product_id = p.id AND h.source IN ('manual_new_retail', 'exa_new_retail', 'claude_code_new_retail')
+    ORDER BY (h.source = 'manual_new_retail') DESC, (h.source = 'claude_code_new_retail') ASC, h.checked_at DESC
     LIMIT 1
   ) np ON true
 `
@@ -109,12 +114,15 @@ const NEW_PRICE_LATERAL = `
 // above - ordered last (after listing_prices) since it's the least-grounded
 // source here (a manual web search Claude did, not a dedicated pricing
 // API), only preferred over having no secondhand price at all.
+// manual_secondhand: same reasoning as manual_new_retail above - a human's
+// own entry on the needs-review page outranks every automated secondhand
+// source, including this marketplace's own listing_prices.
 const SECONDHAND_PRICE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT price_low, price_high, source
     FROM product_price_history h
-    WHERE h.product_id = p.id AND h.source IN ('gemini_grounding', 'web_search', 'listing_prices', 'claude_code_secondhand')
-    ORDER BY (h.source = 'claude_code_secondhand') ASC, (h.source = 'listing_prices') ASC, h.checked_at DESC
+    WHERE h.product_id = p.id AND h.source IN ('manual_secondhand', 'gemini_grounding', 'web_search', 'listing_prices', 'claude_code_secondhand')
+    ORDER BY (h.source = 'manual_secondhand') DESC, (h.source = 'claude_code_secondhand') ASC, (h.source = 'listing_prices') ASC, h.checked_at DESC
     LIMIT 1
   ) up ON true
 `
@@ -454,6 +462,126 @@ export async function getSubCategoryTree(db: QueryClient): Promise<SubCategoryTr
     subCategory: r.sub_category as string,
     parentCategory: r.parent_category as string,
   }))
+}
+
+export interface ProductReviewEnrichment {
+  description: string
+  value_drivers: string
+  has_trained_price_knowledge: boolean
+  trained_price_low: number | null
+  trained_price_high: number | null
+  trained_price_currency: string | null
+  model: string
+  checked_at: string
+  confidence: string | null
+  is_specific_product: boolean | null
+}
+
+export interface ProductNeedingReview {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  category: string | null
+  sub_category: string | null
+  sample_photo_url: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  enrichment: ProductReviewEnrichment | null
+}
+
+// price_lookup_review_status = 'needs_review' is set by
+// applyEligibilityFromEnrichment (src/domains/marketplace/storage/products.ts)
+// when Groq's own confidence in identifying the product came back 'low' - see
+// db/schema.sql's comment on the column. Never auto-resolves; this is the
+// admin review page that comment says doesn't exist yet.
+export async function getProductsNeedingReview(db: QueryClient): Promise<ProductNeedingReview[]> {
+  const result = await db.query(
+    `SELECT p.id, p.base_model, p.variant_tier, c.name AS category, sc.name AS sub_category,
+            (SELECT COALESCE(l.stored_photo_urls->>0, l.primary_photo_url)
+             FROM listings l WHERE l.product_id = p.id ORDER BY l.id LIMIT 1) AS sample_photo_url,
+            np.price_low AS new_price_low, np.price_high AS new_price_high,
+            up.price_low AS secondhand_price_low, up.price_high AS secondhand_price_high,
+            e.description, e.value_drivers, e.has_trained_price_knowledge,
+            e.trained_price_low, e.trained_price_high, e.trained_price_currency,
+            e.model, e.checked_at, e.confidence, e.is_specific_product
+     FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id
+     LEFT JOIN categories sc ON sc.id = p.sub_category_id
+     LEFT JOIN product_enrichment e ON e.product_id = p.id
+     ${NEW_PRICE_LATERAL}
+     ${SECONDHAND_PRICE_LATERAL}
+     WHERE p.price_lookup_review_status = 'needs_review'
+     ORDER BY p.id`,
+    [],
+  )
+  return (result.rows as Record<string, unknown>[]).map((r) => ({
+    id: r.id as number,
+    base_model: r.base_model as string,
+    variant_tier: r.variant_tier as string | null,
+    category: r.category as string | null,
+    sub_category: r.sub_category as string | null,
+    sample_photo_url: r.sample_photo_url as string | null,
+    new_price_low: toNullableNumber(r.new_price_low),
+    new_price_high: toNullableNumber(r.new_price_high),
+    secondhand_price_low: toNullableNumber(r.secondhand_price_low),
+    secondhand_price_high: toNullableNumber(r.secondhand_price_high),
+    enrichment:
+      r.checked_at != null
+        ? {
+            description: r.description as string,
+            value_drivers: r.value_drivers as string,
+            has_trained_price_knowledge: r.has_trained_price_knowledge as boolean,
+            trained_price_low: toNullableNumber(r.trained_price_low),
+            trained_price_high: toNullableNumber(r.trained_price_high),
+            trained_price_currency: r.trained_price_currency as string | null,
+            model: r.model as string,
+            checked_at: toIsoOrNull(r.checked_at) as string,
+            confidence: r.confidence as string | null,
+            is_specific_product: r.is_specific_product as boolean | null,
+          }
+        : null,
+  }))
+}
+
+// Human-entered price for a needs_review product - outranks every automated
+// source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
+// just until the next automated run. Append-only like every other
+// product_price_history writer; doesn't touch price_lookup_review_status
+// itself (the API route pairs this with markProductReviewed).
+export async function setManualPrice(
+  db: QueryClient,
+  productId: number,
+  kind: 'new' | 'secondhand',
+  priceLow: number,
+  priceHigh: number,
+): Promise<void> {
+  const source = kind === 'new' ? 'manual_new_retail' : 'manual_secondhand'
+  await db.query(
+    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, source)
+     VALUES ($1, $2, $3, 'PHP', $4)`,
+    [productId, priceLow, priceHigh, source],
+  )
+}
+
+// The only writer that clears price_lookup_review_status - a human looked at
+// the product and it's fine as-is, no exclusion needed.
+export async function markProductReviewed(db: QueryClient, productId: number): Promise<void> {
+  await db.query(`UPDATE products SET price_lookup_review_status = NULL WHERE id = $1`, [productId])
+}
+
+// Alternative resolution to markProductReviewed: a human looked and agrees
+// with Groq's low-confidence hunch that this isn't a real priceable product.
+// Reuses price_lookup_excluded same as flagPriceLookupExcluded/
+// applyEligibilityFromEnrichment's automatic paths (src/domains/marketplace/
+// storage/products.ts) - one flag, three possible writers. Clears the review
+// flag too since exclusion is itself a resolution, not a pending state.
+export async function excludeProductFromReview(db: QueryClient, productId: number, reason: string): Promise<void> {
+  await db.query(
+    `UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1, price_lookup_review_status = NULL WHERE id = $2`,
+    [reason, productId],
+  )
 }
 
 export interface ListingPriceReview {

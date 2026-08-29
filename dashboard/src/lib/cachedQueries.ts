@@ -1,5 +1,13 @@
 import { unstable_cache } from 'next/cache'
-import { getProductSummaries, getProductDetail, getListingDetail, getSavedListings, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
+import {
+  getProductSummaries,
+  getProductDetail,
+  getListingDetail,
+  getSavedListings,
+  getSoldCountsBySubCategory,
+  getSubCategoryTree,
+  getProductsNeedingReview,
+} from './queries'
 import type {
   QueryClient,
   ProductSummary,
@@ -8,6 +16,7 @@ import type {
   SavedListingSummary,
   CategoryWeeklySoldCounts,
   SubCategoryTreeEntry,
+  ProductNeedingReview,
 } from './queries'
 
 // Kept out of queries.ts on purpose: that module is imported directly by
@@ -71,6 +80,13 @@ export function getSavedListingsCached(db: QueryClient): Promise<SavedListingSum
 export function getSoldCountsBySubCategoryCached(db: QueryClient): Promise<CategoryWeeklySoldCounts[]> {
   return unstable_cache(() => getSoldCountsBySubCategory(db), ['sold-counts-by-sub-category'], {
     tags: ['sold-listings'],
+    revalidate: REVALIDATE_SECONDS,
+  })()
+}
+
+export function getProductsNeedingReviewCached(db: QueryClient): Promise<ProductNeedingReview[]> {
+  return unstable_cache(() => getProductsNeedingReview(db), ['products-needing-review'], {
+    tags: ['needs-review'],
     revalidate: REVALIDATE_SECONDS,
   })()
 }
