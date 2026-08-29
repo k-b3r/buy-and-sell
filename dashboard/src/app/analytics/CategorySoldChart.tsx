@@ -104,7 +104,7 @@ function MiniChart({
   )
 }
 
-export default function CategorySoldChart({ category, totalSold, weeklyCounts }: CategoryWeeklySoldCounts) {
+export default function CategorySoldChart({ subCategory, totalSold, weeklyCounts }: CategoryWeeklySoldCounts) {
   const weeks = weeklyCounts.map((w) => new Date(w.weekStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
   const countData = weeklyCounts.map((w, i) => ({ week: weeks[i], value: w.count }))
   const priceData = weeklyCounts.map((w, i) => ({ week: weeks[i], value: w.avgPrice }))
@@ -122,7 +122,7 @@ export default function CategorySoldChart({ category, totalSold, weeklyCounts }:
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-        <h2 style={{ margin: 0, fontSize: '1em' }}>{category}</h2>
+        <h2 style={{ margin: 0, fontSize: '1em' }}>{subCategory}</h2>
         <span className="mono" style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>
           {totalSold} sold
         </span>

@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache'
-import { getProductSummaries, getProductDetail, getListingDetail, getSavedListings, getSoldCountsByCategory, getSubCategoryTree } from './queries'
+import { getProductSummaries, getProductDetail, getListingDetail, getSavedListings, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 import type {
   QueryClient,
   ProductSummary,
@@ -68,8 +68,8 @@ export function getSavedListingsCached(db: QueryClient): Promise<SavedListingSum
   })()
 }
 
-export function getSoldCountsByCategoryCached(db: QueryClient): Promise<CategoryWeeklySoldCounts[]> {
-  return unstable_cache(() => getSoldCountsByCategory(db), ['sold-counts-by-category'], {
+export function getSoldCountsBySubCategoryCached(db: QueryClient): Promise<CategoryWeeklySoldCounts[]> {
+  return unstable_cache(() => getSoldCountsBySubCategory(db), ['sold-counts-by-sub-category'], {
     tags: ['sold-listings'],
     revalidate: REVALIDATE_SECONDS,
   })()

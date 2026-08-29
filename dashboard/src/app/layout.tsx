@@ -42,23 +42,23 @@ export default function RootLayout({
       </head>
       <body>
         <header className="site-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
             <Link href="/" className="wordmark">
               Ledger
             </Link>
+          </div>
+          <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flex: 1 }}>
             <Link href="/admin/logs" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
               Workers
             </Link>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <nav style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
-                Analytics
-              </Link>
-              <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
-                My Saved Listings
-              </Link>
-            </nav>
+            <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+              Analytics
+            </Link>
+          </nav>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16, flex: 1 }}>
+            <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+              My Saved Listings
+            </Link>
             <ThemeToggle />
           </div>
         </header>

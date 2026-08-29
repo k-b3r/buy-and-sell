@@ -12,7 +12,7 @@ import {
   saveListing,
   unsaveListing,
   getSavedListings,
-  getSoldCountsByCategory,
+  getSoldCountsBySubCategory,
   getSubCategoryTree,
 } from './queries'
 import type { QueryClient } from './queries'
@@ -1566,7 +1566,7 @@ test('getSavedListings prefers stored_photo_urls over primary_photo_url', async 
   expect(result[0].primary_photo_url).toBe('https://r2/0.jpg')
 })
 
-test('getSoldCountsByCategory queries only sold listings, zero-filling weeks in SQL', async () => {
+test('getSoldCountsBySubCategory queries only sold listings, zero-filling weeks in SQL', async () => {
   let capturedSql = ''
   const db: QueryClient = {
     query: async (sql) => {
@@ -1575,28 +1575,57 @@ test('getSoldCountsByCategory queries only sold listings, zero-filling weeks in 
     },
   }
 
-  await getSoldCountsByCategory(db)
+  await getSoldCountsBySubCategory(db)
 
   expect(capturedSql).toContain('sold_at IS NOT NULL')
   expect(capturedSql).toContain('CROSS JOIN weeks')
 })
 
-test('getSoldCountsByCategory groups rows under their category, most-sold category first, carrying each week\'s avg price', async () => {
-  // Simulates rows already ordered by the SQL (highest total_sold first,
-  // weeks ascending within a category) - grouping is a consecutive-run
-  // collapse, not a re-sort.
+test('getSoldCountsBySubCategory groups rows under their category+subCategory, most-sold first, carrying each week\'s avg price', async () => {
+  // Simulates rows already ordered by the SQL (highest total_sold first at
+  // both levels, weeks ascending within a group) - grouping is a
+  // consecutive-run collapse, not a re-sort.
   const db = fakeDb([
-    { category: 'Audio', total_sold: '3', week_start: new Date('2026-08-10T00:00:00.000Z'), count: '2', avg_price: '7500' },
-    { category: 'Audio', total_sold: '3', week_start: new Date('2026-08-17T00:00:00.000Z'), count: '1', avg_price: '9000' },
-    { category: 'Gaming', total_sold: '1', week_start: new Date('2026-08-10T00:00:00.000Z'), count: '0', avg_price: null },
-    { category: 'Gaming', total_sold: '1', week_start: new Date('2026-08-17T00:00:00.000Z'), count: '1', avg_price: '15000' },
+    {
+      category: 'Vehicles',
+      sub_category: 'Motorcycles',
+      total_sold: '3',
+      week_start: new Date('2026-08-10T00:00:00.000Z'),
+      count: '2',
+      avg_price: '7500',
+    },
+    {
+      category: 'Vehicles',
+      sub_category: 'Motorcycles',
+      total_sold: '3',
+      week_start: new Date('2026-08-17T00:00:00.000Z'),
+      count: '1',
+      avg_price: '9000',
+    },
+    {
+      category: 'Vehicles',
+      sub_category: 'Bicycles',
+      total_sold: '1',
+      week_start: new Date('2026-08-10T00:00:00.000Z'),
+      count: '0',
+      avg_price: null,
+    },
+    {
+      category: 'Vehicles',
+      sub_category: 'Bicycles',
+      total_sold: '1',
+      week_start: new Date('2026-08-17T00:00:00.000Z'),
+      count: '1',
+      avg_price: '15000',
+    },
   ])
 
-  const result = await getSoldCountsByCategory(db)
+  const result = await getSoldCountsBySubCategory(db)
 
   expect(result).toEqual([
     {
-      category: 'Audio',
+      category: 'Vehicles',
+      subCategory: 'Motorcycles',
       totalSold: 3,
       weeklyCounts: [
         { weekStart: '2026-08-10T00:00:00.000Z', count: 2, avgPrice: 7500 },
@@ -1604,7 +1633,8 @@ test('getSoldCountsByCategory groups rows under their category, most-sold catego
       ],
     },
     {
-      category: 'Gaming',
+      category: 'Vehicles',
+      subCategory: 'Bicycles',
       totalSold: 1,
       weeklyCounts: [
         { weekStart: '2026-08-10T00:00:00.000Z', count: 0, avgPrice: null },
@@ -1614,7 +1644,7 @@ test('getSoldCountsByCategory groups rows under their category, most-sold catego
   ])
 })
 
-test('getSoldCountsByCategory excludes placeholder-pattern prices from the weekly average', async () => {
+test('getSoldCountsBySubCategory excludes placeholder-pattern prices from the weekly average', async () => {
   let capturedSql = ''
   const db: QueryClient = {
     query: async (sql) => {
@@ -1623,14 +1653,14 @@ test('getSoldCountsByCategory excludes placeholder-pattern prices from the weekl
     },
   }
 
-  await getSoldCountsByCategory(db)
+  await getSoldCountsBySubCategory(db)
 
   expect(capturedSql).toContain("'^(\\d+)\\1+$'")
 })
 
-test('getSoldCountsByCategory returns an empty array when nothing is sold', async () => {
+test('getSoldCountsBySubCategory returns an empty array when nothing is sold', async () => {
   const db = fakeDb([])
-  const result = await getSoldCountsByCategory(db)
+  const result = await getSoldCountsBySubCategory(db)
   expect(result).toEqual([])
 })
 

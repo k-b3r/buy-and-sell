@@ -432,8 +432,8 @@ export interface SubCategoryTreeEntry {
   parentCategory: string
 }
 
-// Unlike PRODUCT_CATEGORIES/CATEGORY_GROUPS (fixed 14/7-way splits, safe to
-// hardcode), the sub-category leaves are numerous and specific to
+// Unlike PRODUCT_CATEGORIES (a fixed 14-way split, safe to hardcode), the
+// sub-category leaves are numerous and specific to
 // categories.parent_id's seeding - db/schema.sql is the only source of truth
 // for which leaf belongs under which of the 14, so this queries it live
 // rather than duplicating a third parallel mapping. 'Other' is a UNION'd
@@ -796,6 +796,7 @@ export interface SavedListingSummary {
 
 export interface CategoryWeeklySoldCounts {
   category: string
+  subCategory: string
   totalSold: number
   weeklyCounts: { weekStart: string; count: number; avgPrice: number | null }[]
 }
@@ -808,10 +809,17 @@ export interface CategoryWeeklySoldCounts {
 // Weeks are zero-filled in SQL (CROSS JOIN weeks) rather than left as gaps -
 // a line chart with missing x-values draws a straight line across the gap,
 // silently implying a smooth ramp between two weeks that may be months
-// apart. Every category shares the same week range (earliest sold_at across
-// the whole table through the current week) so the small-multiples are
-// visually comparable on one x-axis.
-export async function getSoldCountsByCategory(db: QueryClient): Promise<CategoryWeeklySoldCounts[]> {
+// apart. Every category+subCategory shares the same week range (earliest
+// sold_at across the whole table through the current week) so the
+// small-multiples are visually comparable on one x-axis.
+//
+// Grouped by both category_id and sub_category_id read directly off each
+// product - not reconciled against categories.parent_id (see
+// getSubCategoryTree), so a product misclassified with a sub that doesn't
+// belong under its main (e.g. main "Other", sub "Smartphones") renders
+// exactly as stored. That's a visible data-quality signal, not a bug to
+// paper over here.
+export async function getSoldCountsBySubCategory(db: QueryClient): Promise<CategoryWeeklySoldCounts[]> {
   const result = await db.query(
     `WITH bounds AS (
        SELECT date_trunc('week', min(sold_at)) AS min_week, date_trunc('week', now()) AS max_week
@@ -821,7 +829,7 @@ export async function getSoldCountsByCategory(db: QueryClient): Promise<Category
        SELECT generate_series(min_week, max_week, interval '1 week') AS week_start FROM bounds
      ),
      counts AS (
-       SELECT c.name AS category, date_trunc('week', l.sold_at) AS week_start, count(*) AS n,
+       SELECT c.name AS category, sc.name AS sub_category, date_trunc('week', l.sold_at) AS week_start, count(*) AS n,
               -- Placeholder/joke prices (see isPlaceholderPrice) would otherwise skew a
               -- week's average toward a fake number the same way they'd skew a discount
               -- calculation - excluded here for the same reason.
@@ -831,28 +839,35 @@ export async function getSoldCountsByCategory(db: QueryClient): Promise<Category
        FROM listings l
        JOIN products p ON p.id = l.product_id
        JOIN categories c ON c.id = p.category_id
+       JOIN categories sc ON sc.id = p.sub_category_id
        WHERE l.sold_at IS NOT NULL
-       GROUP BY c.name, date_trunc('week', l.sold_at)
+       GROUP BY c.name, sc.name, date_trunc('week', l.sold_at)
      ),
-     categories_with_sales AS (
-       SELECT category, sum(n) AS total_sold FROM counts GROUP BY category
+     groups_with_sales AS (
+       SELECT category, sub_category, sum(n) AS total_sold FROM counts GROUP BY category, sub_category
+     ),
+     category_totals AS (
+       SELECT category, sum(total_sold) AS category_total FROM groups_with_sales GROUP BY category
      )
-     SELECT cws.category, cws.total_sold, w.week_start, COALESCE(counts.n, 0) AS count, counts.avg_price
-     FROM categories_with_sales cws
+     SELECT gws.category, gws.sub_category, gws.total_sold, w.week_start, COALESCE(counts.n, 0) AS count, counts.avg_price
+     FROM groups_with_sales gws
+     JOIN category_totals ct ON ct.category = gws.category
      CROSS JOIN weeks w
-     LEFT JOIN counts ON counts.category = cws.category AND counts.week_start = w.week_start
-     ORDER BY cws.total_sold DESC, cws.category, w.week_start`,
+     LEFT JOIN counts ON counts.category = gws.category AND counts.sub_category = gws.sub_category AND counts.week_start = w.week_start
+     ORDER BY ct.category_total DESC, gws.category, gws.total_sold DESC, gws.sub_category, w.week_start`,
     [],
   )
 
   const groups: CategoryWeeklySoldCounts[] = []
-  const byCategory = new Map<string, CategoryWeeklySoldCounts>()
+  const byGroup = new Map<string, CategoryWeeklySoldCounts>()
   for (const r of result.rows as Record<string, unknown>[]) {
     const category = r.category as string
-    let group = byCategory.get(category)
+    const subCategory = r.sub_category as string
+    const key = `${category}::${subCategory}`
+    let group = byGroup.get(key)
     if (!group) {
-      group = { category, totalSold: Number(r.total_sold), weeklyCounts: [] }
-      byCategory.set(category, group)
+      group = { category, subCategory, totalSold: Number(r.total_sold), weeklyCounts: [] }
+      byGroup.set(key, group)
       groups.push(group)
     }
     group.weeklyCounts.push({
