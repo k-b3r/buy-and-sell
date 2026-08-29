@@ -26,7 +26,7 @@ export async function getPriceLookupCandidates(db: DbClient): Promise<PriceLooku
 // checked_at, don't just read a single "current price" column. Also used by
 // retail-price-lookup and price-from-listings, which write different
 // `source` values into the same shared table.
-export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_retail'
+export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_retail' | 'web_search'
 
 // confidence is Exa-specific (its grounding data reports "high"/"low" per
 // field, see new-price.ts's extractNewPriceConfidence) — null for
