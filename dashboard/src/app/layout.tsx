@@ -42,20 +42,40 @@ export default function RootLayout({
       </head>
       <body>
         <header className="site-header">
-          <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <Link href="/" className="wordmark">
               Ledger
             </Link>
           </div>
-          <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flex: 1 }}>
-            <Link href="/admin/logs" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
-              Workers
-            </Link>
-            <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
-              Analytics
-            </Link>
-          </nav>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16, flex: 1 }}>
+          {/* Absolutely positioned within the same max-width:1100px column
+              .page uses, so the nav lines up with the page title's left edge
+              at any viewport width instead of the header's own (wider,
+              fixed-padding) row - site-header's position:sticky already
+              gives this its containing block. pointerEvents:none on the
+              wrapper keeps clicks passing through to Ledger/right-side links
+              when the column is narrower than the full header width. */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              maxWidth: 1100,
+              margin: '0 auto',
+              padding: '0 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 16, pointerEvents: 'auto' }}>
+              <Link href="/admin/logs" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                Workers
+              </Link>
+              <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                Analytics
+              </Link>
+            </nav>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
               My Saved Listings
             </Link>
