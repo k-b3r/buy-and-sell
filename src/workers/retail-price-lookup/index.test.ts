@@ -97,7 +97,12 @@ test('a too-wide price range is not inserted — flagged price_lookup_excluded, 
   const { db, inserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
   const products: NewPriceCandidate[] = [
-    { id: 12, base_model: 'CPU Motherboard Bundle', variant_tier: null, description: null, sibling_variants: [] },
+    // Not "CPU Motherboard Bundle" - that now gets pre-filtered as generic
+    // (parts_accessory: "bundle") before ever reaching Exa, which is the new
+    // behavior this suite tests separately below. This fixture name is
+    // chosen to pass the generic pre-check so the response-side
+    // isWideSpread() logic is what's actually under test here.
+    { id: 12, base_model: 'Gaming Rig Combo Z790', variant_tier: null, description: null, sibling_variants: [] },
   ]
 
   await runNewPriceLookup(exa, db, logger, products)
@@ -143,6 +148,22 @@ test('a product with no reliable price found is logged, flagged price_lookup_exc
 
   expect(inserts).toHaveLength(1)
   expect(inserts[0]).toEqual(['exa_no_result', 5])
+  expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
+})
+
+test('a detected-generic product is flagged and skipped without spending an Exa call on it', async () => {
+  const { exa, calls } = fakeExa({ output: { content: { found: true, price_low: 100, price_high: 200 } } })
+  const { db, inserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const products: NewPriceCandidate[] = [
+    { id: 3, base_model: 'Air Conditioner', variant_tier: null, description: null, sibling_variants: [] },
+  ]
+
+  await runNewPriceLookup(exa, db, logger, products)
+
+  expect(calls).toHaveLength(0)
+  expect(inserts).toHaveLength(1)
+  expect(inserts[0]).toEqual(['too_generic', 3])
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
 })
 

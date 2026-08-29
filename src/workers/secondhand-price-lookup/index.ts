@@ -7,9 +7,9 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import { buildPriceLookupPrompt, parsePriceRangeResponse } from '../../domains/marketplace'
+import { buildPriceLookupPrompt, parsePriceRangeResponse, detectGenericBaseModel } from '../../domains/marketplace'
 import type { PriceLookupCandidate } from '../../domains/marketplace'
-import { getPriceLookupCandidates, insertPriceCheck } from '../../domains/marketplace/storage/pricing'
+import { getPriceLookupCandidates, insertPriceCheck, flagProductPriceLookupExcluded } from '../../domains/marketplace/storage/pricing'
 
 export interface PriceLookupOptions {
   delayMs: number
@@ -70,15 +70,34 @@ export async function runPriceLookup(
   options: PriceLookupOptions,
   delay: DelayFn = realDelay,
 ): Promise<void> {
-  logger.info(`${products.length} products to price-check`)
+  // Cheap text-only check before batches spend a quota-limited Gemini call -
+  // filtered out here, before batching, so a detected-generic product never
+  // takes a slot in a 5-product batch alongside real candidates. A miss just
+  // means it's tried again next lap (getPriceLookupCandidates re-checks
+  // every product every lap anyway) - low cost, unlike an under-flag that's
+  // never revisited.
+  const candidates: PriceLookupCandidate[] = []
+  for (const product of products) {
+    const generic = detectGenericBaseModel(product.base_model)
+    if (generic) {
+      await flagProductPriceLookupExcluded(db, product.id, generic.reason)
+      logger.warn(
+        `product ${product.id} (${product.base_model}): detected generic (${generic.reason}: "${generic.matched}"), flagged and excluded from batching, no Gemini call spent`,
+      )
+      continue
+    }
+    candidates.push(product)
+  }
 
-  for (let i = 0; i < products.length; i += BATCH_SIZE) {
+  logger.info(`${candidates.length} products to price-check`)
+
+  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
     if (i > 0) {
       logger.info(`waiting ${options.delayMs}ms before next batch`)
       await delay(options.delayMs)
     }
 
-    const batch = products.slice(i, i + BATCH_SIZE)
+    const batch = candidates.slice(i, i + BATCH_SIZE)
     logger.info(`batch starting at product ${i}: checking prices for ${batch.length} products`)
 
     const prompt = buildPriceLookupPrompt(batch)

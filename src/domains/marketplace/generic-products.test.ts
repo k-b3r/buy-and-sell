@@ -1,4 +1,4 @@
-import { detectGenericBaseModel } from './index'
+import { detectGenericBaseModel } from './generic-products'
 
 test('flags a bare category noun with no brand or model', () => {
   expect(detectGenericBaseModel('Air Conditioner')).toEqual({ reason: 'too_generic', matched: 'air conditioner' })

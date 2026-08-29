@@ -215,3 +215,27 @@ test('a batch response with no parseable json block is logged and skipped, witho
   expect(inserts).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
 })
+
+test('a detected-generic product is flagged and excluded from the batch, without spending a Gemini call on it', async () => {
+  let promptSeen = ''
+  const gemini = fakeGemini((prompt) => {
+    promptSeen = prompt
+    return jsonBlock([{ id: '2', found: true, price_low: 10000, price_high: 15000, currency: 'PHP' }])
+  })
+  const logger = createLogger(LOG_PATH)
+  const { db, calls } = fakeDb()
+  const products = [
+    { id: 1, base_model: 'Air Conditioner', variant_tier: null },
+    { id: 2, base_model: 'iPhone 13', variant_tier: 'Pro Max' },
+  ]
+
+  await runPriceLookup(gemini, db, logger, products, { delayMs: 0 }, async () => {})
+
+  const flags = calls.filter((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))
+  expect(flags).toEqual([{ sql: expect.any(String), params: ['too_generic', 1] }])
+  expect(promptSeen).not.toContain('Air Conditioner')
+  const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
+  expect(inserts).toEqual([
+    { sql: expect.any(String), params: [2, 10000, 15000, 'PHP', expect.any(String), 'gemini_grounding', null, null, null, null] },
+  ])
+})

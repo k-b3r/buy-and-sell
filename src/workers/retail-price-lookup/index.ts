@@ -16,6 +16,7 @@ import {
   extractNewPriceConfidence,
   extractNewPriceMetadata,
   isWideSpread,
+  detectGenericBaseModel,
 } from '../../domains/marketplace'
 import { insertPriceCheck, getNewPriceCandidates, flagProductPriceLookupExcluded } from '../../domains/marketplace/storage/pricing'
 
@@ -46,6 +47,19 @@ export async function runNewPriceLookup(
 
     const product = products[i]
     const label = product.variant_tier ? `${product.base_model} (${product.variant_tier})` : product.base_model
+
+    // Cheap text-only check before spending a paid Exa call - same signal
+    // getNewPriceCandidates can't apply itself (it only knows price_lookup_
+    // excluded is already false, not whether it plausibly should be true).
+    // A miss here just means the next lap tries it again via Exa - low
+    // cost, unlike an under-flag that's never revisited.
+    const generic = detectGenericBaseModel(product.base_model)
+    if (generic) {
+      await flagProductPriceLookupExcluded(db, product.id, generic.reason)
+      logger.warn(`product ${product.id} (${label}): detected generic (${generic.reason}: "${generic.matched}"), flagged and skipping, no Exa call spent`)
+      continue
+    }
+
     const query = buildNewPriceQuery(product.base_model, product.variant_tier)
     const systemPrompt = buildNewPriceSystemPrompt(product.description, product.sibling_variants)
 
