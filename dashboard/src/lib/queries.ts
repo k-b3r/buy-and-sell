@@ -477,6 +477,37 @@ export interface ProductReviewEnrichment {
   is_specific_product: boolean | null
 }
 
+export interface ProductPriceHistoryEntry {
+  id: number
+  kind: 'new' | 'secondhand'
+  price_low: number | null
+  price_high: number | null
+  price_currency: string | null
+  source: string
+  condition: string | null
+  checked_at: string
+}
+
+// Same kind split NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL use to pick the
+// current winning row - reused here so a source's history bucket never
+// disagrees with which bucket its "current price" came from.
+function toPriceHistory(value: unknown): ProductPriceHistoryEntry[] {
+  if (!Array.isArray(value)) return []
+  return value.map((row) => {
+    const r = row as Record<string, unknown>
+    return {
+      id: Number(r.id),
+      kind: (r.kind as string) === 'new' ? 'new' : 'secondhand',
+      price_low: toNullableNumber(r.price_low),
+      price_high: toNullableNumber(r.price_high),
+      price_currency: r.price_currency as string | null,
+      source: r.source as string,
+      condition: r.condition as string | null,
+      checked_at: toIsoOrNull(r.checked_at) as string,
+    }
+  })
+}
+
 export interface ProductNeedingReview {
   id: number
   base_model: string
@@ -488,6 +519,7 @@ export interface ProductNeedingReview {
   new_price_high: number | null
   secondhand_price_low: number | null
   secondhand_price_high: number | null
+  price_history: ProductPriceHistoryEntry[]
   enrichment: ProductReviewEnrichment | null
 }
 
@@ -503,6 +535,17 @@ export async function getProductsNeedingReview(db: QueryClient): Promise<Product
              FROM listings l WHERE l.product_id = p.id ORDER BY l.id LIMIT 1) AS sample_photo_url,
             np.price_low AS new_price_low, np.price_high AS new_price_high,
             up.price_low AS secondhand_price_low, up.price_high AS secondhand_price_high,
+            (SELECT jsonb_agg(jsonb_build_object(
+                'id', h.id,
+                'kind', CASE WHEN h.source IN ('manual_new_retail', 'exa_new_retail', 'claude_code_new_retail') THEN 'new' ELSE 'secondhand' END,
+                'price_low', h.price_low,
+                'price_high', h.price_high,
+                'price_currency', h.price_currency,
+                'source', h.source,
+                'condition', h.condition,
+                'checked_at', h.checked_at
+              ) ORDER BY h.checked_at DESC)
+             FROM product_price_history h WHERE h.product_id = p.id) AS price_history,
             e.description, e.value_drivers, e.has_trained_price_knowledge,
             e.trained_price_low, e.trained_price_high, e.trained_price_currency,
             e.model, e.checked_at, e.confidence, e.is_specific_product
@@ -527,6 +570,7 @@ export async function getProductsNeedingReview(db: QueryClient): Promise<Product
     new_price_high: toNullableNumber(r.new_price_high),
     secondhand_price_low: toNullableNumber(r.secondhand_price_low),
     secondhand_price_high: toNullableNumber(r.secondhand_price_high),
+    price_history: toPriceHistory(r.price_history),
     enrichment:
       r.checked_at != null
         ? {

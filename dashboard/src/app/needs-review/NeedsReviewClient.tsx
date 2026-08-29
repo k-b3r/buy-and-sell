@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { ProductNeedingReview } from '@/lib/queries'
+import type { ProductNeedingReview, ProductPriceHistoryEntry } from '@/lib/queries'
 
 const badgeStyle = {
   display: 'inline-block',
@@ -42,6 +42,30 @@ function initialPriceFields(product: ProductNeedingReview) {
     secondhandMin: product.secondhand_price_low?.toString() ?? '',
     secondhandMax: product.secondhand_price_high?.toString() ?? '',
   }
+}
+
+// Raw source string shown as-is (e.g. "manual_new_retail", "web_search") -
+// per direct instruction (2026-08-29), no llm/api/computed relabeling, just
+// keep it recognizable that manual entries say "manual".
+function PriceHistoryList({ entries }: { entries: ProductPriceHistoryEntry[] }) {
+  if (entries.length === 0) return <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>No history yet</div>
+
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: '0.75em', color: 'var(--color-text-muted)' }}>
+      {entries.map((entry) => (
+        <li key={entry.id}>
+          {entry.price_low != null && entry.price_high != null
+            ? `₱${entry.price_low.toLocaleString()}–₱${entry.price_high.toLocaleString()}`
+            : 'no price'}
+          {' · '}
+          <span className="mono">{entry.source}</span>
+          {entry.condition && ` · ${entry.condition}`}
+          {' · '}
+          {new Date(entry.checked_at).toLocaleDateString()}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function formatTrainedPrice(product: ProductNeedingReview): string | null {
@@ -123,6 +147,8 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
   }
 
   const trainedPrice = formatTrainedPrice(product)
+  const newHistory = product.price_history.filter((h) => h.kind === 'new')
+  const secondhandHistory = product.price_history.filter((h) => h.kind === 'secondhand')
 
   return (
     <div
@@ -215,6 +241,9 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
                 style={priceInputStyle}
               />
             </div>
+            <div style={{ marginTop: 4 }}>
+              <PriceHistoryList entries={newHistory} />
+            </div>
           </div>
           <div>
             <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)', marginBottom: 2 }}>Secondhand ₱</div>
@@ -234,6 +263,9 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
                 onChange={(e) => setPrices((p) => ({ ...p, secondhandMax: e.target.value }))}
                 style={priceInputStyle}
               />
+            </div>
+            <div style={{ marginTop: 4 }}>
+              <PriceHistoryList entries={secondhandHistory} />
             </div>
           </div>
           <button
