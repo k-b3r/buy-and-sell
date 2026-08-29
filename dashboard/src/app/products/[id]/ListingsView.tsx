@@ -7,6 +7,7 @@ import type { DiscountBand } from '@/lib/queries'
 import { isListingPriceNegotiable } from '@/lib/queries'
 import { getActiveListingId } from '../../listings/[id]/cycle'
 import SaveButton from '../../SaveButton'
+import { Spinner } from '../../Skeleton'
 import {
   DEFAULT_HIDE_SOLD,
   DEFAULT_LISTED_WITHIN_DAYS,
@@ -453,7 +454,7 @@ export default function ListingsView({
         </div>
       )}
       <div ref={sentinelRef} style={{ height: 1 }} />
-      {loading && <p style={{ color: 'var(--color-text-muted)' }}>Loading…</p>}
+      {loading && <Spinner label="Loading more listings" />}
       {!loading && nextOffset === null && listings.length > 0 && (
         <p style={{ color: 'var(--color-text-muted)' }}>End of list.</p>
       )}

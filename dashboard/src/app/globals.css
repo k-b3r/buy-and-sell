@@ -104,6 +104,22 @@ a {
   animation: spin 0.7s linear infinite;
 }
 
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.skeleton {
+  background: var(--color-border);
+  border-radius: 4px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
 .site-header {
   display: flex;
   align-items: center;

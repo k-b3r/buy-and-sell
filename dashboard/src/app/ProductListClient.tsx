@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PRODUCT_CATEGORIES, type ProductSummary, type SubCategoryTreeEntry } from '@/lib/queries'
+import { Spinner } from './Skeleton'
 
 interface ProductsPage {
   products: ProductSummary[]
@@ -364,7 +365,7 @@ export default function ProductListClient({
         ))}
       </div>
       <div ref={sentinelRef} style={{ height: 1 }} />
-      {loading && <p style={{ color: 'var(--color-text-muted)' }}>Loading…</p>}
+      {loading && <Spinner label="Loading more products" />}
       {!loading && nextOffset === null && products.length > 0 && (
         <p style={{ color: 'var(--color-text-muted)' }}>End of list.</p>
       )}
