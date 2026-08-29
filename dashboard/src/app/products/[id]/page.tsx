@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { getPool } from '@/lib/db'
 import { getProductDetailCached } from '@/lib/cachedQueries'
 import ListingsView from './ListingsView'
-import { parseListingsFilters } from './listingsFilters'
+import { paginateListings, parseListingsFilters } from './listingsFilters'
 import RefreshProductButton from './RefreshProductButton'
 import BackLink from '../../BackLink'
 
@@ -26,6 +26,11 @@ export default async function ProductDetailPage({
   const initialFilters = parseListingsFilters(
     new URLSearchParams(Object.entries(sp).filter((entry): entry is [string, string] => entry[1] !== undefined)),
   )
+  // First page of listings, computed the exact same way the
+  // /api/products/[id]/listings route computes every subsequent page - see
+  // paginateListings's comment for why this doesn't re-run the discount
+  // median calc or hit the DB again.
+  const initialPage = paginateListings(product.listings, initialFilters, 0)
 
   return (
     <div>
@@ -85,7 +90,11 @@ export default async function ProductDetailPage({
         </span>
       </h2>
       <ListingsView
-        listings={product.listings}
+        initialListings={initialPage.listings}
+        initialNextOffset={initialPage.nextOffset}
+        initialMatchedCount={initialPage.matchedCount}
+        initialAllIds={initialPage.allIds}
+        totalListingCount={product.listings.length}
         discountBands={product.discount_bands}
         productId={product.id}
         initialFilters={initialFilters}
