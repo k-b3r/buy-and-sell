@@ -94,6 +94,33 @@ export const PRODUCT_CATEGORIES = [
   'Other',
 ] as const
 
+// Finer classification layer under each of the 14 PRODUCT_CATEGORIES above
+// (categories.parent_id - see db/schema.sql's 2026-08-28 migration). Assigned
+// unscoped by the product's category - scoping down to "only this category's
+// children" would trust the very label a sub-category pass might need to
+// correct (a product wrongly filed under Computers & Laptops that's really a
+// Gaming PC would never see "Consoles"/"Graphics Cards" as options; an
+// "Other" product would never see anything real at all). 'Other' itself is
+// included as the 38th option (unlike PRODUCT_CATEGORIES, it isn't split
+// further) so a genuinely-unclassifiable product still has a real,
+// non-forced landing spot.
+export const SUB_CATEGORIES = [
+  'Smartphones', 'Tablets', 'Phone & Tablet Accessories',
+  'Laptops', 'Desktops',
+  'Graphics Cards', 'Processors & Motherboards', 'Storage & Memory', 'Power Supplies & Cases',
+  'TVs', 'Monitors',
+  'Headphones & Earphones', 'Speakers',
+  'Consoles', 'Games & Accessories',
+  'Cameras', 'Drones', 'Camera Accessories',
+  'Small Appliances', 'Large Appliances',
+  'Furniture', 'Home Decor & Household Items',
+  'Cars', 'Motorcycles', 'Bicycles', 'Vehicle Parts & Accessories',
+  'House & Lot', 'Condo/Apartment', 'Land', 'Rentals',
+  "Women's Clothing", "Men's Clothing", 'Bags', 'Shoes',
+  'Exercise Equipment', 'Outdoor & Camping Gear',
+  'Other',
+] as const
+
 export function buildExtractionPrompt(listings: ExtractionInput[]): string {
   const lines = listings.map(formatListingLine).join('\n')
   return `Extract the base product model from each Facebook Marketplace listing below.
@@ -111,6 +138,11 @@ when no such signal is present - do NOT use storage capacity or color as a varia
 Also assign a "category" for each listing - exactly one of: ${PRODUCT_CATEGORIES.join(', ')}.
 Use "Other" if none genuinely fit rather than forcing a bad match.
 
+Also assign a finer "sub_category" for each listing - exactly one of: ${SUB_CATEGORIES.join(', ')}.
+Pick whichever fits best regardless of which "category" you chose above (e.g. a listing you put
+under "Computers & Laptops" might still be "Graphics Cards" or "Consoles" if that's a better fit -
+the two fields are judged independently). Use "Other" if none genuinely fit.
+
 Listings:
 ${lines}`
 }
@@ -124,8 +156,9 @@ export const EXTRACTION_RESPONSE_SCHEMA = {
       base_model: { type: 'string' },
       variant: { type: 'string' },
       category: { type: 'string', enum: PRODUCT_CATEGORIES },
+      sub_category: { type: 'string', enum: SUB_CATEGORIES },
     },
-    required: ['id', 'base_model', 'category'],
+    required: ['id', 'base_model', 'category', 'sub_category'],
   },
 } as const
 
@@ -163,6 +196,54 @@ export const CATEGORY_BACKFILL_RESPONSE_SCHEMA = {
           category: { type: 'string', enum: PRODUCT_CATEGORIES },
         },
         required: ['id', 'category'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['results'],
+  additionalProperties: false,
+} as const
+
+export interface SubCategoryBackfillCandidate {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  category: string
+}
+
+function formatSubCategoryBackfillLine(p: SubCategoryBackfillCandidate): string {
+  const label = p.variant_tier ? `${p.base_model} (${p.variant_tier})` : p.base_model
+  return `[id: ${p.id}] ${label} — currently filed under: ${p.category}`
+}
+
+// The product's current category is shown as context/a hint, not a
+// constraint - see the SUB_CATEGORIES comment above for why the candidate
+// list itself stays unscoped.
+export function buildSubCategoryBackfillPrompt(products: SubCategoryBackfillCandidate[]): string {
+  const lines = products.map(formatSubCategoryBackfillLine).join('\n')
+  return `For each product below, assign exactly one sub-category from this fixed list:
+${SUB_CATEGORIES.join(', ')}
+
+Each product's current (coarser) category is shown for context, but may itself be wrong -
+pick whichever sub-category on the fixed list actually fits best, even if that means
+correcting the current category. Use "Other" if none genuinely fit rather than forcing a bad match.
+
+Products:
+${lines}`
+}
+
+export const SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          sub_category: { type: 'string', enum: SUB_CATEGORIES },
+        },
+        required: ['id', 'sub_category'],
         additionalProperties: false,
       },
     },

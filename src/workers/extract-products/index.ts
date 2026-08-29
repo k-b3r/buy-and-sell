@@ -15,6 +15,7 @@ import {
   normalizeBaseModel,
   normalizeVariantTier,
   PRODUCT_CATEGORIES,
+  SUB_CATEGORIES,
   CANONICAL_BASE_MODEL,
 } from '../../domains/marketplace'
 
@@ -104,7 +105,13 @@ export async function runProductExtraction(
     const assignments: { id: string; productId: number }[] = []
     let skipped = 0
 
-    for (const item of raw as { id?: unknown; base_model?: unknown; variant?: unknown; category?: unknown }[]) {
+    for (const item of raw as {
+      id?: unknown
+      base_model?: unknown
+      variant?: unknown
+      category?: unknown
+      sub_category?: unknown
+    }[]) {
       if (typeof item.id !== 'string' || typeof item.base_model !== 'string') {
         skipped += 1
         continue
@@ -123,6 +130,10 @@ export async function runProductExtraction(
         typeof item.category === 'string' && (PRODUCT_CATEGORIES as readonly string[]).includes(item.category)
           ? item.category
           : null
+      const subCategory =
+        typeof item.sub_category === 'string' && (SUB_CATEGORIES as readonly string[]).includes(item.sub_category)
+          ? item.sub_category
+          : null
       // Canonicalize known aliases (e.g. "PS5" -> "PlayStation 5") before the
       // lookup, so a listing extracted with an alias resolves to the same
       // product_id as one extracted with the canonical form - no duplicate
@@ -135,7 +146,7 @@ export async function runProductExtraction(
       const cacheKey = `${normalizeBaseModel(baseModel)}::${variant ? normalizeVariantTier(variant) : ''}`
       let productId = productIdCache.get(cacheKey)
       if (productId === undefined) {
-        productId = await findOrCreateProduct(db, baseModel, variant, category)
+        productId = await findOrCreateProduct(db, baseModel, variant, category, subCategory)
         productIdCache.set(cacheKey, productId)
       }
 

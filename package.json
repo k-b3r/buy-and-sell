@@ -17,6 +17,7 @@
     "enrich-listing-prices": "tsx src/workers/enrich-listing-prices/index.ts",
     "flag-negotiable-keywords": "tsx src/utils/flag-negotiable-keywords/index.ts",
     "backfill-categories": "tsx src/utils/backfill-categories/index.ts",
+    "backfill-sub-categories": "tsx src/utils/backfill-sub-categories/index.ts",
     "merge-duplicate-products": "tsx src/utils/merge-duplicate-products/index.ts",
     "deploy:server": "./scripts/deploy-server.sh"
   },

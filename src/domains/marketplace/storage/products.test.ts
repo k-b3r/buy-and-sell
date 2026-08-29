@@ -8,6 +8,8 @@ import {
   applyEligibilityFromEnrichment,
   getCategoryBackfillCandidates,
   updateProductCategories,
+  getSubCategoryBackfillCandidates,
+  updateProductSubCategories,
   mergeDuplicateProduct,
   flagPriceLookupExcluded,
 } from './products'
@@ -43,7 +45,7 @@ test('findOrCreateProduct inserts a new product when none matches, returns its i
   expect(calls[0].sql).toMatch(/^SELECT/)
   expect(calls[0].params).toEqual(['rtx 3060', null])
   expect(calls[1].sql).toMatch(/^INSERT/)
-  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, null])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, null, null])
 })
 
 test('findOrCreateProduct stores category on a newly-created product', async () => {
@@ -61,7 +63,26 @@ test('findOrCreateProduct stores category on a newly-created product', async () 
   const id = await findOrCreateProduct(db, 'RTX 3060', null, 'PC Components')
 
   expect(id).toBe(99)
-  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components'])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', null])
+})
+
+test('findOrCreateProduct stores sub_category alongside category on a newly-created product', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  let queryCount = 0
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      queryCount += 1
+      if (queryCount === 1) return { rows: [] }
+      return { rows: [{ id: 100 }] }
+    },
+  }
+
+  const id = await findOrCreateProduct(db, 'RTX 3060', null, 'PC Components', 'Graphics Cards')
+
+  expect(id).toBe(100)
+  expect(calls[1].sql).toContain('sub_category_id')
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', 'Graphics Cards'])
 })
 
 test('findOrCreateProduct reuses an existing product when normalized base_model + variant_tier already match', async () => {
@@ -88,7 +109,7 @@ test('findOrCreateProduct dedupes variant_tier on a normalized column, keeping t
 
   expect(id).toBe(55)
   expect(calls[0].params).toEqual(['rtx 3060', 'founders edition'])
-  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', "Founder's edition", 'founders edition', null])
+  expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', "Founder's edition", 'founders edition', null, null])
 })
 
 test('findOrCreateProduct treats "Founders edition" and "Founder\'s edition" as the same product', async () => {
@@ -287,6 +308,45 @@ test('updateProductCategories issues a single multi-row UPDATE for all assignmen
   expect(calls[0].sql).toContain('FROM (VALUES')
   expect(calls[0].sql).toContain('JOIN categories')
   expect(calls[0].params).toEqual([1, 'Gaming', 2, 'Audio'])
+})
+
+test('getSubCategoryBackfillCandidates returns products with a category but no sub-category assigned yet', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 1, base_model: 'RTX 3060', variant_tier: null, category: 'PC Components' }] }
+    },
+  }
+
+  const result = await getSubCategoryBackfillCandidates(db)
+
+  expect(calls[0].sql).toContain('sub_category_id IS NULL')
+  expect(calls[0].sql).toContain('JOIN categories c ON c.id = p.category_id')
+  expect(result).toEqual([{ id: 1, base_model: 'RTX 3060', variant_tier: null, category: 'PC Components' }])
+})
+
+test('updateProductSubCategories does nothing (no query) when given an empty array', async () => {
+  const { db, calls } = mockDb()
+
+  await updateProductSubCategories(db, [])
+
+  expect(calls).toHaveLength(0)
+})
+
+test('updateProductSubCategories issues a single multi-row UPDATE targeting sub_category_id', async () => {
+  const { db, calls } = mockDb()
+
+  await updateProductSubCategories(db, [
+    { id: 1, subCategory: 'Graphics Cards' },
+    { id: 2, subCategory: 'Headphones & Earphones' },
+  ])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toMatch(/^UPDATE products SET sub_category_id/)
+  expect(calls[0].sql).toContain('FROM (VALUES')
+  expect(calls[0].sql).toContain('JOIN categories')
+  expect(calls[0].params).toEqual([1, 'Graphics Cards', 2, 'Headphones & Earphones'])
 })
 
 test('mergeDuplicateProduct reassigns listings, price history, and enrichment (skipping it if the survivor already has one), then deletes the loser', async () => {

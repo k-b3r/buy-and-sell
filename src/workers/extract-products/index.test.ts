@@ -96,7 +96,7 @@ test('passes category through to findOrCreateProduct on the INSERT', async () =>
   await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
   const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
-  expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components'])
+  expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', null])
 })
 
 test('a missing or non-string category falls back to null rather than skipping the whole item', async () => {
@@ -108,9 +108,33 @@ test('a missing or non-string category falls back to null rather than skipping t
   await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
 
   const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
-  expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, null])
+  expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, null, null])
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   expect(updateCall?.params).toEqual(['1', 1])
+})
+
+test('passes sub_category through to findOrCreateProduct on the INSERT', async () => {
+  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060', category: 'PC Components', sub_category: 'Graphics Cards' }])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060 for sale', description: null }]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+
+  const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
+  expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', 'Graphics Cards'])
+})
+
+test('a missing or non-string sub_category falls back to null rather than skipping the whole item', async () => {
+  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060', category: 'PC Components' }])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060 for sale', description: null }]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+
+  const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
+  expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', null])
 })
 
 test('candidate list passed in is already the pending set — getExtractionCandidates does the filtering, not this function', async () => {
