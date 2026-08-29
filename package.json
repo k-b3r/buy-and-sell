@@ -19,6 +19,7 @@
     "backfill-categories": "tsx src/utils/backfill-categories/index.ts",
     "backfill-sub-categories": "tsx src/utils/backfill-sub-categories/index.ts",
     "merge-duplicate-products": "tsx src/utils/merge-duplicate-products/index.ts",
+    "detect-generic-products": "tsx src/utils/detect-generic-products/index.ts",
     "deploy:server": "./scripts/deploy-server.sh"
   },
   "devDependencies": {
