@@ -420,7 +420,7 @@ test('getProductSummaries excludes sold listings from the listing aggregation jo
 test('getListingDetail excludes placeholder-pattern prices from the sibling median query', async () => {
   const db: QueryClient = {
     query: async (sql: string) => {
-      if (sql.includes('WITH product_prices')) {
+      if (sql.includes('product_prices')) {
         expect(sql).toContain("'^(\\d+)\\1+$'")
         return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       }
@@ -457,7 +457,7 @@ test('getListingDetail excludes placeholder-pattern prices from the sibling medi
 test('getListingDetail hides price_amount entirely when it is a magnitude outlier vs. the sibling median', async () => {
   const db: QueryClient = {
     query: async (sql: string) => {
-      if (sql.includes('WITH product_prices')) {
+      if (sql.includes('product_prices')) {
         return { rows: [{ raw_median_price: '15000', sample_size: '5', clean_median_price: '15000' }] }
       }
       return {
@@ -496,7 +496,7 @@ test('getListingDetail hides price_amount entirely when it is a magnitude outlie
 test('getListingDetail keeps a normal in-range price_amount as-is', async () => {
   const db: QueryClient = {
     query: async (sql: string) => {
-      if (sql.includes('WITH product_prices')) {
+      if (sql.includes('product_prices')) {
         return { rows: [{ raw_median_price: '15000', sample_size: '5', clean_median_price: '15000' }] }
       }
       return {
@@ -1307,11 +1307,12 @@ test('getListingDetail computes discount against its siblings\' outlier-excluded
   expect(result?.reference_price).toBe(15000)
 })
 
-test('getListingDetail skips the sibling-median lookup entirely when the listing has no product_id', async () => {
+test('getListingDetail still runs the sibling-median query (in parallel, keyed off listingId) when the listing has no product_id, and gets no discount back', async () => {
   let queryCount = 0
   const db: QueryClient = {
-    query: async (_sql, _params) => {
+    query: async (sql: string) => {
       queryCount += 1
+      if (sql.includes('product_prices')) return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       return {
         rows: [
           {
@@ -1341,7 +1342,7 @@ test('getListingDetail skips the sibling-median lookup entirely when the listing
 
   const result = await getListingDetail(db, '124')
 
-  expect(queryCount).toBe(1)
+  expect(queryCount).toBe(2)
   expect(result?.discount_percent).toBeNull()
 })
 

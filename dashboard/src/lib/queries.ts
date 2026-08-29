@@ -689,12 +689,20 @@ function toIsoOrNull(value: unknown): string | null {
 }
 
 // Same clean-median approach as getProductDetail's in-JS version, but as SQL
-// since a single listing's siblings aren't already fetched here - one extra
-// round trip, only run when the listing actually has a product_id.
+// since a single listing's siblings aren't already fetched here. Takes
+// listingId (not product_id) and looks the product up itself via listings'
+// PK - lets this run in parallel with the main row query below instead of
+// waiting on its result. A listing with no product_id (or that doesn't
+// exist) makes `target.product_id` NULL, which the `product_id = NULL`
+// filter never matches - product_prices comes back empty and every column
+// here comes back NULL/0, same "no siblings" shape callers already handle.
 const SIBLING_MEDIAN_SQL = `
-  WITH product_prices AS (
+  WITH target AS (
+    SELECT product_id FROM listings WHERE id = $1
+  ),
+  product_prices AS (
     SELECT price_amount FROM listings
-    WHERE product_id = $1 AND price_amount IS NOT NULL AND price_amount > 0
+    WHERE product_id = (SELECT product_id FROM target) AND price_amount IS NOT NULL AND price_amount > 0
       AND ${notPlaceholderPriceSql('price_amount')}
   ),
   raw AS (
@@ -711,40 +719,33 @@ const SIBLING_MEDIAN_SQL = `
 `
 
 export async function getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null> {
-  const result = await db.query(
-    `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
-            l.location_city, l.listed_at, l.last_seen_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
-            l.sold_at, p.base_model, p.variant_tier,
-            pr.is_negotiable as price_review_is_negotiable,
-            pr.price_low as price_review_low, pr.price_high as price_review_high,
-            sv.listing_id IS NOT NULL as is_saved
-     FROM listings l
-     LEFT JOIN products p ON p.id = l.product_id
-     LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
-     LEFT JOIN saved_listings sv ON sv.listing_id = l.id
-     WHERE l.id = $1`,
-    [listingId],
-  )
+  const [result, medianResult] = await Promise.all([
+    db.query(
+      `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
+              l.location_city, l.listed_at, l.last_seen_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
+              l.sold_at, p.base_model, p.variant_tier,
+              pr.is_negotiable as price_review_is_negotiable,
+              pr.price_low as price_review_low, pr.price_high as price_review_high,
+              sv.listing_id IS NOT NULL as is_saved
+       FROM listings l
+       LEFT JOIN products p ON p.id = l.product_id
+       LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
+       LEFT JOIN saved_listings sv ON sv.listing_id = l.id
+       WHERE l.id = $1`,
+      [listingId],
+    ),
+    db.query(SIBLING_MEDIAN_SQL, [listingId]),
+  ])
   const row = (result.rows as Record<string, unknown>[])[0]
   if (!row) return null
 
   const photoUrls = resolvePhotoUrls(row.stored_photo_urls, row.primary_photo_url)
 
-  let discount = { discountPercent: null as number | null, referencePrice: null as number | null }
-  let rawMedian: number | null = null
-  if (row.product_id !== null && row.product_id !== undefined) {
-    const medianResult = await db.query(SIBLING_MEDIAN_SQL, [row.product_id])
-    const medianRow = (medianResult.rows as Record<string, unknown>[])[0]
-    if (medianRow) {
-      rawMedian = toNullableNumber(medianRow.raw_median_price)
-      discount = computeListingDiscount(
-        row.price_amount,
-        medianRow.raw_median_price,
-        medianRow.clean_median_price,
-        medianRow.sample_size,
-      )
-    }
-  }
+  const medianRow = (medianResult.rows as Record<string, unknown>[])[0]
+  const rawMedian = medianRow ? toNullableNumber(medianRow.raw_median_price) : null
+  const discount = medianRow
+    ? computeListingDiscount(row.price_amount, medianRow.raw_median_price, medianRow.clean_median_price, medianRow.sample_size)
+    : { discountPercent: null, referencePrice: null }
 
   const priceAmount = toNullableNumber(row.price_amount)
 

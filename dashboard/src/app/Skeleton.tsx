@@ -40,6 +40,39 @@ export function SkeletonGrid({ count, minWidth }: { count: number; minWidth: num
   )
 }
 
+// Mirrors ListingDetailContent's layout (title/price/table/description next
+// to a square media block) - reuses the same .listing-detail-* classes so it
+// inherits the real component's container-query two-column behavior for
+// free instead of duplicating those breakpoints here.
+export function SkeletonListingDetail({ showBackLink }: { showBackLink: boolean }) {
+  return (
+    <div className="listing-detail-container">
+      {showBackLink && (
+        <div style={{ marginBottom: 16 }}>
+          <SkeletonLine width={140} height={16} />
+        </div>
+      )}
+      <div className="listing-detail-layout">
+        <div className="listing-detail-media">
+          <div className="skeleton" style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: 8 }} />
+        </div>
+        <div className="listing-detail-info">
+          <SkeletonLine width="70%" height={28} style={{ marginBottom: 12 }} />
+          <SkeletonLine width="35%" height={24} style={{ marginBottom: 16 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            <SkeletonLine width={160} height={14} />
+            <SkeletonLine width={140} height={14} />
+            <SkeletonLine width={180} height={14} />
+          </div>
+          <SkeletonLine width="100%" height={14} style={{ marginBottom: 8 }} />
+          <SkeletonLine width="95%" height={14} style={{ marginBottom: 8 }} />
+          <SkeletonLine width="60%" height={14} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Reuses the .spinner class already defined in globals.css (admin logs page)
 // instead of a second animation - scaled up via font-size (spinner's
 // width/height/border are all in em-free px, so transform is simpler here).
