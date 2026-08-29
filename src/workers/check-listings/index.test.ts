@@ -246,7 +246,7 @@ test('paces with waitRandom before each listing', async () => {
   ])
 
   expect(waits).toEqual([
-    [4000, 10000],
-    [4000, 10000],
+    [2000, 4000],
+    [2000, 4000],
   ])
 })

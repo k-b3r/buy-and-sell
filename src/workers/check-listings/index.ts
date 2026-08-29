@@ -95,7 +95,7 @@ export async function checkOneListing(
 // Runs forever, not once - re-queries getCheckListingsCandidates every lap so
 // newly-collected listings (collect.ts adds more over time) get picked up
 // without a restart, same pattern as the other workers.
-const LOOP_DELAY_MS = 300000
+const LOOP_DELAY_MS = 60000
 
 // Postgres-only, same as every other script now (see CONTEXT.md on removing
 // the local JSONL file that used to double as a second source of truth) —
@@ -111,7 +111,7 @@ export async function runCheckListings(
   logger.info(`${candidates.length} listings to check`)
 
   for (const candidate of candidates) {
-    await driver.waitRandom(4000, 10000)
+    await driver.waitRandom(2000, 4000)
     logger.info(`checking listing ${candidate.id}`)
     await driver.openListing({ id: candidate.id })
 
