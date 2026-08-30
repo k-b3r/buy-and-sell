@@ -398,3 +398,69 @@ export async function flagNegotiableFromKeywords(
   if (!matched) return
   await upsertKeywordNegotiable(db, listingId, matched)
 }
+
+// Bar for a bell-worthy notification, deliberately higher than the
+// dashboard's 10% discount-badge floor (DISCOUNT_SUMMARY_LATERAL) - a
+// notification is a stronger claim than a badge, per direct instruction.
+const HIGH_DISCOUNT_THRESHOLD = 30
+
+// Ports the dashboard's exact raw-median -> clean-median -> discount-percent
+// formula (DISCOUNT_SUMMARY_LATERAL in dashboard/src/lib/queries.ts) into
+// SQL scoped to just the given listings' products, since src/ and
+// dashboard/ are separate packages with no shared import path (see
+// PLACEHOLDER_PRICE_SQL above). Called once, right after a batch of
+// listings gets a product_id for the first time in extract-products.ts -
+// the "final step" per listing, not a recurring re-scan (a listing that
+// only later becomes a deal because sibling listings pull the median down
+// is out of scope for this pass, same "set once" tradeoff already made for
+// base_model/category). ON CONFLICT (listing_id) DO NOTHING both enforces
+// "at most one notification per listing ever" and makes this safe to call
+// with ids that don't end up qualifying.
+export async function detectAndRecordDiscountNotifications(db: DbClient, listingIds: string[]): Promise<void> {
+  if (listingIds.length === 0) return
+
+  await db.query(
+    `WITH target_listings AS (
+       SELECT id, product_id, price_amount FROM listings
+       WHERE id = ANY($1::text[]) AND product_id IS NOT NULL AND price_amount IS NOT NULL AND price_amount > 0
+     ),
+     product_prices AS (
+       SELECT pl.product_id, pl.price_amount
+       FROM listings pl
+       JOIN products p ON p.id = pl.product_id
+       WHERE pl.product_id IN (SELECT product_id FROM target_listings)
+         AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+         AND NOT p.price_lookup_excluded
+         AND NOT ${PLACEHOLDER_PRICE_SQL('pl.price_amount')}
+     ),
+     raw AS (
+       SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
+       FROM product_prices GROUP BY product_id
+     ),
+     clean AS (
+       SELECT pp.product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
+       FROM product_prices pp
+       JOIN raw ON raw.product_id = pp.product_id
+       WHERE raw.n >= 2 AND raw.median_price > 0
+         AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+       GROUP BY pp.product_id
+     ),
+     qualifying AS (
+       SELECT tl.id AS listing_id, tl.product_id,
+         round(((clean.median_price - tl.price_amount) / clean.median_price) * 100) AS discount_percent,
+         clean.median_price AS reference_price
+       FROM target_listings tl
+       JOIN raw ON raw.product_id = tl.product_id
+       JOIN clean ON clean.product_id = tl.product_id
+       WHERE raw.n >= 2 AND raw.median_price > 0 AND clean.median_price > 0
+         AND tl.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+         AND NOT ${PLACEHOLDER_PRICE_SQL('tl.price_amount')}
+     )
+     INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
+     SELECT listing_id, product_id, discount_percent, reference_price
+     FROM qualifying
+     WHERE discount_percent >= ${HIGH_DISCOUNT_THRESHOLD}
+     ON CONFLICT (listing_id) DO NOTHING`,
+    [listingIds],
+  )
+}

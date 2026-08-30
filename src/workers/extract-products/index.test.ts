@@ -176,6 +176,27 @@ test('batches all product_id assignments from one Gemini batch into a single UPD
   expect(updateCalls[0].params).toEqual(['1', 1, '2', 2])
 })
 
+test('runs discount-notification detection for every assigned listing right after the batched UPDATE, per batch', async () => {
+  const gemini = fakeGemini([
+    { id: '1', base_model: 'RTX 3060' },
+    { id: '2', base_model: 'iPhone 13' },
+  ])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [
+    { id: '1', title: 'RTX 3060 for sale', description: null },
+    { id: '2', title: 'iPhone 13 rush', description: null },
+  ]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+
+  const updateIndex = calls.findIndex((c) => c.sql.startsWith('UPDATE listings'))
+  const discountIndex = calls.findIndex((c) => c.sql.includes('discount_notifications'))
+  expect(discountIndex).toBeGreaterThan(-1)
+  expect(discountIndex).toBeGreaterThan(updateIndex)
+  expect(calls[discountIndex].params).toEqual([['1', '2']])
+})
+
 test('resolves each distinct base_model only once per run, even across multiple listings', async () => {
   const gemini = fakeGemini([
     { id: '1', base_model: 'RTX 3060' },

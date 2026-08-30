@@ -15,6 +15,7 @@ import {
   getPriceReviewCandidates,
   upsertListingPriceReview,
   upsertKeywordNegotiable,
+  detectAndRecordDiscountNotifications,
 } from './listings'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -428,4 +429,43 @@ test('upsertKeywordNegotiable inserts is_negotiable=true with no price estimate,
   expect(calls[0].sql).not.toContain('price_low = EXCLUDED')
   expect(calls[0].sql).not.toContain('reasoning = EXCLUDED')
   expect(calls[0].params).toEqual(['123', 'keyword match: "nego"'])
+})
+
+test('detectAndRecordDiscountNotifications is a no-op for an empty listing id list', async () => {
+  const { db, calls } = mockDb()
+
+  await detectAndRecordDiscountNotifications(db, [])
+
+  expect(calls).toHaveLength(0)
+})
+
+test('detectAndRecordDiscountNotifications scopes to the given listing ids, requires >=30% off the clean median, excludes outliers/placeholders/excluded products, and upserts idempotently', async () => {
+  const { db, calls } = mockDb()
+
+  await detectAndRecordDiscountNotifications(db, ['1', '2', '3'])
+
+  expect(calls).toHaveLength(1)
+  const sql = calls[0].sql
+  expect(calls[0].params).toEqual([['1', '2', '3']])
+  expect(sql).toContain('= ANY($1::text[])')
+
+  // Raw-then-clean median, same two-stage approach as the dashboard's
+  // DISCOUNT_SUMMARY_LATERAL - sample size gate (n >= 2) so a lone listing
+  // can never flag itself.
+  expect(sql).toContain('percentile_cont(0.5)')
+  expect(sql).toContain('n >= 2')
+
+  // Same placeholder-digit-pattern exclusion as getPriceReviewCandidates.
+  expect(sql).toContain("~ '^(\\d+)\\1+$'")
+  expect(sql).toContain("~ '012|123|234|345|456|567|678|789'")
+
+  // price_lookup_excluded products never notify, same gate as the
+  // dashboard's discount summary.
+  expect(sql).toContain('price_lookup_excluded')
+
+  // 30% bar, not the dashboard's 10% badge floor.
+  expect(sql).toContain('>= 30')
+
+  expect(sql).toMatch(/INSERT INTO discount_notifications/)
+  expect(sql).toContain('ON CONFLICT (listing_id) DO NOTHING')
 })

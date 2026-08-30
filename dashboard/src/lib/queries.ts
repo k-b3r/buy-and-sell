@@ -1074,3 +1074,57 @@ export async function getSavedListings(db: QueryClient): Promise<SavedListingSum
     saved_at: toIsoOrNull(r.saved_at) as string,
   }))
 }
+
+export interface DiscountNotification {
+  id: number
+  listing_id: string
+  product_id: number
+  title: string | null
+  primary_photo_url: string | null
+  discount_percent: number
+  reference_price: number
+  created_at: string
+  read_at: string | null
+}
+
+// Written by the root pipeline's detectAndRecordDiscountNotifications (see
+// src/domains/marketplace/storage/listings.ts) right after a listing first
+// gets a product_id - not queried live here, just displayed. No
+// unstable_cache wrapper (unlike most of cachedQueries.ts): a bell badge
+// showing a stale count defeats the point, and this table is small/indexed
+// enough that a plain read is cheap.
+export async function getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]> {
+  const result = await db.query(
+    `SELECT dn.id, dn.listing_id, dn.product_id, l.title, l.primary_photo_url, l.stored_photo_urls,
+            dn.discount_percent, dn.reference_price, dn.created_at, dn.read_at
+     FROM discount_notifications dn
+     JOIN listings l ON l.id = dn.listing_id
+     ORDER BY dn.created_at DESC
+     LIMIT $1`,
+    [limit],
+  )
+  return (result.rows as Record<string, unknown>[]).map((r) => ({
+    id: Number(r.id),
+    listing_id: r.listing_id as string,
+    product_id: Number(r.product_id),
+    title: r.title as string | null,
+    primary_photo_url: resolvePhotoUrls(r.stored_photo_urls, r.primary_photo_url)[0] ?? null,
+    discount_percent: Number(r.discount_percent),
+    reference_price: Number(r.reference_price),
+    created_at: toIsoOrNull(r.created_at) as string,
+    read_at: toIsoOrNull(r.read_at),
+  }))
+}
+
+export async function getUnreadDiscountNotificationCount(db: QueryClient): Promise<number> {
+  const result = await db.query(`SELECT count(*) AS count FROM discount_notifications WHERE read_at IS NULL`, [])
+  return Number((result.rows as { count: string }[])[0].count)
+}
+
+export async function markDiscountNotificationRead(db: QueryClient, id: number): Promise<void> {
+  await db.query(`UPDATE discount_notifications SET read_at = now() WHERE id = $1 AND read_at IS NULL`, [id])
+}
+
+export async function markAllDiscountNotificationsRead(db: QueryClient): Promise<void> {
+  await db.query(`UPDATE discount_notifications SET read_at = now() WHERE read_at IS NULL`, [])
+}

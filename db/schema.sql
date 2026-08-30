@@ -167,7 +167,7 @@ ALTER TABLE listings ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ;
 -- is_negotiable and price_low/price_high are independent signals, never coupled -
 -- a listing can be a single fixed price AND negotiable, or a range AND not.
 CREATE TABLE IF NOT EXISTS listing_price_review (
-  listing_id TEXT PRIMARY KEY REFERENCES listings(id),
+  listing_id TEXT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
   is_negotiable BOOLEAN NOT NULL,
   price_low NUMERIC,
   price_high NUMERIC,
@@ -314,3 +314,36 @@ CREATE TABLE IF NOT EXISTS saved_listings (
   listing_id TEXT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
   saved_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Written once, at extraction time, when a listing first crosses the
+-- high-discount bar against its product's clean median (see
+-- detectAndRecordDiscountNotifications in domains/marketplace/storage/
+-- listings.ts). Deliberately NOT re-evaluated later if sibling listings
+-- shift the median afterward - same "set once" tradeoff this codebase
+-- already makes for base_model/category. UNIQUE on listing_id both
+-- enforces "at most one notification per listing ever" and gives the
+-- insert its idempotency for free (ON CONFLICT DO NOTHING).
+CREATE TABLE IF NOT EXISTS discount_notifications (
+  id SERIAL PRIMARY KEY,
+  listing_id TEXT NOT NULL UNIQUE REFERENCES listings(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  discount_percent INTEGER NOT NULL,
+  reference_price NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS discount_notifications_unread_idx
+  ON discount_notifications (created_at) WHERE read_at IS NULL;
+
+-- listing_price_review's FK to listings was missing ON DELETE CASCADE -
+-- check-listings.ts's deleteListing() does a bare DELETE FROM listings with
+-- no child-row cleanup (same gap saved_listings/discount_notifications were
+-- already built to avoid). Hit live 2026-08-30: a confirmed-removed
+-- listing with a price-review row threw a real FK violation and got stuck
+-- permanently undeletable (photos already gone from R2, DB row stranded).
+-- The CREATE TABLE above is edited to match for any future fresh DB; this
+-- retroactively fixes the constraint on an existing one.
+ALTER TABLE listing_price_review DROP CONSTRAINT IF EXISTS listing_price_review_listing_id_fkey;
+ALTER TABLE listing_price_review ADD CONSTRAINT listing_price_review_listing_id_fkey
+  FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE;

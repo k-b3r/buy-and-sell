@@ -9,6 +9,7 @@ import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
+import { detectAndRecordDiscountNotifications } from '../../domains/marketplace/storage/listings'
 import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
@@ -155,6 +156,10 @@ export async function runProductExtraction(
     }
 
     await updateListingProductIds(db, assignments)
+    // Final step per listing: product_id is the prerequisite for any
+    // discount computation, and this is the one point a listing gets it,
+    // ever (getExtractionCandidates only selects listings without one).
+    await detectAndRecordDiscountNotifications(db, assignments.map((a) => a.id))
 
     processedSoFar += batch.length
     logger.info(
