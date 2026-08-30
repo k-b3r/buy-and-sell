@@ -10,7 +10,7 @@ const WORKERS = [
   'check-listings',
   'extract-products',
   'enrich-products',
-  'claude-price-lookup',
+  'price-lookup',
   'enrich-listing-prices',
 ] as const
 

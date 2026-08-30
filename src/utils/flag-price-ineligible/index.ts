@@ -14,7 +14,7 @@ import { createLogger } from '../../platform/logger'
 //
 // Manually curated (2026-08-23) from a real scan of distinct products.base_model
 // values — "new-retail price" is a meaningless concept for these, so both
-// claude-price-lookup.ts would otherwise waste a paid web_search call on
+// price-lookup.ts would otherwise waste a paid/quota-limited call on
 // them. Re-run whenever a new batch of
 // extraction turns up more junk categories — idempotent, matches on
 // base_model text.

@@ -8,7 +8,7 @@ export const WORKER_LOG_FILES: Record<string, string> = {
   'check-listings': 'check-listings.log',
   'extract-products': 'extract-products.log',
   'enrich-products': 'enrich-products.log',
-  'claude-price-lookup': 'claude-price-lookup.log',
+  'price-lookup': 'price-lookup.log',
   'enrich-listing-prices': 'enrich-listing-prices.log',
 }
 

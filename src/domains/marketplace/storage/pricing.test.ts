@@ -1,7 +1,7 @@
 import type { DbClient } from '../../../platform/storage'
 import {
   insertPriceCheck,
-  getWebSearchPriceCandidates,
+  getPriceLookupCandidates,
   flagProductPriceLookupExcluded,
 } from './pricing'
 
@@ -74,7 +74,7 @@ test('insertPriceCheck stores release_year and is_discontinued when given', asyn
   expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'raw', 'exa_new_retail', 'New', 'high', 2021, true])
 })
 
-test('getWebSearchPriceCandidates skips a product with a price row from ANY source', async () => {
+test('getPriceLookupCandidates skips a product with a price row from ANY source', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {
     query: async (sql: string, params: unknown[]) => {
@@ -83,7 +83,7 @@ test('getWebSearchPriceCandidates skips a product with a price row from ANY sour
     },
   }
 
-  await getWebSearchPriceCandidates(db)
+  await getPriceLookupCandidates(db)
 
   expect(calls[0].sql).toContain('NOT EXISTS')
   expect(calls[0].sql).toContain('product_price_history')

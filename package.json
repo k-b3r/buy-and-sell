@@ -8,12 +8,13 @@
     "collect": "tsx src/workers/collect/index.ts",
     "backfill-images": "tsx src/utils/backfill/index.ts",
     "extract-products": "tsx src/workers/extract-products/index.ts",
-    "claude-price-lookup": "tsx src/workers/claude-price-lookup/index.ts",
+    "price-lookup": "tsx src/workers/price-lookup/index.ts",
     "price-from-listings": "tsx src/utils/price-from-listings/index.ts",
     "check-listings": "tsx src/workers/check-listings/index.ts",
     "enrich-products": "tsx src/workers/enrich-products/index.ts",
     "flag-price-ineligible": "tsx src/utils/flag-price-ineligible/index.ts",
     "enrich-listing-prices": "tsx src/workers/enrich-listing-prices/index.ts",
+    "verify-discount-notifications": "tsx src/workers/verify-discount-notifications/index.ts",
     "flag-negotiable-keywords": "tsx src/utils/flag-negotiable-keywords/index.ts",
     "backfill-categories": "tsx src/utils/backfill-categories/index.ts",
     "backfill-sub-categories": "tsx src/utils/backfill-sub-categories/index.ts",
@@ -31,7 +32,6 @@
     "vitest": "^2.1.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.122.0",
     "@aws-sdk/client-s3": "^3.1113.0",
     "@google/genai": "^2.18.0",
     "groq-sdk": "^1.5.0",

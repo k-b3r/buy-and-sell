@@ -1,14 +1,22 @@
 import type { DbClient } from '../../../platform/storage'
-import type { ClaudePriceCandidate, PriceRange } from '../claude-price'
+import type { PriceLookupCandidate, PriceRange } from '../price-lookup'
 
 // Always an INSERT, never an upsert — each price check is a new point in the
 // product's price history, not a replacement of the last one. This is what
 // makes a price trend possible: query product_price_history ordered by
 // checked_at, don't just read a single "current price" column.
-// gemini_grounding/exa_new_retail are retired sources (kept here so any
-// historical rows still typecheck) — claude-price-lookup writes 'web_search'
-// for both new and used prices now (one row per condition per call).
-export type PriceCheckSource = 'gemini_grounding' | 'listing_prices' | 'exa_new_retail' | 'web_search'
+// exa_new_retail/web_search are retired sources (kept here so any historical
+// rows still typecheck) — price-lookup writes tavily_new_retail for retail,
+// and gemini_grounding -> exa_secondhand -> tavily_secondhand (in that
+// fallback order, one row from whichever succeeded) for secondhand now.
+export type PriceCheckSource =
+  | 'gemini_grounding'
+  | 'listing_prices'
+  | 'exa_new_retail'
+  | 'exa_secondhand'
+  | 'web_search'
+  | 'tavily_new_retail'
+  | 'tavily_secondhand'
 
 // confidence/releaseYear/isDiscontinued were Exa-specific extras — always
 // null for the current web_search/listing_prices sources, which have no
@@ -31,17 +39,17 @@ export async function insertPriceCheck(
   )
 }
 
-// Both retail and secondhand prices come from one paid Claude call per
-// product now, so every non-excluded product is a candidate regardless of
-// listing count. Skips any product with a price row from ANY source — a
-// product already priced (by a retired gemini_grounding/exa_new_retail row,
-// or a prior web_search row) doesn't need another paid call. Resumable via
-// NOT EXISTS, a first-pass fill rather than a re-check-every-run trend —
-// each web_search call costs real money, unlike Gemini's old free tier.
-// description/sibling_variants (same LEFT JOIN / sibling-lookup shape as the
-// enrichment candidate query) disambiguate the search — description may be
-// null if this product hasn't been through enrich-products yet.
-export async function getWebSearchPriceCandidates(db: DbClient): Promise<ClaudePriceCandidate[]> {
+// Retail (Tavily) and secondhand (Gemini->Exa->Tavily) prices both come from
+// one lap through this same candidate set now, so every non-excluded product
+// is a candidate regardless of listing count. Skips any product with a price
+// row from ANY source — a product already priced doesn't need another
+// lookup. Resumable via NOT EXISTS, a first-pass fill rather than a
+// re-check-every-run trend — Tavily/Exa calls cost real money or quota,
+// unlike Gemini's free tier alone. description/sibling_variants (same LEFT
+// JOIN / sibling-lookup shape as the enrichment candidate query)
+// disambiguate the search — description may be null if this product hasn't
+// been through enrich-products yet.
+export async function getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]> {
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier, e.description,
        COALESCE(
@@ -59,7 +67,7 @@ export async function getWebSearchPriceCandidates(db: DbClient): Promise<ClaudeP
        )
      ORDER BY p.id`,
     [],
-  )) as { rows: ClaudePriceCandidate[] }
+  )) as { rows: PriceLookupCandidate[] }
   return result.rows
 }
 

@@ -76,21 +76,18 @@ export const PRODUCT_CATEGORIES = [
   'Other',
 ] as const
 
-// exa_new_retail is the only source that has ever targeted brand-new retail
-// pricing - gemini_grounding and web_search both explicitly ask for
-// secondhand/used pricing (see src/pricing.ts's prompt), and Exa itself
-// can't reach secondhand listings at all (FB/Carousell aren't indexed,
-// confirmed live 2026-08-22 - see CONTEXT.md). Blending these into one
+// tavily_new_retail is price-lookup.ts's current brand-new retail source
+// (Tavily, single call/product, no fallback chain - see
+// src/domains/marketplace/price-lookup.ts). exa_new_retail/claude_code_new_retail
+// are retired (kept so historical rows still resolve) - gemini_grounding and
+// web_search both explicitly ask for secondhand/used pricing instead (see
+// src/domains/marketplace/price-lookup.ts's prompts), and Exa itself can't
+// reach secondhand listings at all (FB/Carousell aren't indexed, confirmed
+// live 2026-08-22 - see CONTEXT.md). Blending new/secondhand into one
 // "market price" number was a real bug: a product's new-retail price would
 // silently make every real secondhand listing look like a huge deal against
 // full retail. Kept as two separate laterals so the two concepts can never
 // collapse into one column again.
-// claude_code_new_retail: Claude Code doing a manual WebSearch lookup as a
-// stopgap while the paid Exa/free Gemini quota is unavailable (2026-08-28) -
-// same "new retail" concept, different mechanism, so it belongs in the same
-// lateral rather than a third parallel column. Ordered after exa_new_retail
-// (ASC on the boolean puts exa_new_retail - false - first) since Exa is the
-// paid, purpose-built source; Claude's ad-hoc web search is the fallback.
 // manual_new_retail: a human directly typed this in on the needs-review page
 // (setManualPrice) - ranked above every automated source since a human
 // already looked at the specific product, not a generic search result.
@@ -100,16 +97,23 @@ const NEW_PRICE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT price_low, price_high, source
     FROM product_price_history h
-    WHERE h.product_id = p.id AND h.source IN ('manual_new_retail', 'exa_new_retail', 'claude_code_new_retail')
+    WHERE h.product_id = p.id AND h.source IN ('manual_new_retail', 'tavily_new_retail', 'exa_new_retail', 'claude_code_new_retail')
     ORDER BY (h.source = 'manual_new_retail') DESC, (h.source = 'claude_code_new_retail') ASC, h.checked_at DESC
     LIMIT 1
   ) np ON true
 `
 
-// gemini_grounding/web_search are external secondhand-grounded searches,
-// preferred over listing_prices, which is computed from this same
-// marketplace's own listings and so is a more circular comparison (see
-// db/schema.sql's product_price_history comment).
+// price-lookup.ts's secondhand fallback chain, in preference order:
+// gemini_grounding (primary, free) -> exa_secondhand (fallback 1, paid,
+// structured) -> tavily_secondhand (fallback 2, free, regex-parsed) - only
+// one of these is ever written per product per lookup (whichever succeeded),
+// so in practice they don't compete against each other here, but the
+// ordering still reflects real trust tier if historical data ever overlaps.
+// web_search is retired (Claude's old combined retail+secondhand call, kept
+// so historical rows still resolve). listing_prices is computed from this
+// same marketplace's own listings, a more circular comparison (see
+// db/schema.sql's product_price_history comment), so it's deprioritized
+// below every external search source.
 // claude_code_secondhand: same stopgap reasoning as claude_code_new_retail
 // above - ordered last (after listing_prices) since it's the least-grounded
 // source here (a manual web search Claude did, not a dedicated pricing
@@ -121,7 +125,8 @@ const SECONDHAND_PRICE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT price_low, price_high, source
     FROM product_price_history h
-    WHERE h.product_id = p.id AND h.source IN ('manual_secondhand', 'gemini_grounding', 'web_search', 'listing_prices', 'claude_code_secondhand')
+    WHERE h.product_id = p.id AND h.source IN
+      ('manual_secondhand', 'gemini_grounding', 'exa_secondhand', 'tavily_secondhand', 'web_search', 'listing_prices', 'claude_code_secondhand')
     ORDER BY (h.source = 'manual_secondhand') DESC, (h.source = 'claude_code_secondhand') ASC, (h.source = 'listing_prices') ASC, h.checked_at DESC
     LIMIT 1
   ) up ON true
@@ -537,7 +542,7 @@ export async function getProductsNeedingReview(db: QueryClient): Promise<Product
             up.price_low AS secondhand_price_low, up.price_high AS secondhand_price_high,
             (SELECT jsonb_agg(jsonb_build_object(
                 'id', h.id,
-                'kind', CASE WHEN h.source IN ('manual_new_retail', 'exa_new_retail', 'claude_code_new_retail') THEN 'new' ELSE 'secondhand' END,
+                'kind', CASE WHEN h.source IN ('manual_new_retail', 'tavily_new_retail', 'exa_new_retail', 'claude_code_new_retail') THEN 'new' ELSE 'secondhand' END,
                 'price_low', h.price_low,
                 'price_high', h.price_high,
                 'price_currency', h.price_currency,
@@ -1099,6 +1104,7 @@ export async function getDiscountNotifications(db: QueryClient, limit = 20): Pro
             dn.discount_percent, dn.reference_price, dn.created_at, dn.read_at
      FROM discount_notifications dn
      JOIN listings l ON l.id = dn.listing_id
+     WHERE dn.verified_at IS NOT NULL
      ORDER BY dn.created_at DESC
      LIMIT $1`,
     [limit],
@@ -1117,7 +1123,10 @@ export async function getDiscountNotifications(db: QueryClient, limit = 20): Pro
 }
 
 export async function getUnreadDiscountNotificationCount(db: QueryClient): Promise<number> {
-  const result = await db.query(`SELECT count(*) AS count FROM discount_notifications WHERE read_at IS NULL`, [])
+  const result = await db.query(
+    `SELECT count(*) AS count FROM discount_notifications WHERE read_at IS NULL AND verified_at IS NOT NULL`,
+    [],
+  )
   return Number((result.rows as { count: string }[])[0].count)
 }
 

@@ -87,7 +87,7 @@ src/
     images.ts, logger.ts, review.ts, utils.ts
   workers/                              # the 7 looping, continuously-running processes
     collect/, check-listings/           # Group B: collection (independent pacing)
-    extract-products/, enrich-products/, secondhand-price-lookup/, retail-price-lookup/,
+    extract-products/, enrich-products/, price-lookup/,
     enrich-listing-prices/              # Group A: pricing pipeline (shared pacing)
   utils/                                # one-off scripts, run by hand, not looped/deployed — no domain
     backfill/, backfill-categories/     # logic of their own, everything domain-shaped lives in domains/
