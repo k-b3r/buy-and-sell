@@ -1,8 +1,9 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
 import { runProductExtraction } from './index'
+import type { ExtractionClients } from './index'
 import { createLogger } from '../../platform/logger'
 import { normalizeVariantTier } from '../../domains/marketplace'
-import type { GeminiClient } from '../../domains/llm-clients'
+import type { GeminiClient, GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
 
@@ -12,13 +13,25 @@ afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
 
-function fakeGemini(response: unknown): GeminiClient {
+function fakeGroq(response: unknown): GroqClient {
+  return { generateJson: async () => response }
+}
+
+function unusedGemini(): GeminiClient {
   return {
-    generateJson: async () => response,
+    generateJson: async () => {
+      throw new Error('Gemini should not be called')
+    },
     generateGroundedText: async () => {
       throw new Error('not used by product extraction')
     },
   }
+}
+
+// Happy-path helper: Groq (primary) returns the given response, Gemini
+// (fallback) throws if it's ever reached — proves Groq alone is enough.
+function fakeClients(response: unknown): ExtractionClients {
+  return { groq: fakeGroq(response), gemini: unusedGemini() }
 }
 
 function fakeDb(): DbClient {
@@ -51,8 +64,8 @@ function fakeDbWithCalls(): { db: DbClient; calls: { sql: string; params: unknow
   }
 }
 
-test('assigns each listing to a product via a single batched UPDATE, keyed by the Gemini response id', async () => {
-  const gemini = fakeGemini([
+test('assigns each listing to a product via a single batched UPDATE, keyed by the Groq response id', async () => {
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2', base_model: 'iPhone 13' },
   ])
@@ -63,14 +76,14 @@ test('assigns each listing to a product via a single batched UPDATE, keyed by th
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   expect(updateCall?.params).toEqual(['1', 1, '2', 2])
 })
 
 test('two listings with the same base_model get the same product_id', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2', base_model: 'RTX 3060' },
   ])
@@ -81,31 +94,31 @@ test('two listings with the same base_model get the same product_id', async () =
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   expect(updateCall?.params).toEqual(['1', 1, '2', 1])
 })
 
 test('passes category through to findOrCreateProduct on the INSERT', async () => {
-  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060', category: 'PC Components' }])
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060', category: 'PC Components' }])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060 for sale', description: null }]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
   expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', null])
 })
 
 test('a missing or non-string category falls back to null rather than skipping the whole item', async () => {
-  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060' }])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060 for sale', description: null }]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
   expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, null, null])
@@ -114,24 +127,24 @@ test('a missing or non-string category falls back to null rather than skipping t
 })
 
 test('passes sub_category through to findOrCreateProduct on the INSERT', async () => {
-  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060', category: 'PC Components', sub_category: 'Graphics Cards' }])
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060', category: 'PC Components', sub_category: 'Graphics Cards' }])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060 for sale', description: null }]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
   expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', 'Graphics Cards'])
 })
 
 test('a missing or non-string sub_category falls back to null rather than skipping the whole item', async () => {
-  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060', category: 'PC Components' }])
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060', category: 'PC Components' }])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060 for sale', description: null }]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const insertCall = calls.find((c) => c.sql.startsWith('INSERT'))
   expect(insertCall?.params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', null])
@@ -139,25 +152,22 @@ test('a missing or non-string sub_category falls back to null rather than skippi
 
 test('candidate list passed in is already the pending set — getExtractionCandidates does the filtering, not this function', async () => {
   let promptedIds: string[] = []
-  const gemini: GeminiClient = {
+  const groq: GroqClient = {
     generateJson: async (prompt: string) => {
       promptedIds = [...prompt.matchAll(/\[id: (\S+)\]/g)].map((m) => m[1])
       return [{ id: '2', base_model: 'iPhone 13' }]
-    },
-    generateGroundedText: async () => {
-      throw new Error('not used by product extraction')
     },
   }
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '2', title: 'iPhone 13 rush', description: null }]
 
-  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 25 })
+  await runProductExtraction({ groq, gemini: unusedGemini() }, fakeDb(), logger, candidates, { batchSize: 25 })
 
   expect(promptedIds).toEqual(['2'])
 })
 
-test('batches all product_id assignments from one Gemini batch into a single UPDATE call', async () => {
-  const gemini = fakeGemini([
+test('batches all product_id assignments from one Groq batch into a single UPDATE call', async () => {
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2', base_model: 'iPhone 13' },
   ])
@@ -168,7 +178,7 @@ test('batches all product_id assignments from one Gemini batch into a single UPD
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCalls = calls.filter((c) => c.sql.startsWith('UPDATE listings'))
   expect(updateCalls).toHaveLength(1)
@@ -177,7 +187,7 @@ test('batches all product_id assignments from one Gemini batch into a single UPD
 })
 
 test('runs discount-notification detection for every assigned listing right after the batched UPDATE, per batch', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2', base_model: 'iPhone 13' },
   ])
@@ -188,7 +198,7 @@ test('runs discount-notification detection for every assigned listing right afte
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateIndex = calls.findIndex((c) => c.sql.startsWith('UPDATE listings'))
   const discountIndex = calls.findIndex((c) => c.sql.includes('discount_notifications'))
@@ -198,7 +208,7 @@ test('runs discount-notification detection for every assigned listing right afte
 })
 
 test('resolves each distinct base_model only once per run, even across multiple listings', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2', base_model: 'RTX 3060' },
     { id: '3', base_model: 'iPhone 13' },
@@ -211,7 +221,7 @@ test('resolves each distinct base_model only once per run, even across multiple 
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   // 2 distinct base models, each a SELECT (miss) + INSERT = 4 total product-lookup
   // calls — not 5+, which is what re-resolving the repeated "RTX 3060" would cost.
@@ -220,7 +230,7 @@ test('resolves each distinct base_model only once per run, even across multiple 
 })
 
 test('a known alias base_model canonicalizes before product lookup, collapsing onto the canonical product', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'PS5' },
     { id: '2', base_model: 'PlayStation 5' },
   ])
@@ -231,7 +241,7 @@ test('a known alias base_model canonicalizes before product lookup, collapsing o
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   expect(updateCall?.params).toEqual(['1', 1, '2', 1])
@@ -241,7 +251,7 @@ test('a known alias base_model canonicalizes before product lookup, collapsing o
 })
 
 test('a listing with a variant guess gets a different product_id than one without', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060', variant: 'OC' },
     { id: '2', base_model: 'RTX 3060' },
   ])
@@ -252,7 +262,7 @@ test('a listing with a variant guess gets a different product_id than one withou
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   const params = updateCall?.params as [string, number, string, number]
@@ -260,7 +270,7 @@ test('a listing with a variant guess gets a different product_id than one withou
 })
 
 test('an empty string variant is treated as no variant at all', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060', variant: '' },
     { id: '2', base_model: 'RTX 3060' },
   ])
@@ -271,7 +281,7 @@ test('an empty string variant is treated as no variant at all', async () => {
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   const params = updateCall?.params as [string, number, string, number]
@@ -279,7 +289,7 @@ test('an empty string variant is treated as no variant at all', async () => {
 })
 
 test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spellings of the same edition collapse', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060', variant: 'OC' },
     { id: '2', base_model: 'RTX 3060', variant: 'Founders edition' },
     { id: '3', base_model: 'RTX 3060', variant: "Founder's edition" },
@@ -292,7 +302,7 @@ test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spe
   ]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE listings'))
   const params = updateCall?.params as [string, number, string, number, string, number]
@@ -302,7 +312,7 @@ test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spe
 })
 
 test('waits between batches but not before the first one or after the last one', async () => {
-  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060' }])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [
     { id: '1', title: 'RTX 3060', description: null },
@@ -314,13 +324,13 @@ test('waits between batches but not before the first one or after the last one',
     delays.push(ms)
   }
 
-  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 1, delayMs: 5000 }, fakeDelay)
+  await runProductExtraction(clients, fakeDb(), logger, candidates, { batchSize: 1, delayMs: 5000 }, fakeDelay)
 
   expect(delays).toEqual([5000, 5000])
 })
 
 test('logs batch progress and a cumulative running total as it goes', async () => {
-  const gemini = fakeGemini([{ id: '1', base_model: 'RTX 3060' }])
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060' }])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [
     { id: '1', title: 'RTX 3060', description: null },
@@ -328,7 +338,7 @@ test('logs batch progress and a cumulative running total as it goes', async () =
     { id: '3', title: 'Sony WH-1000XM4', description: null },
   ]
 
-  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 1, delayMs: 0 })
+  await runProductExtraction(clients, fakeDb(), logger, candidates, { batchSize: 1, delayMs: 0 })
 
   const log = readFileSync(LOG_PATH, 'utf-8')
   expect(log).toContain('batch 1/3')
@@ -338,7 +348,7 @@ test('logs batch progress and a cumulative running total as it goes', async () =
 })
 
 test('logs a per-batch summary with assigned and skipped counts', async () => {
-  const gemini = fakeGemini([
+  const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060' },
     { id: '2' }, // missing base_model -> skipped
     { id: 'not-a-real-listing', base_model: 'Ghost' }, // no matching candidate -> skipped
@@ -349,35 +359,61 @@ test('logs a per-batch summary with assigned and skipped counts', async () => {
     { id: '2', title: 'Unknown thing', description: null },
   ]
 
-  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, fakeDb(), logger, candidates, { batchSize: 25 })
 
   const log = readFileSync(LOG_PATH, 'utf-8')
   expect(log).toContain('batch 1/1 done: 1 assigned, 2 skipped')
 })
 
 test('a malformed batch response is logged and skipped, without crashing the run', async () => {
-  const gemini = fakeGemini({ not: 'an array' })
+  const clients = fakeClients({ not: 'an array' })
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 })
+  await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
 })
 
-test('a transient (non-quota) Gemini error is retried with exponential backoff and can still succeed', async () => {
+test('a transient (non-quota) Groq error is retried with exponential backoff and can still succeed', async () => {
   let callCount = 0
-  const gemini: GeminiClient = {
+  const groq: GroqClient = {
     generateJson: async () => {
       callCount += 1
       if (callCount < 3) {
-        const err = new Error(
-          '{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}',
-        )
-        throw err
+        throw new Error('503 UNAVAILABLE: high demand')
       }
+      return [{ id: '1', base_model: 'RTX 3060' }]
+    },
+  }
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
+  const { db, calls } = fakeDbWithCalls()
+  const delays: number[] = []
+
+  await runProductExtraction({ groq, gemini: unusedGemini() }, db, logger, candidates, { batchSize: 25 }, async (ms) => {
+    delays.push(ms)
+  })
+
+  expect(callCount).toBe(3)
+  expect(delays).toEqual([30000, 60000])
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(true)
+})
+
+test('Groq quota exhaustion falls through to Gemini, which succeeds', async () => {
+  const groq: GroqClient = {
+    generateJson: async () => {
+      const err = new Error('RESOURCE_EXHAUSTED') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+  }
+  let geminiCalled = false
+  const gemini: GeminiClient = {
+    generateJson: async () => {
+      geminiCalled = true
       return [{ id: '1', base_model: 'RTX 3060' }]
     },
     generateGroundedText: async () => {
@@ -387,24 +423,26 @@ test('a transient (non-quota) Gemini error is retried with exponential backoff a
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
   const { db, calls } = fakeDbWithCalls()
-  const delays: number[] = []
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 }, async (ms) => {
-    delays.push(ms)
-  })
+  await runProductExtraction({ groq, gemini }, db, logger, candidates, { batchSize: 25 }, async () => {})
 
-  expect(callCount).toBe(3)
-  expect(delays).toEqual([30000, 60000])
+  expect(geminiCalled).toBe(true)
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(true)
+  const log = readFileSync(LOG_PATH, 'utf-8')
+  expect(log).toContain('Groq quota exhausted')
+  expect(log).toContain('falling back to Gemini')
 })
 
-test('a persistent non-quota Gemini error gives up after 5 attempts, logged, stops the run cleanly', async () => {
-  let callCount = 0
-  const gemini: GeminiClient = {
+test('Groq retries exhausted (non-quota) falls through to Gemini, which succeeds', async () => {
+  let groqCallCount = 0
+  const groq: GroqClient = {
     generateJson: async () => {
-      callCount += 1
+      groqCallCount += 1
       throw new Error('503 UNAVAILABLE: high demand')
     },
+  }
+  const gemini: GeminiClient = {
+    generateJson: async () => [{ id: '1', base_model: 'RTX 3060' }],
     generateGroundedText: async () => {
       throw new Error('not used by product extraction')
     },
@@ -413,21 +451,23 @@ test('a persistent non-quota Gemini error gives up after 5 attempts, logged, sto
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 }, async () => {})
+  await runProductExtraction({ groq, gemini }, db, logger, candidates, { batchSize: 25 }, async () => {})
 
-  expect(callCount).toBe(5)
-  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
-  const log = readFileSync(LOG_PATH, 'utf-8')
-  expect(log).toContain('[ERROR]')
-  expect(log).toContain('after 5 attempts')
+  expect(groqCallCount).toBe(5)
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(true)
 })
 
-test('a real Gemini quota error (429) is not retried — stops the run immediately', async () => {
-  let callCount = 0
+test('both Groq and Gemini exhausted stops the run cleanly', async () => {
+  const groq: GroqClient = {
+    generateJson: async () => {
+      const err = new Error('RESOURCE_EXHAUSTED') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+  }
   const gemini: GeminiClient = {
     generateJson: async () => {
-      callCount += 1
-      const err = new Error('RESOURCE_EXHAUSTED: quota exceeded') as Error & { status: number }
+      const err = new Error('RESOURCE_EXHAUSTED') as Error & { status: number }
       err.status = 429
       throw err
     },
@@ -438,34 +478,27 @@ test('a real Gemini quota error (429) is not retried — stops the run immediate
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
   const { db, calls } = fakeDbWithCalls()
-  const delays: number[] = []
 
-  await runProductExtraction(gemini, db, logger, candidates, { batchSize: 25 }, async (ms) => {
-    delays.push(ms)
-  })
+  await runProductExtraction({ groq, gemini }, db, logger, candidates, { batchSize: 25 }, async () => {})
 
-  expect(callCount).toBe(1)
-  expect(delays).toEqual([])
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
   const log = readFileSync(LOG_PATH, 'utf-8')
-  expect(log).toContain('quota exhausted')
+  expect(log).toContain('Groq quota exhausted')
+  expect(log).toContain('Gemini quota exhausted across all configured keys too')
 })
 
-test('a null description is sent to Gemini as an empty string, not "null"', async () => {
+test('a null description is sent to Groq as an empty string, not "null"', async () => {
   let capturedPrompt = ''
-  const gemini: GeminiClient = {
+  const groq: GroqClient = {
     generateJson: async (prompt: string) => {
       capturedPrompt = prompt
       return [{ id: '1', base_model: 'RTX 3060' }]
-    },
-    generateGroundedText: async () => {
-      throw new Error('not used by product extraction')
     },
   }
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [{ id: '1', title: 'RTX 3060', description: null }]
 
-  await runProductExtraction(gemini, fakeDb(), logger, candidates, { batchSize: 25 })
+  await runProductExtraction({ groq, gemini: unusedGemini() }, fakeDb(), logger, candidates, { batchSize: 25 })
 
   expect(capturedPrompt).toContain('desc: ""')
 })

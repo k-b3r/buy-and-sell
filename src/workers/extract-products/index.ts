@@ -1,8 +1,15 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient } from '../../domains/llm-clients'
-import { createGeminiClient, createFallbackGeminiClient, isGeminiQuotaError } from '../../domains/llm-clients'
+import type { GeminiClient, GroqClient } from '../../domains/llm-clients'
+import {
+  createGeminiClient,
+  createFallbackGeminiClient,
+  isGeminiQuotaError,
+  createGroqClient,
+  createFallbackGroqClient,
+  isGroqQuotaError,
+} from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -20,20 +27,29 @@ import {
   CANONICAL_BASE_MODEL,
 } from '../../domains/marketplace'
 
+export interface ExtractionClients {
+  groq: GroqClient
+  gemini: GeminiClient
+}
+
 export interface ExtractionOptions {
   batchSize: number
   delayMs?: number
 }
 
-// Gemini's free tier throws real 503s under load ("This model is currently
-// experiencing high demand... usually temporary") — confirmed live
-// 2026-08-24 on Hetzner, which crashed the whole run uncaught. Exponential
-// backoff starting at 30s (not enrich-products.ts's 3s) because "usually
-// temporary" for a model-capacity spike plausibly means minutes, not
-// seconds — 5 attempts caps the wait at 30+60+120+240 = ~7.5 minutes before
-// giving up. A real quota error (429, all fallback keys exhausted) is not
-// retried — same reasoning as enrich-products.ts, retrying can't fix an
-// exhausted quota.
+// Groq is primary now (no daily-request quota surprise like Gemini's, and
+// doesn't compete with price-lookup.ts's secondhand chain for Gemini's
+// tight, live-confirmed ~20 req/day/key budget) - Gemini is a pure fallback,
+// tried only once Groq is exhausted. Gemini's free tier throws real 503s
+// under load ("This model is currently experiencing high demand... usually
+// temporary") — confirmed live 2026-08-24 on Hetzner, which crashed the
+// whole run uncaught. Exponential backoff starting at 30s (not
+// enrich-products.ts's 3s) because "usually temporary" for a model-capacity
+// spike plausibly means minutes, not seconds — 5 attempts caps the wait at
+// 30+60+120+240 = ~7.5 minutes before giving up. A real quota error (429,
+// all fallback keys exhausted) is not retried on that same provider —
+// retrying can't fix an exhausted quota — but does fall through to the
+// other provider's own retry loop rather than failing the batch outright.
 const MAX_ATTEMPTS = 5
 const RETRY_BASE_DELAY_MS = 30000
 
@@ -42,8 +58,59 @@ const RETRY_BASE_DELAY_MS = 30000
 // without a restart, same pattern as enrich-products.ts.
 const LOOP_DELAY_MS = 300000
 
+// Tries Groq first (own retry/backoff loop below), and only on quota
+// exhaustion or exhausted retries falls through to a second retry loop
+// against Gemini - not fatal until BOTH providers are exhausted. Returns
+// null only when neither provider produced a response.
+async function extractBatch(
+  clients: ExtractionClients,
+  prompt: string,
+  logger: Logger,
+  batchLabel: string,
+  delay: DelayFn,
+): Promise<unknown | null> {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (isGroqQuotaError(err)) {
+        logger.warn(`${batchLabel}: Groq quota exhausted (${message}), falling back to Gemini`)
+        break
+      }
+      if (attempt === MAX_ATTEMPTS) {
+        logger.warn(`${batchLabel}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), falling back to Gemini`)
+        break
+      }
+      const retryDelay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+      logger.warn(`${batchLabel}: Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying in ${retryDelay}ms`)
+      await delay(retryDelay)
+    }
+  }
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await clients.gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (isGeminiQuotaError(err)) {
+        logger.error(`${batchLabel}: Gemini quota exhausted across all configured keys too (${message}), stopping run`)
+        return null
+      }
+      if (attempt === MAX_ATTEMPTS) {
+        logger.error(`${batchLabel}: Gemini request failed after ${MAX_ATTEMPTS} attempts too (${message}), stopping run`)
+        return null
+      }
+      const retryDelay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+      logger.warn(`${batchLabel}: Gemini request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying in ${retryDelay}ms`)
+      await delay(retryDelay)
+    }
+  }
+  return null
+}
+
 export async function runProductExtraction(
-  gemini: GeminiClient,
+  clients: ExtractionClients,
   db: DbClient,
   logger: Logger,
   candidates: ExtractionCandidate[],
@@ -66,35 +133,12 @@ export async function runProductExtraction(
       await delay(delayMs)
     }
     const batch = candidates.slice(i, i + options.batchSize)
-    logger.info(`batch ${batchNum}/${totalBatches}: sending ${batch.length} listings to Gemini`)
+    const batchLabel = `batch ${batchNum}/${totalBatches}`
+    logger.info(`${batchLabel}: sending ${batch.length} listings to Groq`)
     const prompt = buildExtractionPrompt(batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })))
 
-    let raw: unknown
-    let fatal = false
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        raw = await gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
-        break
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        if (isGeminiQuotaError(err)) {
-          logger.error(`batch ${batchNum}/${totalBatches}: Gemini quota exhausted across all configured keys (${message}), stopping run`)
-          fatal = true
-          break
-        }
-        if (attempt === MAX_ATTEMPTS) {
-          logger.error(`batch ${batchNum}/${totalBatches}: Gemini request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`)
-          fatal = true
-          break
-        }
-        const retryDelay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
-        logger.warn(
-          `batch ${batchNum}/${totalBatches}: Gemini request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying in ${retryDelay}ms`,
-        )
-        await delay(retryDelay)
-      }
-    }
-    if (fatal) break
+    const raw = await extractBatch(clients, prompt, logger, batchLabel, delay)
+    if (raw === null) break
 
     if (!Array.isArray(raw)) {
       logger.error(`batch ${batchNum}/${totalBatches}: unexpected response shape (not an array), skipping batch`)
@@ -175,27 +219,43 @@ function logProgress(logger: Logger, processedSoFar: number, pendingTotal: numbe
   logger.info(`${processedSoFar}/${pendingTotal} pending processed (${pct}%)`)
 }
 
+const MODEL = 'openai/gpt-oss-120b'
+
 async function main() {
   loadEnvFile()
-  const apiKey = process.env.FREE_GEMINI_API_KEY
-  if (!apiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
+  const groqApiKey = process.env.FREE_GROQ_API_KEY
+  if (!groqApiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
+  const geminiApiKey = process.env.FREE_GEMINI_API_KEY
+  if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
 
   const logger = createLogger('data/extract-products.log')
   writePidFile('data/extract-products.pid')
 
+  // Same multi-key/multi-model fallback shape as enrich-products.ts - a
+  // second model on the same key first (cheap, no new credential needed),
+  // then a second key's own pair if configured.
+  const groqClients = [createGroqClient(groqApiKey, MODEL), createGroqClient(groqApiKey, 'openai/gpt-oss-20b')]
+  const altGroqApiKey = process.env.ALT_FREE_GROQ_API_KEY
+  if (altGroqApiKey) {
+    groqClients.push(createGroqClient(altGroqApiKey, MODEL), createGroqClient(altGroqApiKey, 'openai/gpt-oss-20b'))
+    logger.info('ALT_FREE_GROQ_API_KEY configured, will fall back to it once the primary key is exhausted')
+  }
+  const groq = createFallbackGroqClient(groqClients)
+
   // Free tier is 20 requests/day per project per model — a second key from a
   // different Google account is a different project, so it has its own
-  // independent quota. Falls back to it automatically on a 429, rather than
-  // needing to guess in advance how many requests either one has left today.
-  const altApiKey = process.env.ALT_FREE_GEMINI_API_KEY
-  const gemini = altApiKey
-    ? createFallbackGeminiClient([createGeminiClient(apiKey), createGeminiClient(altApiKey, 'gemini-3.6-flash')])
-    : createGeminiClient(apiKey)
-  if (altApiKey) {
+  // independent quota. Gemini is now the fallback provider (see MAX_ATTEMPTS'
+  // comment above), tried only once Groq is exhausted.
+  const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
+  const gemini = altGeminiApiKey
+    ? createFallbackGeminiClient([createGeminiClient(geminiApiKey), createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash')])
+    : createGeminiClient(geminiApiKey)
+  if (altGeminiApiKey) {
     logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')
   }
+  const clients: ExtractionClients = { groq, gemini }
   const pool = createDbPool(dbUrl)
 
   logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
@@ -205,12 +265,15 @@ async function main() {
       logger.info(`lap ${lap} starting`)
       const candidates = await getExtractionCandidates(pool)
       if (isTestRun()) {
-        logger.info(`TEST_RUN: marketplace will call Gemini for extraction on ${candidates.length} listings this lap`)
+        logger.info(`TEST_RUN: marketplace will call Groq for extraction on ${candidates.length} listings this lap`)
       } else {
-        await runProductExtraction(gemini, pool, logger, candidates, {
-          // Free tier is 20 requests/DAY for gemini-2.5-flash (confirmed live 2026-08-20
-          // via a real 429 — NOT the ~1,500/day figure researched earlier, which turned
-          // out to be the separate Google Search grounding quota, not base generateContent).
+        await runProductExtraction(clients, pool, logger, candidates, {
+          // batchSize was tuned around Gemini's 20 req/day cap (confirmed
+          // live 2026-08-20) - unverified whether 100/batch is still the
+          // right size now that Groq (TPM-capped, not daily-request-capped)
+          // is primary. Left as-is pending a live batch-size audit, same
+          // status as enrich-listing-prices.ts's 35 and
+          // backfill-categories.ts's 100 (see pipeline-consolidation plan).
           batchSize: 100,
           delayMs: 5000,
         })
