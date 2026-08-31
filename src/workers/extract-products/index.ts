@@ -11,6 +11,7 @@ import {
   isGroqQuotaError,
   createExaClient,
   createFallbackExaClient,
+  loadExaApiKeys,
   createTavilyClient,
 } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -278,8 +279,8 @@ async function main() {
   if (!groqApiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
   const geminiApiKey = process.env.FREE_GEMINI_API_KEY
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
-  const exaApiKey = process.env.EXA_API_KEY
-  if (!exaApiKey) throw new Error('EXA_API_KEY not set in .env')
+  const exaApiKeys = loadExaApiKeys()
+  if (exaApiKeys.length === 0) throw new Error('No EXA_API_KEY<n> (EXA_API_KEY0, EXA_API_KEY1, ...) set in .env')
   const tavilyApiKey = process.env.TAVILY_API_KEY
   if (!tavilyApiKey) throw new Error('TAVILY_API_KEY not set in .env')
   const dbUrl = process.env.DATABASE_URL
@@ -312,15 +313,10 @@ async function main() {
   }
   // Exa is now the primary source for both retail and secondhand pricing
   // (see domains/marketplace/price-lookup.ts) - its credits ran out
-  // mid-investigation once already (2026-08-31, real 402), so a second key
-  // is worth having on hand here too, same as price-lookup.ts's own main().
-  const exaClients = [createExaClient(exaApiKey)]
-  const altExaApiKey = process.env.ALT_EXA_API_KEY
-  if (altExaApiKey) {
-    exaClients.push(createExaClient(altExaApiKey))
-    logger.info("ALT_EXA_API_KEY configured, will fall back to it once the primary key's credits are exhausted")
-  }
-  const exa = createFallbackExaClient(exaClients)
+  // mid-investigation once already (2026-08-31, real 402), so multiple keys
+  // are worth having on hand here too (see loadExaApiKeys).
+  logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
+  const exa = createFallbackExaClient(exaApiKeys.map(createExaClient))
   const tavily = createTavilyClient(tavilyApiKey)
 
   const clients: ExtractionClients = { groq, gemini, exa, tavily }

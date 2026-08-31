@@ -2,6 +2,21 @@ export interface ExaClient {
   searchStructured(query: string, systemPrompt: string, schema: object): Promise<unknown>
 }
 
+// Env var scheme changed 2026-08-31: EXA_API_KEY/ALT_EXA_API_KEY (fixed 2)
+// replaced with numbered EXA_API_KEY0, EXA_API_KEY1, ... - reads
+// sequentially until the next index is unset, so the pool can grow/shrink
+// with no code change. Single source of truth for every worker that uses
+// Exa (price-lookup, extract-products, verify-discount-notifications).
+export function loadExaApiKeys(env: NodeJS.ProcessEnv = process.env): string[] {
+  const keys: string[] = []
+  for (let i = 0; ; i++) {
+    const key = env[`EXA_API_KEY${i}`]
+    if (!key) break
+    keys.push(key)
+  }
+  return keys
+}
+
 export function createExaClient(apiKey: string): ExaClient {
   return {
     async searchStructured(query: string, systemPrompt: string, schema: object): Promise<unknown> {

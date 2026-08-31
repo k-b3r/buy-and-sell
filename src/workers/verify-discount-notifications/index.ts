@@ -7,6 +7,7 @@ import {
   createTavilyClient,
   createExaClient,
   createFallbackExaClient,
+  loadExaApiKeys,
   createGeminiClient,
   createDailyGroundingCap,
   createOpenRouterClient,
@@ -112,8 +113,8 @@ async function main() {
 
   const tavilyApiKey = process.env.TAVILY_API_KEY
   if (!tavilyApiKey) throw new Error('TAVILY_API_KEY not set in .env')
-  const exaApiKey = process.env.EXA_API_KEY
-  if (!exaApiKey) throw new Error('EXA_API_KEY not set in .env')
+  const exaApiKeys = loadExaApiKeys()
+  if (exaApiKeys.length === 0) throw new Error('No EXA_API_KEY<n> (EXA_API_KEY0, EXA_API_KEY1, ...) set in .env')
   const geminiApiKey = process.env.FREE_GEMINI_API_KEY
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const openRouterApiKey = process.env.OPEN_ROUTER_PRODUCT_JUDGE_API_KEY
@@ -136,18 +137,13 @@ async function main() {
 
   // Exa is now the primary market-context source (see discount-verification.ts's
   // fetchFreshMarketContext comment) - its credits ran out mid-investigation
-  // (2026-08-31, real 402), so a second key is worth having on hand here in a
-  // way it wasn't when Exa was just a fallback-of-a-fallback.
-  const exaClients = [createExaClient(exaApiKey)]
-  const altExaApiKey = process.env.ALT_EXA_API_KEY
-  if (altExaApiKey) {
-    exaClients.push(createExaClient(altExaApiKey))
-    logger.info('ALT_EXA_API_KEY configured, will fall back to it once the primary key\'s credits are exhausted')
-  }
+  // (2026-08-31, real 402), so multiple keys are worth having on hand here
+  // (see loadExaApiKeys).
+  logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
 
   const clients: VerificationClients = {
     tavily: createTavilyClient(tavilyApiKey),
-    exa: createFallbackExaClient(exaClients),
+    exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
     // Gemini is the last-resort fallback in the market-context chain here -
     // low volume already, but its grounded search has no real Google-side
     // spend guardrail on a paid key (exceeding the free daily allowance just

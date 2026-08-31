@@ -1,5 +1,5 @@
 import type { ExaClient } from './exa'
-import { createFallbackExaClient } from './exa'
+import { createFallbackExaClient, loadExaApiKeys } from './exa'
 
 function creditsExhaustedError(): Error & { status: number } {
   const err = new Error(
@@ -18,6 +18,22 @@ function fakeExaClient(overrides: Partial<ExaClient>): ExaClient {
     searchStructured: overrides.searchStructured ?? notImplemented,
   }
 }
+
+test('loadExaApiKeys reads EXA_API_KEY0.. sequentially, stopping at the first gap', () => {
+  expect(loadExaApiKeys({ EXA_API_KEY0: 'a', EXA_API_KEY1: 'b', EXA_API_KEY2: 'c' })).toEqual(['a', 'b', 'c'])
+})
+
+test('loadExaApiKeys stops at a gap even if a later index is set (no gap-filling)', () => {
+  expect(loadExaApiKeys({ EXA_API_KEY0: 'a', EXA_API_KEY2: 'c' })).toEqual(['a'])
+})
+
+test('loadExaApiKeys returns an empty array when none are set', () => {
+  expect(loadExaApiKeys({})).toEqual([])
+})
+
+test('loadExaApiKeys ignores the old fixed-name scheme (EXA_API_KEY/ALT_EXA_API_KEY)', () => {
+  expect(loadExaApiKeys({ EXA_API_KEY: 'old', ALT_EXA_API_KEY: 'old-alt' })).toEqual([])
+})
 
 // createExaClient itself wraps the real fetch call to api.exa.ai and is not
 // unit tested here — same precedent as createGroqClient/createGeminiClient

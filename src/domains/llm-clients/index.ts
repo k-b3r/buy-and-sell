@@ -2,7 +2,7 @@ export type { GeminiClient } from './gemini'
 export { createGeminiClient, createFallbackGeminiClient, createDailyGroundingCap, isQuotaError as isGeminiQuotaError } from './gemini'
 
 export type { ExaClient } from './exa'
-export { createExaClient, createFallbackExaClient, isExaCreditsError } from './exa'
+export { createExaClient, createFallbackExaClient, isExaCreditsError, loadExaApiKeys } from './exa'
 
 export type { GroqClient } from './groq'
 export { createGroqClient, createFallbackGroqClient, isQuotaError as isGroqQuotaError } from './groq'
