@@ -44,6 +44,53 @@ export function createGeminiClient(apiKey: string, model = 'gemini-2.5-flash'): 
   }
 }
 
+const DEFAULT_DAILY_GROUNDING_CAP = 1000
+
+// Google Search grounding on gemini-2.5-flash is a paid-tier-only free
+// allowance of 1,500 requests/day (confirmed live via ai.google.dev's
+// pricing page, 2026-08-31) - RPD, not a monthly pool, resetting at
+// midnight Pacific. Unlike a quota error elsewhere in this codebase,
+// exceeding it on a paid (billed) key doesn't get rejected - Google just
+// starts charging $35/1,000 overage, silently. There's no Google-side
+// guardrail that actually stops spend (GCP's "budget alerts" only email
+// you after the fact; a real hard "spend cap" exists in Preview as of
+// 2026-07 but isn't confirmed available for this API yet) - so this cap is
+// enforced client-side instead. 1,000 is a deliberate buffer under the real
+// 1,500 ceiling, not the ceiling itself, per direct instruction (leaves
+// room for reset-timing drift and any other process sharing the same
+// billing project).
+export function createDailyGroundingCap(
+  client: GeminiClient,
+  limit = DEFAULT_DAILY_GROUNDING_CAP,
+  now: () => Date = () => new Date(),
+): GeminiClient {
+  let dayKey = ''
+  let count = 0
+
+  // Google's RPD quotas reset at midnight Pacific Time, not UTC or the
+  // server's local time - matching that boundary here so this cap and
+  // Google's real quota never drift apart across time zones.
+  function currentDayKey(): string {
+    return now().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles' })
+  }
+
+  return {
+    generateJson: (prompt, schema) => client.generateJson(prompt, schema),
+    async generateGroundedText(prompt: string): Promise<string> {
+      const today = currentDayKey()
+      if (today !== dayKey) {
+        dayKey = today
+        count = 0
+      }
+      if (count >= limit) {
+        throw new Error(`Gemini grounded-search daily cap (${limit}) reached for ${dayKey} - refusing further calls to avoid billing overage`)
+      }
+      count += 1
+      return client.generateGroundedText(prompt)
+    },
+  }
+}
+
 export function isQuotaError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 429
 }

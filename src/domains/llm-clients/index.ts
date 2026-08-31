@@ -1,5 +1,5 @@
 export type { GeminiClient } from './gemini'
-export { createGeminiClient, createFallbackGeminiClient, isQuotaError as isGeminiQuotaError } from './gemini'
+export { createGeminiClient, createFallbackGeminiClient, createDailyGroundingCap, isQuotaError as isGeminiQuotaError } from './gemini'
 
 export type { ExaClient } from './exa'
 export { createExaClient, createFallbackExaClient, isExaCreditsError } from './exa'

@@ -1,5 +1,5 @@
 import type { GeminiClient } from './gemini'
-import { createFallbackGeminiClient } from './gemini'
+import { createFallbackGeminiClient, createDailyGroundingCap } from './gemini'
 
 function quotaError(): Error & { status: number } {
   const err = new Error('quota exceeded') as Error & { status: number }
@@ -88,6 +88,83 @@ test('fallback client rethrows the quota error once every client is exhausted', 
   const client = createFallbackGeminiClient([exhausted, exhausted])
 
   await expect(client.generateJson('p', {})).rejects.toThrow('quota exceeded')
+})
+
+test('createDailyGroundingCap passes generateGroundedText through under the limit', async () => {
+  const inner = fakeGeminiClient({ generateGroundedText: async () => 'PRICE_RANGE: 100-200 PHP' })
+  const client = createDailyGroundingCap(inner, 2)
+
+  expect(await client.generateGroundedText('p')).toBe('PRICE_RANGE: 100-200 PHP')
+})
+
+test('createDailyGroundingCap refuses further grounded calls once the daily limit is reached', async () => {
+  let calls = 0
+  const inner = fakeGeminiClient({
+    generateGroundedText: async () => {
+      calls += 1
+      return 'ok'
+    },
+  })
+  const client = createDailyGroundingCap(inner, 2)
+
+  await client.generateGroundedText('p1')
+  await client.generateGroundedText('p2')
+  await expect(client.generateGroundedText('p3')).rejects.toThrow('daily cap (2) reached')
+
+  expect(calls).toBe(2)
+})
+
+test('createDailyGroundingCap resets the count on a new day (Pacific time)', async () => {
+  let calls = 0
+  const inner = fakeGeminiClient({
+    generateGroundedText: async () => {
+      calls += 1
+      return 'ok'
+    },
+  })
+  let today = new Date('2026-08-31T12:00:00-07:00') // noon Pacific
+  const client = createDailyGroundingCap(inner, 1, () => today)
+
+  await client.generateGroundedText('p1')
+  await expect(client.generateGroundedText('p2')).rejects.toThrow('daily cap')
+
+  today = new Date('2026-09-01T12:00:00-07:00') // next day, Pacific
+  await client.generateGroundedText('p3') // allowed again
+
+  expect(calls).toBe(2)
+})
+
+test('createDailyGroundingCap does not limit generateJson (a different, unmetered pricing bucket)', async () => {
+  let jsonCalls = 0
+  const inner = fakeGeminiClient({
+    generateJson: async () => {
+      jsonCalls += 1
+      return { ok: true }
+    },
+    generateGroundedText: async () => 'ok',
+  })
+  const client = createDailyGroundingCap(inner, 0) // grounded calls always refused
+
+  await client.generateJson('p', {})
+  await client.generateJson('p', {})
+
+  expect(jsonCalls).toBe(2)
+})
+
+test('createDailyGroundingCap defaults to a 1000/day limit, a buffer under Google\'s real 1500/day ceiling', async () => {
+  let calls = 0
+  const inner = fakeGeminiClient({
+    generateGroundedText: async () => {
+      calls += 1
+      return 'ok'
+    },
+  })
+  const client = createDailyGroundingCap(inner)
+
+  for (let i = 0; i < 1000; i++) await client.generateGroundedText('p')
+  await expect(client.generateGroundedText('p')).rejects.toThrow('daily cap (1000) reached')
+
+  expect(calls).toBe(1000)
 })
 
 test('fallback client applies the same quota-fallback behavior to generateGroundedText, sharing the cursor with generateJson', async () => {
