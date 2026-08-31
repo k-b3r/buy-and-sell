@@ -10,7 +10,12 @@ set -euo pipefail
 
 TUNNEL_HOST="tunnel@203.0.113.10"
 TUNNEL_KEY="$HOME/.ssh/vps_tunnel"
-TUNNEL_CMD="ssh -N -D 1080 -R 1080 -i $TUNNEL_KEY $TUNNEL_HOST"
+# ServerAliveInterval/CountMax: without these the tunnel can sit half-dead
+# after a network blip (wifi switch, sleep/wake) and silently exit later with
+# no error logged - confirmed live 2026-08-31, twice in one session, no
+# error text either time (bare "[exited with code 0]"). 30s x 3 misses = dies
+# within ~90s of actually losing the link instead of drifting unnoticed.
+TUNNEL_CMD="ssh -N -D 1080 -R 1080 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -i $TUNNEL_KEY $TUNNEL_HOST"
 
 echo "Cleaning up stale connections..."
 
