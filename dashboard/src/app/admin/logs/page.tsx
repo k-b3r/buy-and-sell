@@ -45,6 +45,7 @@ export default function LogsPage() {
   const [statuses, setStatuses] = useState<Partial<Record<Worker, StatusResponse>>>({})
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [startAllPending, setStartAllPending] = useState(false)
   const offsetRef = useRef<number | undefined>(undefined)
   const paneRef = useRef<HTMLPreElement>(null)
   const stickToBottomRef = useRef(true)
@@ -178,6 +179,44 @@ export default function LogsPage() {
     }
   }
 
+  // Fires start for every worker not already running, in parallel. A worker
+  // already running 409s ("X is already running") - expected, not surfaced
+  // as an error, since "start all" is meant to be safe to click repeatedly
+  // (e.g. after a tunnel drop takes out a couple of workers but not others).
+  async function handleStartAll() {
+    setStartAllPending(true)
+    setActionError(null)
+    const requestId = ++requestIdRef.current
+    try {
+      const results = await Promise.all(
+        WORKERS.map(async (w) => {
+          const res = await fetch('/api/worker-control', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ worker: w, action: 'start' }),
+          })
+          const body = await res.json()
+          if (!res.ok) return { worker: w, alreadyRunning: body.error?.includes('already running') ?? false }
+          return { worker: w, status: body as StatusResponse }
+        }),
+      )
+      if (requestId !== requestIdRef.current) return
+      setStatuses((prev) => {
+        const next = { ...prev }
+        for (const r of results) {
+          if (r.status) next[r.worker] = r.status
+        }
+        return next
+      })
+      const failed = results.filter((r) => !r.status && !r.alreadyRunning)
+      if (failed.length > 0) setActionError(`Failed to start: ${failed.map((r) => r.worker).join(', ')}`)
+    } catch {
+      setActionError('Could not reach the refresh service')
+    } finally {
+      setStartAllPending(false)
+    }
+  }
+
   return (
     <div>
       <h1>Workers</h1>
@@ -221,6 +260,23 @@ export default function LogsPage() {
             </button>
           )
         })}
+        <button
+          onClick={handleStartAll}
+          disabled={startAllPending}
+          title="Start every worker not already running"
+          style={{
+            background: 'transparent',
+            color: 'var(--color-text)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 8,
+            padding: '4px 10px',
+            fontSize: '0.85em',
+            cursor: startAllPending ? 'default' : 'pointer',
+            marginLeft: 'auto',
+          }}
+        >
+          {startAllPending ? 'Starting…' : 'Start all'}
+        </button>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
         <span className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>
