@@ -188,6 +188,16 @@ async function main() {
     clients.push(createGroqClient(altApiKey, MODEL), createGroqClient(altApiKey, 'openai/gpt-oss-20b'))
     logger.info('ALT_FREE_GROQ_API_KEY configured, will fall back to it once the primary key is exhausted')
   }
+  // Otherwise-idle key (normally only used by the one-off
+  // backfill-sub-categories script) - worth wiring in here too as a 3rd
+  // tier: extra daily-quota headroom for whenever this worker's own candidate
+  // count spikes (e.g. a bulk re-open of previously-stuck rows), not just
+  // steady-state trickle.
+  const backfillApiKey = process.env.BACKFILL_FREE_GROQ_API_KEY
+  if (backfillApiKey) {
+    clients.push(createGroqClient(backfillApiKey, MODEL), createGroqClient(backfillApiKey, 'openai/gpt-oss-20b'))
+    logger.info('BACKFILL_FREE_GROQ_API_KEY configured, will fall back to it once the primary/alt keys are exhausted')
+  }
   const groq = createFallbackGroqClient(clients)
   const pool = createDbPool(dbUrl)
 
