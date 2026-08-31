@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import BellIcon from './BellIcon'
+import InfoTooltip from './InfoTooltip'
 import { useNotifications } from './NotificationsProvider'
 
 const bellButtonStyle: CSSProperties = {
@@ -133,12 +134,7 @@ export default function NotificationBell() {
                 <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>
                   {n.discount_percent}% below market
                   {n.verification_reasoning && (
-                    <span
-                      title={n.verification_reasoning}
-                      style={{ marginLeft: 4, color: 'var(--color-text-muted)', cursor: 'help' }}
-                    >
-                      ⓘ
-                    </span>
+                    <InfoTooltip text={n.verification_reasoning} style={{ marginLeft: 4, color: 'var(--color-text-muted)' }} />
                   )}
                 </div>
                 <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>{relativeTime(n.created_at)}</div>

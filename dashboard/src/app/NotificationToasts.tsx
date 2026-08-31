@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
+import InfoTooltip from './InfoTooltip'
 import { useNotifications } from './NotificationsProvider'
 import { selectNewToasts } from '@/lib/notificationToasts'
 import type { DiscountNotification } from '@/lib/queries'
@@ -117,12 +118,7 @@ export default function NotificationToasts() {
             <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>
               {n.discount_percent}% below market
               {n.verification_reasoning && (
-                <span
-                  title={n.verification_reasoning}
-                  style={{ marginLeft: 4, color: 'var(--color-text-muted)', cursor: 'help' }}
-                >
-                  ⓘ
-                </span>
+                <InfoTooltip text={n.verification_reasoning} style={{ marginLeft: 4, color: 'var(--color-text-muted)' }} />
               )}
             </div>
           </div>

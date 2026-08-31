@@ -3,6 +3,7 @@ import type { ListingDetail } from '@/lib/queries'
 import ListingCarousel from './ListingCarousel'
 import RefreshButton from './RefreshButton'
 import BackLink from '../../BackLink'
+import InfoTooltip from '../../InfoTooltip'
 import { marketplaceButtonStyle } from '../../marketplaceButtonStyle'
 import FacebookIcon from '../../FacebookIcon'
 import SaveButton from '../../SaveButton'
@@ -117,12 +118,10 @@ export default function ListingDetailContent({
               </span>
             )}
             {listing.verification_reasoning && (
-              <span
-                title={listing.verification_reasoning}
-                style={{ marginLeft: 6, fontSize: '0.6em', verticalAlign: 'middle', color: 'var(--color-text-muted)', cursor: 'help' }}
-              >
-                ⓘ
-              </span>
+              <InfoTooltip
+                text={listing.verification_reasoning}
+                style={{ marginLeft: 6, fontSize: '0.6em', verticalAlign: 'middle', color: 'var(--color-text-muted)' }}
+              />
             )}
           </p>
           {listing.reference_price !== null && (

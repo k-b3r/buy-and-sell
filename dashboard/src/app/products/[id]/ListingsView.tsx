@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import type { DiscountBand } from '@/lib/queries'
 import { isListingPriceNegotiable } from '@/lib/queries'
 import { getActiveListingId } from '../../listings/[id]/cycle'
+import InfoTooltip from '../../InfoTooltip'
 import SaveButton from '../../SaveButton'
 import { Spinner } from '../../Skeleton'
 import {
@@ -108,11 +109,7 @@ function DiscountBadge({ percent, reasoning }: { percent: number | null; reasoni
   return (
     <span style={discountBadgeStyle(percent)}>
       {percent > 0 ? `${percent}% below avg` : `${Math.abs(percent)}% above avg`}
-      {reasoning && (
-        <span title={reasoning} style={{ marginLeft: 4, cursor: 'help' }}>
-          ⓘ
-        </span>
-      )}
+      {reasoning && <InfoTooltip text={reasoning} style={{ marginLeft: 4 }} />}
     </span>
   )
 }
