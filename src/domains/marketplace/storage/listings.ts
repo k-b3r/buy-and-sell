@@ -537,6 +537,14 @@ export interface DiscountVerificationCandidate {
 // providers down at once) from re-burning a paid Tavily/Exa call every
 // verify-discount-notifications.ts loop tick (every 5 min). Oldest-flagged
 // first, same "work down the backlog in order" idiom as getCheckListingsCandidates.
+// Excludes a candidate whose product has no enrichment judgment yet UNLESS
+// its price already fails MIN_PRICE_PESOS - that gate needs no enrichment
+// data at all (precheckDiscountCandidate checks it first), so it still
+// resolves for free/instantly. Everything else waiting on real enrichment
+// is left alone entirely: not fetched, not attempted, no log noise, no
+// last_verification_attempt_at write - it'll show up here on its own the
+// moment enrich-products actually judges it (per direct instruction,
+// 2026-08-31: "don't process it at all since enrichment is still pending").
 export async function getUnverifiedDiscountCandidates(db: DbClient, limit: number): Promise<DiscountVerificationCandidate[]> {
   const result = (await db.query(
     `SELECT dn.id, dn.listing_id, l.title, l.description, l.condition, l.price_amount,
@@ -547,9 +555,10 @@ export async function getUnverifiedDiscountCandidates(db: DbClient, limit: numbe
      LEFT JOIN product_enrichment pe ON pe.product_id = dn.product_id
      WHERE dn.verified_at IS NULL
        AND (dn.last_verification_attempt_at IS NULL OR dn.last_verification_attempt_at < now() - interval '1 hour')
+       AND (pe.is_specific_product IS NOT NULL OR l.price_amount < $2)
      ORDER BY dn.created_at ASC
      LIMIT $1`,
-    [limit],
+    [limit, MIN_PRICE_PESOS],
   )) as { rows: Record<string, unknown>[] }
   return result.rows.map((r) => ({
     id: Number(r.id),
