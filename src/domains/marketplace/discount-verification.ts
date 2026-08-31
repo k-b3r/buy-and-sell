@@ -1,6 +1,6 @@
 import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../llm-clients'
 import type { DiscountVerificationCandidate } from './storage/listings'
-import { MIN_PROFIT_PESOS } from './storage/listings'
+import { MIN_PROFIT_PESOS, MIN_PRICE_PESOS } from './storage/listings'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
@@ -169,11 +169,13 @@ function parseVerificationResponse(raw: unknown): ParsedVerificationResponse | n
   }
 }
 
-// The 4 gates, in order: non-generic (reused, free), fresh price context
-// (Exa -> Tavily -> Gemini), then one OpenRouter (DeepSeek) call judging the
-// remaining 3 (still discounted / condition doesn't explain it away / profit
-// bar) — fail-closed throughout: any ambiguous or erroring state is
-// 'pending' (retried later), never treated as a silent pass. DeepSeek
+// The 5 gates, in order: price floor (free, deterministic - also catches
+// stale pre-MIN_PRICE_PESOS rows already sitting in the table), non-generic
+// (reused, free), fresh price context (Exa -> Tavily -> Gemini), then one
+// OpenRouter (DeepSeek) call judging the remaining 3 (still discounted /
+// condition doesn't explain it away / profit bar) — fail-closed throughout:
+// any ambiguous or erroring state is 'pending' (retried later), never
+// treated as a silent pass. DeepSeek
 // replaced Groq here following two evals: a 4/8-sample Qwen3.5-9B run found
 // a real gap (structured fields sometimes flatly contradicted its own
 // reasoning text), then a 15-sample DeepSeek run had zero such flat
@@ -187,6 +189,9 @@ export async function verifyDiscountCandidate(
   candidate: DiscountVerificationCandidate,
   clients: VerificationClients,
 ): Promise<VerificationOutcome> {
+  if (candidate.price_amount < MIN_PRICE_PESOS) {
+    return { outcome: 'rejected', reasoning: `Asking price below the ₱${MIN_PRICE_PESOS} floor - not worth chasing regardless of discount math.` }
+  }
   if (candidate.is_specific_product === false) {
     return { outcome: 'rejected', reasoning: 'Product is not a specific, priceable item.' }
   }

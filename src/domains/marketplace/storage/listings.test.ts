@@ -537,6 +537,17 @@ test('checkListingDiscount does nothing when the profit is below the ₱1,000 ba
   expect(calls).toHaveLength(0)
 })
 
+test('checkListingDiscount does nothing when the listing price is below the ₱2,000 floor even if percent and profit both clear', async () => {
+  const { db, calls } = mockDb()
+
+  // ₱500 vs ₱1,600 = 69% off, ₱1,100 profit - both bars clear, but ₱500 is
+  // too cheap to be worth chasing (also the regime where generic-category
+  // mismatches like "Bikini"/"Apple Pencil" produce noisy reference prices).
+  await checkListingDiscount(db, '1', 10, 'Used - Good', 500, null, { low: 1600, high: 1800, currency: 'PHP' })
+
+  expect(calls).toHaveLength(0)
+})
+
 test('checkListingDiscount does nothing when the listing price is a magnitude outlier vs the reference', async () => {
   const { db, calls } = mockDb()
 

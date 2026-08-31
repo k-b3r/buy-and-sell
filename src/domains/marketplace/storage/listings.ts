@@ -413,6 +413,16 @@ const HIGH_DISCOUNT_THRESHOLD = 30
 // enforced against here, single source of truth.
 export const MIN_PROFIT_PESOS = 1000
 
+// Below this, the item isn't worth chasing regardless of discount%/profit
+// math - also the regime where a vague base_model (Bikini, Books, Boys'
+// Clothes) gets matched against a wildly wrong reference price and produces
+// a noisy, not-actually-real "deal" (confirmed live 2026-08-31: several
+// ₱50-150 listings cleared both the discount% and profit bars on stale
+// reference prices alone). Per direct instruction (2026-08-31): expect at
+// least ₱1,000 profit on an item priced around ₱2,000. Exported for the same
+// single-source-of-truth reason as MIN_PROFIT_PESOS.
+export const MIN_PRICE_PESOS = 2000
+
 // Same raw-median -> clean-median formula as the dashboard's
 // DISCOUNT_SUMMARY_LATERAL (dashboard/src/lib/queries.ts), scoped to one
 // product - the fallback reference for checkListingDiscount below when real
@@ -482,6 +492,7 @@ export async function checkListingDiscount(
   secondhandPrice: PriceRange | null,
 ): Promise<void> {
   if (priceAmount === null || priceAmount <= 0) return
+  if (priceAmount < MIN_PRICE_PESOS) return
 
   let referencePrice: number | null
   if (isNewCondition(condition)) {
