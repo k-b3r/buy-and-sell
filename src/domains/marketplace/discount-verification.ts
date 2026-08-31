@@ -185,10 +185,15 @@ function parseVerificationResponse(raw: unknown): ParsedVerificationResponse | n
 // that eval's wrong final verdicts traced to a bad market-context reference
 // price, not bad reasoning over a good one - market-context accuracy (the
 // Exa reorder above) turned out to be the bigger lever than judge choice.
-export async function verifyDiscountCandidate(
-  candidate: DiscountVerificationCandidate,
-  clients: VerificationClients,
-): Promise<VerificationOutcome> {
+export type PrecheckOutcome = { outcome: 'proceed' } | { outcome: 'rejected' | 'pending'; reasoning: string }
+
+// The free, synchronous gates - no DB/network I/O, safe to run against every
+// pending candidate every lap regardless of the paid-API budget (the worker
+// loop uses this to process its whole backlog for these two outcomes as fast
+// as candidates arrive, only rationing the expensive path below). Pulled out
+// of verifyDiscountCandidate so the loop can budget paid calls without
+// duplicating this logic.
+export function precheckDiscountCandidate(candidate: DiscountVerificationCandidate): PrecheckOutcome {
   if (candidate.price_amount < MIN_PRICE_PESOS) {
     return { outcome: 'rejected', reasoning: `Asking price below the ₱${MIN_PRICE_PESOS} floor - not worth chasing regardless of discount math.` }
   }
@@ -198,6 +203,15 @@ export async function verifyDiscountCandidate(
   if (candidate.is_specific_product === null) {
     return { outcome: 'pending', reasoning: 'Product enrichment not yet available.' }
   }
+  return { outcome: 'proceed' }
+}
+
+export async function verifyDiscountCandidate(
+  candidate: DiscountVerificationCandidate,
+  clients: VerificationClients,
+): Promise<VerificationOutcome> {
+  const pre = precheckDiscountCandidate(candidate)
+  if (pre.outcome !== 'proceed') return pre
 
   const context = await fetchFreshMarketContext(candidate, clients)
   if (context === null) {

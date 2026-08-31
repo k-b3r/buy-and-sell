@@ -1,4 +1,4 @@
-import { verifyDiscountCandidate, buildPriceQuery } from './discount-verification'
+import { verifyDiscountCandidate, precheckDiscountCandidate, buildPriceQuery } from './discount-verification'
 import type { DiscountVerificationCandidate } from './storage/listings'
 import type { TavilyClient, ExaClient, GeminiClient, OpenRouterClient } from '../llm-clients'
 
@@ -99,6 +99,31 @@ test('buildPriceQuery truncates an overly long spec hint rather than sending an 
   const query = buildPriceQuery(candidate({ title: null, description: longDescription }))
 
   expect(query.length).toBeLessThan(300)
+})
+
+test('precheckDiscountCandidate: price below the floor rejects, synchronously', () => {
+  expect(precheckDiscountCandidate(candidate({ price_amount: 100 }))).toEqual({
+    outcome: 'rejected',
+    reasoning: 'Asking price below the ₱500 floor - not worth chasing regardless of discount math.',
+  })
+})
+
+test('precheckDiscountCandidate: non-specific product rejects, synchronously', () => {
+  expect(precheckDiscountCandidate(candidate({ is_specific_product: false }))).toEqual({
+    outcome: 'rejected',
+    reasoning: 'Product is not a specific, priceable item.',
+  })
+})
+
+test('precheckDiscountCandidate: unenriched product is pending, synchronously', () => {
+  expect(precheckDiscountCandidate(candidate({ is_specific_product: null }))).toEqual({
+    outcome: 'pending',
+    reasoning: 'Product enrichment not yet available.',
+  })
+})
+
+test('precheckDiscountCandidate: a priced, specific product proceeds', () => {
+  expect(precheckDiscountCandidate(candidate())).toEqual({ outcome: 'proceed' })
 })
 
 test('price below the ₱500 floor rejects immediately, no client calls made, even for a specific product', async () => {
