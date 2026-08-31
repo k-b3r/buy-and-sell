@@ -101,7 +101,7 @@ test('buildPriceQuery truncates an overly long spec hint rather than sending an 
   expect(query.length).toBeLessThan(300)
 })
 
-test('price below the ₱2,000 floor rejects immediately, no client calls made, even for a specific product', async () => {
+test('price below the ₱500 floor rejects immediately, no client calls made, even for a specific product', async () => {
   const clients = fakeClients({})
 
   const result = await verifyDiscountCandidate(candidate({ price_amount: 100, is_specific_product: true }), clients)
@@ -109,13 +109,13 @@ test('price below the ₱2,000 floor rejects immediately, no client calls made, 
   expect(result.outcome).toBe('rejected')
 })
 
-test('price at exactly the ₱2,000 floor is not rejected by the price gate', async () => {
+test('price at exactly the ₱500 floor is not rejected by the price gate', async () => {
   const clients = fakeClients({
     exa: { searchStructured: async () => ({ output: { content: { summary: 'context' } } }) },
     openrouter: { generateJson: async () => PASSING_JUDGE_RESPONSE },
   })
 
-  const result = await verifyDiscountCandidate(candidate({ price_amount: 2000 }), clients)
+  const result = await verifyDiscountCandidate(candidate({ price_amount: 500 }), clients)
 
   expect(result.outcome).toBe('verified')
 })

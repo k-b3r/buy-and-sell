@@ -418,10 +418,13 @@ export const MIN_PROFIT_PESOS = 1000
 // Clothes) gets matched against a wildly wrong reference price and produces
 // a noisy, not-actually-real "deal" (confirmed live 2026-08-31: several
 // ₱50-150 listings cleared both the discount% and profit bars on stale
-// reference prices alone). Per direct instruction (2026-08-31): expect at
-// least ₱1,000 profit on an item priced around ₱2,000. Exported for the same
-// single-source-of-truth reason as MIN_PROFIT_PESOS.
-export const MIN_PRICE_PESOS = 2000
+// reference prices alone). Deliberately well below MIN_PROFIT_PESOS's own
+// ₱1,000 bar, not equal to it - a ₱500 item reselling at ₱1,500 is a real
+// ₱1,000-profit flip and shouldn't be excluded just for being cheap up
+// front; this floor exists to catch junk-tier noise, not to require the
+// item itself be expensive. Per direct instruction (2026-08-31, revised).
+// Exported for the same single-source-of-truth reason as MIN_PROFIT_PESOS.
+export const MIN_PRICE_PESOS = 500
 
 // Same raw-median -> clean-median formula as the dashboard's
 // DISCOUNT_SUMMARY_LATERAL (dashboard/src/lib/queries.ts), scoped to one
