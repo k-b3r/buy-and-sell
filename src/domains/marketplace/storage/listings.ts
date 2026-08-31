@@ -1,6 +1,7 @@
 import type { DbClient } from '../../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from '../price-review'
 import { matchesNegotiableKeyword } from '../negotiable-keywords'
+import type { PriceRange } from '../price-lookup'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {
@@ -404,63 +405,186 @@ export async function flagNegotiableFromKeywords(
 // notification is a stronger claim than a badge, per direct instruction.
 const HIGH_DISCOUNT_THRESHOLD = 30
 
-// Ports the dashboard's exact raw-median -> clean-median -> discount-percent
-// formula (DISCOUNT_SUMMARY_LATERAL in dashboard/src/lib/queries.ts) into
-// SQL scoped to just the given listings' products, since src/ and
-// dashboard/ are separate packages with no shared import path (see
-// PLACEHOLDER_PRICE_SQL above). Called once, right after a batch of
-// listings gets a product_id for the first time in extract-products.ts -
-// the "final step" per listing, not a recurring re-scan (a listing that
-// only later becomes a deal because sibling listings pull the median down
-// is out of scope for this pass, same "set once" tradeoff already made for
-// base_model/category). ON CONFLICT (listing_id) DO NOTHING both enforces
-// "at most one notification per listing ever" and makes this safe to call
-// with ids that don't end up qualifying.
-export async function detectAndRecordDiscountNotifications(db: DbClient, listingIds: string[]): Promise<void> {
-  if (listingIds.length === 0) return
+// A high % on a cheap item isn't a meaningful opportunity (₱150 item at 50%
+// off is only ₱75 profit) - the absolute peso gap must also clear this bar,
+// independent of the percent threshold. Adjustable later; not user-
+// configurable yet, per direct instruction (2026-08-30). Exported so
+// discount-verification.ts's prompt can tell the model the same bar it's
+// enforced against here, single source of truth.
+export const MIN_PROFIT_PESOS = 1000
 
-  await db.query(
-    `WITH target_listings AS (
-       SELECT id, product_id, price_amount FROM listings
-       WHERE id = ANY($1::text[]) AND product_id IS NOT NULL AND price_amount IS NOT NULL AND price_amount > 0
-     ),
-     product_prices AS (
-       SELECT pl.product_id, pl.price_amount
+// Same raw-median -> clean-median formula as the dashboard's
+// DISCOUNT_SUMMARY_LATERAL (dashboard/src/lib/queries.ts), scoped to one
+// product - the fallback reference for checkListingDiscount below when real
+// secondhand market data isn't available yet. Returns null (not 0) when
+// there aren't at least 2 comparable sibling listings, same "nothing to
+// compare against" case the dashboard's own version handles.
+async function getPeerMedianPrice(db: DbClient, productId: number): Promise<number | null> {
+  const result = (await db.query(
+    `WITH product_prices AS (
+       SELECT pl.price_amount
        FROM listings pl
        JOIN products p ON p.id = pl.product_id
-       WHERE pl.product_id IN (SELECT product_id FROM target_listings)
-         AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+       WHERE pl.product_id = $1 AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
          AND NOT p.price_lookup_excluded
          AND NOT ${PLACEHOLDER_PRICE_SQL('pl.price_amount')}
      ),
      raw AS (
-       SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-       FROM product_prices GROUP BY product_id
-     ),
-     clean AS (
-       SELECT pp.product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
-       FROM product_prices pp
-       JOIN raw ON raw.product_id = pp.product_id
-       WHERE raw.n >= 2 AND raw.median_price > 0
-         AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
-       GROUP BY pp.product_id
-     ),
-     qualifying AS (
-       SELECT tl.id AS listing_id, tl.product_id,
-         round(((clean.median_price - tl.price_amount) / clean.median_price) * 100) AS discount_percent,
-         clean.median_price AS reference_price
-       FROM target_listings tl
-       JOIN raw ON raw.product_id = tl.product_id
-       JOIN clean ON clean.product_id = tl.product_id
-       WHERE raw.n >= 2 AND raw.median_price > 0 AND clean.median_price > 0
-         AND tl.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
-         AND NOT ${PLACEHOLDER_PRICE_SQL('tl.price_amount')}
+       SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
+       FROM product_prices
      )
-     INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
-     SELECT listing_id, product_id, discount_percent, reference_price
-     FROM qualifying
-     WHERE discount_percent >= ${HIGH_DISCOUNT_THRESHOLD}
+     SELECT
+       (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
+        FROM product_prices pp, raw
+        WHERE raw.n >= 2 AND raw.median_price > 0
+          AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
+     FROM raw`,
+    [productId],
+  )) as { rows: { clean_median_price: string | null }[] }
+  const value = result.rows[0]?.clean_median_price
+  return value ? Number(value) : null
+}
+
+// "used" wins outright over "new" - "Used - like new" contains "new" but is
+// never actually new-in-box. Same fix as discount-verification.ts's
+// isNewCondition, duplicated here rather than imported (that module isn't
+// committed yet as of 2026-08-31, and this is a small enough pure function
+// that duplication is cheaper than the coupling).
+function isNewCondition(condition: string | null): boolean {
+  if (condition === null) return false
+  const lower = condition.toLowerCase()
+  if (lower.includes('used')) return false
+  return lower.includes('new')
+}
+
+// Real-market-price-first discount check for a single listing, called
+// inline right after its product has (or already had) retail/secondhand
+// pricing ensured in extract-products.ts - the "trigger is retail pricing
+// becoming available" design (2026-08-31), replacing the old
+// batch-of-siblings-only check that could never fire on a product's first
+// listing.
+//
+// Priority: secondhand (real market data) for any non-"New" listing - only
+// falls back to peer-comparison (median of this product's own listings)
+// when secondhand isn't available yet. "New" listings always compare
+// against retail; a "New" listing is never passed here without a retail
+// price already in hand (see ensureProductPriced's exclude-on-retail-miss
+// behavior - a product with no retail was already excluded before this
+// function would ever be called). ON CONFLICT (listing_id) DO NOTHING
+// enforces "at most one notification per listing ever," same as before.
+export async function checkListingDiscount(
+  db: DbClient,
+  listingId: string,
+  productId: number,
+  condition: string | null,
+  priceAmount: number | null,
+  retailPrice: PriceRange | null,
+  secondhandPrice: PriceRange | null,
+): Promise<void> {
+  if (priceAmount === null || priceAmount <= 0) return
+
+  let referencePrice: number | null
+  if (isNewCondition(condition)) {
+    referencePrice = retailPrice ? retailPrice.low : null
+  } else if (secondhandPrice) {
+    referencePrice = secondhandPrice.low
+  } else {
+    referencePrice = await getPeerMedianPrice(db, productId)
+  }
+
+  if (referencePrice === null || referencePrice <= 0) return
+  if (priceAmount < referencePrice / 10 || priceAmount > referencePrice * 10) return // same magnitude-outlier guard as elsewhere
+
+  const discountPercent = Math.round(((referencePrice - priceAmount) / referencePrice) * 100)
+  const profitPesos = referencePrice - priceAmount
+  if (discountPercent < HIGH_DISCOUNT_THRESHOLD || profitPesos < MIN_PROFIT_PESOS) return
+
+  await db.query(
+    `INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (listing_id) DO NOTHING`,
-    [listingIds],
+    [listingId, productId, discountPercent, referencePrice],
   )
+}
+
+export interface DiscountVerificationCandidate {
+  id: number
+  listing_id: string
+  title: string | null
+  description: string | null
+  condition: string | null
+  price_amount: number
+  base_model: string
+  is_specific_product: boolean | null
+}
+
+// Pending = verified_at IS NULL. Backoff (1hr) on last_verification_attempt_at
+// keeps a candidate stuck on a transient failure (network blip, all 3 price
+// providers down at once) from re-burning a paid Tavily/Exa call every
+// verify-discount-notifications.ts loop tick (every 5 min). Oldest-flagged
+// first, same "work down the backlog in order" idiom as getCheckListingsCandidates.
+export async function getUnverifiedDiscountCandidates(db: DbClient, limit: number): Promise<DiscountVerificationCandidate[]> {
+  const result = (await db.query(
+    `SELECT dn.id, dn.listing_id, l.title, l.description, l.condition, l.price_amount,
+            p.base_model, pe.is_specific_product
+     FROM discount_notifications dn
+     JOIN listings l ON l.id = dn.listing_id
+     JOIN products p ON p.id = dn.product_id
+     LEFT JOIN product_enrichment pe ON pe.product_id = dn.product_id
+     WHERE dn.verified_at IS NULL
+       AND (dn.last_verification_attempt_at IS NULL OR dn.last_verification_attempt_at < now() - interval '1 hour')
+     ORDER BY dn.created_at ASC
+     LIMIT $1`,
+    [limit],
+  )) as { rows: Record<string, unknown>[] }
+  return result.rows.map((r) => ({
+    id: Number(r.id),
+    listing_id: r.listing_id as string,
+    title: r.title as string | null,
+    description: r.description as string | null,
+    condition: r.condition as string | null,
+    price_amount: Number(r.price_amount),
+    base_model: r.base_model as string,
+    is_specific_product: r.is_specific_product as boolean | null,
+  }))
+}
+
+export interface DiscountVerificationOutcome {
+  discountPercent: number
+  referencePrice: number
+  source: string
+  reasoning: string
+}
+
+// discount_percent/reference_price are overwritten with the fresh verified
+// numbers, not left as the original stale-median detection values - the
+// dashboard should show what verification actually confirmed, same
+// transparency as listing_price_review overwriting the displayed price.
+export async function markDiscountNotificationVerified(
+  db: DbClient,
+  id: number,
+  data: DiscountVerificationOutcome,
+): Promise<void> {
+  await db.query(
+    `UPDATE discount_notifications
+     SET verified_at = now(), discount_percent = $2, reference_price = $3,
+         verification_source = $4, verification_reasoning = $5
+     WHERE id = $1`,
+    [id, data.discountPercent, data.referencePrice, data.source, data.reasoning],
+  )
+}
+
+// A definitive rejection (any check says no) deletes the row outright rather
+// than flagging a status - each listing only ever gets one candidate row
+// ever (see the table's UNIQUE(listing_id)), so there's nothing to leave a
+// tombstone for, and this doubles as "never notify, never retry."
+export async function rejectDiscountNotification(db: DbClient, id: number): Promise<void> {
+  await db.query(`DELETE FROM discount_notifications WHERE id = $1`, [id])
+}
+
+// A transient failure (all price providers/Groq errored) - stays pending,
+// only the attempt timestamp moves, so getUnverifiedDiscountCandidates'
+// backoff window kicks in for this row without ever marking it verified.
+export async function markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void> {
+  await db.query(`UPDATE discount_notifications SET last_verification_attempt_at = now() WHERE id = $1`, [id])
 }

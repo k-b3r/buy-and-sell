@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient, GroqClient } from '../../domains/llm-clients'
+import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import {
   createGeminiClient,
   createFallbackGeminiClient,
@@ -9,6 +9,9 @@ import {
   createGroqClient,
   createFallbackGroqClient,
   isGroqQuotaError,
+  createExaClient,
+  createFallbackExaClient,
+  createTavilyClient,
 } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
@@ -16,7 +19,10 @@ import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
-import { detectAndRecordDiscountNotifications } from '../../domains/marketplace/storage/listings'
+import { checkListingDiscount } from '../../domains/marketplace/storage/listings'
+import { getProductPricingStatus } from '../../domains/marketplace/storage/pricing'
+import type { PriceLookupClients, ProductPricingResult } from '../../domains/marketplace'
+import { ensureProductPriced } from '../../domains/marketplace'
 import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
@@ -29,7 +35,12 @@ import {
 
 export interface ExtractionClients {
   groq: GroqClient
+  // Also doubles as PriceLookupClients' gemini role (generateGroundedText,
+  // secondhand pricing) - one client, two call shapes, no reason for a
+  // second instance.
   gemini: GeminiClient
+  exa: ExaClient
+  tavily: TavilyClient
 }
 
 export interface ExtractionOptions {
@@ -109,6 +120,31 @@ async function extractBatch(
   return null
 }
 
+// Ensures a product has retail/secondhand pricing before its listing's
+// discount gets checked - the trigger this whole design runs off (2026-08-31):
+// retail pricing becoming available, not "2+ sibling listings exist" (which
+// can never fire for a product's first listing). Checks existing status
+// first and skips straight through if the product is already priced or
+// already excluded - ensureProductPriced always attempts a fresh lookup
+// unconditionally, so that check has to happen here, not there.
+async function ensureProductPricing(
+  clients: PriceLookupClients,
+  db: DbClient,
+  productId: number,
+  baseModel: string,
+  variantTier: string | null,
+  logger: Logger,
+): Promise<ProductPricingResult> {
+  const status = await getProductPricingStatus(db, productId)
+  if (status.excluded || status.retail || status.secondhand) {
+    return status
+  }
+  // description/sibling_variants come back empty for a product this new -
+  // it hasn't been through enrich-products.ts yet. The search still works,
+  // just with less disambiguating context than a backfilled lookup gets.
+  return ensureProductPriced(clients, db, { id: productId, base_model: baseModel, variant_tier: variantTier, description: null, sibling_variants: [] }, logger)
+}
+
 export async function runProductExtraction(
   clients: ExtractionClients,
   db: DbClient,
@@ -122,6 +158,11 @@ export async function runProductExtraction(
   // Caches base_model -> product_id across the whole run (not just one batch) — many
   // listings share a base_model, and each cache hit avoids a real Postgres round trip.
   const productIdCache = new Map<string, number>()
+  // Caches pricing status per product_id across the whole run too - several
+  // listings in the same batch (or across batches) can share a brand-new
+  // product; without this, each would redo the same DB check/API calls.
+  const pricingCache = new Map<number, ProductPricingResult>()
+  const priceLookupClients: PriceLookupClients = { gemini: clients.gemini, exa: clients.exa, tavily: clients.tavily }
   const delayMs = options.delayMs ?? 5000
   const totalBatches = Math.ceil(candidates.length / options.batchSize)
   let processedSoFar = 0
@@ -197,13 +238,23 @@ export async function runProductExtraction(
 
       assignments.push({ id: item.id, productId })
       logger.info(`listing ${item.id} -> product ${productId} (${baseModel}${variant ? `, ${variant}` : ''})`)
+
+      // Before saving this item: ensure its product has retail/secondhand
+      // pricing (fetching only if genuinely missing), then check this
+      // listing's own discount against that pricing (or peer-comparison,
+      // if secondhand isn't in yet) - see ensureProductPricing/
+      // checkListingDiscount for the full reasoning.
+      let pricing = pricingCache.get(productId)
+      if (pricing === undefined) {
+        pricing = await ensureProductPricing(priceLookupClients, db, productId, baseModel, variant, logger)
+        pricingCache.set(productId, pricing)
+      }
+      if (!pricing.excluded) {
+        await checkListingDiscount(db, item.id, productId, candidate.condition, candidate.price_amount, pricing.retail, pricing.secondhand)
+      }
     }
 
     await updateListingProductIds(db, assignments)
-    // Final step per listing: product_id is the prerequisite for any
-    // discount computation, and this is the one point a listing gets it,
-    // ever (getExtractionCandidates only selects listings without one).
-    await detectAndRecordDiscountNotifications(db, assignments.map((a) => a.id))
 
     processedSoFar += batch.length
     logger.info(
@@ -227,6 +278,10 @@ async function main() {
   if (!groqApiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
   const geminiApiKey = process.env.FREE_GEMINI_API_KEY
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
+  const exaApiKey = process.env.EXA_API_KEY
+  if (!exaApiKey) throw new Error('EXA_API_KEY not set in .env')
+  const tavilyApiKey = process.env.TAVILY_API_KEY
+  if (!tavilyApiKey) throw new Error('TAVILY_API_KEY not set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
 
@@ -255,7 +310,20 @@ async function main() {
   if (altGeminiApiKey) {
     logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')
   }
-  const clients: ExtractionClients = { groq, gemini }
+  // Exa is now the primary source for both retail and secondhand pricing
+  // (see domains/marketplace/price-lookup.ts) - its credits ran out
+  // mid-investigation once already (2026-08-31, real 402), so a second key
+  // is worth having on hand here too, same as price-lookup.ts's own main().
+  const exaClients = [createExaClient(exaApiKey)]
+  const altExaApiKey = process.env.ALT_EXA_API_KEY
+  if (altExaApiKey) {
+    exaClients.push(createExaClient(altExaApiKey))
+    logger.info("ALT_EXA_API_KEY configured, will fall back to it once the primary key's credits are exhausted")
+  }
+  const exa = createFallbackExaClient(exaClients)
+  const tavily = createTavilyClient(tavilyApiKey)
+
+  const clients: ExtractionClients = { groq, gemini, exa, tavily }
   const pool = createDbPool(dbUrl)
 
   logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)

@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest'
+import { existsSync, rmSync } from 'node:fs'
+import { expect, test, afterEach } from 'vitest'
 import {
   isWideSpread,
   buildGeminiSecondhandPrompt,
@@ -8,8 +9,14 @@ import {
   parseExaPriceResponse,
   buildTavilyQuery,
   parseTavilyPriceAnswer,
+  lookupRetail,
+  lookupSecondhand,
+  ensureProductPriced,
 } from './price-lookup'
-import type { PriceLookupCandidate } from './price-lookup'
+import type { PriceLookupCandidate, PriceLookupClients } from './price-lookup'
+import { createLogger } from '../../platform/logger'
+import type { GeminiClient, ExaClient, TavilyClient } from '../llm-clients'
+import type { DbClient } from '../../platform/storage'
 
 const candidate: PriceLookupCandidate = {
   id: 1,
@@ -125,4 +132,180 @@ test('parseTavilyPriceAnswer ignores small numbers that are unlikely to be price
 test('parseTavilyPriceAnswer returns null for null or empty text', () => {
   expect(parseTavilyPriceAnswer(null)).toBeNull()
   expect(parseTavilyPriceAnswer('')).toBeNull()
+})
+
+// ---- lookupRetail / lookupSecondhand / ensureProductPriced ----
+
+const LOG_PATH = 'data/tmp-price-lookup-domain.log'
+
+afterEach(() => {
+  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+})
+
+function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
+  const calls: { sql: string; params: unknown[] }[] = []
+  return {
+    calls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        return { rows: [] }
+      },
+    },
+  }
+}
+
+const product: PriceLookupCandidate = {
+  id: 2,
+  base_model: 'Sony WH-1000XM4',
+  variant_tier: null,
+  description: 'A noise-cancelling headphone.',
+  sibling_variants: [],
+}
+
+test('lookupRetail returns an Exa result when found', async () => {
+  const exa: ExaClient = { searchStructured: async () => ({ output: { content: { found: true, price_low: 14499, price_high: 19999 } } }) }
+  const tavily: TavilyClient = { search: async () => ({ answer: null, results: [] }) }
+  const logger = createLogger(LOG_PATH)
+
+  const result = await lookupRetail({ exa, tavily }, product, logger, 'Sony WH-1000XM4')
+
+  expect(result).toEqual({ price: { low: 14499, high: 19999, currency: 'PHP' }, source: 'exa_new_retail', rawResponse: expect.any(String) })
+})
+
+test('lookupRetail falls back to Tavily when Exa finds nothing', async () => {
+  const exa: ExaClient = { searchStructured: async () => ({ output: { content: { found: false } } }) }
+  const tavily: TavilyClient = { search: async () => ({ answer: 'Retail price is ₱14,499 to ₱19,999.', results: [] }) }
+  const logger = createLogger(LOG_PATH)
+
+  const result = await lookupRetail({ exa, tavily }, product, logger, 'Sony WH-1000XM4')
+
+  expect(result?.source).toBe('tavily_new_retail')
+})
+
+test('lookupRetail returns null when both providers find nothing', async () => {
+  const exa: ExaClient = { searchStructured: async () => ({ output: { content: { found: false } } }) }
+  const tavily: TavilyClient = { search: async () => ({ answer: null, results: [] }) }
+  const logger = createLogger(LOG_PATH)
+
+  expect(await lookupRetail({ exa, tavily }, product, logger, 'Sony WH-1000XM4')).toBeNull()
+})
+
+const GEMINI_NOT_FOUND = '```json\n{"found": false}\n```'
+
+function fakeClients(overrides: Partial<PriceLookupClients> = {}): PriceLookupClients {
+  const gemini: GeminiClient = { generateJson: async () => ({}), generateGroundedText: async () => GEMINI_NOT_FOUND }
+  const exa: ExaClient = { searchStructured: async () => ({ output: { content: { found: false } } }) }
+  const tavily: TavilyClient = { search: async () => ({ answer: null, results: [] }) }
+  return { gemini, exa, tavily, ...overrides }
+}
+
+test('lookupSecondhand tries Gemini first', async () => {
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: async () => '```json\n{"found": true, "price_low": 8000, "price_high": 11000}\n```' },
+  })
+  const logger = createLogger(LOG_PATH)
+
+  const result = await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')
+
+  expect(result).toEqual({ price: { low: 8000, high: 11000, currency: 'PHP' }, source: 'gemini_grounding', rawResponse: expect.any(String) })
+})
+
+test('lookupSecondhand falls back Gemini -> Exa -> Tavily in order', async () => {
+  const clients = fakeClients({
+    exa: { searchStructured: async () => ({ output: { content: { found: true, price_low: 9000, price_high: 10500 } } }) },
+  })
+  const logger = createLogger(LOG_PATH)
+
+  const result = await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')
+
+  expect(result?.source).toBe('exa_secondhand')
+})
+
+test('lookupSecondhand returns null when all three providers find nothing', async () => {
+  const clients = fakeClients()
+  const logger = createLogger(LOG_PATH)
+
+  expect(await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')).toBeNull()
+})
+
+test('ensureProductPriced excludes a text-pattern-generic product before spending any call', async () => {
+  const clients = fakeClients()
+  const { db, calls } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const generic: PriceLookupCandidate = { id: 5, base_model: 'Refrigerator', variant_tier: null, description: null, sibling_variants: [] }
+
+  const result = await ensureProductPriced(clients, db, generic, logger)
+
+  expect(result).toEqual({ retail: null, secondhand: null, excluded: true })
+  const flagCall = calls.find((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))
+  expect(flagCall?.params).toEqual(['too_generic', 5])
+})
+
+test('ensureProductPriced excludes the product entirely when retail is not found via any provider - does not try secondhand', async () => {
+  let secondhandCalled = false
+  const clients = fakeClients({
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async () => {
+        secondhandCalled = true
+        return GEMINI_NOT_FOUND
+      },
+    },
+  })
+  const { db, calls } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+
+  const result = await ensureProductPriced(clients, db, product, logger)
+
+  expect(result).toEqual({ retail: null, secondhand: null, excluded: true })
+  expect(secondhandCalled).toBe(false)
+  const flagCall = calls.find((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))
+  expect(flagCall?.params).toEqual(['retail_not_found', 2])
+})
+
+test('ensureProductPriced is not excluded when retail succeeds but secondhand does not - just partially priced', async () => {
+  const clients = fakeClients({
+    exa: {
+      searchStructured: async (query: string) =>
+        query.includes('brand-new retail')
+          ? { output: { content: { found: true, price_low: 14499, price_high: 19999 } } }
+          : { output: { content: { found: false } } },
+    },
+  })
+  const { db, calls } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+
+  const result = await ensureProductPriced(clients, db, product, logger)
+
+  expect(result.excluded).toBe(false)
+  expect(result.retail).toEqual({ low: 14499, high: 19999, currency: 'PHP' })
+  expect(result.secondhand).toBeNull()
+  expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
+  const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
+  expect(inserts).toHaveLength(1)
+  expect(inserts[0].params).toEqual([2, 14499, 19999, 'PHP', expect.any(String), 'exa_new_retail', 'New', null, null, null])
+})
+
+test('ensureProductPriced records both retail and secondhand when both succeed', async () => {
+  const clients = fakeClients({
+    exa: { searchStructured: async () => ({ output: { content: { found: true, price_low: 14499, price_high: 19999 } } }) },
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async () => '```json\n{"found": true, "price_low": 8000, "price_high": 11000}\n```',
+    },
+  })
+  const { db, calls } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+
+  const result = await ensureProductPriced(clients, db, product, logger)
+
+  expect(result).toEqual({
+    retail: { low: 14499, high: 19999, currency: 'PHP' },
+    secondhand: { low: 8000, high: 11000, currency: 'PHP' },
+    excluded: false,
+  })
+  const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
+  expect(inserts).toHaveLength(2)
+  expect(inserts[1].params).toEqual([2, 8000, 11000, 'PHP', expect.any(String), 'gemini_grounding', 'Used', null, null, null])
 })

@@ -82,6 +82,41 @@ export async function flagProductPriceLookupExcluded(db: DbClient, productId: nu
   await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2`, [reason, productId])
 }
 
+export interface ProductPricingStatus {
+  retail: PriceRange | null
+  secondhand: PriceRange | null
+  excluded: boolean
+}
+
+// Lets a caller (extract-products.ts's inline per-listing trigger) check
+// "does this product already have pricing, or is it already excluded" before
+// deciding whether to call ensureProductPriced at all - a targeted
+// single-product check, unlike getPriceLookupCandidates' batch-level NOT
+// EXISTS gate. 'New'/'Used' rows are read as the retail/secondhand slots
+// respectively, same condition values insertPriceCheck already writes them
+// under everywhere in this codebase - most recent row of each wins if
+// somehow more than one exists.
+export async function getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus> {
+  const result = (await db.query(
+    `SELECT p.price_lookup_excluded, h.price_low, h.price_high, h.condition
+     FROM products p
+     LEFT JOIN product_price_history h ON h.product_id = p.id AND h.condition IN ('New', 'Used')
+     WHERE p.id = $1
+     ORDER BY h.checked_at DESC`,
+    [productId],
+  )) as { rows: { price_lookup_excluded: boolean; price_low: string | null; price_high: string | null; condition: string | null }[] }
+
+  const excluded = result.rows[0]?.price_lookup_excluded ?? false
+  const retailRow = result.rows.find((r) => r.condition === 'New')
+  const secondhandRow = result.rows.find((r) => r.condition === 'Used')
+
+  return {
+    excluded,
+    retail: retailRow ? { low: Number(retailRow.price_low), high: Number(retailRow.price_high), currency: 'PHP' } : null,
+    secondhand: secondhandRow ? { low: Number(secondhandRow.price_low), high: Number(secondhandRow.price_high), currency: 'PHP' } : null,
+  }
+}
+
 export interface ListingPricesForProductCondition {
   id: number
   base_model: string
