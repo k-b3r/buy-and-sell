@@ -1600,6 +1600,7 @@ test('getDiscountNotifications maps joined rows into DiscountNotification shape,
 
   const result = await getDiscountNotifications(db, 20)
 
+  expect(calls[0].sql).toContain('dn.verified_at IS NOT NULL')
   expect(calls[0].sql).toContain('ORDER BY dn.created_at DESC')
   expect(calls[0].sql).toContain('LIMIT $1')
   expect(calls[0].params).toEqual([20])
@@ -1655,6 +1656,7 @@ test('getUnreadDiscountNotificationCount returns the unread count as a number', 
   const result = await getUnreadDiscountNotificationCount(db)
 
   expect(calls[0].sql).toContain('read_at IS NULL')
+  expect(calls[0].sql).toContain('verified_at IS NOT NULL')
   expect(result).toBe(3)
 })
 

@@ -15,6 +15,7 @@ export const WORKER_PID_FILES: Record<string, string> = {
   'enrich-products': 'enrich-products.pid',
   'price-lookup': 'price-lookup.pid',
   'enrich-listing-prices': 'enrich-listing-prices.pid',
+  'verify-discount-notifications': 'verify-discount-notifications.pid',
 }
 
 // Every worker key's directory under src/workers/ matches the key exactly

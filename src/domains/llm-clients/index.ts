@@ -9,3 +9,6 @@ export { createGroqClient, createFallbackGroqClient, isQuotaError as isGroqQuota
 
 export type { TavilyClient, TavilySearchResult } from './tavily'
 export { createTavilyClient } from './tavily'
+
+export type { OpenRouterClient } from './openrouter'
+export { createOpenRouterClient, createFallbackOpenRouterClient, isQuotaError as isOpenRouterQuotaError } from './openrouter'

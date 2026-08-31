@@ -12,6 +12,7 @@ const WORKERS = [
   'enrich-products',
   'price-lookup',
   'enrich-listing-prices',
+  'verify-discount-notifications',
 ] as const
 
 type Worker = (typeof WORKERS)[number]
@@ -23,6 +24,7 @@ const WORKER_DESCRIPTIONS: Record<Worker, string> = {
   'enrich-products': 'LLM-enriches product records with category and eligibility.',
   'price-lookup': 'Web-search-grounded market price lookup per product.',
   'enrich-listing-prices': "LLM price review flagging listings priced as outliers vs. their product's range.",
+  'verify-discount-notifications': 'Confirms candidate discounts against fresh market data before they reach the dashboard.',
 }
 
 const POLL_INTERVAL_MS = 3000
