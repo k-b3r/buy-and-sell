@@ -98,11 +98,21 @@ function discountBadgeStyle(percent: number): CSSProperties {
 // listing's price is itself a magnitude outlier / placeholder" - see
 // computeListingDiscount. Zero is a real result (priced exactly at the
 // reference), just not worth a badge.
-function DiscountBadge({ percent }: { percent: number | null }) {
+// reasoning is the model's own verification writeup (discount-verification.ts's
+// VerificationOutcome, 'verified' case) - only present for a listing that
+// actually triggered and passed a discount_notifications check, not every
+// listing with a nonzero discount_percent (that's a plain stats comparison,
+// computed for all of them regardless of verification).
+function DiscountBadge({ percent, reasoning }: { percent: number | null; reasoning?: string | null }) {
   if (percent === null || percent === 0) return null
   return (
     <span style={discountBadgeStyle(percent)}>
       {percent > 0 ? `${percent}% below avg` : `${Math.abs(percent)}% above avg`}
+      {reasoning && (
+        <span title={reasoning} style={{ marginLeft: 4, cursor: 'help' }}>
+          ⓘ
+        </span>
+      )}
     </span>
   )
 }
@@ -389,7 +399,7 @@ export default function ListingsView({
                   {formatListingPrice(l)}
                   {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
                   {l.is_repost && <RepostBadge />}
-                  <DiscountBadge percent={l.discount_percent} />
+                  <DiscountBadge percent={l.discount_percent} reasoning={l.verification_reasoning} />
                 </td>
               </tr>
             ))}
@@ -434,7 +444,7 @@ export default function ListingsView({
                   {l.sold_at && <SoldBadge />}
                   {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
                   {l.is_repost && <RepostBadge />}
-                  <DiscountBadge percent={l.discount_percent} />
+                  <DiscountBadge percent={l.discount_percent} reasoning={l.verification_reasoning} />
                 </div>
                 <div style={{ position: 'absolute', top: 6, left: 6 }}>
                   <SaveButton listingId={l.id} productId={productId} initialSaved={l.is_saved} variant="icon" />

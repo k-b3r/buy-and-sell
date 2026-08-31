@@ -114,7 +114,17 @@ export default function NotificationToasts() {
             <div style={{ fontWeight: 600, fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {n.title ?? 'Listing'}
             </div>
-            <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{n.discount_percent}% below market</div>
+            <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>
+              {n.discount_percent}% below market
+              {n.verification_reasoning && (
+                <span
+                  title={n.verification_reasoning}
+                  style={{ marginLeft: 4, color: 'var(--color-text-muted)', cursor: 'help' }}
+                >
+                  ⓘ
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={(e) => {

@@ -539,6 +539,49 @@ test('getListingDetail keeps a normal in-range price_amount as-is', async () => 
   expect(result?.price_amount).toBe(12000)
 })
 
+test('getListingDetail surfaces the verification reasoning for a listing with a verified discount notification', async () => {
+  let mainSql = ''
+  const db: QueryClient = {
+    query: async (sql: string) => {
+      if (sql.includes('product_prices')) {
+        return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
+      }
+      mainSql = sql
+      return {
+        rows: [
+          {
+            id: '123',
+            title: 'x',
+            price_amount: '12000',
+            price_currency: 'PHP',
+            description: null,
+            condition: null,
+            location_city: null,
+            listed_at: null,
+            last_seen_at: null,
+            primary_photo_url: null,
+            stored_photo_urls: null,
+            product_id: 1,
+            base_model: null,
+            variant_tier: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+            verification_reasoning: 'Fresh market ~₱18k; the asking price genuinely undercuts it.',
+          },
+        ],
+      }
+    },
+  }
+
+  const result = await getListingDetail(db, '123')
+
+  expect(mainSql).toContain('dn.verification_reasoning')
+  expect(mainSql).toContain('dn.verified_at IS NOT NULL')
+  expect(result?.verification_reasoning).toBe('Fresh market ~₱18k; the asking price genuinely undercuts it.')
+})
+
 test('getProductSummaries passes search as an ILIKE pattern and respects offset/limit options', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []
@@ -848,6 +891,54 @@ test('getProductDetail prefers a listing\'s stored_photo_urls over its primary_p
   const result = await getProductDetail(db, 1)
 
   expect(result?.listings[0].primary_photo_url).toBe('https://pub-xyz.r2.dev/listings/123/0.jpg')
+})
+
+test('getProductDetail surfaces the verification reasoning for a listing with a verified discount notification, null for one without', async () => {
+  let call = 0
+  let listingsSql = ''
+  const db: QueryClient = {
+    query: async (sql: string) => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: 1,
+              base_model: 'RTX 3060',
+              variant_tier: null,
+              new_price_low: null,
+              new_price_high: null,
+              used_price_low: null,
+              used_price_high: null,
+              used_price_source: null,
+              enrichment_description: null,
+              enrichment_value_drivers: null,
+              enrichment_has_trained_price_knowledge: null,
+              enrichment_trained_price_low: null,
+              enrichment_trained_price_high: null,
+              enrichment_trained_price_currency: null,
+              enrichment_model: null,
+              enrichment_checked_at: null,
+            },
+          ],
+        }
+      }
+      listingsSql = sql
+      return {
+        rows: [
+          { id: '123', title: 'flagged one', price_amount: '12000', condition: null, sold_at: null, verification_reasoning: 'Genuinely underpriced vs fresh market data.' },
+          { id: '456', title: 'never flagged', price_amount: '13000', condition: null, sold_at: null, verification_reasoning: null },
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(listingsSql).toContain('dn.verification_reasoning')
+  expect(listingsSql).toContain('dn.verified_at IS NOT NULL')
+  expect(result?.listings.find((l) => l.id === '123')?.verification_reasoning).toBe('Genuinely underpriced vs fresh market data.')
+  expect(result?.listings.find((l) => l.id === '456')?.verification_reasoning).toBeNull()
 })
 
 test('getProductDetail computes each listing\'s discount against the outlier-excluded median of its siblings', async () => {
@@ -1592,6 +1683,7 @@ test('getDiscountNotifications maps joined rows into DiscountNotification shape,
             reference_price: '15000',
             created_at: '2026-08-30T00:00:00.000Z',
             read_at: null,
+            verification_reasoning: 'Fresh secondhand market ~₱15k vs ₱8.7k ask; minor scuffs don\'t explain the gap.',
           },
         ],
       }
@@ -1601,6 +1693,7 @@ test('getDiscountNotifications maps joined rows into DiscountNotification shape,
   const result = await getDiscountNotifications(db, 20)
 
   expect(calls[0].sql).toContain('dn.verified_at IS NOT NULL')
+  expect(calls[0].sql).toContain('dn.verification_reasoning')
   expect(calls[0].sql).toContain('ORDER BY dn.created_at DESC')
   expect(calls[0].sql).toContain('LIMIT $1')
   expect(calls[0].params).toEqual([20])
@@ -1615,6 +1708,7 @@ test('getDiscountNotifications maps joined rows into DiscountNotification shape,
       reference_price: 15000,
       created_at: '2026-08-30T00:00:00.000Z',
       read_at: null,
+      verification_reasoning: 'Fresh secondhand market ~₱15k vs ₱8.7k ask; minor scuffs don\'t explain the gap.',
     },
   ])
 })

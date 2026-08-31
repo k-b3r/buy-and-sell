@@ -23,6 +23,7 @@ function makeListing(overrides: Partial<ProductListingSummary> & { id: string })
     discount_percent: null,
     reference_price: null,
     is_saved: false,
+    verification_reasoning: null,
     ...overrides,
   }
 }

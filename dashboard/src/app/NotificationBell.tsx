@@ -130,7 +130,17 @@ export default function NotificationBell() {
                 <div style={{ fontWeight: n.read_at ? 400 : 600, fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {n.title ?? 'Listing'}
                 </div>
-                <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{n.discount_percent}% below market</div>
+                <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>
+                  {n.discount_percent}% below market
+                  {n.verification_reasoning && (
+                    <span
+                      title={n.verification_reasoning}
+                      style={{ marginLeft: 4, color: 'var(--color-text-muted)', cursor: 'help' }}
+                    >
+                      ⓘ
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>{relativeTime(n.created_at)}</div>
               </div>
               {!n.read_at && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0, marginTop: 4 }} />}

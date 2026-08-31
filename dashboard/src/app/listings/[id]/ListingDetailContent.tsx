@@ -116,6 +116,14 @@ export default function ListingDetailContent({
                   : `${Math.abs(listing.discount_percent)}% above avg`}
               </span>
             )}
+            {listing.verification_reasoning && (
+              <span
+                title={listing.verification_reasoning}
+                style={{ marginLeft: 6, fontSize: '0.6em', verticalAlign: 'middle', color: 'var(--color-text-muted)', cursor: 'help' }}
+              >
+                ⓘ
+              </span>
+            )}
           </p>
           {listing.reference_price !== null && (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: -8 }}>

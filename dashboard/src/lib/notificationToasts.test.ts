@@ -13,6 +13,7 @@ function notif(id: number, created_at: string): DiscountNotification {
     reference_price: 1000,
     created_at,
     read_at: null,
+    verification_reasoning: null,
   }
 }
 

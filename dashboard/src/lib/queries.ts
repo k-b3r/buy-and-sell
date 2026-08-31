@@ -653,6 +653,11 @@ export interface ProductListingSummary {
   discount_percent: number | null
   reference_price: number | null
   is_saved: boolean
+  // The model's own reasoning for why this exact listing cleared the
+  // verification gate (discount-verification.ts's VerificationOutcome,
+  // 'verified' case) - null for any listing that never got a verified
+  // discount_notifications row, not just an unflagged one.
+  verification_reasoning: string | null
 }
 
 // Three independent sources of "don't trust this as a firm price": the LLM
@@ -757,10 +762,12 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at, l.listed_at,
               pr.is_negotiable as price_review_is_negotiable,
               pr.price_low as price_review_low, pr.price_high as price_review_high,
-              sv.listing_id IS NOT NULL as is_saved
+              sv.listing_id IS NOT NULL as is_saved,
+              dn.verification_reasoning
        FROM listings l
        LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
        LEFT JOIN saved_listings sv ON sv.listing_id = l.id
+       LEFT JOIN discount_notifications dn ON dn.listing_id = l.id AND dn.verified_at IS NOT NULL
        WHERE l.product_id = $1
        ORDER BY l.title`,
       [productId],
@@ -793,6 +800,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     listed_at: toIsoOrNull(r.listed_at),
     price_review: toPriceReview(r),
     is_saved: r.is_saved as boolean,
+    verification_reasoning: r.verification_reasoning as string | null,
   }))
 
   // price_lookup_excluded products (real_estate/too_generic/etc) bundle
@@ -860,6 +868,7 @@ export interface ListingDetail {
   discount_percent: number | null
   reference_price: number | null
   is_saved: boolean
+  verification_reasoning: string | null
 }
 
 function toIsoOrNull(value: unknown): string | null {
@@ -905,11 +914,13 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
               l.sold_at, p.base_model, p.variant_tier,
               pr.is_negotiable as price_review_is_negotiable,
               pr.price_low as price_review_low, pr.price_high as price_review_high,
-              sv.listing_id IS NOT NULL as is_saved
+              sv.listing_id IS NOT NULL as is_saved,
+              dn.verification_reasoning
        FROM listings l
        LEFT JOIN products p ON p.id = l.product_id
        LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
        LEFT JOIN saved_listings sv ON sv.listing_id = l.id
+       LEFT JOIN discount_notifications dn ON dn.listing_id = l.id AND dn.verified_at IS NOT NULL
        WHERE l.id = $1`,
       [listingId],
     ),
@@ -947,6 +958,7 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     discount_percent: discount.discountPercent,
     reference_price: discount.referencePrice,
     is_saved: row.is_saved as boolean,
+    verification_reasoning: row.verification_reasoning as string | null,
   }
 }
 
@@ -1092,6 +1104,7 @@ export interface DiscountNotification {
   reference_price: number
   created_at: string
   read_at: string | null
+  verification_reasoning: string | null
 }
 
 // Written by the root pipeline's detectAndRecordDiscountNotifications (see
@@ -1103,7 +1116,7 @@ export interface DiscountNotification {
 export async function getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]> {
   const result = await db.query(
     `SELECT dn.id, dn.listing_id, dn.product_id, l.title, l.primary_photo_url, l.stored_photo_urls,
-            dn.discount_percent, dn.reference_price, dn.created_at, dn.read_at
+            dn.discount_percent, dn.reference_price, dn.created_at, dn.read_at, dn.verification_reasoning
      FROM discount_notifications dn
      JOIN listings l ON l.id = dn.listing_id
      WHERE dn.verified_at IS NOT NULL
@@ -1121,6 +1134,7 @@ export async function getDiscountNotifications(db: QueryClient, limit = 20): Pro
     reference_price: Number(r.reference_price),
     created_at: toIsoOrNull(r.created_at) as string,
     read_at: toIsoOrNull(r.read_at),
+    verification_reasoning: r.verification_reasoning as string | null,
   }))
 }
 
