@@ -76,17 +76,18 @@ export const PRODUCT_CATEGORIES = [
   'Other',
 ] as const
 
-// tavily_new_retail is price-lookup.ts's current brand-new retail source
-// (Tavily, single call/product, no fallback chain - see
-// src/domains/marketplace/price-lookup.ts). exa_new_retail/claude_code_new_retail
-// are retired (kept so historical rows still resolve) - gemini_grounding and
+// exa_new_retail is price-lookup.ts's current brand-new retail source (Exa,
+// structured, cites sources), tavily_new_retail its fallback when Exa fails
+// or comes up empty (see src/domains/marketplace/price-lookup.ts) - Exa-
+// first per a live head-to-head comparison against Tavily (2026-08-31, 15
+// real candidates: Exa cited sources and abstained honestly on missing data,
+// Tavily confidently fabricated numbers with none). claude_code_new_retail
+// is retired (kept so historical rows still resolve). gemini_grounding and
 // web_search both explicitly ask for secondhand/used pricing instead (see
-// src/domains/marketplace/price-lookup.ts's prompts), and Exa itself can't
-// reach secondhand listings at all (FB/Carousell aren't indexed, confirmed
-// live 2026-08-22 - see CONTEXT.md). Blending new/secondhand into one
-// "market price" number was a real bug: a product's new-retail price would
-// silently make every real secondhand listing look like a huge deal against
-// full retail. Kept as two separate laterals so the two concepts can never
+// price-lookup.ts's prompts). Blending new/secondhand into one "market
+// price" number was a real bug: a product's new-retail price would silently
+// make every real secondhand listing look like a huge deal against full
+// retail. Kept as two separate laterals so the two concepts can never
 // collapse into one column again.
 // manual_new_retail: a human directly typed this in on the needs-review page
 // (setManualPrice) - ranked above every automated source since a human
@@ -103,17 +104,18 @@ const NEW_PRICE_LATERAL = `
   ) np ON true
 `
 
-// price-lookup.ts's secondhand fallback chain, in preference order:
-// gemini_grounding (primary, free) -> exa_secondhand (fallback 1, paid,
-// structured) -> tavily_secondhand (fallback 2, free, regex-parsed) - only
-// one of these is ever written per product per lookup (whichever succeeded),
-// so in practice they don't compete against each other here, but the
-// ordering still reflects real trust tier if historical data ever overlaps.
-// web_search is retired (Claude's old combined retail+secondhand call, kept
-// so historical rows still resolve). listing_prices is computed from this
-// same marketplace's own listings, a more circular comparison (see
-// db/schema.sql's product_price_history comment), so it's deprioritized
-// below every external search source.
+// price-lookup.ts's secondhand chain, in preference order: exa_secondhand
+// (primary, structured, cites sources) -> tavily_secondhand (fallback, free,
+// regex-parsed) - only one of these is ever written per product per lookup
+// (whichever succeeded), so in practice they don't compete against each
+// other here, but the ordering still reflects real trust tier if historical
+// data ever overlaps. gemini_grounding/web_search are retired (Gemini was
+// price-lookup's original secondhand source, web_search was Claude's old
+// combined retail+secondhand call; both kept so historical rows still
+// resolve). listing_prices is computed from this same marketplace's own
+// listings, a more circular comparison (see db/schema.sql's
+// product_price_history comment), so it's deprioritized below every
+// external search source.
 // claude_code_secondhand: same stopgap reasoning as claude_code_new_retail
 // above - ordered last (after listing_prices) since it's the least-grounded
 // source here (a manual web search Claude did, not a dedicated pricing

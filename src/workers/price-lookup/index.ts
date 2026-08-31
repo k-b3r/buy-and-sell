@@ -1,19 +1,17 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
-import { createGeminiClient, createExaClient, createTavilyClient } from '../../domains/llm-clients'
+import type { ExaClient, TavilyClient } from '../../domains/llm-clients'
+import { createExaClient, createFallbackExaClient, createTavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import type { PriceLookupCandidate, PriceRange } from '../../domains/marketplace'
+import type { PriceLookupCandidate, PriceRange, PriceKind } from '../../domains/marketplace'
 import {
-  buildGeminiSecondhandPrompt,
-  parseGeminiPriceResponse,
-  buildExaSecondhandQuery,
-  buildExaSecondhandSystemPrompt,
-  EXA_SECONDHAND_SCHEMA,
+  buildExaQuery,
+  buildExaSystemPrompt,
+  EXA_PRICE_SCHEMA,
   parseExaPriceResponse,
   buildTavilyQuery,
   parseTavilyPriceAnswer,
@@ -24,7 +22,6 @@ import type { PriceCheckSource } from '../../domains/marketplace/storage/pricing
 import { insertPriceCheck, getPriceLookupCandidates, flagProductPriceLookupExcluded } from '../../domains/marketplace/storage/pricing'
 
 export interface PriceLookupClients {
-  gemini: GeminiClient
   exa: ExaClient
   tavily: TavilyClient
 }
@@ -43,78 +40,50 @@ function tavilyText(result: { answer: string | null; results: { content: string 
   return result.answer ?? result.results.map((r) => r.content).join('\n')
 }
 
-// Retail has exactly one source (Tavily, per direct instruction) - no
-// fallback chain, just a single call per product.
-async function lookupRetail(tavily: TavilyClient, product: PriceLookupCandidate, logger: Logger, label: string): Promise<PriceLookupResult | null> {
-  try {
-    const result = await tavily.search(buildTavilyQuery('retail', product))
-    const text = tavilyText(result)
-    const price = parseTavilyPriceAnswer(text)
-    if (!price) return null
-    if (isWideSpread(price)) {
-      logger.warn(`product ${product.id} (${label}): retail price range too wide (${price.low}-${price.high}), dropped`)
-      return null
-    }
-    return { price, source: 'tavily_new_retail', rawResponse: text }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Tavily retail lookup failed (${message})`)
-    return null
-  }
-}
+// Exa (paid, structured, cites sources) -> Tavily (free, regex parsed) -
+// first provider to return a real, non-wide-spread price wins. Exa-first for
+// both retail and secondhand per a live head-to-head (2026-08-31, 15 real
+// candidates, see discount-verification.ts's fetchFreshMarketContext
+// comment for the full record): Exa cited sources and abstained honestly
+// when it lacked real data, where Tavily confidently fabricated numbers
+// with no citation trail. A provider that errors, comes back empty, or
+// returns a suspiciously wide range falls through to the next one rather
+// than failing the whole lookup.
+const EXA_SOURCE: Record<PriceKind, PriceCheckSource> = { retail: 'exa_new_retail', secondhand: 'exa_secondhand' }
+const TAVILY_SOURCE: Record<PriceKind, PriceCheckSource> = { retail: 'tavily_new_retail', secondhand: 'tavily_secondhand' }
 
-// Gemini (free, grounded) -> Exa (paid, structured) -> Tavily (free, regex
-// parsed) - first provider to return a real, non-wide-spread price wins. A
-// provider that errors, comes back empty, or returns a suspiciously wide
-// range falls through to the next one rather than failing the whole
-// candidate.
-async function lookupSecondhand(
+async function lookupPrice(
+  kind: PriceKind,
   clients: PriceLookupClients,
   product: PriceLookupCandidate,
   logger: Logger,
   label: string,
 ): Promise<PriceLookupResult | null> {
   try {
-    const text = await clients.gemini.generateGroundedText(buildGeminiSecondhandPrompt(product))
-    const price = parseGeminiPriceResponse(text)
-    if (price) {
-      if (!isWideSpread(price)) return { price, source: 'gemini_grounding', rawResponse: text }
-      logger.warn(`product ${product.id} (${label}): Gemini secondhand range too wide (${price.low}-${price.high}), falling back to Exa`)
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Gemini secondhand lookup failed (${message}), falling back to Exa`)
-  }
-
-  try {
-    const response = await clients.exa.searchStructured(
-      buildExaSecondhandQuery(product),
-      buildExaSecondhandSystemPrompt(product),
-      EXA_SECONDHAND_SCHEMA,
-    )
+    const response = await clients.exa.searchStructured(buildExaQuery(kind, product), buildExaSystemPrompt(kind, product), EXA_PRICE_SCHEMA)
     const price = parseExaPriceResponse(response)
     if (price) {
-      if (!isWideSpread(price)) return { price, source: 'exa_secondhand', rawResponse: JSON.stringify(response) }
-      logger.warn(`product ${product.id} (${label}): Exa secondhand range too wide (${price.low}-${price.high}), falling back to Tavily`)
+      if (!isWideSpread(price)) return { price, source: EXA_SOURCE[kind], rawResponse: JSON.stringify(response) }
+      logger.warn(`product ${product.id} (${label}): Exa ${kind} range too wide (${price.low}-${price.high}), falling back to Tavily`)
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Exa secondhand lookup failed (${message}), falling back to Tavily`)
+    logger.warn(`product ${product.id} (${label}): Exa ${kind} lookup failed (${message}), falling back to Tavily`)
   }
 
   try {
-    const result = await clients.tavily.search(buildTavilyQuery('secondhand', product))
+    const result = await clients.tavily.search(buildTavilyQuery(kind, product))
     const text = tavilyText(result)
     const price = parseTavilyPriceAnswer(text)
     if (!price) return null
     if (isWideSpread(price)) {
-      logger.warn(`product ${product.id} (${label}): Tavily secondhand range too wide (${price.low}-${price.high}), dropped`)
+      logger.warn(`product ${product.id} (${label}): Tavily ${kind} range too wide (${price.low}-${price.high}), dropped`)
       return null
     }
-    return { price, source: 'tavily_secondhand', rawResponse: text }
+    return { price, source: TAVILY_SOURCE[kind], rawResponse: text }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Tavily secondhand lookup failed (${message})`)
+    logger.warn(`product ${product.id} (${label}): Tavily ${kind} lookup failed (${message})`)
     return null
   }
 }
@@ -149,8 +118,8 @@ export async function runPriceLookup(
       continue
     }
 
-    const retail = await lookupRetail(clients.tavily, product, logger, label)
-    const secondhand = await lookupSecondhand(clients, product, logger, label)
+    const retail = await lookupPrice('retail', clients, product, logger, label)
+    const secondhand = await lookupPrice('secondhand', clients, product, logger, label)
 
     if (!retail && !secondhand) {
       await flagProductPriceLookupExcluded(db, product.id, 'price_not_found')
@@ -174,8 +143,6 @@ export async function runPriceLookup(
 async function main() {
   loadEnvFile()
 
-  const geminiApiKey = process.env.FREE_GEMINI_API_KEY
-  if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const exaApiKey = process.env.EXA_API_KEY
   if (!exaApiKey) throw new Error('EXA_API_KEY not set in .env')
   const tavilyApiKey = process.env.TAVILY_API_KEY
@@ -196,9 +163,19 @@ async function main() {
   const logger = createLogger('data/price-lookup.log')
   writePidFile('data/price-lookup.pid')
 
+  // Exa is now the primary source for both retail and secondhand - its
+  // credits ran out mid-investigation once already (2026-08-31, real 402),
+  // so a second key is worth having on hand now that it's no longer just a
+  // fallback-of-a-fallback.
+  const exaClients = [createExaClient(exaApiKey)]
+  const altExaApiKey = process.env.ALT_EXA_API_KEY
+  if (altExaApiKey) {
+    exaClients.push(createExaClient(altExaApiKey))
+    logger.info("ALT_EXA_API_KEY configured, will fall back to it once the primary key's credits are exhausted")
+  }
+
   const clients: PriceLookupClients = {
-    gemini: createGeminiClient(geminiApiKey),
-    exa: createExaClient(exaApiKey),
+    exa: createFallbackExaClient(exaClients),
     tavily: createTavilyClient(tavilyApiKey),
   }
 
@@ -213,7 +190,7 @@ async function main() {
       const products = pending.slice(0, limit)
       logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
       if (isTestRun()) {
-        logger.info(`TEST_RUN: marketplace will call Tavily/Gemini/Exa for retail/secondhand price-lookup on ${products.length} products this lap`)
+        logger.info(`TEST_RUN: marketplace will call Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`)
       } else {
         await runPriceLookup(clients, pool, logger, products)
       }

@@ -33,60 +33,35 @@ function disambiguationContext(candidate: PriceLookupCandidate): string {
   return context
 }
 
-// ---- Gemini: secondhand, primary source ----
-// Google Search grounding can't combine with responseSchema (confirmed live,
-// see GeminiClient's own comment) - so this asks for a fenced json block in
-// free text, same proven pattern the pre-Claude secondhand-price-lookup used.
-export function buildGeminiSecondhandPrompt(candidate: PriceLookupCandidate): string {
+export type PriceKind = 'retail' | 'secondhand'
+
+// ---- Exa: primary source for both retail and secondhand ----
+// Per a live head-to-head against Tavily (2026-08-31, 15 real candidates,
+// see discount-verification.ts's fetchFreshMarketContext comment for the
+// full record) - Exa cited sources and abstained honestly when it lacked
+// real data, where Tavily confidently fabricated numbers with no citation
+// trail. Same conclusion applies here: Exa first, Tavily only as a fallback.
+export function buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string {
   const label = productLabel(candidate.base_model, candidate.variant_tier)
-  return `Search for the current secondhand/used market price range in PHP for: ${label}, based on real current listings (e.g. Facebook Marketplace, Carousell, Shopee) in the Philippines.${disambiguationContext(candidate)}
-
-Respond with a fenced json code block in this exact shape:
-\`\`\`json
-{"found": true, "price_low": <number>, "price_high": <number>}
-\`\`\`
-If you cannot find enough real listings to determine a reliable range, respond with {"found": false} instead of guessing.`
+  return kind === 'retail'
+    ? `current brand-new retail price of ${label} in the Philippines`
+    : `current secondhand used market price of ${label} in the Philippines`
 }
 
-const JSON_BLOCK_PATTERN = /```json\s*([\s\S]*?)```/
-
-export function parseGeminiPriceResponse(text: string): PriceRange | null {
-  const match = text.match(JSON_BLOCK_PATTERN)
-  if (!match) return null
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(match[1])
-  } catch {
-    return null
-  }
-  if (typeof parsed !== 'object' || parsed === null) return null
-  const r = parsed as Record<string, unknown>
-  if (r.found !== true) return null
-  if (typeof r.price_low !== 'number' || typeof r.price_high !== 'number') return null
-  return { low: r.price_low, high: r.price_high, currency: 'PHP' }
+export function buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string {
+  const base =
+    kind === 'retail'
+      ? 'Find the current brand-new retail price in Philippine Peso (PHP) from official brand sites and known PH electronics retailers - not a temporary promo or flash-sale price.'
+      : 'Find the current secondhand (used) market price range in Philippine Peso (PHP) from real current listings (e.g. Facebook Marketplace, Carousell, Shopee).'
+  return `${base}${disambiguationContext(candidate)} If you cannot find a reliable price, set found to false rather than guessing.`
 }
 
-// ---- Exa: secondhand, fallback 1 ----
-export function buildExaSecondhandQuery(candidate: PriceLookupCandidate): string {
-  return `current secondhand used market price of ${productLabel(candidate.base_model, candidate.variant_tier)} in the Philippines`
-}
-
-export function buildExaSecondhandSystemPrompt(candidate: PriceLookupCandidate): string {
-  return (
-    'Find the current secondhand (used) market price range in Philippine Peso (PHP) from real current listings ' +
-    '(e.g. Facebook Marketplace, Carousell, Shopee).' +
-    disambiguationContext(candidate) +
-    ' If you cannot find a reliable price, set found to false rather than guessing.'
-  )
-}
-
-export const EXA_SECONDHAND_SCHEMA = {
+export const EXA_PRICE_SCHEMA = {
   type: 'object',
   required: ['found'],
   additionalProperties: false,
   properties: {
-    found: { type: 'boolean', description: 'true if a reliable current PHP secondhand price was found' },
+    found: { type: 'boolean', description: 'true if a reliable current PHP price was found' },
     price_low: { type: 'number', description: 'lowest observed price in PHP' },
     price_high: { type: 'number', description: 'highest observed price in PHP' },
   },
@@ -105,8 +80,8 @@ export function parseExaPriceResponse(response: unknown): PriceRange | null {
   return { low: r.price_low, high: r.price_high, currency: 'PHP' }
 }
 
-// ---- Tavily: sole retail source, and secondhand fallback 2 (last resort) ----
-export function buildTavilyQuery(kind: 'retail' | 'secondhand', candidate: PriceLookupCandidate): string {
+// ---- Tavily: fallback for both, only tried once Exa fails/comes up empty ----
+export function buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string {
   const label = productLabel(candidate.base_model, candidate.variant_tier)
   return kind === 'retail'
     ? `current brand-new retail price of ${label} in the Philippines`
