@@ -566,6 +566,18 @@ test('checkListingDiscount does nothing when the listing price is a magnitude ou
   expect(calls).toHaveLength(0)
 })
 
+test('checkListingDiscount does nothing when the listing price is a placeholder digit-pattern, even though it clears the magnitude-outlier band', async () => {
+  const { db, calls } = mockDb()
+
+  // ₱12,345 vs ₱20,400 reference - 39% off, well inside the 10x magnitude
+  // band, so it isn't caught there. But 12345 is a classic "for attention
+  // only" placeholder price, not a real ask (live case: listing
+  // 100000000000003, iPhone 14 "For Sale" at ₱12,345).
+  await checkListingDiscount(db, '1', 10, 'Used - Good', 12345, null, { low: 20400, high: 22000, currency: 'PHP' })
+
+  expect(calls).toHaveLength(0)
+})
+
 test('getUnverifiedDiscountCandidates returns pending candidates with listing/product/enrichment context, respecting the retry backoff', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {

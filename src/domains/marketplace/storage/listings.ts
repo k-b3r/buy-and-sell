@@ -305,6 +305,16 @@ const PLACEHOLDER_PRICE_SQL = (column: string): string => `(
   )
 )`
 
+// JS-side twin of PLACEHOLDER_PRICE_SQL above, for callers (checkListingDiscount)
+// that already have the price as a JS number and don't need a SQL round trip.
+const ASCENDING_RUN_RE = /012|123|234|345|456|567|678|789/
+function isPlaceholderPrice(price: number): boolean {
+  const digits = String(Math.trunc(Math.abs(price)))
+  if (digits.length < 3) return false
+  if (/^(\d+)\1+$/.test(digits)) return true
+  return ASCENDING_RUN_RE.test(digits)
+}
+
 // Cheap SQL-only pre-filter, no LLM: flags listings whose price is either a
 // magnitude outlier (>10x off their product's own median in either
 // direction) or a placeholder digit-pattern, regardless of magnitude.
@@ -496,6 +506,7 @@ export async function checkListingDiscount(
 ): Promise<void> {
   if (priceAmount === null || priceAmount <= 0) return
   if (priceAmount < MIN_PRICE_PESOS) return
+  if (isPlaceholderPrice(priceAmount)) return
 
   let referencePrice: number | null
   if (isNewCondition(condition)) {
