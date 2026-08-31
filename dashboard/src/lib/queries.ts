@@ -104,18 +104,18 @@ const NEW_PRICE_LATERAL = `
   ) np ON true
 `
 
-// price-lookup.ts's secondhand chain, in preference order: exa_secondhand
-// (primary, structured, cites sources) -> tavily_secondhand (fallback, free,
-// regex-parsed) - only one of these is ever written per product per lookup
-// (whichever succeeded), so in practice they don't compete against each
-// other here, but the ordering still reflects real trust tier if historical
-// data ever overlaps. gemini_grounding/web_search are retired (Gemini was
-// price-lookup's original secondhand source, web_search was Claude's old
-// combined retail+secondhand call; both kept so historical rows still
-// resolve). listing_prices is computed from this same marketplace's own
-// listings, a more circular comparison (see db/schema.sql's
-// product_price_history comment), so it's deprioritized below every
-// external search source.
+// price-lookup.ts's secondhand chain, in preference order: gemini_grounding
+// (primary, free - won a live accuracy comparison against Exa on secondhand
+// specifically, 2026-08-31) -> exa_secondhand (fallback 1, structured, cites
+// sources) -> tavily_secondhand (fallback 2, free, regex-parsed) - only one
+// of these is ever written per product per lookup (whichever succeeded), so
+// in practice they don't compete against each other here, but the ordering
+// still reflects real trust tier if historical data ever overlaps.
+// web_search is retired (Claude's old combined retail+secondhand call, kept
+// so historical rows still resolve). listing_prices is computed from this
+// same marketplace's own listings, a more circular comparison (see
+// db/schema.sql's product_price_history comment), so it's deprioritized
+// below every external search source.
 // claude_code_secondhand: same stopgap reasoning as claude_code_new_retail
 // above - ordered last (after listing_prices) since it's the least-grounded
 // source here (a manual web search Claude did, not a dedicated pricing

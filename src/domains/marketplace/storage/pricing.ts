@@ -5,11 +5,13 @@ import type { PriceLookupCandidate, PriceRange } from '../price-lookup'
 // product's price history, not a replacement of the last one. This is what
 // makes a price trend possible: query product_price_history ordered by
 // checked_at, don't just read a single "current price" column.
-// gemini_grounding/web_search are retired sources (kept here so any
-// historical rows still typecheck) — price-lookup now tries Exa first for
-// both retail and secondhand (exa_new_retail / exa_secondhand), falling back
-// to Tavily (tavily_new_retail / tavily_secondhand) only when Exa fails or
-// comes up empty, per a live head-to-head comparison (2026-08-31).
+// web_search is a retired source (kept here so any historical rows still
+// typecheck) — price-lookup now sources retail via Exa -> Tavily fallback,
+// and secondhand via Gemini (free) -> Exa -> Tavily fallback, per two live
+// comparisons (2026-08-31): Exa beat Tavily on both, then Gemini beat Exa
+// specifically on secondhand accuracy in a follow-up 5-product test, so
+// secondhand's chain leads with Gemini instead of sharing retail's
+// Exa-first order.
 export type PriceCheckSource =
   | 'gemini_grounding'
   | 'listing_prices'

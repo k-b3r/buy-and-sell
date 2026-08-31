@@ -35,12 +35,53 @@ function disambiguationContext(candidate: PriceLookupCandidate): string {
 
 export type PriceKind = 'retail' | 'secondhand'
 
-// ---- Exa: primary source for both retail and secondhand ----
+// ---- Gemini: secondhand only, primary source ----
+// Per a live 5-product Gemini-vs-Exa comparison (2026-08-31): Exa won retail
+// 3/3 (it cites the brand's own official store page directly), but Gemini
+// won secondhand 2/3 (closer to independently-researched real prices; Exa's
+// secondhand answers were noisier/more prone to picking up a different
+// variant's listings). Retail stays Exa-first; secondhand goes back to
+// Gemini-first per that finding. Google Search grounding can't combine with
+// responseSchema (confirmed live, see GeminiClient's own comment) - so this
+// asks for a fenced json block in free text rather than relying on
+// structured output.
+export function buildGeminiSecondhandPrompt(candidate: PriceLookupCandidate): string {
+  const label = productLabel(candidate.base_model, candidate.variant_tier)
+  return `Search for the current secondhand/used market price range in PHP for: ${label}, based on real current listings (e.g. Facebook Marketplace, Carousell, Shopee) in the Philippines.${disambiguationContext(candidate)}
+
+Respond with a fenced json code block in this exact shape:
+\`\`\`json
+{"found": true, "price_low": <number>, "price_high": <number>}
+\`\`\`
+If you cannot find enough real listings to determine a reliable range, respond with {"found": false} instead of guessing.`
+}
+
+const JSON_BLOCK_PATTERN = /```json\s*([\s\S]*?)```/
+
+export function parseGeminiPriceResponse(text: string): PriceRange | null {
+  const match = text.match(JSON_BLOCK_PATTERN)
+  if (!match) return null
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(match[1])
+  } catch {
+    return null
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const r = parsed as Record<string, unknown>
+  if (r.found !== true) return null
+  if (typeof r.price_low !== 'number' || typeof r.price_high !== 'number') return null
+  return { low: r.price_low, high: r.price_high, currency: 'PHP' }
+}
+
+// ---- Exa: primary source for retail, fallback 1 for secondhand ----
 // Per a live head-to-head against Tavily (2026-08-31, 15 real candidates,
 // see discount-verification.ts's fetchFreshMarketContext comment for the
 // full record) - Exa cited sources and abstained honestly when it lacked
 // real data, where Tavily confidently fabricated numbers with no citation
-// trail. Same conclusion applies here: Exa first, Tavily only as a fallback.
+// trail. Retail: Exa first, Tavily fallback. Secondhand: Gemini first (see
+// above), Exa fallback 1, Tavily fallback 2.
 export function buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string {
   const label = productLabel(candidate.base_model, candidate.variant_tier)
   return kind === 'retail'
@@ -80,7 +121,7 @@ export function parseExaPriceResponse(response: unknown): PriceRange | null {
   return { low: r.price_low, high: r.price_high, currency: 'PHP' }
 }
 
-// ---- Tavily: fallback for both, only tried once Exa fails/comes up empty ----
+// ---- Tavily: last-resort fallback for both (last stage of either chain) ----
 export function buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string {
   const label = productLabel(candidate.base_model, candidate.variant_tier)
   return kind === 'retail'
