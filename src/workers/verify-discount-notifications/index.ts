@@ -37,7 +37,7 @@ const DEFAULT_LAP_LIMIT = 3
 // instead of trickling through at the same 3/lap pace as paid candidates
 // (per direct instruction, 2026-08-31: "process as notif entries arrive").
 const FETCH_BATCH_SIZE = 50
-const LOOP_DELAY_MS = 300000
+const LOOP_DELAY_MS = 30000
 
 // Each candidate is independent - a failure judging one (network blip,
 // unexpected throw) is logged and skipped via the pending path, never fatal
