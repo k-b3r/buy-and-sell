@@ -347,3 +347,53 @@ CREATE INDEX IF NOT EXISTS discount_notifications_unread_idx
 ALTER TABLE listing_price_review DROP CONSTRAINT IF EXISTS listing_price_review_listing_id_fkey;
 ALTER TABLE listing_price_review ADD CONSTRAINT listing_price_review_listing_id_fkey
   FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE;
+
+-- AI verification gate (see docs/superpowers/specs/2026-08-30-discount-notification-
+-- verification-design.md) - a discount_notifications row is invisible to the
+-- dashboard (getDiscountNotifications/getUnreadDiscountNotificationCount both
+-- filter on this) until verified_at is set by verify-discount-notifications.ts.
+-- last_verification_attempt_at backs off retries on transient failures (network/
+-- API errors) so a stuck candidate doesn't re-burn a paid Tavily/Exa call every
+-- worker loop tick. A definitive rejection (any check says no) just DELETEs the
+-- row instead of using a status column - each listing only ever gets one
+-- candidate row ever (see the original UNIQUE(listing_id)), so there's nothing
+-- to leave a tombstone for.
+ALTER TABLE discount_notifications ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE discount_notifications ADD COLUMN IF NOT EXISTS last_verification_attempt_at TIMESTAMPTZ;
+ALTER TABLE discount_notifications ADD COLUMN IF NOT EXISTS verification_source TEXT;
+ALTER TABLE discount_notifications ADD COLUMN IF NOT EXISTS verification_reasoning TEXT;
+
+CREATE INDEX IF NOT EXISTS discount_notifications_pending_idx
+  ON discount_notifications (last_verification_attempt_at)
+  WHERE verified_at IS NULL;
+
+-- server_service is the role prod workers (server/, and the root tsx workers
+-- deployed to the scraper host) connect as - it is NOT the owner role that
+-- runs this script. Every table below was at some point created (or an
+-- existing table's grant left incomplete) without a matching GRANT, which
+-- silently 42501'd the next worker run that touched it (hit live 2026-08-31
+-- twice in a row: `products` via enrich-products, then `listings` INSERT via
+-- the collector - listings had SELECT/UPDATE/DELETE but nobody had ever
+-- granted INSERT). The default-privileges rule makes any future CREATE TABLE
+-- by the owner auto-grant to server_service so this can't recur.
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+  listings, products, product_enrichment, product_price_history,
+  discount_notifications, saved_listings, variant_enums
+TO server_service;
+GRANT SELECT, INSERT, UPDATE ON listing_price_review TO server_service;
+GRANT SELECT ON categories TO server_service;
+
+-- A table GRANT (above) does NOT cover a SERIAL column's backing sequence -
+-- INSERT into a table with SERIAL id still needs its own USAGE grant on the
+-- id_seq for nextval() to work (hit live 2026-08-31, extract-products:
+-- "permission denied for sequence products_id_seq", right after the table
+-- grant above alone looked sufficient but wasn't).
+GRANT USAGE, SELECT ON
+  categories_id_seq, discount_notifications_id_seq,
+  product_price_history_id_seq, products_id_seq
+TO server_service;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO server_service;
+ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO server_service;

@@ -16,6 +16,15 @@ const WORKERS = [
 
 type Worker = (typeof WORKERS)[number]
 
+const WORKER_DESCRIPTIONS: Record<Worker, string> = {
+  collect: 'Scrapes Marketplace search results for new motivated-seller listings.',
+  'check-listings': 'Revisits stored listings to confirm still live, mark sold/removed, refresh fields.',
+  'extract-products': 'LLM-extracts base model/variant from listings, links each to a product.',
+  'enrich-products': 'LLM-enriches product records with category and eligibility.',
+  'price-lookup': 'Web-search-grounded market price lookup per product.',
+  'enrich-listing-prices': "LLM price review flagging listings priced as outliers vs. their product's range.",
+}
+
 const POLL_INTERVAL_MS = 3000
 
 interface LogsResponse {
@@ -197,6 +206,16 @@ export default function LogsPage() {
             >
               {status?.running && <span className="spinner" aria-label="running" />}
               {w}
+              <span
+                title={WORKER_DESCRIPTIONS[w]}
+                style={{
+                  fontSize: '0.85em',
+                  color: isSelected ? 'var(--color-bg)' : 'var(--color-text-muted)',
+                  cursor: 'help',
+                }}
+              >
+                ⓘ
+              </span>
             </button>
           )
         })}
