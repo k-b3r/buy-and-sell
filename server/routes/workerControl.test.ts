@@ -135,8 +135,19 @@ test(
     const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false, spawn }))
     const result = await handle({ worker: 'collect', action: 'start' })
 
-    expect(spawn).toHaveBeenCalledWith('npx', ['tsx', 'src/workers/collect/index.ts'], expect.any(Object))
+    expect(spawn).toHaveBeenCalledWith('npx', ['tsx', 'src/workers/collect/index.ts', '--cycle'], expect.any(Object))
     expect(result).toEqual({ statusCode: 200, body: { running: true, lastRunErrored: false } })
+  }),
+)
+
+test(
+  'start: other workers get no extra args (only collect runs --cycle)',
+  withTmpDir(async (dir) => {
+    const spawn = vi.fn(() => fakeChild())
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false, spawn }))
+    await handle({ worker: 'check-listings', action: 'start' })
+
+    expect(spawn).toHaveBeenCalledWith('npx', ['tsx', 'src/workers/check-listings/index.ts'], expect.any(Object))
   }),
 )
 

@@ -24,6 +24,14 @@ function scriptPathFor(worker: string): string {
   return `src/workers/${worker}/index.ts`
 }
 
+// collect is the only worker with a --cycle flag (rotates through the
+// operator-editable keyword list forever instead of exiting after one pass -
+// see src/workers/collect/index.ts). Every other worker already loops
+// internally or is meant to run one pass per Start click, so no extra arg.
+function extraArgsFor(worker: string): string[] {
+  return worker === 'collect' ? ['--cycle'] : []
+}
+
 export interface WorkerControlDeps {
   isAlive: (pid: number) => boolean
   kill: (pid: number, signal: NodeJS.Signals) => void
@@ -151,7 +159,7 @@ export function createWorkerControlHandler(
     // itself, same as a hand-started `pnpm run <worker>` would. No env
     // override - the worker's own loadEnvFile() picks up repoRoot's .env same
     // as always, since cwd is set to repoRoot below.
-    const child = deps.spawn('npx', ['tsx', scriptPathFor(worker)], { cwd: repoRoot, detached: true, stdio: ['ignore', 'ignore', logFd] })
+    const child = deps.spawn('npx', ['tsx', scriptPathFor(worker), ...extraArgsFor(worker)], { cwd: repoRoot, detached: true, stdio: ['ignore', 'ignore', logFd] })
     // The child has its own duped copy of the fd once spawned - this
     // process's own reference must be closed or it leaks for the server's
     // entire (long) lifetime, one per worker start.
