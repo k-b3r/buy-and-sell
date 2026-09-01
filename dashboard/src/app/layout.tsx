@@ -74,6 +74,9 @@ export default function RootLayout({
                 <Link href="/admin/logs" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
                   Workers
                 </Link>
+                <Link href="/admin/settings" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                  Settings
+                </Link>
                 <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
                   Analytics
                 </Link>

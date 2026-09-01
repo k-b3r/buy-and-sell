@@ -336,6 +336,54 @@ CREATE TABLE IF NOT EXISTS discount_notifications (
 CREATE INDEX IF NOT EXISTS discount_notifications_unread_idx
   ON discount_notifications (created_at) WHERE read_at IS NULL;
 
+-- Operator-tunable worker cadence/batch/pacing/retry knobs and
+-- discount-policy thresholds, previously hardcoded source constants (see
+-- src/platform/settings.ts's SETTING_DEFAULTS for the full key list and
+-- fallback values). Workers re-query this every lap - same "no restart
+-- needed" pattern as re-querying candidate rows every lap. INTEGER, not
+-- NUMERIC: every value here is a whole number (ms/counts/percent/pesos),
+-- and NUMERIC comes back from pg as a string, not a number - INTEGER avoids
+-- that cast entirely.
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value INTEGER NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO settings (key, value) VALUES
+  ('collect.max_items_default', 100),
+  ('collect.soft_wall_timeout_ms', 5000),
+  ('collect.pacing_min_ms', 4000),
+  ('collect.pacing_max_ms', 10000),
+  ('check_listings.loop_delay_ms', 60000),
+  ('check_listings.limit_default', 100),
+  ('check_listings.soft_wall_timeout_ms', 5000),
+  ('check_listings.pacing_min_ms', 2000),
+  ('check_listings.pacing_max_ms', 4000),
+  ('extract_products.max_attempts', 5),
+  ('extract_products.retry_base_delay_ms', 30000),
+  ('extract_products.loop_delay_ms', 300000),
+  ('extract_products.batch_size', 100),
+  ('extract_products.inter_batch_delay_ms', 5000),
+  ('enrich_products.batch_size', 20),
+  ('enrich_products.loop_delay_ms', 300000),
+  ('enrich_products.max_attempts', 3),
+  ('enrich_products.retry_delay_ms', 3000),
+  ('price_lookup.lap_limit_default', 20),
+  ('price_lookup.loop_delay_ms', 300000),
+  ('price_lookup.pacing_delay_ms', 1000),
+  ('enrich_listing_prices.batch_size', 35),
+  ('enrich_listing_prices.loop_delay_ms', 300000),
+  ('verify_discount.lap_limit_default', 3),
+  ('verify_discount.fetch_batch_size', 50),
+  ('verify_discount.loop_delay_ms', 30000),
+  ('verify_discount.pacing_delay_ms', 1000),
+  ('discount_policy.high_discount_threshold_percent', 30),
+  ('discount_policy.min_profit_pesos', 1000),
+  ('discount_policy.min_price_pesos', 500),
+  ('discount_policy.gemini_daily_grounding_cap', 1000)
+ON CONFLICT (key) DO NOTHING;
+
 -- listing_price_review's FK to listings was missing ON DELETE CASCADE -
 -- check-listings.ts's deleteListing() does a bare DELETE FROM listings with
 -- no child-row cleanup (same gap saved_listings/discount_notifications were

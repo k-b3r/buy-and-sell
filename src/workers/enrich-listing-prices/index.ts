@@ -9,14 +9,10 @@ import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
 import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace/storage/listings'
+import { loadSettings } from '../../platform/settings'
 
-const BATCH_SIZE = 35
+const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
-
-// Runs forever, not once - re-queries getPriceReviewCandidates every lap, same
-// pattern as enrich-products.ts. New price-outlier listings appear over time
-// as check-listings.ts/collect.ts add more data, so this needs to keep polling.
-const LOOP_DELAY_MS = 300000
 
 interface RawPriceReviewItem {
   id?: unknown
@@ -31,11 +27,12 @@ export async function runPriceReview(
   db: DbClient,
   logger: Logger,
   candidates: PriceReviewCandidate[],
+  batchSize = DEFAULT_BATCH_SIZE,
 ): Promise<void> {
   logger.info(`${candidates.length} listings to price-review`)
 
-  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-    const batch = candidates.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < candidates.length; i += batchSize) {
+    const batch = candidates.slice(i, i + batchSize)
     const prompt = buildPriceReviewPrompt(batch)
 
     let raw: { results?: unknown }
@@ -90,20 +87,21 @@ async function main() {
   const groq = createGroqClient(apiKey, MODEL)
   const pool = createDbPool(dbUrl)
 
-  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
+  logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getPriceReviewCandidates(pool)
+      const settings = await loadSettings(pool, ['enrich_listing_prices.batch_size', 'enrich_listing_prices.loop_delay_ms'])
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Groq for price review on ${candidates.length} listings this lap`)
       } else {
-        await runPriceReview(groq, pool, logger, candidates)
+        await runPriceReview(groq, pool, logger, candidates, settings['enrich_listing_prices.batch_size'])
       }
-      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      logger.info(`lap ${lap} complete, sleeping ${settings['enrich_listing_prices.loop_delay_ms']}ms`)
       lap++
-      await realDelay(LOOP_DELAY_MS)
+      await realDelay(settings['enrich_listing_prices.loop_delay_ms'])
     }
   } finally {
     await pool.end()

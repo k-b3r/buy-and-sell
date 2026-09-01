@@ -16,29 +16,15 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import type { DiscountVerificationCandidate } from '../../domains/marketplace/storage/listings'
+import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace/storage/listings'
 import {
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
   markDiscountNotificationAttempted,
+  DEFAULT_DISCOUNT_POLICY,
 } from '../../domains/marketplace/storage/listings'
-
-// No dependency on the dashboard being open at all (per direct instruction,
-// 2026-08-30: verification runs as an independent background process, not
-// triggered by a page view) - loops forever, re-queries every lap, same
-// pattern as enrich-products.ts/price-lookup.ts. Small paid-call limit:
-// each candidate that clears the free precheck is a real Exa/Tavily/Gemini
-// call plus an OpenRouter call, not a cheap batched request like extraction.
-const DEFAULT_LAP_LIMIT = 3
-// How many pending rows to pull per lap - deliberately much larger than
-// DEFAULT_LAP_LIMIT. Free precheck outcomes (price floor, non-specific-
-// product) are processed for the whole fetched batch every lap regardless of
-// the paid budget below, so the backlog drains as fast as rows arrive
-// instead of trickling through at the same 3/lap pace as paid candidates
-// (per direct instruction, 2026-08-31: "process as notif entries arrive").
-const FETCH_BATCH_SIZE = 50
-const LOOP_DELAY_MS = 30000
+import { loadSettings } from '../../platform/settings'
 
 // Each candidate is independent - a failure judging one (network blip,
 // unexpected throw) is logged and skipped via the pending path, never fatal
@@ -58,12 +44,14 @@ export async function runVerifyDiscountNotifications(
   candidates: DiscountVerificationCandidate[],
   paidLimit: number = Infinity,
   delay: DelayFn = realDelay,
+  pacingDelayMs = 1000,
+  thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
 ): Promise<void> {
   logger.info(`${candidates.length} discount notifications pending verification`)
 
   let paidUsed = 0
   for (const candidate of candidates) {
-    const pre = precheckDiscountCandidate(candidate)
+    const pre = precheckDiscountCandidate(candidate, thresholds)
 
     if (pre.outcome === 'rejected') {
       await rejectDiscountNotification(db, candidate.id)
@@ -80,11 +68,11 @@ export async function runVerifyDiscountNotifications(
       logger.info(`candidate ${candidate.id} (${candidate.base_model}): leaving for next lap, paid-call budget (${paidLimit}) used up this lap`)
       continue
     }
-    if (paidUsed > 0) await delay(1000)
+    if (paidUsed > 0) await delay(pacingDelayMs)
     paidUsed++
 
     try {
-      const result = await verifyDiscountCandidate(candidate, clients)
+      const result = await verifyDiscountCandidate(candidate, clients, thresholds)
 
       if (result.outcome === 'verified') {
         await markDiscountNotificationVerified(db, candidate.id, {
@@ -123,13 +111,13 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — verification requires Postgres')
 
   const limitArg = process.argv.slice(2).filter((arg) => arg !== '--')[0]
-  let limit = DEFAULT_LAP_LIMIT
+  let explicitLimit: number | undefined
   if (limitArg !== undefined) {
     const parsed = Number(limitArg)
     if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
       throw new Error(`invalid limit argument: "${limitArg}"`)
     }
-    limit = parsed
+    explicitLimit = parsed
   }
 
   const logger = createLogger('data/verify-discount-notifications.log')
@@ -141,6 +129,8 @@ async function main() {
   // (see loadExaApiKeys).
   logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
 
+  const pool = createDbPool(dbUrl)
+
   const clients: VerificationClients = {
     tavily: createTavilyClient(tavilyApiKey),
     exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
@@ -149,27 +139,46 @@ async function main() {
     // spend guardrail on a paid key (exceeding the free daily allowance just
     // bills more, silently), so it's client-side capped instead. See
     // gemini.ts's createDailyGroundingCap comment for the full reasoning.
-    gemini: createDailyGroundingCap(createGeminiClient(geminiApiKey)),
+    // The cap is a live getter (not a fixed number) so a dashboard edit to
+    // discount_policy.gemini_daily_grounding_cap takes effect on the very
+    // next grounded call, not just the next process restart.
+    gemini: createDailyGroundingCap(createGeminiClient(geminiApiKey), async () => {
+      const settings = await loadSettings(pool, ['discount_policy.gemini_daily_grounding_cap'])
+      return settings['discount_policy.gemini_daily_grounding_cap']
+    }),
     openrouter: createOpenRouterClient(openRouterApiKey),
   }
 
-  const pool = createDbPool(dbUrl)
-
-  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs, up to ${limit} paid-API candidates/lap (free rejections uncapped) — Ctrl+C to stop`)
+  logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
     for (;;) {
       logger.info(`lap ${lap} starting`)
-      const pending = await getUnverifiedDiscountCandidates(pool, FETCH_BATCH_SIZE)
+      const settings = await loadSettings(pool, [
+        'verify_discount.lap_limit_default',
+        'verify_discount.fetch_batch_size',
+        'verify_discount.loop_delay_ms',
+        'verify_discount.pacing_delay_ms',
+        'discount_policy.high_discount_threshold_percent',
+        'discount_policy.min_profit_pesos',
+        'discount_policy.min_price_pesos',
+      ])
+      const limit = explicitLimit ?? settings['verify_discount.lap_limit_default']
+      const thresholds: DiscountPolicyThresholds = {
+        highDiscountThresholdPercent: settings['discount_policy.high_discount_threshold_percent'],
+        minProfitPesos: settings['discount_policy.min_profit_pesos'],
+        minPricePesos: settings['discount_policy.min_price_pesos'],
+      }
+      const pending = await getUnverifiedDiscountCandidates(pool, settings['verify_discount.fetch_batch_size'], thresholds.minPricePesos)
       logger.info(`${pending.length} pending this lap`)
       if (isTestRun()) {
         logger.info(`TEST_RUN: would verify ${pending.length} discount notifications this lap`)
       } else {
-        await runVerifyDiscountNotifications(clients, pool, logger, pending, limit)
+        await runVerifyDiscountNotifications(clients, pool, logger, pending, limit, realDelay, settings['verify_discount.pacing_delay_ms'], thresholds)
       }
-      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      logger.info(`lap ${lap} complete, sleeping ${settings['verify_discount.loop_delay_ms']}ms`)
       lap++
-      await realDelay(LOOP_DELAY_MS)
+      await realDelay(settings['verify_discount.loop_delay_ms'])
     }
   } finally {
     await pool.end()

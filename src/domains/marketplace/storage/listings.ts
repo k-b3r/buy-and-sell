@@ -410,31 +410,38 @@ export async function flagNegotiableFromKeywords(
   await upsertKeywordNegotiable(db, listingId, matched)
 }
 
-// Bar for a bell-worthy notification, deliberately higher than the
-// dashboard's 10% discount-badge floor (DISCOUNT_SUMMARY_LATERAL) - a
-// notification is a stronger claim than a badge, per direct instruction.
-const HIGH_DISCOUNT_THRESHOLD = 30
+export interface DiscountPolicyThresholds {
+  highDiscountThresholdPercent: number
+  minProfitPesos: number
+  minPricePesos: number
+}
 
-// A high % on a cheap item isn't a meaningful opportunity (₱150 item at 50%
-// off is only ₱75 profit) - the absolute peso gap must also clear this bar,
-// independent of the percent threshold. Adjustable later; not user-
-// configurable yet, per direct instruction (2026-08-30). Exported so
-// discount-verification.ts's prompt can tell the model the same bar it's
-// enforced against here, single source of truth.
-export const MIN_PROFIT_PESOS = 1000
-
-// Below this, the item isn't worth chasing regardless of discount%/profit
-// math - also the regime where a vague base_model (Bikini, Books, Boys'
-// Clothes) gets matched against a wildly wrong reference price and produces
-// a noisy, not-actually-real "deal" (confirmed live 2026-08-31: several
-// ₱50-150 listings cleared both the discount% and profit bars on stale
-// reference prices alone). Deliberately well below MIN_PROFIT_PESOS's own
-// ₱1,000 bar, not equal to it - a ₱500 item reselling at ₱1,500 is a real
-// ₱1,000-profit flip and shouldn't be excluded just for being cheap up
-// front; this floor exists to catch junk-tier noise, not to require the
-// item itself be expensive. Per direct instruction (2026-08-31, revised).
-// Exported for the same single-source-of-truth reason as MIN_PROFIT_PESOS.
-export const MIN_PRICE_PESOS = 500
+// Operator-tunable via the dashboard Settings page (discount_policy.* keys,
+// src/platform/settings.ts) - callers load live values with loadSettings
+// and pass them through explicitly; these are just the fallback defaults
+// (also the settings table's seed values, db/schema.sql) for callers that
+// don't pass thresholds at all (e.g. direct test calls).
+export const DEFAULT_DISCOUNT_POLICY: DiscountPolicyThresholds = {
+  // Bar for a bell-worthy notification, deliberately higher than the
+  // dashboard's 10% discount-badge floor (DISCOUNT_SUMMARY_LATERAL) - a
+  // notification is a stronger claim than a badge, per direct instruction.
+  highDiscountThresholdPercent: 30,
+  // A high % on a cheap item isn't a meaningful opportunity (₱150 item at
+  // 50% off is only ₱75 profit) - the absolute peso gap must also clear
+  // this bar, independent of the percent threshold.
+  minProfitPesos: 1000,
+  // Below this, the item isn't worth chasing regardless of discount%/profit
+  // math - also the regime where a vague base_model (Bikini, Books, Boys'
+  // Clothes) gets matched against a wildly wrong reference price and
+  // produces a noisy, not-actually-real "deal" (confirmed live 2026-08-31:
+  // several ₱50-150 listings cleared both the discount% and profit bars on
+  // stale reference prices alone). Deliberately well below minProfitPesos's
+  // own ₱1,000 bar, not equal to it - a ₱500 item reselling at ₱1,500 is a
+  // real ₱1,000-profit flip and shouldn't be excluded just for being cheap
+  // up front; this floor exists to catch junk-tier noise, not to require
+  // the item itself be expensive.
+  minPricePesos: 500,
+}
 
 // Same raw-median -> clean-median formula as the dashboard's
 // DISCOUNT_SUMMARY_LATERAL (dashboard/src/lib/queries.ts), scoped to one
@@ -503,9 +510,10 @@ export async function checkListingDiscount(
   priceAmount: number | null,
   retailPrice: PriceRange | null,
   secondhandPrice: PriceRange | null,
+  thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
 ): Promise<void> {
   if (priceAmount === null || priceAmount <= 0) return
-  if (priceAmount < MIN_PRICE_PESOS) return
+  if (priceAmount < thresholds.minPricePesos) return
   if (isPlaceholderPrice(priceAmount)) return
 
   let referencePrice: number | null
@@ -522,7 +530,7 @@ export async function checkListingDiscount(
 
   const discountPercent = Math.round(((referencePrice - priceAmount) / referencePrice) * 100)
   const profitPesos = referencePrice - priceAmount
-  if (discountPercent < HIGH_DISCOUNT_THRESHOLD || profitPesos < MIN_PROFIT_PESOS) return
+  if (discountPercent < thresholds.highDiscountThresholdPercent || profitPesos < thresholds.minProfitPesos) return
 
   await db.query(
     `INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
@@ -549,14 +557,21 @@ export interface DiscountVerificationCandidate {
 // verify-discount-notifications.ts loop tick (every 5 min). Oldest-flagged
 // first, same "work down the backlog in order" idiom as getCheckListingsCandidates.
 // Excludes a candidate whose product has no enrichment judgment yet UNLESS
-// its price already fails MIN_PRICE_PESOS - that gate needs no enrichment
+// its price already fails minPricePesos - that gate needs no enrichment
 // data at all (precheckDiscountCandidate checks it first), so it still
 // resolves for free/instantly. Everything else waiting on real enrichment
 // is left alone entirely: not fetched, not attempted, no log noise, no
 // last_verification_attempt_at write - it'll show up here on its own the
 // moment enrich-products actually judges it (per direct instruction,
 // 2026-08-31: "don't process it at all since enrichment is still pending").
-export async function getUnverifiedDiscountCandidates(db: DbClient, limit: number): Promise<DiscountVerificationCandidate[]> {
+// minPricePesos must be kept in sync with whatever precheckDiscountCandidate
+// is using this lap - the caller (verify-discount-notifications) loads both
+// from the same settings read to guarantee that.
+export async function getUnverifiedDiscountCandidates(
+  db: DbClient,
+  limit: number,
+  minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos,
+): Promise<DiscountVerificationCandidate[]> {
   const result = (await db.query(
     `SELECT dn.id, dn.listing_id, l.title, l.description, l.condition, l.price_amount,
             p.base_model, pe.is_specific_product
@@ -569,7 +584,7 @@ export async function getUnverifiedDiscountCandidates(db: DbClient, limit: numbe
        AND (pe.is_specific_product IS NOT NULL OR l.price_amount < $2)
      ORDER BY dn.created_at ASC
      LIMIT $1`,
-    [limit, MIN_PRICE_PESOS],
+    [limit, minPricePesos],
   )) as { rows: Record<string, unknown>[] }
   return result.rows.map((r) => ({
     id: Number(r.id),

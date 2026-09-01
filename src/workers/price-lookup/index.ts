@@ -9,11 +9,9 @@ import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/
 import type { PriceLookupCandidate, PriceLookupClients } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'
 import { getPriceLookupCandidates } from '../../domains/marketplace/storage/pricing'
+import { loadSettings } from '../../platform/settings'
 
 export type { PriceLookupClients } from '../../domains/marketplace'
-
-const DEFAULT_LAP_LIMIT = 20
-const LOOP_DELAY_MS = 300000
 
 // Each product is independent - a failure on one doesn't stop the lap.
 // All the actual provider-chain/exclusion logic lives in
@@ -30,11 +28,12 @@ export async function runPriceLookup(
   logger: Logger,
   products: PriceLookupCandidate[],
   delay: DelayFn = realDelay,
+  pacingDelayMs = 1000,
 ): Promise<void> {
   logger.info(`${products.length} products to check for retail/secondhand price`)
 
   for (let i = 0; i < products.length; i++) {
-    if (i > 0) await delay(1000)
+    if (i > 0) await delay(pacingDelayMs)
     await ensureProductPriced(clients, db, products[i], logger)
   }
 }
@@ -52,13 +51,13 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price lookup requires Postgres')
 
   const limitArg = process.argv.slice(2).filter((arg) => arg !== '--')[0]
-  let limit = DEFAULT_LAP_LIMIT
+  let explicitLimit: number | undefined
   if (limitArg !== undefined) {
     const parsed = Number(limitArg)
     if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
       throw new Error(`invalid limit argument: "${limitArg}"`)
     }
-    limit = parsed
+    explicitLimit = parsed
   }
 
   const logger = createLogger('data/price-lookup.log')
@@ -82,22 +81,28 @@ async function main() {
 
   const pool = createDbPool(dbUrl)
 
-  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs, up to ${limit} products/lap — Ctrl+C to stop`)
+  logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
     for (;;) {
       logger.info(`lap ${lap} starting`)
+      const settings = await loadSettings(pool, [
+        'price_lookup.lap_limit_default',
+        'price_lookup.loop_delay_ms',
+        'price_lookup.pacing_delay_ms',
+      ])
+      const limit = explicitLimit ?? settings['price_lookup.lap_limit_default']
       const pending = await getPriceLookupCandidates(pool)
       const products = pending.slice(0, limit)
       logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`)
       } else {
-        await runPriceLookup(clients, pool, logger, products)
+        await runPriceLookup(clients, pool, logger, products, realDelay, settings['price_lookup.pacing_delay_ms'])
       }
-      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      logger.info(`lap ${lap} complete, sleeping ${settings['price_lookup.loop_delay_ms']}ms`)
       lap++
-      await realDelay(LOOP_DELAY_MS)
+      await realDelay(settings['price_lookup.loop_delay_ms'])
     }
   } finally {
     await pool.end()

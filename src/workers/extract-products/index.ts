@@ -20,8 +20,10 @@ import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
-import { checkListingDiscount } from '../../domains/marketplace/storage/listings'
+import type { DiscountPolicyThresholds } from '../../domains/marketplace/storage/listings'
+import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace/storage/listings'
 import { getProductPricingStatus } from '../../domains/marketplace/storage/pricing'
+import { loadSettings } from '../../platform/settings'
 import type { PriceLookupClients, ProductPricingResult } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'
 import {
@@ -47,6 +49,9 @@ export interface ExtractionClients {
 export interface ExtractionOptions {
   batchSize: number
   delayMs?: number
+  maxAttempts?: number
+  retryBaseDelayMs?: number
+  discountThresholds?: DiscountPolicyThresholds
 }
 
 // Groq is primary now (no daily-request quota surprise like Gemini's, and
@@ -62,13 +67,8 @@ export interface ExtractionOptions {
 // all fallback keys exhausted) is not retried on that same provider —
 // retrying can't fix an exhausted quota — but does fall through to the
 // other provider's own retry loop rather than failing the batch outright.
-const MAX_ATTEMPTS = 5
-const RETRY_BASE_DELAY_MS = 30000
-
-// Runs forever, not once - re-queries getExtractionCandidates every lap so
-// newly-collected listings (collect.ts adds more over time) get picked up
-// without a restart, same pattern as enrich-products.ts.
-const LOOP_DELAY_MS = 300000
+const DEFAULT_MAX_ATTEMPTS = 5
+const DEFAULT_RETRY_BASE_DELAY_MS = 30000
 
 // Tries Groq first (own retry/backoff loop below), and only on quota
 // exhaustion or exhausted retries falls through to a second retry loop
@@ -80,8 +80,10 @@ async function extractBatch(
   logger: Logger,
   batchLabel: string,
   delay: DelayFn,
+  maxAttempts: number,
+  retryBaseDelayMs: number,
 ): Promise<unknown | null> {
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
     } catch (err) {
@@ -90,17 +92,17 @@ async function extractBatch(
         logger.warn(`${batchLabel}: Groq quota exhausted (${message}), falling back to Gemini`)
         break
       }
-      if (attempt === MAX_ATTEMPTS) {
-        logger.warn(`${batchLabel}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), falling back to Gemini`)
+      if (attempt === maxAttempts) {
+        logger.warn(`${batchLabel}: Groq request failed after ${maxAttempts} attempts (${message}), falling back to Gemini`)
         break
       }
-      const retryDelay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
-      logger.warn(`${batchLabel}: Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying in ${retryDelay}ms`)
+      const retryDelay = retryBaseDelayMs * 2 ** (attempt - 1)
+      logger.warn(`${batchLabel}: Groq request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`)
       await delay(retryDelay)
     }
   }
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await clients.gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
     } catch (err) {
@@ -109,12 +111,12 @@ async function extractBatch(
         logger.error(`${batchLabel}: Gemini quota exhausted across all configured keys too (${message}), stopping run`)
         return null
       }
-      if (attempt === MAX_ATTEMPTS) {
-        logger.error(`${batchLabel}: Gemini request failed after ${MAX_ATTEMPTS} attempts too (${message}), stopping run`)
+      if (attempt === maxAttempts) {
+        logger.error(`${batchLabel}: Gemini request failed after ${maxAttempts} attempts too (${message}), stopping run`)
         return null
       }
-      const retryDelay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
-      logger.warn(`${batchLabel}: Gemini request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying in ${retryDelay}ms`)
+      const retryDelay = retryBaseDelayMs * 2 ** (attempt - 1)
+      logger.warn(`${batchLabel}: Gemini request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`)
       await delay(retryDelay)
     }
   }
@@ -165,6 +167,9 @@ export async function runProductExtraction(
   const pricingCache = new Map<number, ProductPricingResult>()
   const priceLookupClients: PriceLookupClients = { gemini: clients.gemini, exa: clients.exa, tavily: clients.tavily }
   const delayMs = options.delayMs ?? 5000
+  const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
+  const retryBaseDelayMs = options.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS
+  const discountThresholds = options.discountThresholds ?? DEFAULT_DISCOUNT_POLICY
   const totalBatches = Math.ceil(candidates.length / options.batchSize)
   let processedSoFar = 0
 
@@ -179,7 +184,7 @@ export async function runProductExtraction(
     logger.info(`${batchLabel}: sending ${batch.length} listings to Groq`)
     const prompt = buildExtractionPrompt(batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })))
 
-    const raw = await extractBatch(clients, prompt, logger, batchLabel, delay)
+    const raw = await extractBatch(clients, prompt, logger, batchLabel, delay, maxAttempts, retryBaseDelayMs)
     if (raw === null) break
 
     if (!Array.isArray(raw)) {
@@ -251,7 +256,16 @@ export async function runProductExtraction(
         pricingCache.set(productId, pricing)
       }
       if (!pricing.excluded) {
-        await checkListingDiscount(db, item.id, productId, candidate.condition, candidate.price_amount, pricing.retail, pricing.secondhand)
+        await checkListingDiscount(
+          db,
+          item.id,
+          productId,
+          candidate.condition,
+          candidate.price_amount,
+          pricing.retail,
+          pricing.secondhand,
+          discountThresholds,
+        )
       }
     }
 
@@ -302,8 +316,8 @@ async function main() {
 
   // Free tier is 20 requests/day per project per model — a second key from a
   // different Google account is a different project, so it has its own
-  // independent quota. Gemini is now the fallback provider (see MAX_ATTEMPTS'
-  // comment above), tried only once Groq is exhausted.
+  // independent quota. Gemini is now the fallback provider (see
+  // DEFAULT_MAX_ATTEMPTS' comment above), tried only once Groq is exhausted.
   const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
   const gemini = altGeminiApiKey
     ? createFallbackGeminiClient([createGeminiClient(geminiApiKey), createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash')])
@@ -322,12 +336,22 @@ async function main() {
   const clients: ExtractionClients = { groq, gemini, exa, tavily }
   const pool = createDbPool(dbUrl)
 
-  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
+  logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getExtractionCandidates(pool)
+      const settings = await loadSettings(pool, [
+        'extract_products.batch_size',
+        'extract_products.inter_batch_delay_ms',
+        'extract_products.max_attempts',
+        'extract_products.retry_base_delay_ms',
+        'extract_products.loop_delay_ms',
+        'discount_policy.high_discount_threshold_percent',
+        'discount_policy.min_profit_pesos',
+        'discount_policy.min_price_pesos',
+      ])
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Groq for extraction on ${candidates.length} listings this lap`)
       } else {
@@ -338,13 +362,20 @@ async function main() {
           // is primary. Left as-is pending a live batch-size audit, same
           // status as enrich-listing-prices.ts's 35 and
           // backfill-categories.ts's 100 (see pipeline-consolidation plan).
-          batchSize: 100,
-          delayMs: 5000,
+          batchSize: settings['extract_products.batch_size'],
+          delayMs: settings['extract_products.inter_batch_delay_ms'],
+          maxAttempts: settings['extract_products.max_attempts'],
+          retryBaseDelayMs: settings['extract_products.retry_base_delay_ms'],
+          discountThresholds: {
+            highDiscountThresholdPercent: settings['discount_policy.high_discount_threshold_percent'],
+            minProfitPesos: settings['discount_policy.min_profit_pesos'],
+            minPricePesos: settings['discount_policy.min_price_pesos'],
+          },
         })
       }
-      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      logger.info(`lap ${lap} complete, sleeping ${settings['extract_products.loop_delay_ms']}ms`)
       lap++
-      await realDelay(LOOP_DELAY_MS)
+      await realDelay(settings['extract_products.loop_delay_ms'])
     }
   } finally {
     await pool.end()

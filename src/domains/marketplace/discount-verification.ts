@@ -1,6 +1,6 @@
 import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../llm-clients'
-import type { DiscountVerificationCandidate } from './storage/listings'
-import { MIN_PROFIT_PESOS, MIN_PRICE_PESOS } from './storage/listings'
+import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './storage/listings'
+import { DEFAULT_DISCOUNT_POLICY } from './storage/listings'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
@@ -65,8 +65,9 @@ const EXA_SUMMARY_SCHEMA = {
 // (a "secondhand" price higher than Exa's own cited new-retail price on a
 // monitor; a raw USD figure returned for a PHP-scoped query on a watch).
 // Exa costs ~$0.007/call vs Tavily's free tier, but this worker's own
-// DEFAULT_LAP_LIMIT (3 candidates/lap) keeps that cost trivial - accuracy
-// matters more here since this gates a real buy decision.
+// verify_discount.lap_limit_default (3 candidates/lap by default) keeps
+// that cost trivial - accuracy matters more here since this gates a real
+// buy decision.
 async function fetchFreshMarketContext(
   candidate: DiscountVerificationCandidate,
   clients: Pick<VerificationClients, 'tavily' | 'exa' | 'gemini'>,
@@ -101,7 +102,11 @@ async function fetchFreshMarketContext(
   return null
 }
 
-export function buildVerificationPrompt(candidate: DiscountVerificationCandidate, marketContext: string): string {
+export function buildVerificationPrompt(
+  candidate: DiscountVerificationCandidate,
+  marketContext: string,
+  thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
+): string {
   return `A listing was flagged as a possible deal by a statistical price check. Judge whether it's a genuine, meaningful opportunity, using the fresh market data below — not the original statistical flag.
 
 Listing:
@@ -114,10 +119,10 @@ Fresh market data (from a live web search):
 ${marketContext}
 
 Determine:
-- still_discounted: true only if the asking price is genuinely at least 30% below the fresh market price above (secondhand market price for a used item, current retail price for a New one)
+- still_discounted: true only if the asking price is genuinely at least ${thresholds.highDiscountThresholdPercent}% below the fresh market price above (secondhand market price for a used item, current retail price for a New one)
 - fresh_price_low / fresh_price_high: your best read of the current market price range from the market data above
 - condition_explains_low_price: true if the listing's own stated condition/defects (e.g. cracked screen, missing parts, heavy wear) plausibly explain why it's priced this low on their own — meaning this ISN'T actually an underpriced bargain, just a fairly-priced damaged item. False if the condition is normal/minor wear that doesn't explain a price this low.
-- meets_profit_bar: true only if (fresh_price_low - asking price) is at least ₱${MIN_PROFIT_PESOS}
+- meets_profit_bar: true only if (fresh_price_low - asking price) is at least ₱${thresholds.minProfitPesos}
 - reasoning: one or two sentences explaining your judgement
 
 Respond with the structured fields only.`
@@ -170,7 +175,7 @@ function parseVerificationResponse(raw: unknown): ParsedVerificationResponse | n
 }
 
 // The 5 gates, in order: price floor (free, deterministic - also catches
-// stale pre-MIN_PRICE_PESOS rows already sitting in the table), non-generic
+// stale pre-minPricePesos rows already sitting in the table), non-generic
 // (reused, free), fresh price context (Exa -> Tavily -> Gemini), then one
 // OpenRouter (DeepSeek) call judging the remaining 3 (still discounted /
 // condition doesn't explain it away / profit bar) — fail-closed throughout:
@@ -193,9 +198,15 @@ export type PrecheckOutcome = { outcome: 'proceed' } | { outcome: 'rejected' | '
 // as candidates arrive, only rationing the expensive path below). Pulled out
 // of verifyDiscountCandidate so the loop can budget paid calls without
 // duplicating this logic.
-export function precheckDiscountCandidate(candidate: DiscountVerificationCandidate): PrecheckOutcome {
-  if (candidate.price_amount < MIN_PRICE_PESOS) {
-    return { outcome: 'rejected', reasoning: `Asking price below the ₱${MIN_PRICE_PESOS} floor - not worth chasing regardless of discount math.` }
+export function precheckDiscountCandidate(
+  candidate: DiscountVerificationCandidate,
+  thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
+): PrecheckOutcome {
+  if (candidate.price_amount < thresholds.minPricePesos) {
+    return {
+      outcome: 'rejected',
+      reasoning: `Asking price below the ₱${thresholds.minPricePesos} floor - not worth chasing regardless of discount math.`,
+    }
   }
   if (candidate.is_specific_product === false) {
     return { outcome: 'rejected', reasoning: 'Product is not a specific, priceable item.' }
@@ -209,8 +220,9 @@ export function precheckDiscountCandidate(candidate: DiscountVerificationCandida
 export async function verifyDiscountCandidate(
   candidate: DiscountVerificationCandidate,
   clients: VerificationClients,
+  thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
 ): Promise<VerificationOutcome> {
-  const pre = precheckDiscountCandidate(candidate)
+  const pre = precheckDiscountCandidate(candidate, thresholds)
   if (pre.outcome !== 'proceed') return pre
 
   const context = await fetchFreshMarketContext(candidate, clients)
@@ -220,7 +232,7 @@ export async function verifyDiscountCandidate(
 
   let raw: unknown
   try {
-    raw = await clients.openrouter.generateJson(buildVerificationPrompt(candidate, context.text), VERIFICATION_RESPONSE_SCHEMA)
+    raw = await clients.openrouter.generateJson(buildVerificationPrompt(candidate, context.text, thresholds), VERIFICATION_RESPONSE_SCHEMA)
   } catch {
     return { outcome: 'pending', reasoning: 'Verification judgement call failed.' }
   }

@@ -31,6 +31,8 @@ export interface RunOptions {
   softWallTimeoutMs: number
   maxItems?: number
   daysSinceListed?: number
+  pacingMinMs?: number
+  pacingMaxMs?: number
 }
 
 type ReviewFn = (
@@ -87,6 +89,8 @@ export async function runCollection(
   imageStore?: ImageStore,
 ): Promise<void> {
   const daysSinceListed = options.daysSinceListed ?? 30
+  const pacingMinMs = options.pacingMinMs ?? 4000
+  const pacingMaxMs = options.pacingMaxMs ?? 10000
   logger.info(`starting run: query="${options.query}", daysSinceListed=${daysSinceListed}`)
   await driver.gotoSearch(options.query, daysSinceListed)
 
@@ -132,7 +136,7 @@ export async function runCollection(
   async function processBatch(items: ReturnType<typeof extractGridListings>): Promise<'stop' | 'continue'> {
     for (const listing of items) {
       await driver.openListing(listing)
-      await driver.waitRandom(4000, 10000)
+      await driver.waitRandom(pacingMinMs, pacingMaxMs)
 
       const detailResult = await resolvePageState(
         driver,
@@ -187,7 +191,7 @@ export async function runCollection(
       logger.error('no lsd token found for pagination, stopping')
       break
     }
-    await driver.waitRandom(4000, 10000)
+    await driver.waitRandom(pacingMinMs, pacingMaxMs)
     const raw = await driver.fetchNextPage(cursor, lsd, options.query)
     const page = parsePaginationResponse(raw)
     if (!page) {

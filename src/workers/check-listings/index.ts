@@ -20,6 +20,7 @@ import type { ImageStore } from '../../platform/images'
 import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'
 import { resolvePageState } from '../../run'
+import { loadSettings } from '../../platform/settings'
 
 export type CheckOneListingResult =
   | { status: 'sold' }
@@ -93,11 +94,6 @@ export async function checkOneListing(
   return { status: 'alive' }
 }
 
-// Runs forever, not once - re-queries getCheckListingsCandidates every lap so
-// newly-collected listings (collect.ts adds more over time) get picked up
-// without a restart, same pattern as the other workers.
-const LOOP_DELAY_MS = 60000
-
 // Postgres-only, same as every other script now (see CONTEXT.md on removing
 // the local JSONL file that used to double as a second source of truth) —
 // safe to run at the same time as `collect`, ordinary row-level upserts/deletes.
@@ -108,11 +104,13 @@ export async function runCheckListings(
   logger: Logger,
   candidates: CheckListingsCandidate[],
   softWallTimeoutMs = 5000,
+  pacingMinMs = 2000,
+  pacingMaxMs = 4000,
 ): Promise<void> {
   logger.info(`${candidates.length} listings to check`)
 
   for (const candidate of candidates) {
-    await driver.waitRandom(2000, 4000)
+    await driver.waitRandom(pacingMinMs, pacingMaxMs)
     logger.info(`checking listing ${candidate.id}`)
     await driver.openListing({ id: candidate.id })
 
@@ -133,9 +131,13 @@ async function main() {
 
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const limitArg = args[0]
-  const limit = limitArg !== undefined ? Number(limitArg) : 100
-  if (!Number.isFinite(limit) || !Number.isInteger(limit) || limit < 1) {
-    throw new Error(`invalid limit argument: "${limitArg}"`)
+  let explicitLimit: number | undefined
+  if (limitArg !== undefined) {
+    const parsed = Number(limitArg)
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`invalid limit argument: "${limitArg}"`)
+    }
+    explicitLimit = parsed
   }
 
   const logger = createLogger('data/check-listings.log')
@@ -167,20 +169,37 @@ async function main() {
   const { page, close } = await launchBrowser({ proxy })
   const driver = createBrowserDriver(page)
 
-  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
+  logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
     for (;;) {
       logger.info(`lap ${lap} starting`)
+      const settings = await loadSettings(pool, [
+        'check_listings.loop_delay_ms',
+        'check_listings.limit_default',
+        'check_listings.soft_wall_timeout_ms',
+        'check_listings.pacing_min_ms',
+        'check_listings.pacing_max_ms',
+      ])
+      const limit = explicitLimit ?? settings['check_listings.limit_default']
       const candidates = await getCheckListingsCandidates(pool, limit)
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
       } else {
-        await runCheckListings(driver, pool, imageStore, logger, candidates)
+        await runCheckListings(
+          driver,
+          pool,
+          imageStore,
+          logger,
+          candidates,
+          settings['check_listings.soft_wall_timeout_ms'],
+          settings['check_listings.pacing_min_ms'],
+          settings['check_listings.pacing_max_ms'],
+        )
       }
-      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      logger.info(`lap ${lap} complete, sleeping ${settings['check_listings.loop_delay_ms']}ms`)
       lap++
-      await realDelay(LOOP_DELAY_MS)
+      await realDelay(settings['check_listings.loop_delay_ms'])
     }
   } finally {
     await close()

@@ -10,6 +10,7 @@ import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
 import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace'
 import { checkProxyBeforeLaunch, type TunnelCheckResult } from '../proxyGuard'
+import { loadSettings } from '../../src/platform/settings'
 
 // Routes through whichever egress checkProxyBeforeLaunch resolved (Webshare
 // or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
@@ -18,12 +19,6 @@ const defaultDriverFactory: DriverFactory = async (proxy) => {
   const { page, close } = await launchBrowser({ proxy })
   return { driver: createBrowserDriver(page), close }
 }
-
-// Same human-paced gap as the CLI's batch loop (src/workers/check-listings.ts's
-// runCheckListings) - this hits live Facebook, so a dashboard-triggered bulk
-// job gets no less pacing than the scheduled one does.
-const MIN_PAUSE_MS = 4000
-const MAX_PAUSE_MS = 10000
 
 // Dashboard's "Refresh all listings" button on a product page. Shares
 // RefreshLock with the single-listing handler (routes/refresh.ts) - one
@@ -76,16 +71,26 @@ export function createRefreshProductHandler(
     void (async () => {
       const { driver, close } = await driverFactory(tunnel.proxy)
       try {
+        // Same human-paced gap as the CLI's batch loop (src/workers/check-listings.ts's
+        // runCheckListings) - this hits live Facebook, so a dashboard-triggered bulk
+        // job gets no less pacing than the scheduled one does. Loaded once per job
+        // (not per listing) - a running job doesn't need to react mid-flight to a
+        // dashboard edit made after it already started.
+        const settings = await loadSettings(db, [
+          'check_listings.pacing_min_ms',
+          'check_listings.pacing_max_ms',
+          'check_listings.soft_wall_timeout_ms',
+        ])
         for (const candidate of candidates) {
           if (jobs.isCancelRequested()) {
             logger.info(`bulk refresh for product ${productId} cancelled`)
             jobs.finish('cancelled')
             return
           }
-          await driver.waitRandom(MIN_PAUSE_MS, MAX_PAUSE_MS)
+          await driver.waitRandom(settings['check_listings.pacing_min_ms'], settings['check_listings.pacing_max_ms'])
           logger.info(`bulk refresh: product ${productId}, listing ${candidate.id}`)
           await driver.openListing({ id: candidate.id })
-          const result = await checkOneListing(driver, db, imageStore, logger, candidate)
+          const result = await checkOneListing(driver, db, imageStore, logger, candidate, settings['check_listings.soft_wall_timeout_ms'])
           jobs.recordCompletion()
           if (result.status === 'hard-block') {
             logger.error(`bulk refresh for product ${productId} stopped early on hard-block`)

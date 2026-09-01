@@ -8,6 +8,7 @@ import { checkOneListing } from '../../src/workers/check-listings'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshPacer } from '../refreshPacer'
 import { checkProxyBeforeLaunch, type TunnelCheckResult } from '../proxyGuard'
+import { loadSettings } from '../../src/platform/settings'
 
 export type DriverFactory = (proxy?: ResolvedProxy) => Promise<{ driver: PageDriver; close: () => Promise<void> }>
 
@@ -70,7 +71,8 @@ export function createRefreshHandler(
       try {
         logger.info(`on-demand refresh: listing ${id}`)
         await driver.openListing({ id })
-        const result = await checkOneListing(driver, db, imageStore, logger, candidate)
+        const settings = await loadSettings(db, ['check_listings.soft_wall_timeout_ms'])
+        const result = await checkOneListing(driver, db, imageStore, logger, candidate, settings['check_listings.soft_wall_timeout_ms'])
         return { statusCode: 200, body: { status: result.status } }
       } finally {
         await close()

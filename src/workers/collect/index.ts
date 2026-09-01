@@ -6,6 +6,7 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
 import { createR2ImageStore } from '../../platform/images'
 import { resolveProxy } from '../../domains/marketplace'
+import { loadSettings } from '../../platform/settings'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent listings,
 // the actual "buy-and-sell opportunity" signal this project is after, more
@@ -45,16 +46,16 @@ async function main() {
   // contain, not a real cap) - confirmed live 2026-08-28: every run.ts
   // caller here (manual `pnpm run collect` with no args, and the
   // dashboard's Start button, which spawns with zero args) hit exactly that
-  // and silently never paginated past page 1. DEFAULT_MAX_ITEMS gives every
-  // no-args run a real per-query target instead.
-  const DEFAULT_MAX_ITEMS = 100
-  let maxItems: number = DEFAULT_MAX_ITEMS
+  // and silently never paginated past page 1. An explicit CLI arg always
+  // wins; otherwise collect.max_items_default (loaded fresh each lap below)
+  // gives every no-args run a real per-query target instead.
+  let explicitMaxItems: number | undefined
   if (maxItemsArg !== undefined) {
     const parsed = Number(maxItemsArg)
     if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
       throw new Error(`invalid maxItems argument: "${maxItemsArg}"`)
     }
-    maxItems = parsed
+    explicitMaxItems = parsed
   }
 
   const daysSinceListedArg = rest[cycle ? 1 : 2]
@@ -110,15 +111,20 @@ async function main() {
   }
 
   if (cycle) {
-    logger.info(
-      `--cycle: looping indefinitely through ${queries.length} motivated-seller keywords, maxItems=${maxItems} each — Ctrl+C to stop`,
-    )
+    logger.info(`--cycle: looping indefinitely through ${queries.length} motivated-seller keywords — Ctrl+C to stop`)
   }
 
   try {
     let lap = 1
     do {
       if (cycle) logger.info(`--cycle: lap ${lap} starting`)
+      const settings = await loadSettings(pool, [
+        'collect.max_items_default',
+        'collect.soft_wall_timeout_ms',
+        'collect.pacing_min_ms',
+        'collect.pacing_max_ms',
+      ])
+      const maxItems = explicitMaxItems ?? settings['collect.max_items_default']
       for (const query of queries) {
         if (isTestRun()) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
@@ -131,7 +137,9 @@ async function main() {
             process.stdout,
             {
               query,
-              softWallTimeoutMs: 5000,
+              softWallTimeoutMs: settings['collect.soft_wall_timeout_ms'],
+              pacingMinMs: settings['collect.pacing_min_ms'],
+              pacingMaxMs: settings['collect.pacing_max_ms'],
               maxItems,
               daysSinceListed,
             },

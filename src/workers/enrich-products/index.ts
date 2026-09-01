@@ -16,6 +16,7 @@ import {
   updateProductCategories,
 } from '../../domains/marketplace/storage/products'
 import { PRODUCT_CATEGORIES } from '../../domains/marketplace'
+import { loadSettings } from '../../platform/settings'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before
@@ -31,15 +32,8 @@ import { PRODUCT_CATEGORIES } from '../../domains/marketplace'
 // tokens) — not re-verified live against this ceiling with the extra field.
 // Watch the first real run for the same truncation failure mode before
 // trusting 20 still holds.
-const BATCH_SIZE = 20
+const DEFAULT_BATCH_SIZE = 20
 const MODEL = 'openai/gpt-oss-120b'
-
-// Runs forever, not once - re-queries getEnrichmentCandidates every lap so
-// newly-extracted products (extract-products.ts adds more over time) get
-// picked up without a restart, and a lap that stopped early (Groq quota
-// exhausted, a persistent malformed-response error) just gets retried after
-// the pause instead of requiring the script to be manually re-run each time.
-const LOOP_DELAY_MS = 300000
 
 // gpt-oss-120b occasionally (non-deterministically) wraps the array as
 // {"results":{"items":[...]}} instead of {"results":[...]} — confirmed live
@@ -47,8 +41,8 @@ const LOOP_DELAY_MS = 300000
 // succeeded, attempt 3 failed this way. Worth a few retries. A real 429 quota
 // error is different — retrying just burns more of an already-exhausted
 // budget for nothing, so it's excluded and fails on the first hit.
-const MAX_ATTEMPTS = 3
-const RETRY_DELAY_MS = 3000
+const DEFAULT_MAX_ATTEMPTS = 3
+const DEFAULT_RETRY_DELAY_MS = 3000
 
 const VALID_CATEGORIES = new Set<string>(PRODUCT_CATEGORIES)
 
@@ -70,11 +64,14 @@ export async function runProductEnrichment(
   logger: Logger,
   candidates: EnrichmentCandidate[],
   delay: DelayFn = realDelay,
+  batchSize = DEFAULT_BATCH_SIZE,
+  maxAttempts = DEFAULT_MAX_ATTEMPTS,
+  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
 ): Promise<void> {
   logger.info(`${candidates.length} products to enrich`)
 
-  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-    const batch = candidates.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < candidates.length; i += batchSize) {
+    const batch = candidates.slice(i, i + batchSize)
     const prompt = buildEnrichmentPrompt(batch)
 
     // Groq's daily token cap (see spec's Open Risks) is expected to be hit mid-run
@@ -85,7 +82,7 @@ export async function runProductEnrichment(
     // used elsewhere for a batch/quota failure).
     let raw: { results?: unknown } | undefined
     let fatal = false
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         raw = (await groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA)) as { results?: unknown }
         break
@@ -97,13 +94,13 @@ export async function runProductEnrichment(
           fatal = true
           break
         }
-        if (attempt === MAX_ATTEMPTS) {
-          logger.error(`batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`)
+        if (attempt === maxAttempts) {
+          logger.error(`batch starting at ${i}: Groq request failed after ${maxAttempts} attempts (${message}), stopping run`)
           fatal = true
           break
         }
-        logger.warn(`batch starting at ${i}: Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message})`)
-        await delay(RETRY_DELAY_MS)
+        logger.warn(`batch starting at ${i}: Groq request failed, attempt ${attempt}/${maxAttempts} (${message})`)
+        await delay(retryDelayMs)
       }
     }
     if (fatal) break
@@ -201,16 +198,31 @@ async function main() {
   const groq = createFallbackGroqClient(clients)
   const pool = createDbPool(dbUrl)
 
-  logger.info(`looping indefinitely, ${LOOP_DELAY_MS}ms pause between runs — Ctrl+C to stop`)
+  logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getEnrichmentCandidates(pool)
+      const settings = await loadSettings(pool, [
+        'enrich_products.batch_size',
+        'enrich_products.loop_delay_ms',
+        'enrich_products.max_attempts',
+        'enrich_products.retry_delay_ms',
+      ])
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Groq for enrichment on ${candidates.length} products this lap`)
       } else {
-        await runProductEnrichment(groq, pool, logger, candidates)
+        await runProductEnrichment(
+          groq,
+          pool,
+          logger,
+          candidates,
+          realDelay,
+          settings['enrich_products.batch_size'],
+          settings['enrich_products.max_attempts'],
+          settings['enrich_products.retry_delay_ms'],
+        )
         // Applies this lap's freshly-produced is_specific_product/confidence
         // judgments to price_lookup_excluded/price_lookup_review_status - lives
         // here rather than in flag-price-ineligible.ts (which only handles the
@@ -219,9 +231,9 @@ async function main() {
         // human's edit schedule.
         await applyEligibilityFromEnrichment(pool)
       }
-      logger.info(`lap ${lap} complete, sleeping ${LOOP_DELAY_MS}ms`)
+      logger.info(`lap ${lap} complete, sleeping ${settings['enrich_products.loop_delay_ms']}ms`)
       lap++
-      await realDelay(LOOP_DELAY_MS)
+      await realDelay(settings['enrich_products.loop_delay_ms'])
     }
   } finally {
     await pool.end()

@@ -607,7 +607,7 @@ test('getUnverifiedDiscountCandidates returns pending candidates with listing/pr
   expect(calls[0].sql).toContain("interval '1 hour'")
   expect(calls[0].sql).toContain('LIMIT $1')
   // Excludes a still-unenriched candidate unless its price already fails the
-  // floor (that gate needs no enrichment data - see MIN_PRICE_PESOS's own
+  // floor (that gate needs no enrichment data - see minPricePesos's own
   // comment) - never even fetched until enrich-products actually judges it.
   expect(calls[0].sql).toContain('pe.is_specific_product IS NOT NULL OR l.price_amount < $2')
   expect(calls[0].params).toEqual([3, 500])

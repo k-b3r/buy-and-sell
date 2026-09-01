@@ -1,0 +1,112 @@
+import { NextResponse } from 'next/server'
+import { getPool } from '@/lib/db'
+import { getAllSettings, updateSettings } from '@/lib/queries'
+
+// Floors per key, replacing a blanket "≥ 0" - kept dashboard-side, same
+// hand-synced precedent as admin/logs' WORKER_DESCRIPTIONS (dashboard/ and
+// the worker scripts are separate packages with no shared import path).
+// Count-based knobs (batch sizes, limits, attempts) floor at 1, not 0 -
+// several feed a `for (...; i += BATCH_SIZE)`-shaped loop that hangs
+// forever (infinite loop) at 0. Generic *_ms knobs floor at 1000ms. The
+// FB-facing knobs (collect/check_listings pacing + loop delay) get a higher
+// floor - these throttle live requests against Facebook, and a rushed low
+// value risks the exact rate-limit/ban scenario this project already treats
+// as a standing concern.
+const SETTING_FLOORS: Record<string, number> = {
+  'collect.max_items_default': 1,
+  'collect.soft_wall_timeout_ms': 1000,
+  'collect.pacing_min_ms': 2000,
+  'collect.pacing_max_ms': 2000,
+
+  'check_listings.loop_delay_ms': 10000,
+  'check_listings.limit_default': 1,
+  'check_listings.soft_wall_timeout_ms': 1000,
+  'check_listings.pacing_min_ms': 2000,
+  'check_listings.pacing_max_ms': 2000,
+
+  'extract_products.max_attempts': 1,
+  'extract_products.retry_base_delay_ms': 1000,
+  'extract_products.loop_delay_ms': 1000,
+  'extract_products.batch_size': 1,
+  'extract_products.inter_batch_delay_ms': 1000,
+
+  'enrich_products.batch_size': 1,
+  'enrich_products.loop_delay_ms': 1000,
+  'enrich_products.max_attempts': 1,
+  'enrich_products.retry_delay_ms': 1000,
+
+  'price_lookup.lap_limit_default': 1,
+  'price_lookup.loop_delay_ms': 1000,
+  'price_lookup.pacing_delay_ms': 1000,
+
+  'enrich_listing_prices.batch_size': 1,
+  'enrich_listing_prices.loop_delay_ms': 1000,
+
+  'verify_discount.lap_limit_default': 1,
+  'verify_discount.fetch_batch_size': 1,
+  'verify_discount.loop_delay_ms': 1000,
+  'verify_discount.pacing_delay_ms': 1000,
+
+  'discount_policy.high_discount_threshold_percent': 0,
+  'discount_policy.min_profit_pesos': 0,
+  'discount_policy.min_price_pesos': 0,
+  'discount_policy.gemini_daily_grounding_cap': 1,
+}
+
+const PERCENT_KEYS = new Set(['discount_policy.high_discount_threshold_percent'])
+
+// A min > max would make the workers' waitRandom(min, max) call misbehave.
+// Only enforceable when both keys of a pair are present in the same PATCH -
+// the dashboard UI always saves a whole worker section at once (not
+// per-field), so both members of a pair are always submitted together.
+const PACING_PAIRS: [string, string][] = [
+  ['collect.pacing_min_ms', 'collect.pacing_max_ms'],
+  ['check_listings.pacing_min_ms', 'check_listings.pacing_max_ms'],
+]
+
+export async function GET() {
+  const settings = await getAllSettings(getPool())
+  return NextResponse.json({ settings })
+}
+
+export async function PATCH(request: Request) {
+  const body = await request.json()
+  const updates = (body as { updates?: unknown }).updates
+
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return NextResponse.json({ error: 'updates must be a non-empty array' }, { status: 400 })
+  }
+
+  const parsed: { key: string; value: number }[] = []
+  const byKey = new Map<string, number>()
+
+  for (const update of updates) {
+    const { key, value } = (update ?? {}) as { key?: unknown; value?: unknown }
+    if (typeof key !== 'string' || typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+      return NextResponse.json({ error: `invalid update: ${JSON.stringify(update)}` }, { status: 400 })
+    }
+    const floor = SETTING_FLOORS[key]
+    if (floor === undefined) {
+      return NextResponse.json({ error: `unknown setting key "${key}"` }, { status: 400 })
+    }
+    if (value < floor) {
+      return NextResponse.json({ error: `${key} must be >= ${floor}` }, { status: 400 })
+    }
+    if (PERCENT_KEYS.has(key) && value > 100) {
+      return NextResponse.json({ error: `${key} must be <= 100` }, { status: 400 })
+    }
+    parsed.push({ key, value })
+    byKey.set(key, value)
+  }
+
+  for (const [minKey, maxKey] of PACING_PAIRS) {
+    const min = byKey.get(minKey)
+    const max = byKey.get(maxKey)
+    if (min !== undefined && max !== undefined && min > max) {
+      return NextResponse.json({ error: `${minKey} must be <= ${maxKey}` }, { status: 400 })
+    }
+  }
+
+  await updateSettings(getPool(), parsed)
+  return NextResponse.json({ ok: true })
+}

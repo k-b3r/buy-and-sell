@@ -59,9 +59,14 @@ const DEFAULT_DAILY_GROUNDING_CAP = 1000
 // 1,500 ceiling, not the ceiling itself, per direct instruction (leaves
 // room for reset-timing drift and any other process sharing the same
 // billing project).
+// limit can be a plain number (fixed for the process lifetime) or a live
+// getter - the dashboard Settings page needs the latter so an operator's
+// edit to discount_policy.gemini_daily_grounding_cap takes effect on the
+// next call, not just the next process restart (this wrapper is normally
+// constructed once at worker startup, long before any given call).
 export function createDailyGroundingCap(
   client: GeminiClient,
-  limit = DEFAULT_DAILY_GROUNDING_CAP,
+  limit: number | (() => Promise<number>) = DEFAULT_DAILY_GROUNDING_CAP,
   now: () => Date = () => new Date(),
 ): GeminiClient {
   let dayKey = ''
@@ -77,13 +82,14 @@ export function createDailyGroundingCap(
   return {
     generateJson: (prompt, schema) => client.generateJson(prompt, schema),
     async generateGroundedText(prompt: string): Promise<string> {
+      const resolvedLimit = typeof limit === 'function' ? await limit() : limit
       const today = currentDayKey()
       if (today !== dayKey) {
         dayKey = today
         count = 0
       }
-      if (count >= limit) {
-        throw new Error(`Gemini grounded-search daily cap (${limit}) reached for ${dayKey} - refusing further calls to avoid billing overage`)
+      if (count >= resolvedLimit) {
+        throw new Error(`Gemini grounded-search daily cap (${resolvedLimit}) reached for ${dayKey} - refusing further calls to avoid billing overage`)
       }
       count += 1
       return client.generateGroundedText(prompt)
