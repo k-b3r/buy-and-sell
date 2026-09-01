@@ -22,6 +22,30 @@ interface Props {
 
 const sortedKey = (values: string[]) => [...values].sort().join(',')
 
+// sessionStorage (not localStorage) - "keep filters during a session" per
+// direct request, not forever across tabs/days. Same try/catch-guarded
+// pattern as ListingsView's listingCycleIds.
+const FILTER_STORAGE_KEY = 'productFilters'
+
+type StoredFilters = { search: string; category: string | null; subCategories: string[] }
+
+function saveFilters(filters: StoredFilters) {
+  try {
+    sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters))
+  } catch {
+    // sessionStorage unavailable (private mode, etc.) - filters just won't persist
+  }
+}
+
+function loadFilters(): StoredFilters | null {
+  try {
+    const raw = sessionStorage.getItem(FILTER_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as StoredFilters) : null
+  } catch {
+    return null
+  }
+}
+
 // Shared with the card-link `from` param below - one construction so the
 // URL synced into the address bar and the URL a product card remembers to
 // come back to can never drift apart.
@@ -88,6 +112,7 @@ export default function ProductListClient({
     if (search === applied.search && category === applied.category && sortedKey(subCategories) === sortedKey(applied.subCategories)) return
     const timeout = setTimeout(() => {
       appliedFiltersRef.current = { search, category, subCategories }
+      saveFilters({ search, category, subCategories })
       fetchPage(search, category, subCategories, 0, true)
       // Mirror filters into the URL via next/navigation's router, not raw
       // history.replaceState - Next's client router keeps its own history/
@@ -113,11 +138,34 @@ export default function ProductListClient({
     if (initialSearch === applied.search && initialCategory === applied.category && sortedKey(initialSubCategories) === sortedKey(applied.subCategories))
       return
     appliedFiltersRef.current = { search: initialSearch, category: initialCategory, subCategories: initialSubCategories }
+    saveFilters({ search: initialSearch, category: initialCategory, subCategories: initialSubCategories })
     setSearch(initialSearch)
     setCategory(initialCategory)
     setSubCategories(initialSubCategories)
     fetchPage(initialSearch, initialCategory, initialSubCategories, 0, true)
   }, [initialSearch, initialCategories, initialSubCategories, fetchPage])
+
+  // Restore session-persisted filters when landing on a completely
+  // filter-less URL - e.g. the "Ledger" logo link is a bare "/", which
+  // otherwise wiped whatever category/search was selected. A URL that
+  // already carries filters (shared link, browser back/forward) always
+  // wins; sessionStorage only fills in when the URL has nothing to say.
+  // Mount-only by design (empty deps) - this is a one-time "did I arrive
+  // with no filters" check, not something that should re-run as the user
+  // edits filters afterward.
+  useEffect(() => {
+    if (initialSearch || initialCategories.length > 0 || initialSubCategories.length > 0) return
+    const stored = loadFilters()
+    if (!stored || (!stored.search && !stored.category && stored.subCategories.length === 0)) return
+    appliedFiltersRef.current = stored
+    setSearch(stored.search)
+    setCategory(stored.category)
+    setSubCategories(stored.subCategories)
+    fetchPage(stored.search, stored.category, stored.subCategories, 0, true)
+    const qs = buildFilterQueryString(stored.search, stored.category, stored.subCategories)
+    router.replace(qs ? `/?${qs}` : '/', { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const sentinel = sentinelRef.current
