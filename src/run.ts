@@ -6,6 +6,7 @@ import { detectPageState } from './domains/marketplace'
 import { extractGridListings, looksLikeListing } from './domains/marketplace'
 import { extractDetailFields } from './domains/marketplace'
 import { extractCursor, extractLsd, parsePaginationResponse } from './domains/marketplace'
+import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './domains/marketplace'
 import type { DbClient } from './platform/storage'
 import { upsertListing, getCollectedListingIds } from './domains/marketplace/storage/listings'
 import type { ImageStore } from './platform/images'
@@ -149,6 +150,11 @@ export async function runCollection(
 
       const detail = extractDetailFields(detailResult.html)
       const merged = { ...listing, ...detail }
+
+      if (!isWithinServiceArea(merged)) {
+        logger.info(`rejected listing ${merged.id}: outside ${MAX_SERVICE_RADIUS_KM}km Manila service area`)
+        continue
+      }
 
       const decision = await review(merged, input, output)
       if (decision === 'stop') {

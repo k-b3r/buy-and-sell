@@ -106,6 +106,47 @@ test('approved item gets saved, then loop advances to next item', async () => {
   expect(upsertCalls[1][0]).toBe('2')
 })
 
+test('listing outside the 80km Manila service area is auto-rejected without review or save', async () => {
+  const gridHtml = `<script type="application/json">{"results":[
+    {"id":"1","marketplace_listing_title":"Mic A"},
+    {"id":"2","marketplace_listing_title":"Mic B"}
+  ]}</script>`
+  // id 1: Cebu City coords, ~570km from Manila. id 2: no location, i.e. within range.
+  const detailHtml = (id: string) =>
+    id === '1'
+      ? `<script type="application/json">{"id":"1","marketplace_listing_title":"Mic","location":{"latitude":10.3157,"longitude":123.8854}}</script>`
+      : `<script type="application/json">{"id":"2","marketplace_listing_title":"Mic"}</script>`
+
+  let detailCallIndex = 0
+  const ids = ['1', '2']
+  const driver = makeDriver({
+    getGridHtml: async () => gridHtml,
+    getDetailHtml: async () => detailHtml(ids[detailCallIndex++]),
+  })
+
+  const logger = createLogger(LOG_PATH)
+  const { db, upsertCalls } = fakeDb()
+  let reviewCalls = 0
+  await runCollection(
+    driver,
+    logger,
+    async () => {
+      reviewCalls += 1
+      return 'approve'
+    },
+    mockInput(),
+    silentOutput(),
+    { query: 'headphones', softWallTimeoutMs: 100 },
+    db,
+  )
+
+  expect(reviewCalls).toBe(1)
+  expect(upsertCalls).toHaveLength(1)
+  expect(upsertCalls[0][0]).toBe('2')
+  const logText = readFileSync(LOG_PATH, 'utf-8')
+  expect(logText).toContain('rejected listing 1: outside 80km Manila service area')
+})
+
 test('"stop" decision ends the run without processing remaining items', async () => {
   const gridHtml = `<script type="application/json">{"results":[
     {"id":"1","marketplace_listing_title":"Mic A"},
