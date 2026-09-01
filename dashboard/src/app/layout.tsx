@@ -70,18 +70,18 @@ export default function RootLayout({
                 pointerEvents: 'none',
               }}
             >
-              <nav style={{ display: 'flex', alignItems: 'center', gap: 16, pointerEvents: 'auto' }}>
-                <Link href="/admin/logs" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+              <nav style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+                <Link href="/admin/logs" className="nav-pill">
                   Workers
                 </Link>
-                <Link href="/admin/settings" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
-                  Settings
-                </Link>
-                <Link href="/analytics" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                <Link href="/analytics" className="nav-pill">
                   Analytics
                 </Link>
-                <Link href="/needs-review" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
+                <Link href="/needs-review" className="nav-pill">
                   Needs Review
+                </Link>
+                <Link href="/admin/settings" className="nav-pill">
+                  Settings
                 </Link>
               </nav>
             </div>
