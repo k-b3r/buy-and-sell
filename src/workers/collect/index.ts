@@ -117,7 +117,15 @@ async function main() {
       for (const query of queries) {
         if (isTestRun()) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
-        } else {
+          continue
+        }
+        // One keyword's transient error (network blip, FB rate limit, a DB
+        // write failure) used to propagate all the way up through main()'s
+        // catch and kill the whole --cycle process - confirmed live
+        // 2026-09-01: a single query failure ended a run meant to loop
+        // keywords forever. Isolate per-keyword so --cycle actually survives
+        // one bad query and moves on to the next.
+        try {
           await runCollection(
             driver,
             logger,
@@ -135,6 +143,8 @@ async function main() {
             pool,
             imageStore,
           )
+        } catch (err) {
+          logger.error(`query "${query}" failed, skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`)
         }
       }
       if (cycle && isTestRun()) await realDelay(TEST_RUN_LOOP_DELAY_MS)
