@@ -120,6 +120,90 @@ a {
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+.info-tooltip-trigger {
+  transition: color 120ms ease;
+}
+
+.info-tooltip-trigger:hover,
+.info-tooltip-trigger:focus-visible {
+  color: var(--color-accent);
+}
+
+/* `top`/`left` are exact px from InfoTooltip.tsx's measured placement (left
+   is the trigger's center, translateX(-50%) is what centers the bubble on
+   it) - the animation is purely cosmetic (opacity/scale/a few px slide), not
+   what does the positioning. */
+@keyframes tooltip-in-above {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes tooltip-in-below {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.info-tooltip-bubble--above {
+  animation: tooltip-in-above 110ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.info-tooltip-bubble--below {
+  animation: tooltip-in-below 110ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Two stacked triangles (border-colored behind, surface-colored in front,
+   offset 1px) so the arrow picks up the bubble's own 1px border instead of
+   looking like a flat cutout. */
+.info-tooltip-bubble--above::before,
+.info-tooltip-bubble--above::after,
+.info-tooltip-bubble--below::before,
+.info-tooltip-bubble--below::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+  border-color: transparent;
+}
+
+.info-tooltip-bubble--above::before {
+  top: 100%;
+  border-width: 6px;
+  border-top-color: var(--color-border);
+}
+
+.info-tooltip-bubble--above::after {
+  top: 100%;
+  border-width: 5px;
+  margin-top: -1px;
+  border-top-color: var(--color-surface);
+}
+
+.info-tooltip-bubble--below::before {
+  bottom: 100%;
+  border-width: 6px;
+  border-bottom-color: var(--color-border);
+}
+
+.info-tooltip-bubble--below::after {
+  bottom: 100%;
+  border-width: 5px;
+  margin-bottom: -1px;
+  border-bottom-color: var(--color-surface);
+}
+
 .site-header {
   display: flex;
   align-items: center;
