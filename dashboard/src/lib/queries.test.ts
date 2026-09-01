@@ -24,6 +24,8 @@ import {
   markAllDiscountNotificationsRead,
   getAllSettings,
   updateSettings,
+  getCollectKeywords,
+  replaceCollectKeywords,
 } from './queries'
 import type { QueryClient } from './queries'
 
@@ -2173,4 +2175,44 @@ test('updateSettings does nothing for an empty updates array', async () => {
   await updateSettings(db, [])
 
   expect(calls).toHaveLength(0)
+})
+
+test('getCollectKeywords maps rows into a plain string list', async () => {
+  const db: QueryClient = {
+    query: async () => ({ rows: [{ keyword: 'moving out' }, { keyword: 'rush sale' }] }),
+  }
+
+  expect(await getCollectKeywords(db)).toEqual(['moving out', 'rush sale'])
+})
+
+test('replaceCollectKeywords deletes all rows then inserts the new list in one batch', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await replaceCollectKeywords(db, ['rush sale', 'garage sale'])
+
+  expect(calls).toHaveLength(2)
+  expect(calls[0].sql).toContain('DELETE FROM collect_keywords')
+  expect(calls[1].sql).toContain('INSERT INTO collect_keywords')
+  expect(calls[1].params).toEqual(['rush sale', 'garage sale'])
+})
+
+test('replaceCollectKeywords still deletes when the new list is empty, skips the insert', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await replaceCollectKeywords(db, [])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('DELETE FROM collect_keywords')
 })

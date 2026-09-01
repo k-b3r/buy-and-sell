@@ -384,6 +384,28 @@ INSERT INTO settings (key, value) VALUES
   ('discount_policy.gemini_daily_grounding_cap', 1000)
 ON CONFLICT (key) DO NOTHING;
 
+-- Operator-editable search-query list for collect.ts's --cycle loop
+-- (previously the hardcoded MOTIVATED_SELLER_KEYWORDS array). Loaded fresh
+-- every lap, same no-restart pattern as the settings table above. Empty
+-- table (not just a missing row) falls back to DEFAULT_COLLECT_KEYWORDS in
+-- src/platform/collect-keywords.ts - collect must never run a lap with zero
+-- search queries.
+CREATE TABLE IF NOT EXISTS collect_keywords (
+  keyword TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO collect_keywords (keyword) VALUES
+  ('rush sale'),
+  ('moving out'),
+  ('preloved'),
+  ('slightly used'),
+  ('barely used'),
+  ('decluttering'),
+  ('upgrade'),
+  ('for disposal')
+ON CONFLICT (keyword) DO NOTHING;
+
 -- listing_price_review's FK to listings was missing ON DELETE CASCADE -
 -- check-listings.ts's deleteListing() does a bare DELETE FROM listings with
 -- no child-row cleanup (same gap saved_listings/discount_notifications were

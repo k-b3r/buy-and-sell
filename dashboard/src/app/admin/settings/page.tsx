@@ -406,6 +406,15 @@ export default function SettingsPage() {
   const [activeCategoryId, setActiveCategoryId] = useState(SETTINGS_CATEGORIES[0].id)
   const [activeSubgroupId, setActiveSubgroupId] = useState(SETTINGS_CATEGORIES[0].subgroups[0].id)
 
+  // collect's search-query list - a row editor (add/remove keywords), not
+  // number knobs, hence its own state/endpoint separate from `values`/
+  // `/api/settings` above. Only rendered when the collect tab is active.
+  const [keywords, setKeywords] = useState<string[]>([])
+  const [keywordsLoaded, setKeywordsLoaded] = useState(false)
+  const [newKeyword, setNewKeyword] = useState('')
+  const [keywordsSaveState, setKeywordsSaveState] = useState<SaveState>('idle')
+  const [keywordsSaveError, setKeywordsSaveError] = useState('')
+
   const activeCategory = SETTINGS_CATEGORIES.find((c) => c.id === activeCategoryId) ?? SETTINGS_CATEGORIES[0]
   const activeSubgroup = activeCategory.subgroups.find((s) => s.id === activeSubgroupId) ?? activeCategory.subgroups[0]
 
@@ -443,6 +452,60 @@ export default function SettingsPage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadKeywords() {
+      try {
+        const res = await fetch('/api/collect-keywords')
+        const body = (await res.json()) as { keywords?: string[] }
+        if (!cancelled && res.ok) {
+          setKeywords(body.keywords ?? [])
+          setKeywordsLoaded(true)
+        }
+      } catch {
+        // best-effort - the collect tab just won't show the keyword editor if this fails
+      }
+    }
+    loadKeywords()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function handleAddKeyword() {
+    const trimmed = newKeyword.trim().toLowerCase()
+    if (trimmed === '' || keywords.includes(trimmed)) return
+    setKeywords((prev) => [...prev, trimmed])
+    setNewKeyword('')
+  }
+
+  function handleRemoveKeyword(keyword: string) {
+    setKeywords((prev) => prev.filter((k) => k !== keyword))
+  }
+
+  async function handleSaveKeywords() {
+    setKeywordsSaveState('saving')
+    setKeywordsSaveError('')
+    try {
+      const res = await fetch('/api/collect-keywords', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ keywords }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setKeywordsSaveState('error')
+        setKeywordsSaveError(body.error ?? 'Save failed')
+        return
+      }
+      setKeywordsSaveState('saved')
+      setTimeout(() => setKeywordsSaveState((prev) => (prev === 'saved' ? 'idle' : prev)), 2000)
+    } catch {
+      setKeywordsSaveState('error')
+      setKeywordsSaveError('Could not reach the settings API')
+    }
+  }
 
   function handleChange(field: SettingMeta, raw: string) {
     const parsedDisplay = Number(raw)
@@ -579,6 +642,123 @@ export default function SettingsPage() {
           {state === 'error' && <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{saveError[activeSubgroup.id]}</span>}
         </div>
       </div>
+
+      {activeSubgroup.id === 'collect' && (
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 8,
+            padding: 16,
+            marginTop: 16,
+          }}
+        >
+          <h2 className="mono" style={{ fontSize: '1em', marginTop: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+            Search keywords
+            <InfoTooltip
+              text="Motivated-seller phrases the collector searches on --cycle laps (e.g. 'rush sale', 'moving out'). Add or remove as many as you like — collect loops through every one, every lap."
+              style={{ color: 'var(--color-text-muted)' }}
+            />
+          </h2>
+          {!keywordsLoaded ? (
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>Loading…</p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 12 }}>
+                {keywords.map((keyword) => (
+                  <span
+                    key={keyword}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 8,
+                      padding: '4px 8px',
+                      fontSize: '0.85em',
+                    }}
+                  >
+                    {keyword}
+                    <button
+                      onClick={() => handleRemoveKeyword(keyword)}
+                      aria-label={`Remove "${keyword}"`}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-text-muted)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        font: 'inherit',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {keywords.length === 0 && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>No keywords yet.</span>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="text"
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddKeyword()
+                    }
+                  }}
+                  placeholder="add a keyword…"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 6,
+                    padding: '4px 8px',
+                    color: 'var(--color-text)',
+                    fontSize: '0.85em',
+                    width: 200,
+                  }}
+                />
+                <button
+                  onClick={handleAddKeyword}
+                  style={{
+                    background: 'transparent',
+                    color: 'var(--color-text)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    padding: '4px 12px',
+                    fontSize: '0.85em',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                <button
+                  onClick={handleSaveKeywords}
+                  disabled={keywordsSaveState === 'saving'}
+                  style={{
+                    background: 'transparent',
+                    color: 'var(--color-text)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    padding: '4px 12px',
+                    fontSize: '0.85em',
+                    cursor: keywordsSaveState === 'saving' ? 'default' : 'pointer',
+                  }}
+                >
+                  {keywordsSaveState === 'saving' ? 'Saving…' : 'Save'}
+                </button>
+                {keywordsSaveState === 'saved' && <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>Saved</span>}
+                {keywordsSaveState === 'error' && <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{keywordsSaveError}</span>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -7,20 +7,7 @@ import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/
 import { createR2ImageStore } from '../../platform/images'
 import { resolveProxy } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
-
-// Motivated-seller phrasing — these skew toward underpriced/urgent listings,
-// the actual "buy-and-sell opportunity" signal this project is after, more
-// than a plain product-name search does.
-export const MOTIVATED_SELLER_KEYWORDS = [
-  'rush sale',
-  'moving out',
-  'preloved',
-  'slightly used',
-  'barely used',
-  'decluttering',
-  'upgrade',
-  'for disposal',
-]
+import { loadCollectKeywords } from '../../platform/collect-keywords'
 
 // Real mode paces itself per-listing (driver.waitRandom, 4-10s) inside
 // runCollection - TEST_RUN skips that entirely (no live Facebook calls at
@@ -36,10 +23,11 @@ async function main() {
   // No explicit query and not --cycle (the dashboard's Start button, and a
   // bare `pnpm run collect`) used to fall back to a single hardcoded
   // "headphones" test query - now runs one pass through the full
-  // motivated-seller list instead, same list --cycle loops forever through.
-  // An explicit single query (e.g. `pnpm run collect -- "gaming chair"`)
+  // motivated-seller keyword list instead (loaded fresh each lap below, see
+  // loadCollectKeywords), same list --cycle loops forever through. An
+  // explicit single query (e.g. `pnpm run collect -- "gaming chair"`)
   // still overrides it exactly as before.
-  const queries = cycle || rest[0] === undefined ? MOTIVATED_SELLER_KEYWORDS : [rest[0]]
+  const explicitQuery = !cycle ? rest[0] : undefined
   const maxItemsArg = rest[cycle ? 0 : 1]
   // run.ts's pagination loop treats an unset maxItems as "just the first
   // page" (its target defaults to whatever the first batch happened to
@@ -111,13 +99,12 @@ async function main() {
   }
 
   if (cycle) {
-    logger.info(`--cycle: looping indefinitely through ${queries.length} motivated-seller keywords — Ctrl+C to stop`)
+    logger.info('--cycle: looping indefinitely — Ctrl+C to stop')
   }
 
   try {
     let lap = 1
     do {
-      if (cycle) logger.info(`--cycle: lap ${lap} starting`)
       const settings = await loadSettings(pool, [
         'collect.max_items_default',
         'collect.soft_wall_timeout_ms',
@@ -125,6 +112,8 @@ async function main() {
         'collect.pacing_max_ms',
       ])
       const maxItems = explicitMaxItems ?? settings['collect.max_items_default']
+      const queries = explicitQuery !== undefined ? [explicitQuery] : await loadCollectKeywords(pool)
+      if (cycle) logger.info(`--cycle: lap ${lap} starting, ${queries.length} motivated-seller keywords`)
       for (const query of queries) {
         if (isTestRun()) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
