@@ -412,7 +412,7 @@ test('getProductSummaries excludes placeholder-pattern prices from the price ran
   await getProductSummaries(db)
 
   const occurrences = capturedSql.split("'^(\\d+)\\1+$'").length - 1
-  expect(occurrences).toBe(4) // price_min, price_max, price_avg, and the discount lateral
+  expect(occurrences).toBe(5) // product_median, price_min, price_max, price_avg, and the discount lateral
 })
 
 test('getProductSummaries excludes sold listings from the listing aggregation join', async () => {

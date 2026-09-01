@@ -171,6 +171,16 @@ function notPlaceholderPriceSql(column: string): string {
   )`
 }
 
+// SQL equivalent of isMagnitudeOutlier below - same >10x/<0.1x-of-median
+// heuristic, single source of truth for the price_min/max/avg aggregate
+// (notPlaceholderPriceSql alone requires >=3 digits, so a troll ₱2 or a
+// troll ₱123456789 that doesn't happen to hit a digit-pattern isn't caught
+// by it - confirmed live 2026-09-02: home/product-list page showed price
+// ranges like ₱2-₱123,456,789).
+function notMagnitudeOutlierSql(column: string, medianColumn: string): string {
+  return `(${medianColumn} IS NULL OR ${medianColumn} <= 0 OR ${column} BETWEEN ${medianColumn} / 10 AND ${medianColumn} * 10)`
+}
+
 const DISCOUNT_SUMMARY_LATERAL = `
   LEFT JOIN LATERAL (
     WITH product_prices AS (
@@ -373,15 +383,27 @@ export async function getProductSummaries(
     // every listing is sold drops out of the CTE entirely - it vanishes from
     // the list rather than showing as a stale/empty card, per direct
     // instruction (2026-08-29): nothing left to buy, don't list it.
-    `WITH p AS (
+    // product_median's raw_median_price is the same pre-outlier-exclusion
+    // median DISCOUNT_SUMMARY_LATERAL calls "raw" - used here only to gate
+    // price_min/max/avg against magnitude-outlier troll prices (see
+    // notMagnitudeOutlierSql), not as a displayed value itself.
+    `WITH product_median AS (
+       SELECT l.product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY l.price_amount) AS raw_median_price
+       FROM listings l
+       WHERE l.sold_at IS NULL AND l.price_amount IS NOT NULL AND l.price_amount > 0
+         AND ${notPlaceholderPriceSql('l.price_amount')}
+       GROUP BY l.product_id
+     ),
+     p AS (
        SELECT p.id, p.base_model, p.variant_tier, c.name AS category, sc.name AS sub_category, p.price_lookup_excluded,
               count(l.id) as listing_count,
-              min(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_min,
-              max(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_max,
-              avg(l.price_amount) FILTER (WHERE ${notPlaceholderPriceSql('l.price_amount')}) as price_avg,
+              min(l.price_amount) FILTER (WHERE l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_min,
+              max(l.price_amount) FILTER (WHERE l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_max,
+              avg(l.price_amount) FILTER (WHERE l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_avg,
               COALESCE(max(l.stored_photo_urls->>0), max(l.primary_photo_url)) as sample_photo_url
        FROM products p
        JOIN listings l ON l.product_id = p.id
+       LEFT JOIN product_median pm ON pm.product_id = p.id
        LEFT JOIN categories c ON c.id = p.category_id
        LEFT JOIN categories sc ON sc.id = p.sub_category_id
        WHERE l.sold_at IS NULL AND ($1::text IS NULL OR p.base_model ILIKE $1) ${categoryClause} ${subCategoryClause}
