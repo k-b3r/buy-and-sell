@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import InfoTooltip from '../../InfoTooltip'
 
 // Mirrors server/routes/logs.ts's WORKER_LOG_FILES / workerControl.ts's
 // WORKER_PID_FILES keys - kept in sync by hand since dashboard/ and server/
@@ -229,35 +230,30 @@ export default function LogsPage() {
           // just read as stale/confusing layered on top of that.
           const isError = (status?.lastRunErrored ?? false) && !status?.running
           return (
-            <button
-              key={w}
-              onClick={() => setWorker(w)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                background: isSelected ? 'var(--color-accent)' : isError ? 'var(--color-danger-bg)' : 'transparent',
-                color: isSelected ? 'var(--color-bg)' : isError ? 'var(--color-danger)' : 'var(--color-text)',
-                border: `1px solid ${isError && !isSelected ? 'var(--color-danger)' : 'var(--color-border)'}`,
-                borderRadius: 8,
-                padding: '4px 10px',
-                fontSize: '0.85em',
-                cursor: 'pointer',
-              }}
-            >
-              {status?.running && <span className="spinner" aria-label="running" />}
-              {w}
-              <span
-                title={WORKER_DESCRIPTIONS[w]}
+            // InfoTooltip's trigger is a <button> - can't nest it inside the
+            // worker-select button (invalid HTML, and its click would bubble
+            // into setWorker) - sibling span instead, same visual grouping.
+            <span key={w} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => setWorker(w)}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: isSelected ? 'var(--color-accent)' : isError ? 'var(--color-danger-bg)' : 'transparent',
+                  color: isSelected ? 'var(--color-bg)' : isError ? 'var(--color-danger)' : 'var(--color-text)',
+                  border: `1px solid ${isError && !isSelected ? 'var(--color-danger)' : 'var(--color-border)'}`,
+                  borderRadius: 8,
+                  padding: '4px 10px',
                   fontSize: '0.85em',
-                  color: isSelected ? 'var(--color-bg)' : 'var(--color-text-muted)',
-                  cursor: 'help',
+                  cursor: 'pointer',
                 }}
               >
-                ⓘ
-              </span>
-            </button>
+                {status?.running && <span className="spinner" aria-label="running" />}
+                {w}
+              </button>
+              <InfoTooltip text={WORKER_DESCRIPTIONS[w]} style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }} />
+            </span>
           )
         })}
         <button
