@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { PRODUCT_CATEGORIES, type DealListing, type DealsConfidenceTier } from '@/lib/queries'
 import SaveButton from '../SaveButton'
-import { Spinner } from '../Skeleton'
+import { Spinner, SkeletonDealRow } from '../Skeleton'
 
 interface DealsPage {
   deals: DealListing[]
@@ -162,6 +162,10 @@ export default function DealsClient({
   const [lowConfidenceDeals, setLowConfidenceDeals] = useState(initialLowConfidenceDeals)
   const [lowConfidenceNextOffset, setLowConfidenceNextOffset] = useState(initialLowConfidenceNextOffset)
   const [lowConfidenceLoading, setLowConfidenceLoading] = useState(false)
+  // Distinct from loading (infinite-scroll "load more") - true only while a
+  // filter change's refetch is in flight, so the stale list gets swapped for
+  // skeleton rows instead of sitting there while a spinner appends below it.
+  const [filtersLoading, setFiltersLoading] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const appliedFiltersRef = useRef(EMPTY_FILTERS)
 
@@ -197,9 +201,9 @@ export default function DealsClient({
     if (JSON.stringify(filters) === JSON.stringify(applied)) return
     const timeout = setTimeout(() => {
       appliedFiltersRef.current = filters
-      fetchPage(filters, 0, true)
       setLowConfidenceDeals([])
-      fetchLowConfidencePage(filters, 0)
+      setFiltersLoading(true)
+      Promise.all([fetchPage(filters, 0, true), fetchLowConfidencePage(filters, 0)]).finally(() => setFiltersLoading(false))
     }, 300)
     return () => clearTimeout(timeout)
   }, [filters, fetchPage, fetchLowConfidencePage])
@@ -284,14 +288,18 @@ export default function DealsClient({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {deals.map((d) => (
-          <DealRow key={d.listing_id} deal={d} />
-        ))}
+        {filtersLoading
+          ? Array.from({ length: 6 }, (_, i) => <SkeletonDealRow key={i} />)
+          : deals.map((d) => <DealRow key={d.listing_id} deal={d} />)}
       </div>
       <div ref={sentinelRef} style={{ height: 1 }} />
-      {loading && <Spinner label="Loading more deals" />}
-      {!loading && nextOffset === null && deals.length > 0 && <p style={{ color: 'var(--color-text-muted)' }}>End of list.</p>}
-      {!loading && deals.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>No deals match these filters.</p>}
+      {!filtersLoading && loading && <Spinner label="Loading more deals" />}
+      {!filtersLoading && !loading && nextOffset === null && deals.length > 0 && (
+        <p style={{ color: 'var(--color-text-muted)' }}>End of list.</p>
+      )}
+      {!filtersLoading && !loading && deals.length === 0 && (
+        <p style={{ color: 'var(--color-text-muted)' }}>No deals match these filters.</p>
+      )}
 
       {lowConfidenceDeals.length > 0 && (
         <div style={{ marginTop: 40 }}>
