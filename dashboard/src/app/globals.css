@@ -307,6 +307,14 @@ table {
   min-width: 0;
 }
 
+/* Caps a long description instead of dragging the whole layout (and the
+   evidence row below it) down the page - scrolls internally past this
+   height. */
+.listing-description {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
 /* Grid (not flex) so the evidence row spans the full width under both
    columns. align-items: start keeps the shorter of carousel/info from
    stretching to match the taller one - the evidence row then starts right
