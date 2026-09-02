@@ -5,6 +5,7 @@ import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../do
 import {
   createGeminiClient,
   createFallbackGeminiClient,
+  createQuotaAwareGeminiClient,
   isGeminiQuotaError,
   createGroqClient,
   createFallbackGroqClient,
@@ -319,16 +320,25 @@ async function main() {
   // independent quota. Gemini is now the fallback provider (see
   // DEFAULT_MAX_ATTEMPTS' comment above), tried only once Groq is exhausted.
   const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
-  const gemini = altGeminiApiKey
+  const geminiForExtraction = altGeminiApiKey
     ? createFallbackGeminiClient([createGeminiClient(geminiApiKey), createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash')])
     : createGeminiClient(geminiApiKey)
   if (altGeminiApiKey) {
     logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')
   }
-  // Exa is now the primary source for both retail and secondhand pricing
-  // (see domains/marketplace/price-lookup.ts) - its credits ran out
-  // mid-investigation once already (2026-08-31, real 402), so multiple keys
-  // are worth having on hand here too (see loadExaApiKeys).
+  // This same client also fills PriceLookupClients' gemini role below
+  // (generateGroundedText, now primary for both retail and secondhand - see
+  // domains/marketplace/price-lookup.ts's buildGeminiPrompt comment).
+  // createQuotaAwareGeminiClient only gates generateGroundedText - once
+  // that side hits the real 20/day wall (confirmed live 2026-09-02, see
+  // gemini.ts), price lookups skip straight to Exa for the rest of the day
+  // without a doomed round-trip; generateJson (this worker's own
+  // extraction calls) passes through untouched.
+  const gemini = createQuotaAwareGeminiClient(geminiForExtraction)
+  // Exa is fallback 1 for both retail and secondhand pricing (Gemini's
+  // primary) - its credits ran out mid-investigation once already
+  // (2026-08-31, real 402), so multiple keys are worth having on hand here
+  // too (see loadExaApiKeys).
   logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
   const exa = createFallbackExaClient(exaApiKeys.map(createExaClient))
   const tavily = createTavilyClient(tavilyApiKey)

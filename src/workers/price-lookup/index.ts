@@ -1,7 +1,14 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import { createGeminiClient, createExaClient, createFallbackExaClient, loadExaApiKeys, createTavilyClient } from '../../domains/llm-clients'
+import {
+  createGeminiClient,
+  createQuotaAwareGeminiClient,
+  createExaClient,
+  createFallbackExaClient,
+  loadExaApiKeys,
+  createTavilyClient,
+} from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -63,18 +70,21 @@ async function main() {
   const logger = createLogger('data/price-lookup.log')
   writePidFile('data/price-lookup.pid')
 
-  // Exa is the primary source for both retail and secondhand - its credits
-  // ran out mid-investigation once already (2026-08-31, real 402), so
-  // multiple keys are worth having on hand (see loadExaApiKeys).
+  // Exa is fallback 1 for both retail and secondhand (Gemini's primary, see
+  // price-lookup.ts's buildGeminiPrompt comment) - its credits ran out
+  // mid-investigation once already (2026-08-31, real 402), so multiple keys
+  // are worth having on hand (see loadExaApiKeys).
   logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
 
   const clients: PriceLookupClients = {
     // Free tier only (per direct instruction: no paid Gemini in the app).
-    // Its real ~20 req/day/key wall is Google's own enforcement (a 429, no
-    // client-side cap needed like the paid-tier grounding case) - a quota
-    // hit here just falls through to Exa the same lap, same as any other
-    // failure.
-    gemini: createGeminiClient(geminiApiKey),
+    // Its real wall is a flat 20/day for the whole model (confirmed live
+    // 2026-09-02 by reproducing the actual 429 - see gemini.ts's comment),
+    // Google's own enforcement, not a client-side guess. Wrapped in
+    // createQuotaAwareGeminiClient so once that 429 is seen, every later
+    // call this same day skips straight to Exa instead of spending a
+    // round-trip on a call already known to fail.
+    gemini: createQuotaAwareGeminiClient(createGeminiClient(geminiApiKey)),
     exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
     tavily: createTavilyClient(tavilyApiKey),
   }

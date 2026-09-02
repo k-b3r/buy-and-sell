@@ -46,6 +46,20 @@ export function createGeminiClient(apiKey: string, model = 'gemini-2.5-flash'): 
 
 const DEFAULT_DAILY_GROUNDING_CAP = 1000
 
+// The 1,500/day free allowance + $35/1,000 overage described below is a
+// *paid* (billing-enabled) key's terms. FREE_GEMINI_API_KEY here is a
+// genuinely free, unbilled key - confirmed live 2026-09-02 by reproducing
+// the actual failure directly: every call after the first 429'd with
+// "generate_content_free_tier_requests... limit: 20, model: gemini-2.5-flash"
+// (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier) - a flat
+// 20/day for the whole model, not grounding-specific, shared across every
+// caller on this key (lookupRetail, lookupSecondhand, extract-products'
+// generateJson). This 1,000 cap never actually engages on an unbilled key
+// like this one - see createQuotaAwareGeminiClient below, which reacts to
+// the real 429 instead of guessing a number. Kept here for a paid key,
+// where the ceiling really is ~1,500 and does need a client-side guard
+// (Google has no hard spend-stop of its own, just silent overage billing):
+
 // Google Search grounding on gemini-2.5-flash is a paid-tier-only free
 // allowance of 1,500 requests/day (confirmed live via ai.google.dev's
 // pricing page, 2026-08-31) - RPD, not a monthly pool, resetting at
@@ -99,6 +113,45 @@ export function createDailyGroundingCap(
 
 export function isQuotaError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 429
+}
+
+// Reacts to Google's real 429 instead of guessing a request count (see the
+// comment above createDailyGroundingCap - this unbilled key's true ceiling
+// is a flat 20/day, confirmed live, not the 1,500 that cap's default was
+// built around). Once a 429 is seen, every subsequent generateGroundedText
+// call this same day short-circuits locally instead of spending a network
+// round-trip on a call already known to fail - lookupRetail/lookupSecondhand
+// (price-lookup.ts) fall through to Exa immediately on any thrown error, so
+// this just makes that fallback instant instead of waiting on a doomed
+// request first. Resets at midnight Pacific, same boundary
+// createDailyGroundingCap uses, since that's when Google's own quota resets.
+export function createQuotaAwareGeminiClient(client: GeminiClient, now: () => Date = () => new Date()): GeminiClient {
+  let dayKey = ''
+  let exhausted = false
+
+  function currentDayKey(): string {
+    return now().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles' })
+  }
+
+  return {
+    generateJson: (prompt, schema) => client.generateJson(prompt, schema),
+    async generateGroundedText(prompt: string): Promise<string> {
+      const today = currentDayKey()
+      if (today !== dayKey) {
+        dayKey = today
+        exhausted = false
+      }
+      if (exhausted) {
+        throw new Error(`Gemini free-tier daily quota already confirmed exhausted for ${dayKey} - skipping straight to the next provider`)
+      }
+      try {
+        return await client.generateGroundedText(prompt)
+      } catch (err) {
+        if (isQuotaError(err)) exhausted = true
+        throw err
+      }
+    },
+  }
 }
 
 // Wraps multiple GeminiClients (e.g. free-tier keys from different accounts,

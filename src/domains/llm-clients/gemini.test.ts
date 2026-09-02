@@ -1,5 +1,5 @@
 import type { GeminiClient } from './gemini'
-import { createFallbackGeminiClient, createDailyGroundingCap } from './gemini'
+import { createFallbackGeminiClient, createDailyGroundingCap, createQuotaAwareGeminiClient } from './gemini'
 
 function quotaError(): Error & { status: number } {
   const err = new Error('quota exceeded') as Error & { status: number }
@@ -165,6 +165,85 @@ test('createDailyGroundingCap defaults to a 1000/day limit, a buffer under Googl
   await expect(client.generateGroundedText('p')).rejects.toThrow('daily cap (1000) reached')
 
   expect(calls).toBe(1000)
+})
+
+test('createQuotaAwareGeminiClient passes calls through normally before any quota error', async () => {
+  const inner = fakeGeminiClient({ generateGroundedText: async () => 'PRICE_RANGE: 100-200 PHP' })
+  const client = createQuotaAwareGeminiClient(inner)
+
+  expect(await client.generateGroundedText('p')).toBe('PRICE_RANGE: 100-200 PHP')
+})
+
+test('createQuotaAwareGeminiClient short-circuits later same-day calls after a 429, without hitting the inner client again', async () => {
+  let calls = 0
+  const inner = fakeGeminiClient({
+    generateGroundedText: async () => {
+      calls += 1
+      throw quotaError()
+    },
+  })
+  const client = createQuotaAwareGeminiClient(inner)
+
+  await expect(client.generateGroundedText('p1')).rejects.toThrow('quota exceeded')
+  await expect(client.generateGroundedText('p2')).rejects.toThrow('already confirmed exhausted')
+
+  expect(calls).toBe(1)
+})
+
+test('createQuotaAwareGeminiClient does not short-circuit a non-quota error', async () => {
+  let calls = 0
+  const inner = fakeGeminiClient({
+    generateGroundedText: async () => {
+      calls += 1
+      throw new Error('some other failure')
+    },
+  })
+  const client = createQuotaAwareGeminiClient(inner)
+
+  await expect(client.generateGroundedText('p1')).rejects.toThrow('some other failure')
+  await expect(client.generateGroundedText('p2')).rejects.toThrow('some other failure')
+
+  expect(calls).toBe(2)
+})
+
+test('createQuotaAwareGeminiClient resets the exhausted flag on a new day (Pacific time)', async () => {
+  let calls = 0
+  const inner = fakeGeminiClient({
+    generateGroundedText: async () => {
+      calls += 1
+      throw quotaError()
+    },
+  })
+  let today = new Date('2026-08-31T12:00:00-07:00') // noon Pacific
+  const client = createQuotaAwareGeminiClient(inner, () => today)
+
+  await expect(client.generateGroundedText('p1')).rejects.toThrow('quota exceeded')
+  await expect(client.generateGroundedText('p2')).rejects.toThrow('already confirmed exhausted')
+
+  today = new Date('2026-09-01T12:00:00-07:00') // next day, Pacific
+  await expect(client.generateGroundedText('p3')).rejects.toThrow('quota exceeded') // tries the inner client again
+
+  expect(calls).toBe(2)
+})
+
+test('createQuotaAwareGeminiClient does not gate generateJson', async () => {
+  let jsonCalls = 0
+  const inner = fakeGeminiClient({
+    generateJson: async () => {
+      jsonCalls += 1
+      return { ok: true }
+    },
+    generateGroundedText: async () => {
+      throw quotaError()
+    },
+  })
+  const client = createQuotaAwareGeminiClient(inner)
+
+  await expect(client.generateGroundedText('p')).rejects.toThrow('quota exceeded')
+  await client.generateJson('p', {})
+  await client.generateJson('p', {})
+
+  expect(jsonCalls).toBe(2)
 })
 
 test('fallback client applies the same quota-fallback behavior to generateGroundedText, sharing the cursor with generateJson', async () => {
