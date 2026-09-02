@@ -19,7 +19,7 @@ const NAV_LINKS = [
 export default function NavLinks() {
   const pathname = usePathname()
   return (
-    <nav style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+    <nav style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', pointerEvents: 'auto' }}>
       {NAV_LINKS.map(({ href, label }) => (
         <Link key={href} href={href} className={`nav-pill${pathname === href ? ' nav-pill-active' : ''}`}>
           {label}

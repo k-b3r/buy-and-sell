@@ -58,19 +58,12 @@ export default function RootLayout({
                 fixed-padding) row - site-header's position:sticky already
                 gives this its containing block. pointerEvents:none on the
                 wrapper keeps clicks passing through to Ledger/right-side links
-                when the column is narrower than the full header width. */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                maxWidth: 1100,
-                margin: '0 auto',
-                padding: '0 2rem',
-                display: 'flex',
-                alignItems: 'center',
-                pointerEvents: 'none',
-              }}
-            >
+                when the column is narrower than the full header width.
+                Below site-header-nav's breakpoint (globals.css) this
+                centering math has no room to work (margin:auto collapses),
+                so it switches to static/full-width and wraps onto its own
+                row instead of overlapping the wordmark. */}
+            <div className="site-header-nav">
               <NavLinks />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
