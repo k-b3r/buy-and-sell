@@ -184,8 +184,6 @@ export default function ListingDetailContent({
             </div>
           )}
 
-          <PriceEvidence recentSales={listing.recent_sales} similarListings={listing.similar_listings} />
-
           {showBackLink && (
             // Fixed to the viewport, not the modal box - Modal.tsx renders
             // its own copy of this button (anchored to its box instead) for
@@ -203,6 +201,12 @@ export default function ListingDetailContent({
             </a>
           )}
         </div>
+
+        {(listing.recent_sales?.length || listing.similar_listings?.length) ? (
+          <div className="listing-detail-evidence">
+            <PriceEvidence recentSales={listing.recent_sales} similarListings={listing.similar_listings} />
+          </div>
+        ) : null}
       </div>
     </div>
   )

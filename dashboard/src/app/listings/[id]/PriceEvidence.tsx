@@ -56,9 +56,10 @@ function EvidenceSection({ title, listings, dateLabel }: { title: string; listin
   )
 }
 
-// The reference-price line above this ("vs typical ₱X for this product") is
-// a single number - this shows the actual listings that number came from,
-// same distinction /deals' sold_comps/peer_listings tiers make. Both
+// The reference-price line in the info column ("vs typical ₱X for this
+// product") is a single number - this (the layout's third column) shows the
+// actual listings that number came from, same distinction /deals'
+// sold_comps/peer_listings tiers make. Both
 // sections are independent (a listing can have real sold comps AND active
 // peers) rather than only showing whichever tier "won" the reference price.
 //
@@ -77,7 +78,7 @@ export default function PriceEvidence({
   if (recentSales.length === 0 && similarListings.length === 0) return null
 
   return (
-    <div style={{ marginTop: 8, marginBottom: 8 }}>
+    <div>
       <EvidenceSection title="Based on recent sales" listings={recentSales} dateLabel="Sold" />
       <EvidenceSection title="Based on similar listings" listings={similarListings} dateLabel="Listed" />
     </div>
