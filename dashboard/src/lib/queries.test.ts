@@ -2606,6 +2606,38 @@ test('getDeals filters by category and max days listed when provided', async () 
   expect(capturedParams.some((p) => Array.isArray(p) && p.includes('Mobile Phones'))).toBe(true)
 })
 
+test('getDeals filters by title or base_model when a search term is provided', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { search: '  iphone 16  ' })
+
+  expect(capturedSql).toContain('AND (title ILIKE')
+  expect(capturedSql).toContain('OR base_model ILIKE')
+  expect(capturedParams).toContain('%iphone 16%')
+})
+
+test('getDeals omits the search clause when no search term is provided', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).not.toContain('title ILIKE')
+})
+
 test('getDeals filters by minimum confidence tier rank', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []

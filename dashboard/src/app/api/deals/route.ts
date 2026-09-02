@@ -21,6 +21,7 @@ async function getDiscountPolicyFloors() {
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
+  const search = url.searchParams.get('search')
   const categories = url.searchParams.getAll('category')
   const minProfitParam = url.searchParams.get('minProfit')
   const minTierParam = url.searchParams.get('minTier')
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
 
   const discountPolicy = await getDiscountPolicyFloors()
   const deals = await getDeals(getPool(), discountPolicy, {
+    search: search || undefined,
     categories: categories.length > 0 ? categories : undefined,
     minProfitPesos: minProfitParam ? Number(minProfitParam) : undefined,
     minConfidenceTier,

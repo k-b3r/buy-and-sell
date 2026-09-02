@@ -1213,6 +1213,7 @@ export interface DealsDiscountPolicyFloors {
 }
 
 export interface DealsFilters {
+  search?: string
   categories?: string[]
   minProfitPesos?: number
   minConfidenceTier?: DealsConfidenceTier
@@ -1279,6 +1280,16 @@ export async function getDeals(
   let daysListedClause = ''
   if (filters.maxDaysListed !== undefined) {
     daysListedClause = `AND days_listed IS NOT NULL AND days_listed <= ${push(filters.maxDaysListed)}`
+  }
+  // Against title and base_model - a listing's title is what's actually
+  // shown on the row (and what a search term is most likely echoing back),
+  // base_model as a fallback for titles that don't spell the product name
+  // out plainly (e.g. a title that's just "RUSH SALE!!! 🔥🔥🔥").
+  let searchClause = ''
+  const trimmedSearch = filters.search?.trim()
+  if (trimmedSearch) {
+    const searchPlaceholder = push(`%${trimmedSearch}%`)
+    searchClause = `AND (title ILIKE ${searchPlaceholder} OR base_model ILIKE ${searchPlaceholder})`
   }
 
   const limit = filters.limit ?? DEALS_DEFAULT_LIMIT
@@ -1440,6 +1451,7 @@ export async function getDeals(
        AND (${lowConfidenceOnlyPlaceholder} OR ${TIER_RANK_SQL} >= ${minTierPlaceholder})
        ${categoryClause}
        ${daysListedClause}
+       ${searchClause}
      -- Tier first (sold comps > peer listings > llm estimate - stronger
      -- evidence always outranks placement, per direct instruction
      -- 2026-09-02), profit only breaks ties within the same tier - without

@@ -12,6 +12,7 @@ interface DealsPage {
 }
 
 interface Filters {
+  search: string
   category: string | null
   minProfit: string
   minTier: DealsConfidenceTier | ''
@@ -19,7 +20,7 @@ interface Filters {
   soldOnly: boolean
 }
 
-const EMPTY_FILTERS: Filters = { category: null, minProfit: '', minTier: '', maxDaysListed: '', soldOnly: false }
+const EMPTY_FILTERS: Filters = { search: '', category: null, minProfit: '', minTier: '', maxDaysListed: '', soldOnly: false }
 
 // Plain-language labels for the reference-price fallback chain (highest
 // confidence first) - "sold_comps"/"peer_listings"/"llm_estimate" are the
@@ -47,6 +48,7 @@ const TIER_COLORS: Record<DealsConfidenceTier, string> = {
 
 function buildParams(filters: Filters, offset: number, lowConfidence: boolean): URLSearchParams {
   const params = new URLSearchParams({ offset: String(offset) })
+  if (filters.search) params.set('search', filters.search)
   if (filters.category) params.set('category', filters.category)
   if (filters.minProfit) params.set('minProfit', filters.minProfit)
   if (filters.minTier) params.set('minTier', filters.minTier)
@@ -236,6 +238,14 @@ export default function DealsClient({
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <input
+          type="search"
+          placeholder="Search title or product"
+          value={filters.search}
+          onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+          className="mono"
+          style={{ ...inputStyle, width: 220 }}
+        />
         <select
           value={filters.category ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value || null }))}

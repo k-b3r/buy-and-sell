@@ -5,6 +5,7 @@ export default function Loading() {
     <div>
       <h1>Deals</h1>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="skeleton" style={{ width: 220, height: 34, borderRadius: 4 }} />
         <div className="skeleton" style={{ width: 140, height: 34, borderRadius: 4 }} />
         <div className="skeleton" style={{ width: 170, height: 34, borderRadius: 4 }} />
         <div className="skeleton" style={{ width: 130, height: 34, borderRadius: 4 }} />
