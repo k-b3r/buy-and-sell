@@ -26,6 +26,7 @@ import {
   updateSettings,
   getCollectKeywords,
   replaceCollectKeywords,
+  getSoldComparablePrice,
 } from './queries'
 import type { QueryClient } from './queries'
 
@@ -2215,4 +2216,49 @@ test('replaceCollectKeywords still deletes when the new list is empty, skips the
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('DELETE FROM collect_keywords')
+})
+
+test('getSoldComparablePrice returns the clean median and sample size when at least 3 sold comps exist', async () => {
+  const db: QueryClient = {
+    query: async () => ({ rows: [{ sample_size: '4', clean_median_price: '15000' }] }),
+  }
+
+  const result = await getSoldComparablePrice(db, 42)
+
+  expect(result).toEqual({ medianPrice: 15000, sampleSize: 4 })
+})
+
+test('getSoldComparablePrice returns null when fewer than 3 sold comps exist', async () => {
+  const db: QueryClient = {
+    query: async () => ({ rows: [{ sample_size: '2', clean_median_price: null }] }),
+  }
+
+  expect(await getSoldComparablePrice(db, 42)).toBeNull()
+})
+
+test('getSoldComparablePrice returns null when there are no sold comps at all', async () => {
+  const db: QueryClient = {
+    query: async () => ({ rows: [{ sample_size: '0', clean_median_price: null }] }),
+  }
+
+  expect(await getSoldComparablePrice(db, 42)).toBeNull()
+})
+
+test('getSoldComparablePrice scopes to sold listings only, excludes placeholder prices and price-lookup-excluded products', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [{ sample_size: '0', clean_median_price: null }] }
+    },
+  }
+
+  await getSoldComparablePrice(db, 42)
+
+  expect(capturedSql).toContain('sold_at IS NOT NULL')
+  expect(capturedSql).toContain('NOT p.price_lookup_excluded')
+  expect(capturedSql).toContain("'^(\\d+)\\1+$'")
+  expect(capturedParams).toEqual([42])
 })

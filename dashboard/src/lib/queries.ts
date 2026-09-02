@@ -984,6 +984,60 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   }
 }
 
+export interface SoldComparablePrice {
+  medianPrice: number
+  sampleSize: number
+}
+
+// Three or more independent sales before treating the median as a real
+// signal rather than noise - one lucky/unlucky sold listing shouldn't
+// anchor a reference price. Also the "sold_comps" confidence tier's bar for
+// the deals page (highest tier; falls back to peer active-listing median,
+// then an LLM estimate, when this returns null - see [deals page] once built).
+const SOLD_COMP_MIN_SAMPLE = 3
+
+// Same clean-median approach as SIBLING_MEDIAN_SQL/DISCOUNT_SUMMARY_LATERAL
+// above, but scoped to listings Facebook has actually marked sold
+// (sold_at IS NOT NULL) instead of current asking prices - a real
+// transacted-market signal, not just what someone's currently hoping to get.
+// Facebook doesn't expose the actual agreed sale price logged-out, so this
+// is "what it was asking when it sold," not a true transaction price -
+// still materially better than an active listing's ask, which nobody has
+// paid yet.
+const SOLD_COMP_MEDIAN_SQL = `
+  WITH product_prices AS (
+    SELECT pl.price_amount FROM listings pl
+    JOIN products p ON p.id = pl.product_id
+    WHERE pl.product_id = $1 AND pl.sold_at IS NOT NULL
+      AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+      AND NOT p.price_lookup_excluded
+      AND ${notPlaceholderPriceSql('pl.price_amount')}
+  ),
+  raw AS (
+    SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
+    FROM product_prices
+  )
+  SELECT
+    raw.n AS sample_size,
+    (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
+     FROM product_prices pp, raw
+     WHERE raw.n >= ${SOLD_COMP_MIN_SAMPLE} AND raw.median_price > 0
+       AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
+  FROM raw
+`
+
+export async function getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null> {
+  const result = await db.query(SOLD_COMP_MEDIAN_SQL, [productId])
+  const row = (result.rows as Record<string, unknown>[])[0]
+  if (!row) return null
+
+  const sampleSize = Number(row.sample_size)
+  const medianPrice = toNullableNumber(row.clean_median_price)
+  if (sampleSize < SOLD_COMP_MIN_SAMPLE || medianPrice === null || medianPrice <= 0) return null
+
+  return { medianPrice, sampleSize }
+}
+
 // Dashboard-wide bookmark list (see db/schema.sql's saved_listings) - no
 // per-user scoping, the dashboard has a single shared password.
 export async function saveListing(db: QueryClient, listingId: string): Promise<void> {
