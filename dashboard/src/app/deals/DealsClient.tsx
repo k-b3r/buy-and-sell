@@ -20,10 +20,22 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = { category: null, minProfit: '', minTier: '', maxDaysListed: '', soldOnly: false }
 
+// Plain-language labels for the reference-price fallback chain (highest
+// confidence first) - "sold_comps"/"peer_listings"/"llm_estimate" are the
+// tier names used internally (getDeals, filters) but read as jargon on the
+// page itself.
 const TIER_LABELS: Record<DealsConfidenceTier, string> = {
-  sold_comps: 'Sold comps',
-  peer_listings: 'Peer listings',
-  llm_estimate: 'LLM estimate',
+  sold_comps: 'Based on recent sales',
+  peer_listings: 'Based on similar listings',
+  llm_estimate: 'AI estimate',
+}
+
+// Longer explanation for each tier, shown as a native tooltip on the badge -
+// the short label alone doesn't say *why* one tier beats another.
+const TIER_DESCRIPTIONS: Record<DealsConfidenceTier, string> = {
+  sold_comps: 'Median asking price of this product\'s listings that have actually sold - the strongest signal, though Facebook doesn\'t show the final agreed price.',
+  peer_listings: 'Median asking price of other active listings for this product - nobody has paid this yet.',
+  llm_estimate: 'AI-researched price estimate - used when there aren\'t enough real listings to compare against.',
 }
 
 const TIER_COLORS: Record<DealsConfidenceTier, string> = {
@@ -79,12 +91,14 @@ function DealRow({ deal }: { deal: DealListing }) {
           {deal.reference_price !== null && <span>→ ₱{Math.round(deal.reference_price).toLocaleString()}</span>}
           {deal.tier && (
             <span
+              title={TIER_DESCRIPTIONS[deal.tier]}
               style={{
                 padding: '1px 6px',
                 borderRadius: 8,
                 fontSize: '0.75em',
                 background: TIER_COLORS[deal.tier],
                 color: deal.tier === 'llm_estimate' ? 'var(--color-bg)' : '#000',
+                cursor: 'help',
               }}
             >
               {TIER_LABELS[deal.tier]}
@@ -104,7 +118,9 @@ function DealRow({ deal }: { deal: DealListing }) {
           <div className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>{deal.discount_percent}% off</div>
         )}
         {deal.days_listed !== null && (
-          <div className="mono" style={{ fontSize: '0.8em', color: 'var(--color-text-muted)' }}>{deal.days_listed}d listed</div>
+          <div className="mono" style={{ fontSize: '0.8em', color: 'var(--color-text-muted)' }}>
+            {deal.days_listed === 1 ? '1 day listed' : `${deal.days_listed} days listed`}
+          </div>
         )}
         {/* Est. days-to-sell (median sold_at - listed_at per product) - shipped
             as a placeholder per user decision (2026-09-02): the query doesn't
@@ -224,9 +240,9 @@ export default function DealsClient({
           className="mono"
           style={inputStyle}
         >
-          <option value="">Any confidence</option>
-          <option value="peer_listings">Peer listings+</option>
-          <option value="sold_comps">Sold comps only</option>
+          <option value="">Any reliability</option>
+          <option value="peer_listings">Similar listings or better</option>
+          <option value="sold_comps">Recent sales only</option>
         </select>
         <input
           type="number"
@@ -271,10 +287,10 @@ export default function DealsClient({
 
       {lowConfidenceDeals.length > 0 && (
         <div style={{ marginTop: 40 }}>
-          <h2 style={{ fontSize: '1.1em' }}>Low confidence</h2>
+          <h2 style={{ fontSize: '1.1em' }}>Rougher estimates</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: -8 }}>
-            Singleton products (only one active listing ever seen) or listings with no reference price at all - real
-            opportunities may be buried here, but the estimate is thin. Not ranked by profit.
+            Products we've only ever seen listed once, or with no price estimate at all. There could be real deals
+            in here, but the numbers are shakier - take with a grain of salt. Not sorted by profit.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {lowConfidenceDeals.map((d) => (
