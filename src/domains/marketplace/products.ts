@@ -135,6 +135,19 @@ signals a specific edition/trim that plausibly affects its value (e.g. "Founders
 Edition", "Custom AIB/OC", "Pro", "Max"). Leave variant as an empty string ""
 when no such signal is present - do NOT use storage capacity or color as a variant.
 
+If the base model name itself ends in a known trim/tier word, move that word into
+variant instead of leaving it in base_model - the same product must always produce
+the same base_model regardless of which trim was in the listing title. For example:
+- "iPhone 14 Plus" -> base_model: "iPhone 14", variant: "Plus"
+- "iPad 9th Gen" / "iPad 9th Generation" -> base_model: "iPad", variant: "9th Gen"
+- "MacBook Air M2" -> base_model: "MacBook Air", variant: "M2"
+- "Galaxy S23 Ultra" -> base_model: "Samsung Galaxy S23", variant: "Ultra"
+Never repeat the same trim word in both base_model and variant.
+
+Only record a network band ("5G"/"4G") as variant when the same base model is
+genuinely sold in more than one band - if every listing you've seen for that model
+is 5G, leave variant empty rather than tagging every one of them "5G".
+
 Also assign a "category" for each listing - exactly one of: ${PRODUCT_CATEGORIES.join(', ')}.
 Use "Other" if none genuinely fit rather than forcing a bad match.
 

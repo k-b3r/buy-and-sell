@@ -55,6 +55,32 @@ test('PRODUCT_CATEGORIES includes Other as a catch-all', () => {
   expect(PRODUCT_CATEGORIES).toContain('Other')
 })
 
+// A 2026-09-02 catalog scan found the model's #1 cause of duplicate products
+// was inconsistently leaving a trim/tier suffix in base_model instead of
+// moving it to variant (e.g. "iPhone 14 Plus" [] vs "iPhone 14" [Plus] -
+// same real product, two rows). Worked examples across the families that
+// fragmented most, plus an explicit rule, are the fix - see
+// src/utils/merge-duplicate-products/variant-alias-rules.ts for the cleanup
+// this was already needed for once.
+test('buildExtractionPrompt tells the model to split a known trim/tier suffix out of base_model into variant, with worked examples', () => {
+  const prompt = buildExtractionPrompt([{ id: '1', title: 'iPhone 14 Plus', description: '' }])
+
+  expect(prompt).toContain('base_model: "iPhone 14", variant: "Plus"')
+  expect(prompt).toContain('base_model: "iPad", variant: "9th Gen"')
+  expect(prompt).toContain('base_model: "MacBook Air", variant: "M2"')
+  expect(prompt).toContain('base_model: "Samsung Galaxy S23", variant: "Ultra"')
+})
+
+// Bare "5G"/"4G" as a variant was the #2 cause - noise on models sold in
+// only one radio band (doubles the row for no reason), but load-bearing on
+// models genuinely sold in both. Blanket-stripping it would just move the
+// fragmentation problem, not fix it.
+test('buildExtractionPrompt tells the model to only record a network band as variant when the same model is sold in more than one band', () => {
+  const prompt = buildExtractionPrompt([{ id: '1', title: 'Samsung Galaxy A54 5G', description: '' }])
+
+  expect(prompt).toMatch(/5G.*only.*sold in (more than one|both)|only record.*network band.*variant/is)
+})
+
 test('buildExtractionPrompt lists the fixed categories for the model to choose from', () => {
   const prompt = buildExtractionPrompt([{ id: '1', title: 'RTX 3060 OC Asus', description: '' }])
   for (const category of PRODUCT_CATEGORIES) {
