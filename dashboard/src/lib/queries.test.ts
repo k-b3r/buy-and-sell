@@ -2388,6 +2388,26 @@ test('getDeals switches to sold listings when soldOnly is set', async () => {
   expect(capturedSql).toContain('sold_at IS NOT NULL')
 })
 
+test('getDeals excludes price_lookup_excluded products from the llm_estimate tier too, not just sold/peer comps', async () => {
+  // Regression: confirmed live 2026-09-02 that two unrelated "House & Lot"
+  // listings (price_lookup_excluded=true) shared the same nonsense
+  // trained-price estimate and surfaced as ₱200M+ "deals" - the CTE feeding
+  // llm_estimate wasn't gated on the flag the way sold_comp/peer_median are.
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  const pCteMatch = capturedSql.match(/p AS \(([\s\S]*?)\),\s*llm_estimate AS/)
+  expect(pCteMatch).not.toBeNull()
+  expect(pCteMatch![1]).toContain('NOT prod.price_lookup_excluded')
+})
+
 test('getDeals raises the profit floor when a higher minProfitPesos filter is passed, without lowering the policy floor', async () => {
   let capturedParams: unknown[] = []
   const db: QueryClient = {

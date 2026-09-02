@@ -1246,9 +1246,19 @@ export async function getDeals(
      -- one LATERAL invocation per listing) - same "evaluate once per
      -- product" fix getProductSummaries' comment documents learning the
      -- hard way (2026-08-24 EXPLAIN ANALYZE).
+     --
+     -- price_lookup_excluded gated here too, not just in sold_comp/peer_median
+     -- above - without it, an excluded product's llm_estimate still slipped
+     -- through (product_enrichment/product_price_history aren't gated on the
+     -- flag either). Confirmed live 2026-09-02: two different "House & Lot"
+     -- listings (price_lookup_excluded=true, real estate never got real
+     -- price-lookup treatment) shared the same nonsense trained-price
+     -- estimate and showed as ₱200M+ "deals" in the low-confidence bucket.
      p AS (
        SELECT DISTINCT l.product_id AS id FROM listings l
+       JOIN products prod ON prod.id = l.product_id
        WHERE l.product_id IS NOT NULL AND (${soldClause}) AND l.flagged_removed_at IS NULL
+         AND NOT prod.price_lookup_excluded
      ),
      llm_estimate AS (
        SELECT p.id AS product_id, up.price_low AS used_price_low, up.price_high AS used_price_high,
