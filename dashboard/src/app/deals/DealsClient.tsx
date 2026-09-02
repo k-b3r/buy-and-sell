@@ -1,0 +1,299 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { PRODUCT_CATEGORIES, type DealListing, type DealsConfidenceTier } from '@/lib/queries'
+import SaveButton from '../SaveButton'
+import { Spinner } from '../Skeleton'
+
+interface DealsPage {
+  deals: DealListing[]
+  nextOffset: number | null
+}
+
+interface Filters {
+  category: string | null
+  minProfit: string
+  minTier: DealsConfidenceTier | ''
+  maxDaysListed: string
+  soldOnly: boolean
+}
+
+const EMPTY_FILTERS: Filters = { category: null, minProfit: '', minTier: '', maxDaysListed: '', soldOnly: false }
+
+const TIER_LABELS: Record<DealsConfidenceTier, string> = {
+  sold_comps: 'Sold comps',
+  peer_listings: 'Peer listings',
+  llm_estimate: 'LLM estimate',
+}
+
+const TIER_COLORS: Record<DealsConfidenceTier, string> = {
+  sold_comps: 'var(--color-signal)',
+  peer_listings: '#60a5fa',
+  llm_estimate: 'var(--color-text-muted)',
+}
+
+function buildParams(filters: Filters, offset: number, lowConfidence: boolean): URLSearchParams {
+  const params = new URLSearchParams({ offset: String(offset) })
+  if (filters.category) params.set('category', filters.category)
+  if (filters.minProfit) params.set('minProfit', filters.minProfit)
+  if (filters.minTier) params.set('minTier', filters.minTier)
+  if (filters.maxDaysListed) params.set('maxDaysListed', filters.maxDaysListed)
+  if (filters.soldOnly) params.set('soldOnly', 'true')
+  if (lowConfidence) params.set('lowConfidence', 'true')
+  return params
+}
+
+function DealRow({ deal }: { deal: DealListing }) {
+  const fbUrl = `https://www.facebook.com/marketplace/item/${deal.listing_id}/`
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 12,
+        alignItems: 'center',
+        padding: 12,
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 8,
+      }}
+    >
+      <a href={fbUrl} target="_blank" rel="noreferrer" style={{ flexShrink: 0 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', background: 'var(--color-bg)' }}>
+          {deal.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={deal.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          ) : null}
+        </div>
+      </a>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <a href={fbUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+          <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deal.title}</div>
+        </a>
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>
+          {deal.base_model}
+          {deal.variant_tier ? ` — ${deal.variant_tier}` : ''}
+          {deal.category ? ` · ${deal.category}` : ''}
+        </div>
+        <div className="mono" style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>Ask ₱{deal.ask_price.toLocaleString()}</span>
+          {deal.reference_price !== null && <span>→ ₱{Math.round(deal.reference_price).toLocaleString()}</span>}
+          {deal.tier && (
+            <span
+              style={{
+                padding: '1px 6px',
+                borderRadius: 8,
+                fontSize: '0.75em',
+                background: TIER_COLORS[deal.tier],
+                color: deal.tier === 'llm_estimate' ? 'var(--color-bg)' : '#000',
+              }}
+            >
+              {TIER_LABELS[deal.tier]}
+            </span>
+          )}
+        </div>
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        {deal.profit_pesos !== null ? (
+          <div className="mono" style={{ fontWeight: 'bold', fontSize: '1.1em', color: 'var(--color-signal)' }}>
+            +₱{Math.round(deal.profit_pesos).toLocaleString()}
+          </div>
+        ) : (
+          <div className="mono" style={{ color: 'var(--color-text-muted)' }}>No estimate</div>
+        )}
+        {deal.discount_percent !== null && (
+          <div className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>{deal.discount_percent}% off</div>
+        )}
+        {deal.days_listed !== null && (
+          <div className="mono" style={{ fontSize: '0.8em', color: 'var(--color-text-muted)' }}>{deal.days_listed}d listed</div>
+        )}
+        {/* Est. days-to-sell (median sold_at - listed_at per product) - shipped
+            as a placeholder per user decision (2026-09-02): the query doesn't
+            exist yet, and blocking the whole page on it wasn't worth it. */}
+        <div className="mono" style={{ fontSize: '0.75em', color: 'var(--color-text-muted)', opacity: 0.6 }}>
+          Days-to-sell: coming soon
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <SaveButton listingId={deal.listing_id} productId={deal.product_id} initialSaved={deal.is_saved} variant="icon" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function DealsClient({
+  initialDeals,
+  initialNextOffset,
+  initialLowConfidenceDeals,
+  initialLowConfidenceNextOffset,
+}: {
+  initialDeals: DealListing[]
+  initialNextOffset: number | null
+  initialLowConfidenceDeals: DealListing[]
+  initialLowConfidenceNextOffset: number | null
+}) {
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [deals, setDeals] = useState(initialDeals)
+  const [nextOffset, setNextOffset] = useState(initialNextOffset)
+  const [loading, setLoading] = useState(false)
+  const [lowConfidenceDeals, setLowConfidenceDeals] = useState(initialLowConfidenceDeals)
+  const [lowConfidenceNextOffset, setLowConfidenceNextOffset] = useState(initialLowConfidenceNextOffset)
+  const [lowConfidenceLoading, setLowConfidenceLoading] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const appliedFiltersRef = useRef(EMPTY_FILTERS)
+
+  const fetchPage = useCallback(async (f: Filters, offset: number, replace: boolean) => {
+    setLoading(true)
+    const res = await fetch(`/api/deals?${buildParams(f, offset, false)}`)
+    const data: DealsPage = await res.json()
+    setDeals((prev) => {
+      if (replace) return data.deals
+      const seen = new Set(prev.map((d) => d.listing_id))
+      return [...prev, ...data.deals.filter((d) => !seen.has(d.listing_id))]
+    })
+    setNextOffset(data.nextOffset)
+    setLoading(false)
+  }, [])
+
+  const fetchLowConfidencePage = useCallback(async (f: Filters, offset: number) => {
+    setLowConfidenceLoading(true)
+    const res = await fetch(`/api/deals?${buildParams(f, offset, true)}`)
+    const data: DealsPage = await res.json()
+    setLowConfidenceDeals((prev) => [...prev, ...data.deals])
+    setLowConfidenceNextOffset(data.nextOffset)
+    setLowConfidenceLoading(false)
+  }, [])
+
+  // Filter edits debounce into a refetch of both buckets - same shape as
+  // ProductListClient's search debounce, minus the URL/sessionStorage sync
+  // (skipped for v1: a shared-link/persisted-filter deals view is less
+  // valuable than for the product catalog, since "what's a good deal right
+  // now" is inherently a moment-in-time view, not something worth bookmarking).
+  useEffect(() => {
+    const applied = appliedFiltersRef.current
+    if (JSON.stringify(filters) === JSON.stringify(applied)) return
+    const timeout = setTimeout(() => {
+      appliedFiltersRef.current = filters
+      fetchPage(filters, 0, true)
+      setLowConfidenceDeals([])
+      fetchLowConfidencePage(filters, 0)
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [filters, fetchPage, fetchLowConfidencePage])
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || nextOffset === null) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading) fetchPage(filters, nextOffset, false)
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [nextOffset, loading, filters, fetchPage])
+
+  const inputStyle = {
+    padding: 8,
+    borderRadius: 4,
+    fontSize: '0.85em',
+    border: '1px solid var(--color-border)',
+    background: 'var(--color-surface)',
+    color: 'var(--color-text)',
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <select
+          value={filters.category ?? ''}
+          onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value || null }))}
+          className="mono"
+          style={inputStyle}
+        >
+          <option value="">All categories</option>
+          {PRODUCT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filters.minTier}
+          onChange={(e) => setFilters((f) => ({ ...f, minTier: e.target.value as DealsConfidenceTier | '' }))}
+          className="mono"
+          style={inputStyle}
+        >
+          <option value="">Any confidence</option>
+          <option value="peer_listings">Peer listings+</option>
+          <option value="sold_comps">Sold comps only</option>
+        </select>
+        <input
+          type="number"
+          placeholder="Min profit ₱"
+          value={filters.minProfit}
+          onChange={(e) => setFilters((f) => ({ ...f, minProfit: e.target.value }))}
+          className="mono"
+          style={{ ...inputStyle, width: 130 }}
+        />
+        <input
+          type="number"
+          placeholder="Max days listed"
+          value={filters.maxDaysListed}
+          onChange={(e) => setFilters((f) => ({ ...f, maxDaysListed: e.target.value }))}
+          className="mono"
+          style={{ ...inputStyle, width: 140 }}
+        />
+        <button
+          type="button"
+          onClick={() => setFilters((f) => ({ ...f, soldOnly: !f.soldOnly }))}
+          className="mono"
+          style={{
+            ...inputStyle,
+            cursor: 'pointer',
+            background: filters.soldOnly ? 'var(--color-signal)' : 'var(--color-surface)',
+            color: filters.soldOnly ? 'var(--color-bg)' : 'var(--color-text)',
+          }}
+        >
+          {filters.soldOnly ? 'Sold' : 'Active'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {deals.map((d) => (
+          <DealRow key={d.listing_id} deal={d} />
+        ))}
+      </div>
+      <div ref={sentinelRef} style={{ height: 1 }} />
+      {loading && <Spinner label="Loading more deals" />}
+      {!loading && nextOffset === null && deals.length > 0 && <p style={{ color: 'var(--color-text-muted)' }}>End of list.</p>}
+      {!loading && deals.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>No deals match these filters.</p>}
+
+      {lowConfidenceDeals.length > 0 && (
+        <div style={{ marginTop: 40 }}>
+          <h2 style={{ fontSize: '1.1em' }}>Low confidence</h2>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: -8 }}>
+            Singleton products (only one active listing ever seen) or listings with no reference price at all - real
+            opportunities may be buried here, but the estimate is thin. Not ranked by profit.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+            {lowConfidenceDeals.map((d) => (
+              <DealRow key={d.listing_id} deal={d} />
+            ))}
+          </div>
+          {lowConfidenceNextOffset !== null && (
+            <button
+              type="button"
+              onClick={() => fetchLowConfidencePage(filters, lowConfidenceNextOffset)}
+              disabled={lowConfidenceLoading}
+              className="mono"
+              style={{ ...inputStyle, marginTop: 12, cursor: 'pointer' }}
+            >
+              {lowConfidenceLoading ? 'Loading…' : 'Load more'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

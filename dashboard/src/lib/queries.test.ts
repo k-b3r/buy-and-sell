@@ -27,6 +27,8 @@ import {
   getCollectKeywords,
   replaceCollectKeywords,
   getSoldComparablePrice,
+  getPeerMedianPrice,
+  getDeals,
 } from './queries'
 import type { QueryClient } from './queries'
 
@@ -2261,4 +2263,211 @@ test('getSoldComparablePrice scopes to sold listings only, excludes placeholder 
   expect(capturedSql).toContain('NOT p.price_lookup_excluded')
   expect(capturedSql).toContain("'^(\\d+)\\1+$'")
   expect(capturedParams).toEqual([42])
+})
+
+test('getPeerMedianPrice returns the clean median and sample size when at least 2 active peer listings exist', async () => {
+  const db: QueryClient = {
+    query: async () => ({ rows: [{ sample_size: '3', clean_median_price: '12000' }] }),
+  }
+
+  const result = await getPeerMedianPrice(db, 42)
+
+  expect(result).toEqual({ medianPrice: 12000, sampleSize: 3 })
+})
+
+test('getPeerMedianPrice returns null when fewer than 2 active peer listings exist', async () => {
+  const db: QueryClient = {
+    query: async () => ({ rows: [{ sample_size: '1', clean_median_price: null }] }),
+  }
+
+  expect(await getPeerMedianPrice(db, 42)).toBeNull()
+})
+
+test('getPeerMedianPrice scopes to active (unsold) listings only, excludes placeholder prices and price-lookup-excluded products', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [{ sample_size: '0', clean_median_price: null }] }
+    },
+  }
+
+  await getPeerMedianPrice(db, 42)
+
+  expect(capturedSql).toContain('sold_at IS NULL')
+  expect(capturedSql).toContain('NOT p.price_lookup_excluded')
+  expect(capturedSql).toContain("'^(\\d+)\\1+$'")
+  expect(capturedParams).toEqual([42])
+})
+
+const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
+
+test('getDeals maps a raw row into a DealListing, resolving photo urls and casting numeric columns', async () => {
+  const db: QueryClient = {
+    query: async () => ({
+      rows: [
+        {
+          listing_id: 'l1',
+          title: 'iPhone 12',
+          ask_price: '10000',
+          listed_at: new Date('2026-08-01T00:00:00Z'),
+          primary_photo_url: 'https://example.com/p.jpg',
+          stored_photo_urls: null,
+          product_id: 42,
+          base_model: 'iPhone 12',
+          variant_tier: '128GB',
+          category: 'Mobile Phones',
+          sub_category: 'Smartphones',
+          is_saved: true,
+          tier: 'sold_comps',
+          reference_price: '15000',
+          profit_pesos: '5000',
+          discount_percent: '33',
+          days_listed: '5.4',
+          is_low_confidence: false,
+        },
+      ],
+    }),
+  }
+
+  const [deal] = await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(deal).toEqual({
+    listing_id: 'l1',
+    title: 'iPhone 12',
+    ask_price: 10000,
+    photo_url: 'https://example.com/p.jpg',
+    product_id: 42,
+    base_model: 'iPhone 12',
+    variant_tier: '128GB',
+    category: 'Mobile Phones',
+    sub_category: 'Smartphones',
+    reference_price: 15000,
+    tier: 'sold_comps',
+    profit_pesos: 5000,
+    discount_percent: 33,
+    days_listed: 5,
+    is_saved: true,
+    is_low_confidence: false,
+  })
+})
+
+test('getDeals excludes sold/removed listings by default, applies the discount-policy price floor, and orders by profit descending', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain('sold_at IS NULL')
+  expect(capturedSql).toContain('flagged_removed_at IS NULL')
+  expect(capturedSql).toContain('ORDER BY profit_pesos DESC NULLS LAST')
+  expect(capturedParams).toContain(1000) // minProfitPesos floor
+  expect(capturedParams).toContain(500) // minPricePesos floor
+})
+
+test('getDeals switches to sold listings when soldOnly is set', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { soldOnly: true })
+
+  expect(capturedSql).toContain('sold_at IS NOT NULL')
+})
+
+test('getDeals raises the profit floor when a higher minProfitPesos filter is passed, without lowering the policy floor', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { minProfitPesos: 2000 })
+  expect(capturedParams).toContain(2000)
+  expect(capturedParams).not.toContain(1000)
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { minProfitPesos: 500 })
+  expect(capturedParams).toContain(1000) // policy floor wins - filter can't go below it
+})
+
+test('getDeals filters by category and max days listed when provided', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { categories: ['Mobile Phones'], maxDaysListed: 14 })
+
+  expect(capturedSql).toContain('category = ANY(')
+  expect(capturedSql).toContain('days_listed <=')
+  expect(capturedParams).toContain(14)
+  expect(capturedParams.some((p) => Array.isArray(p) && p.includes('Mobile Phones'))).toBe(true)
+})
+
+test('getDeals filters by minimum confidence tier rank', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { minConfidenceTier: 'peer_listings' })
+
+  expect(capturedSql).toContain("CASE tier WHEN 'sold_comps' THEN 3 WHEN 'peer_listings' THEN 2 WHEN 'llm_estimate' THEN 1 ELSE 0 END >=")
+  expect(capturedParams).toContain(2)
+})
+
+test('getDeals guards against a decoy ask price magnitudes below its own reference price', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain('ask_price BETWEEN reference_price / 10 AND reference_price * 10')
+})
+
+test('getDeals returns the low-confidence bucket instead of the main list when lowConfidenceOnly is set', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { lowConfidenceOnly: true })
+
+  expect(capturedSql).toContain("(tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) =")
+  expect(capturedParams).toContain(true)
 })

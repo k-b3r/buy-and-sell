@@ -71,6 +71,9 @@ export default function RootLayout({
               }}
             >
               <nav style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+                <Link href="/deals" className="nav-pill">
+                  Deals
+                </Link>
                 <Link href="/admin/logs" className="nav-pill">
                   Workers
                 </Link>
