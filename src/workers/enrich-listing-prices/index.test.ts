@@ -56,6 +56,7 @@ test('upserts price review data for each listing in the batch response', async (
     9000,
     'Swap-only listing with a placeholder price; real range inferred from similar listings.',
     'openai/gpt-oss-120b',
+    'swap only',
   ])
 })
 
@@ -69,7 +70,7 @@ test('no real price determinable: stores null price range', async () => {
 
   await runPriceReview(groq, db, logger, candidates)
 
-  expect(upserts[0]).toEqual(['1', false, null, null, 'No price in the text.', 'openai/gpt-oss-120b'])
+  expect(upserts[0]).toEqual(['1', false, null, null, 'No price in the text.', 'openai/gpt-oss-120b', null])
 })
 
 test('batches candidates at 35 per Groq call', async () => {

@@ -176,6 +176,27 @@ CREATE TABLE IF NOT EXISTS listing_price_review (
   checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- The description text a review was based on. getPriceReviewCandidates
+-- re-flags a listing once its current description differs from this (a
+-- seller editing in a price clarification is the case worth re-spending an
+-- LLM call on) - listings.updated_at can't be used for this, refreshListingFields
+-- bumps it on every confirmed-live re-scrape whether the text changed or not.
+-- NULL on rows written by the keyword-scan path (upsertKeywordNegotiable),
+-- which never looked at the description for pricing - so those stay eligible
+-- for a real price review.
+ALTER TABLE listing_price_review ADD COLUMN IF NOT EXISTS reviewed_description TEXT;
+
+-- One-time backfill (idempotent via the IS NULL guard): seed the snapshot for
+-- rows that already had a real LLM review, so the column's arrival doesn't
+-- re-open the entire reviewed backlog at once. keyword-scan rows are left
+-- NULL on purpose - they were never a real price review.
+UPDATE listing_price_review r
+SET reviewed_description = l.description
+FROM listings l
+WHERE l.id = r.listing_id
+  AND r.model <> 'keyword-scan'
+  AND r.reviewed_description IS NULL;
+
 -- Normalizes the fixed 14-value category list (src/products.ts's
 -- PRODUCT_CATEGORIES) out of products.category (plain TEXT, no referential
 -- integrity - a typo or drift from the enum would silently sit in the

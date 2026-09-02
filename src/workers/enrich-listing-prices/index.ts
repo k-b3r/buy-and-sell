@@ -69,6 +69,7 @@ export async function runPriceReview(
         candidate.id,
         { isNegotiable: item.is_negotiable, priceLow, priceHigh, reasoning: item.reasoning },
         MODEL,
+        candidate.description,
       )
       logger.info(`listing ${candidate.id} price-reviewed (negotiable: ${item.is_negotiable})`)
     }
