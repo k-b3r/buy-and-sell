@@ -246,6 +246,10 @@ a {
   border-color: var(--color-accent);
 }
 
+.nav-pill-active {
+  border-color: var(--color-accent);
+}
+
 input,
 button {
   font-family: inherit;

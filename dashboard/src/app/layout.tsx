@@ -1,5 +1,6 @@
 import { Space_Grotesk, Inter, JetBrains_Mono } from 'next/font/google'
 import Link from 'next/link'
+import NavLinks from './NavLinks'
 import ThemeToggle from './ThemeToggle'
 import NotificationBell from './NotificationBell'
 import NotificationToasts from './NotificationToasts'
@@ -70,23 +71,7 @@ export default function RootLayout({
                 pointerEvents: 'none',
               }}
             >
-              <nav style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
-                <Link href="/deals" className="nav-pill">
-                  Deals
-                </Link>
-                <Link href="/admin/logs" className="nav-pill">
-                  Workers
-                </Link>
-                <Link href="/analytics" className="nav-pill">
-                  Analytics
-                </Link>
-                <Link href="/needs-review" className="nav-pill">
-                  Needs Review
-                </Link>
-                <Link href="/admin/settings" className="nav-pill">
-                  Settings
-                </Link>
-              </nav>
+              <NavLinks />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <Link href="/saved" style={{ textDecoration: 'none', fontWeight: 500, color: 'var(--color-text)' }}>
