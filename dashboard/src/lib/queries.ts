@@ -76,19 +76,21 @@ export const PRODUCT_CATEGORIES = [
   'Other',
 ] as const
 
-// exa_new_retail is price-lookup.ts's current brand-new retail source (Exa,
-// structured, cites sources), tavily_new_retail its fallback when Exa fails
-// or comes up empty (see src/domains/marketplace/price-lookup.ts) - Exa-
-// first per a live head-to-head comparison against Tavily (2026-08-31, 15
-// real candidates: Exa cited sources and abstained honestly on missing data,
-// Tavily confidently fabricated numbers with none). claude_code_new_retail
-// is retired (kept so historical rows still resolve). gemini_grounding and
-// web_search both explicitly ask for secondhand/used pricing instead (see
-// price-lookup.ts's prompts). Blending new/secondhand into one "market
-// price" number was a real bug: a product's new-retail price would silently
-// make every real secondhand listing look like a huge deal against full
-// retail. Kept as two separate laterals so the two concepts can never
-// collapse into one column again.
+// price-lookup.ts's retail chain, in preference order: gemini_new_retail
+// (primary, free - promoted 2026-09-02 since a free Gemini attempt can only
+// ever save a paid Exa/Tavily call, never add cost) -> exa_new_retail
+// (fallback 1, structured, cites sources) -> tavily_new_retail (fallback 2,
+// free, regex-parsed) - see src/domains/marketplace/price-lookup.ts. Only
+// one of these is ever written per product per lookup (whichever
+// succeeded), so in practice they don't compete against each other here,
+// but the ordering still reflects real trust tier if historical data ever
+// overlaps. claude_code_new_retail is retired (kept so historical rows
+// still resolve). gemini_grounding and web_search both explicitly ask for
+// secondhand/used pricing instead (see price-lookup.ts's prompts). Blending
+// new/secondhand into one "market price" number was a real bug: a
+// product's new-retail price would silently make every real secondhand
+// listing look like a huge deal against full retail. Kept as two separate
+// laterals so the two concepts can never collapse into one column again.
 // manual_new_retail: a human directly typed this in on the needs-review page
 // (setManualPrice) - ranked above every automated source since a human
 // already looked at the specific product, not a generic search result.
@@ -98,7 +100,7 @@ const NEW_PRICE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT price_low, price_high, source
     FROM product_price_history h
-    WHERE h.product_id = p.id AND h.source IN ('manual_new_retail', 'tavily_new_retail', 'exa_new_retail', 'claude_code_new_retail')
+    WHERE h.product_id = p.id AND h.source IN ('manual_new_retail', 'gemini_new_retail', 'tavily_new_retail', 'exa_new_retail', 'claude_code_new_retail')
     ORDER BY (h.source = 'manual_new_retail') DESC, (h.source = 'claude_code_new_retail') ASC, h.checked_at DESC
     LIMIT 1
   ) np ON true
@@ -566,7 +568,7 @@ export async function getProductsNeedingReview(db: QueryClient): Promise<Product
             up.price_low AS secondhand_price_low, up.price_high AS secondhand_price_high,
             (SELECT jsonb_agg(jsonb_build_object(
                 'id', h.id,
-                'kind', CASE WHEN h.source IN ('manual_new_retail', 'tavily_new_retail', 'exa_new_retail', 'claude_code_new_retail') THEN 'new' ELSE 'secondhand' END,
+                'kind', CASE WHEN h.source IN ('manual_new_retail', 'gemini_new_retail', 'tavily_new_retail', 'exa_new_retail', 'claude_code_new_retail') THEN 'new' ELSE 'secondhand' END,
                 'price_low', h.price_low,
                 'price_high', h.price_high,
                 'price_currency', h.price_currency,
