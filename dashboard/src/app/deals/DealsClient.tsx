@@ -95,8 +95,10 @@ function DealRow({ deal }: { deal: DealListing }) {
           {deal.category ? ` · ${deal.category}` : ''}
         </div>
         <div className="mono" style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span>Ask ₱{deal.ask_price.toLocaleString()}</span>
-          {deal.reference_price !== null && <span>→ ₱{Math.round(deal.reference_price).toLocaleString()}</span>}
+          <span>₱{deal.ask_price.toLocaleString()}</span>
+          {deal.reference_price !== null && (
+            <span style={{ color: 'var(--color-text-muted)' }}>vs ₱{Math.round(deal.reference_price).toLocaleString()}</span>
+          )}
           {deal.tier && (
             <span
               title={TIER_DESCRIPTIONS[deal.tier]}
