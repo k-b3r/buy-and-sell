@@ -61,7 +61,19 @@ function EvidenceSection({ title, listings, dateLabel }: { title: string; listin
 // same distinction /deals' sold_comps/peer_listings tiers make. Both
 // sections are independent (a listing can have real sold comps AND active
 // peers) rather than only showing whichever tier "won" the reference price.
-export default function PriceEvidence({ recentSales, similarListings }: { recentSales: ComparableListing[]; similarListings: ComparableListing[] }) {
+//
+// Defaults guard against a real prod crash (confirmed live 2026-09-02):
+// getListingDetail is wrapped in unstable_cache, which persists across
+// deploys - a listing cached before this field existed comes back with
+// recentSales/similarListings undefined until its 5min TTL expires, not
+// just in some hypothetical caller.
+export default function PriceEvidence({
+  recentSales = [],
+  similarListings = [],
+}: {
+  recentSales?: ComparableListing[]
+  similarListings?: ComparableListing[]
+}) {
   if (recentSales.length === 0 && similarListings.length === 0) return null
 
   return (
