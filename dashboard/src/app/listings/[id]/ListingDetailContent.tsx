@@ -131,8 +131,6 @@ export default function ListingDetailContent({
             </p>
           )}
 
-          <PriceEvidence recentSales={listing.recent_sales} similarListings={listing.similar_listings} />
-
           <p style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <RefreshButton listingId={listing.id} productId={listing.product_id} />
             <SaveButton listingId={listing.id} productId={listing.product_id} initialSaved={listing.is_saved} />
@@ -185,6 +183,8 @@ export default function ListingDetailContent({
               <p style={{ whiteSpace: 'pre-wrap' }}>{listing.description}</p>
             </div>
           )}
+
+          <PriceEvidence recentSales={listing.recent_sales} similarListings={listing.similar_listings} />
 
           {showBackLink && (
             // Fixed to the viewport, not the modal box - Modal.tsx renders
