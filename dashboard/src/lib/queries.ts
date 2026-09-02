@@ -1380,13 +1380,26 @@ export async function getDeals(
        WHERE ${soldClause} AND l.flagged_removed_at IS NULL
          AND l.price_amount IS NOT NULL AND l.price_amount > 0
          AND ${notPlaceholderPriceSql('l.price_amount')}
+     ),
+     -- Collapses same-seller reposts (identical title, same product,
+     -- different listing ids - confirmed live 2026-09-02: two "IPHONE 14"
+     -- listings posted 64s apart, same price) down to one row, same
+     -- byte-identical-title heuristic computeRepostIds already uses on the
+     -- product page (repostDetection.ts) - without this, /deals ranked the
+     -- same real-world item twice. Keeps the earliest listing (accurate
+     -- days_listed); COALESCE fallback keeps untitled listings (rare) from
+     -- over-merging into one.
+     deal_deduped AS (
+       SELECT DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id)) *
+       FROM deal
+       ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id
      )
      SELECT
-       deal.*,
+       deal_deduped.*,
        (reference_price - ask_price) AS profit_pesos,
        CASE WHEN reference_price > 0 THEN round(((reference_price - ask_price) / reference_price) * 100) ELSE NULL END AS discount_percent,
        (tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) AS is_low_confidence
-     FROM deal
+     FROM deal_deduped
      WHERE ask_price >= ${minPricePlaceholder}
        -- Same magnitude-outlier guard detectAndRecordDiscountNotifications
        -- applies before ever recording a discount (src/domains/marketplace/

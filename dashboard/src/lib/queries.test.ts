@@ -2502,6 +2502,21 @@ test('getDeals excludes sold/removed listings by default, applies the discount-p
   expect(capturedParams).toContain(500) // minPricePesos floor
 })
 
+test('getDeals dedupes same-product listings sharing an identical title (repost heuristic), keeping the earliest', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain('DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id))')
+  expect(capturedSql).toContain('ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id')
+})
+
 test('getDeals switches to sold listings when soldOnly is set', async () => {
   let capturedSql = ''
   const db: QueryClient = {

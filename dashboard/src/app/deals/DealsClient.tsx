@@ -65,7 +65,8 @@ function DealRow({ deal }: { deal: DealListing }) {
   // losing the deals list underneath.
   const listingHref = `/listings/${deal.listing_id}`
   return (
-    <div
+    <Link
+      href={listingHref}
       style={{
         display: 'flex',
         gap: 12,
@@ -74,20 +75,20 @@ function DealRow({ deal }: { deal: DealListing }) {
         background: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
         borderRadius: 8,
+        color: 'inherit',
+        textDecoration: 'none',
       }}
     >
-      <Link href={listingHref} style={{ flexShrink: 0 }}>
+      <div style={{ flexShrink: 0 }}>
         <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', background: 'var(--color-bg)' }}>
           {deal.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={deal.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           ) : null}
         </div>
-      </Link>
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <Link href={listingHref} style={{ color: 'inherit', textDecoration: 'none' }}>
-          <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deal.title}</div>
-        </Link>
+        <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deal.title}</div>
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>
           {deal.base_model}
           {deal.variant_tier ? ` — ${deal.variant_tier}` : ''}
@@ -139,7 +140,7 @@ function DealRow({ deal }: { deal: DealListing }) {
           <SaveButton listingId={deal.listing_id} productId={deal.product_id} initialSaved={deal.is_saved} variant="icon" />
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
