@@ -7,6 +7,7 @@ import InfoTooltip from '../../InfoTooltip'
 import { marketplaceButtonStyle } from '../../marketplaceButtonStyle'
 import FacebookIcon from '../../FacebookIcon'
 import SaveButton from '../../SaveButton'
+import PriceEvidence from './PriceEvidence'
 
 // price_review's range replaces the recorded price when it has a real read on
 // it; a review row with no determinable price (both null) falls back to the
@@ -129,6 +130,8 @@ export default function ListingDetailContent({
               vs typical ₱{listing.reference_price.toLocaleString()} for this product (outliers/placeholders excluded)
             </p>
           )}
+
+          <PriceEvidence recentSales={listing.recent_sales} similarListings={listing.similar_listings} />
 
           <p style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <RefreshButton listingId={listing.id} productId={listing.product_id} />

@@ -891,6 +891,8 @@ export interface ListingDetail {
   reference_price: number | null
   is_saved: boolean
   verification_reasoning: string | null
+  recent_sales: ComparableListing[]
+  similar_listings: ComparableListing[]
 }
 
 function toIsoOrNull(value: unknown): string | null {
@@ -961,6 +963,24 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
 
   const priceAmount = toNullableNumber(row.price_amount)
 
+  // Evidence panel: only populated when the tier's own min-sample threshold
+  // (getSoldComparablePrice's n>=3, getPeerMedianPrice's n>=2) is met - same
+  // bar /deals uses to call something a real tier, so this page never shows
+  // weaker evidence than what would've qualified the listing there.
+  const productId = toNullableNumber(row.product_id)
+  let recentSales: ComparableListing[] = []
+  let similarListings: ComparableListing[] = []
+  if (productId !== null) {
+    const [soldComp, peerMedian, salesRows, similarRows] = await Promise.all([
+      getSoldComparablePrice(db, productId),
+      getPeerMedianPrice(db, productId),
+      getComparableListings(db, productId, listingId, true),
+      getComparableListings(db, productId, listingId, false),
+    ])
+    if (soldComp) recentSales = salesRows
+    if (peerMedian) similarListings = similarRows
+  }
+
   return {
     id: row.id as string,
     title: row.title as string,
@@ -981,6 +1001,8 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     reference_price: discount.referencePrice,
     is_saved: row.is_saved as boolean,
     verification_reasoning: row.verification_reasoning as string | null,
+    recent_sales: recentSales,
+    similar_listings: similarListings,
   }
 }
 
@@ -1089,6 +1111,63 @@ export async function getPeerMedianPrice(db: QueryClient, productId: number): Pr
   if (sampleSize < PEER_MEDIAN_MIN_SAMPLE || medianPrice === null || medianPrice <= 0) return null
 
   return { medianPrice, sampleSize }
+}
+
+export interface ComparableListing {
+  listing_id: string
+  title: string
+  price_amount: number
+  photo_url: string | null
+  date: string | null
+}
+
+const COMPARABLE_LISTINGS_DEFAULT_LIMIT = 6
+
+// Backs the listing-detail page's "recent sales" / "similar listings"
+// evidence panel - the actual rows behind getSoldComparablePrice/
+// getPeerMedianPrice's clean median, not just the aggregate number. Callers
+// gate on those two functions' own min-sample thresholds first (this
+// function doesn't re-check n>=3/n>=2 itself) so a listing never claims
+// evidence weaker than what actually qualified it for a /deals tier.
+export async function getComparableListings(
+  db: QueryClient,
+  productId: number,
+  excludeListingId: string,
+  sold: boolean,
+  limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT,
+): Promise<ComparableListing[]> {
+  const soldClause = sold ? 'pl.sold_at IS NOT NULL' : 'pl.sold_at IS NULL'
+  const dateColumn = sold ? 'pl.sold_at' : 'pl.listed_at'
+
+  const result = await db.query(
+    `WITH product_prices AS (
+       SELECT pl.id, pl.title, pl.price_amount, pl.primary_photo_url, pl.stored_photo_urls, ${dateColumn} AS date
+       FROM listings pl
+       JOIN products p ON p.id = pl.product_id
+       WHERE pl.product_id = $1 AND pl.id != $2 AND ${soldClause}
+         AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
+         AND NOT p.price_lookup_excluded
+         AND ${notPlaceholderPriceSql('pl.price_amount')}
+     ),
+     raw AS (
+       SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price
+       FROM product_prices
+     )
+     SELECT pp.id AS listing_id, pp.title, pp.price_amount, pp.primary_photo_url, pp.stored_photo_urls, pp.date
+     FROM product_prices pp, raw
+     WHERE raw.median_price > 0 AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+     ORDER BY pp.date DESC NULLS LAST
+     LIMIT $3`,
+    [productId, excludeListingId, limit],
+  )
+
+  return (result.rows as Record<string, unknown>[]).map((r) => ({
+    listing_id: r.listing_id as string,
+    title: r.title as string,
+    price_amount: Number(r.price_amount),
+    photo_url: resolvePhotoUrls(r.stored_photo_urls, r.primary_photo_url)[0] ?? null,
+    date: toIsoOrNull(r.date),
+  }))
 }
 
 export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'

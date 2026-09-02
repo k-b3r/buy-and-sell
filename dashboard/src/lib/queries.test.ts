@@ -28,6 +28,7 @@ import {
   replaceCollectKeywords,
   getSoldComparablePrice,
   getPeerMedianPrice,
+  getComparableListings,
   getDeals,
 } from './queries'
 import type { QueryClient } from './queries'
@@ -1369,6 +1370,8 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
     discount_percent: null,
     reference_price: null,
     price_review: null,
+    recent_sales: [],
+    similar_listings: [],
   })
 })
 
@@ -1450,6 +1453,68 @@ test('getListingDetail still runs the sibling-median query (in parallel, keyed o
 
   expect(queryCount).toBe(2)
   expect(result?.discount_percent).toBeNull()
+  expect(result?.recent_sales).toEqual([])
+  expect(result?.similar_listings).toEqual([])
+})
+
+test('getListingDetail populates recent_sales/similar_listings only for tiers that clear their own sample threshold', async () => {
+  let call = 0
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) {
+        return {
+          rows: [
+            {
+              id: '123',
+              title: 'iPhone 13',
+              price_amount: '10000',
+              price_currency: 'PHP',
+              description: null,
+              condition: null,
+              location_city: null,
+              listed_at: null,
+              last_seen_at: null,
+              primary_photo_url: null,
+              stored_photo_urls: null,
+              product_id: 1,
+              base_model: 'iPhone 13',
+              variant_tier: null,
+              sold_at: null,
+              price_review_is_negotiable: null,
+              price_review_low: null,
+              price_review_high: null,
+            },
+          ],
+        }
+      }
+      if (call === 2) return { rows: [{ raw_median_price: '12000', sample_size: '5', clean_median_price: '12000' }] } // sibling median
+      if (call === 3) return { rows: [{ sample_size: '4', clean_median_price: '11000' }] } // getSoldComparablePrice: clears n>=3
+      if (call === 4) return { rows: [{ sample_size: '1', clean_median_price: null }] } // getPeerMedianPrice: fails n>=2
+      if (call === 5) {
+        return {
+          rows: [
+            {
+              listing_id: 'l2',
+              title: 'Sold iPhone 13',
+              price_amount: '11500',
+              primary_photo_url: 'https://x/s.jpg',
+              stored_photo_urls: null,
+              date: new Date('2026-08-20T00:00:00Z'),
+            },
+          ],
+        }
+      }
+      return { rows: [] } // call 6: peer comparable rows - unused, peer tier didn't clear its threshold
+    },
+  }
+
+  const result = await getListingDetail(db, '123')
+
+  expect(result?.recent_sales).toEqual([
+    { listing_id: 'l2', title: 'Sold iPhone 13', price_amount: 11500, photo_url: 'https://x/s.jpg', date: '2026-08-20T00:00:00.000Z' },
+  ])
+  expect(result?.similar_listings).toEqual([])
 })
 
 test('getListingDetail includes price_review when a listing_price_review row exists', async () => {
@@ -2300,6 +2365,69 @@ test('getPeerMedianPrice scopes to active (unsold) listings only, excludes place
   expect(capturedSql).toContain('NOT p.price_lookup_excluded')
   expect(capturedSql).toContain("'^(\\d+)\\1+$'")
   expect(capturedParams).toEqual([42])
+})
+
+test('getComparableListings maps rows, resolving photo urls and casting numeric/date columns', async () => {
+  const db: QueryClient = {
+    query: async () => ({
+      rows: [
+        {
+          listing_id: 'l2',
+          title: 'iPhone 12 128GB',
+          price_amount: '13500',
+          primary_photo_url: 'https://example.com/p.jpg',
+          stored_photo_urls: null,
+          date: new Date('2026-08-15T00:00:00Z'),
+        },
+      ],
+    }),
+  }
+
+  const result = await getComparableListings(db, 42, 'l1', true)
+
+  expect(result).toEqual([
+    {
+      listing_id: 'l2',
+      title: 'iPhone 12 128GB',
+      price_amount: 13500,
+      photo_url: 'https://example.com/p.jpg',
+      date: '2026-08-15T00:00:00.000Z',
+    },
+  ])
+})
+
+test('getComparableListings scopes to sold listings, excludes the current listing, placeholder prices, and price-lookup-excluded products', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getComparableListings(db, 42, 'l1', true, 3)
+
+  expect(capturedSql).toContain('pl.sold_at IS NOT NULL')
+  expect(capturedSql).toContain('pl.id != $2')
+  expect(capturedSql).toContain('NOT p.price_lookup_excluded')
+  expect(capturedSql).toContain("'^(\\d+)\\1+$'")
+  expect(capturedParams).toEqual([42, 'l1', 3])
+})
+
+test('getComparableListings scopes to active listings when sold is false', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getComparableListings(db, 42, 'l1', false)
+
+  expect(capturedSql).toContain('pl.sold_at IS NULL')
 })
 
 const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
