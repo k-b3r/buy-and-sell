@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { PRODUCT_CATEGORIES, type DealListing, type DealsConfidenceTier } from '@/lib/queries'
 import SaveButton from '../SaveButton'
 import { Spinner } from '../Skeleton'
@@ -56,7 +57,13 @@ function buildParams(filters: Filters, offset: number, lowConfidence: boolean): 
 }
 
 function DealRow({ deal }: { deal: DealListing }) {
-  const fbUrl = `https://www.facebook.com/marketplace/item/${deal.listing_id}/`
+  // Links into the same intercepted-route listing modal every other list
+  // view uses (ListingsView.tsx, SavedListingsClient.tsx) instead of
+  // straight out to Facebook - the modal has the FB link (and photo
+  // carousel, description, condition, price review, verification notes)
+  // already, so this is strictly more info than an external tab, without
+  // losing the deals list underneath.
+  const listingHref = `/listings/${deal.listing_id}`
   return (
     <div
       style={{
@@ -69,18 +76,18 @@ function DealRow({ deal }: { deal: DealListing }) {
         borderRadius: 8,
       }}
     >
-      <a href={fbUrl} target="_blank" rel="noreferrer" style={{ flexShrink: 0 }}>
+      <Link href={listingHref} style={{ flexShrink: 0 }}>
         <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', background: 'var(--color-bg)' }}>
           {deal.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={deal.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           ) : null}
         </div>
-      </a>
+      </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <a href={fbUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+        <Link href={listingHref} style={{ color: 'inherit', textDecoration: 'none' }}>
           <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deal.title}</div>
-        </a>
+        </Link>
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>
           {deal.base_model}
           {deal.variant_tier ? ` — ${deal.variant_tier}` : ''}
