@@ -426,7 +426,7 @@ table {
 .deal-row {
   display: flex;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
   padding: 12px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
