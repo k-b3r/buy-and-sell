@@ -2497,7 +2497,8 @@ test('getDeals excludes sold/removed listings by default, applies the discount-p
 
   expect(capturedSql).toContain('sold_at IS NULL')
   expect(capturedSql).toContain('flagged_removed_at IS NULL')
-  expect(capturedSql).toContain('ORDER BY profit_pesos DESC NULLS LAST')
+  expect(capturedSql).toContain('ORDER BY')
+  expect(capturedSql).toContain('DESC, profit_pesos DESC NULLS LAST')
   expect(capturedParams).toContain(1000) // minProfitPesos floor
   expect(capturedParams).toContain(500) // minPricePesos floor
 })
@@ -2515,6 +2516,22 @@ test('getDeals dedupes same-product listings sharing an identical title (repost 
 
   expect(capturedSql).toContain('DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id))')
   expect(capturedSql).toContain('ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id')
+})
+
+test('getDeals sorts by tier rank first, profit only breaks ties within a tier', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain(
+    "ORDER BY CASE tier WHEN 'sold_comps' THEN 3 WHEN 'peer_listings' THEN 2 WHEN 'llm_estimate' THEN 1 ELSE 0 END DESC, profit_pesos DESC NULLS LAST, listing_id",
+  )
 })
 
 test('getDeals switches to sold listings when soldOnly is set', async () => {

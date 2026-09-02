@@ -1415,7 +1415,12 @@ export async function getDeals(
        AND (${lowConfidenceOnlyPlaceholder} OR ${TIER_RANK_SQL} >= ${minTierPlaceholder})
        ${categoryClause}
        ${daysListedClause}
-     ORDER BY profit_pesos DESC NULLS LAST, listing_id
+     -- Tier first (sold comps > peer listings > llm estimate - stronger
+     -- evidence always outranks placement, per direct instruction
+     -- 2026-09-02), profit only breaks ties within the same tier - without
+     -- this a huge-profit llm_estimate guess could rank above a modest but
+     -- real sold-comps deal.
+     ORDER BY ${TIER_RANK_SQL} DESC, profit_pesos DESC NULLS LAST, listing_id
      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
     params,
   )
