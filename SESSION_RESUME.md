@@ -11,6 +11,8 @@
 - **Browser QA on `/deals` (Playwright)**, found + fixed a real bug: the `llm_estimate` tier's `p` CTE wasn't gated on `price_lookup_excluded` (unlike `sold_comp`/`peer_median`) - two unrelated real-estate listings (`price_lookup_excluded=true`) shared the same nonsense trained-price estimate and showed as ~₱200M+ "deals" in the low-confidence bucket. Fixed + regression test added. Save/unsave, category filter, and confidence-tier filter all manually verified working end-to-end against the live DB after the fix; no console errors.
 - Workers are currently **stopped** (paused by user, deliberately, to avoid collecting/categorizing more data mid-cleanup) - restart is the user's call, not automatic. Live DB traffic during this session's manual smoke-testing showed data still shifting slightly (a product's peer-listing count dropped 2->1 mid-session) - some other process may still be touching the DB despite workers being "stopped"; worth double-checking if that matters.
 - Root cause still open, not chased further this session: **breadth-vs-depth** - 8,383 products, ~75% still singleton (one listing ever seen), because collection is spread across many keywords/categories rather than going deep on a few liquid ones. `/deals`'s low-confidence bucket now makes this visible empirically rather than needing to guess upfront.
+- **Wrong-model product mismatch found + fixed (one instance)**: user spotted listing `1000000000000002` ("Samsung S23 ULTRA...") ranking as a top `/deals` "Sold comps" deal (+₱38,001, 63% off) - it had been mis-grouped under product 342 ("Samsung Galaxy S26 Ultra", 8 other genuine S26 listings) despite its own title clearly saying S23, so its peer/sold comps were coming from a completely different (pricier) phone. Reassigned to the correct existing product (1405, "Samsung Galaxy S23"/"Ultra"). Root cause: an isolated extraction-time misread, not caused by this session's dedup-merge rules (checked `variant-alias-rules.ts` - S23/S26 are kept as separate canonical buckets there). **Not audited for other instances** - user chose "fix this one" over a full catalog scan; if more `/deals` rows look suspiciously good, this failure mode (title's model number != matched product's base_model) is worth checking again.
+  - Separately, that same listing's own photos are a mismatched/scammy iPhone carousel under a "Samsung" title - confirmed via `raw_json.listing_photos` that Facebook itself served those photos for this exact listing at scrape time, i.e. **not our bug**, the source listing itself is bad. Nothing to fix here.
 
 ## Not yet done / follow-ups
 
@@ -18,6 +20,7 @@
 - **`saved_listings` feedback loop** - still 0 rows, no outcome columns (bought/sold/actual profit). Separate follow-up once `/deals` has real usage to check whether flagged deals were actually good.
 - **`/deals` <-> `discount_notifications` linkback** ("already flagged" badge) - nice-to-have, not required for v1, not built.
 - Verification backlog: 85 `discount_notifications`, 3/lap cap being verified by `verify-discount-notifications` - grows faster than it drains. Unrelated to `/deals` but worth knowing the notification pipeline is backlogged.
+- **Catalog-wide audit for wrong-model product mismatches** (title's model number vs matched product's base_model) - deferred, see the single-instance fix above.
 
 ## Settings page
 
