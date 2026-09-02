@@ -2450,6 +2450,7 @@ test('getDeals maps a raw row into a DealListing, resolving photo urls and casti
           sub_category: 'Smartphones',
           is_saved: true,
           tier: 'sold_comps',
+          comp_count: '4',
           reference_price: '15000',
           profit_pesos: '5000',
           discount_percent: '33',
@@ -2474,6 +2475,7 @@ test('getDeals maps a raw row into a DealListing, resolving photo urls and casti
     sub_category: 'Smartphones',
     reference_price: 15000,
     tier: 'sold_comps',
+    comp_count: 4,
     profit_pesos: 5000,
     discount_percent: 33,
     days_listed: 5,
@@ -2648,6 +2650,22 @@ test('getDeals uses the price review over the raw recorded price when one exists
 
   expect(capturedSql).toContain('LEFT JOIN listing_price_review pr ON pr.listing_id = l.id')
   expect(capturedSql).toContain('COALESCE(pr.price_high, pr.price_low, l.price_amount) AS ask_price')
+})
+
+test('getDeals selects comp_count from the same tier branch that won reference_price', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain('WHEN sc.clean_median_price IS NOT NULL THEN sc.sample_size')
+  expect(capturedSql).toContain('WHEN pm.clean_median_price IS NOT NULL THEN pm.sample_size')
+  expect(capturedSql).toContain('END AS comp_count')
 })
 
 test('getDeals returns the low-confidence bucket instead of the main list when lowConfidenceOnly is set', async () => {

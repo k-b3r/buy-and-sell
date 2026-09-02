@@ -112,6 +112,7 @@ function DealRow({ deal }: { deal: DealListing }) {
               }}
             >
               {TIER_LABELS[deal.tier]}
+              {deal.comp_count !== null && ` (${deal.comp_count})`}
             </span>
           )}
         </div>

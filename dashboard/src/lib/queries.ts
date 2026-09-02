@@ -1196,6 +1196,10 @@ export interface DealListing {
   sub_category: string | null
   reference_price: number | null
   tier: DealsConfidenceTier | null
+  // Count of comparable listings behind the winning tier - sold listings for
+  // sold_comps, active peer listings for peer_listings, null for
+  // llm_estimate (nothing to count) or no tier at all.
+  comp_count: number | null
   profit_pesos: number | null
   discount_percent: number | null
   days_listed: number | null
@@ -1381,6 +1385,13 @@ export async function getDeals(
            WHEN le.used_price_low IS NOT NULL OR le.has_trained_price_knowledge THEN 'llm_estimate'
            ELSE NULL
          END AS tier,
+         -- Same branch as tier above (kept as its own CASE, not a lookup off
+         -- tier, since tier isn't computed yet at this point in the SELECT).
+         CASE
+           WHEN sc.clean_median_price IS NOT NULL THEN sc.sample_size
+           WHEN pm.clean_median_price IS NOT NULL THEN pm.sample_size
+           ELSE NULL
+         END AS comp_count,
          EXTRACT(EPOCH FROM (now() - l.listed_at)) / 86400 AS days_listed
        FROM listings l
        JOIN products prod ON prod.id = l.product_id
@@ -1451,6 +1462,7 @@ export async function getDeals(
     sub_category: r.sub_category as string | null,
     reference_price: toNullableNumber(r.reference_price),
     tier: r.tier as DealsConfidenceTier | null,
+    comp_count: r.comp_count === null || r.comp_count === undefined ? null : Number(r.comp_count),
     profit_pesos: toNullableNumber(r.profit_pesos),
     discount_percent: toNullableNumber(r.discount_percent),
     days_listed: r.days_listed === null || r.days_listed === undefined ? null : Math.floor(Number(r.days_listed)),
