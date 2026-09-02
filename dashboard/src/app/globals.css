@@ -216,6 +216,47 @@ a {
   z-index: 10;
 }
 
+.site-header-nav {
+  position: absolute;
+  inset: 0;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+/* Below this, .site-header-nav's margin:0 auto centering trick above has no
+   room left to act (viewport < the 1100px column + its own 2*2rem padding)
+   and the overlay collapses onto the wordmark's own x-position. Drop the
+   absolute-overlay approach entirely and let the nav flow onto its own row
+   instead. */
+@media (max-width: 1163px) {
+  .site-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .site-header-nav {
+    position: static;
+    inset: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    pointer-events: auto;
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header {
+    padding: 0.75rem 1rem;
+  }
+}
+
 .wordmark {
   font-family: var(--font-heading), var(--font-body), system-ui, sans-serif;
   font-weight: 700;

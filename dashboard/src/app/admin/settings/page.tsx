@@ -565,7 +565,7 @@ export default function SettingsPage() {
         — no restart needed.
       </p>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {SETTINGS_CATEGORIES.map((category) => (
           <TabButton
             key={category.id}
@@ -597,7 +597,7 @@ export default function SettingsPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {activeSubgroup.fields.map((field) => (
-            <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85em' }}>
+            <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.85em' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 220 }}>
                 {field.label}
                 <InfoTooltip text={field.description} style={{ color: 'var(--color-text-muted)' }} />

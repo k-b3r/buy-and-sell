@@ -359,49 +359,56 @@ export default function ListingsView({
       </div>
 
       {view === 'list' ? (
-        <table cellPadding={8} style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--color-border)' }}>
-              <th></th>
-              <th>Title</th>
-              <th>Condition</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {listings.map((l) => (
-              <tr
-                key={l.id}
-                style={{
-                  borderBottom: '1px solid var(--color-border)',
-                  boxShadow: l.id === activeListingId ? 'inset 3px 0 0 0 var(--color-accent)' : undefined,
-                  background: l.id === activeListingId ? 'var(--color-surface)' : undefined,
-                }}
-              >
-                <td>
-                  {l.primary_photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.primary_photo_url} alt="" width={48} height={48} style={{ objectFit: 'cover' }} />
-                  ) : null}
-                </td>
-                <td>
-                  <Link href={listingHref(l.id)}>{l.title}</Link>
-                  {l.sold_at && <SoldBadge />}
-                  <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
-                    <SaveButton listingId={l.id} productId={productId} initialSaved={l.is_saved} variant="icon" />
-                  </span>
-                </td>
-                <td>{l.condition ?? '—'}</td>
-                <td className="mono">
-                  {formatListingPrice(l)}
-                  {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
-                  {l.is_repost && <RepostBadge />}
-                  <DiscountBadge percent={l.discount_percent} reasoning={l.verification_reasoning} />
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table cellPadding={8} style={{ borderCollapse: 'collapse', width: '100%', minWidth: 480 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--color-border)' }}>
+                <th></th>
+                <th>Title</th>
+                <th>Condition</th>
+                <th>Price</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {listings.map((l) => (
+                <tr
+                  key={l.id}
+                  style={{
+                    borderBottom: '1px solid var(--color-border)',
+                    boxShadow: l.id === activeListingId ? 'inset 3px 0 0 0 var(--color-accent)' : undefined,
+                    background: l.id === activeListingId ? 'var(--color-surface)' : undefined,
+                  }}
+                >
+                  <td>
+                    {l.primary_photo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={l.primary_photo_url} alt="" width={48} height={48} style={{ objectFit: 'cover' }} />
+                    ) : null}
+                  </td>
+                  <td style={{ maxWidth: 260 }}>
+                    <Link
+                      href={listingHref(l.id)}
+                      style={{ display: 'inline-block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}
+                    >
+                      {l.title}
+                    </Link>
+                    {l.sold_at && <SoldBadge />}
+                    <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+                      <SaveButton listingId={l.id} productId={productId} initialSaved={l.is_saved} variant="icon" />
+                    </span>
+                  </td>
+                  <td>{l.condition ?? '—'}</td>
+                  <td className="mono">
+                    {formatListingPrice(l)}
+                    {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
+                    {l.is_repost && <RepostBadge />}
+                    <DiscountBadge percent={l.discount_percent} reasoning={l.verification_reasoning} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
           {listings.map((l) => (

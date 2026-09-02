@@ -40,6 +40,7 @@ const dropdownStyle: CSSProperties = {
   top: 44,
   right: 0,
   width: 340,
+  maxWidth: 'calc(100vw - 32px)',
   maxHeight: 420,
   overflowY: 'auto',
   background: 'var(--color-surface)',
