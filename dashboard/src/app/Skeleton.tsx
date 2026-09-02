@@ -40,6 +40,40 @@ export function SkeletonGrid({ count, minWidth }: { count: number; minWidth: num
   )
 }
 
+// Mirrors DealRow's layout (deals/DealsClient.tsx) - horizontal row with a
+// square thumb, a text block, and a right-aligned price block - not the
+// square-card grid SkeletonCard/SkeletonGrid render, which is what the
+// nearest ancestor loading.tsx (app/loading.tsx, "Products") falls back to
+// without a dedicated deals/loading.tsx (confirmed live 2026-09-02: /deals
+// briefly showed a "Products" heading and photo-grid skeleton).
+export function SkeletonDealRow() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 12,
+        alignItems: 'center',
+        padding: 12,
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 8,
+      }}
+    >
+      <div className="skeleton" style={{ width: 64, height: 64, borderRadius: 6, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <SkeletonLine width="60%" height={16} />
+        <SkeletonLine width="35%" height={12} />
+        <SkeletonLine width="45%" height={12} />
+      </div>
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+        <SkeletonLine width={80} height={18} />
+        <SkeletonLine width={50} height={12} />
+        <SkeletonLine width={70} height={12} />
+      </div>
+    </div>
+  )
+}
+
 // Mirrors ListingDetailContent's layout (title/price/table/description next
 // to a square media block) - reuses the same .listing-detail-* classes so it
 // inherits the real component's container-query two-column behavior for
