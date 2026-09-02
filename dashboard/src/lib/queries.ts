@@ -1350,7 +1350,18 @@ export async function getDeals(
      ),
      deal AS (
        SELECT
-         l.id AS listing_id, l.title, l.price_amount AS ask_price, l.listed_at,
+         l.id AS listing_id, l.title,
+         -- Prefer the price review's read over the raw recorded number when
+         -- one exists - listing_price_review.price_amount is never written
+         -- to (db/schema.sql), so a data error (dropped digit, placeholder)
+         -- survives here otherwise. price_high (not price_low) so a bundle
+         -- range doesn't understate what you'd actually pay and inflate
+         -- profit_pesos. Confirmed live 2026-09-02: an iPhone 16 recorded at
+         -- ₱3,900 (real ask ₱39,000 per its description) ranked as an
+         -- ₱29,850-profit "deal" - within the 10x-of-reference guard below
+         -- on the raw number alone.
+         COALESCE(pr.price_high, pr.price_low, l.price_amount) AS ask_price,
+         l.listed_at,
          l.primary_photo_url, l.stored_photo_urls, l.product_id,
          prod.base_model, prod.variant_tier, cat.name AS category, subcat.name AS sub_category,
          sv.listing_id IS NOT NULL AS is_saved,
@@ -1379,6 +1390,7 @@ export async function getDeals(
        LEFT JOIN sold_comp sc ON sc.product_id = prod.id
        LEFT JOIN peer_median pm ON pm.product_id = prod.id
        LEFT JOIN llm_estimate le ON le.product_id = prod.id
+       LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
        WHERE ${soldClause} AND l.flagged_removed_at IS NULL
          AND l.price_amount IS NOT NULL AND l.price_amount > 0
          AND ${notPlaceholderPriceSql('l.price_amount')}

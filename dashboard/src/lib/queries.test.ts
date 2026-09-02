@@ -2635,6 +2635,21 @@ test('getDeals guards against a decoy ask price magnitudes below its own referen
   expect(capturedSql).toContain('ask_price BETWEEN reference_price / 10 AND reference_price * 10')
 })
 
+test('getDeals uses the price review over the raw recorded price when one exists', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain('LEFT JOIN listing_price_review pr ON pr.listing_id = l.id')
+  expect(capturedSql).toContain('COALESCE(pr.price_high, pr.price_low, l.price_amount) AS ask_price')
+})
+
 test('getDeals returns the low-confidence bucket instead of the main list when lowConfidenceOnly is set', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []
