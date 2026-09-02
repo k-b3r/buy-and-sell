@@ -248,6 +248,7 @@ export async function updateProductSubCategories(
 export async function mergeDuplicateProduct(db: DbClient, survivorId: number, loserId: number): Promise<void> {
   await db.query(`UPDATE listings SET product_id = $1 WHERE product_id = $2`, [survivorId, loserId])
   await db.query(`UPDATE product_price_history SET product_id = $1 WHERE product_id = $2`, [survivorId, loserId])
+  await db.query(`UPDATE discount_notifications SET product_id = $1 WHERE product_id = $2`, [survivorId, loserId])
   await db.query(
     `UPDATE product_enrichment SET product_id = $1
      WHERE product_id = $2 AND NOT EXISTS (SELECT 1 FROM product_enrichment WHERE product_id = $1)`,
