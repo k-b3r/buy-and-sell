@@ -67,20 +67,7 @@ function DealRow({ deal }: { deal: DealListing }) {
   // losing the deals list underneath.
   const listingHref = `/listings/${deal.listing_id}`
   return (
-    <Link
-      href={listingHref}
-      style={{
-        display: 'flex',
-        gap: 12,
-        alignItems: 'center',
-        padding: 12,
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 8,
-        color: 'inherit',
-        textDecoration: 'none',
-      }}
-    >
+    <Link href={listingHref} className="deal-row">
       <div style={{ flexShrink: 0 }}>
         <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', background: 'var(--color-bg)' }}>
           {deal.photo_url ? (
@@ -119,7 +106,7 @@ function DealRow({ deal }: { deal: DealListing }) {
           )}
         </div>
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+      <div className="deal-row-stats">
         {deal.profit_pesos !== null ? (
           <div className="mono" style={{ fontWeight: 'bold', fontSize: '1.1em', color: 'var(--color-signal)' }}>
             +₱{Math.round(deal.profit_pesos).toLocaleString()}
