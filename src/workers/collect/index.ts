@@ -15,6 +15,26 @@ import { loadCollectKeywords } from '../../platform/collect-keywords'
 // fast as the loop can run.
 const TEST_RUN_LOOP_DELAY_MS = 5000
 
+// Confirmed live 2026-09-03: once the underlying Playwright page crashes
+// ("Page crashed" - the browser tab itself died, not a normal navigation
+// error), driver.gotoSearch throws instantly on every subsequent keyword
+// forever, since nothing ever recreated the page. With the per-keyword catch
+// below swallowing each failure and moving on immediately, that turned into
+// a zero-delay infinite loop - 14 keywords x every lap x no backoff - that
+// produced a 16GB collector.log (and, downstream, crash-looped the whole
+// refresh-server process every time it tried to tail that file). A crashed
+// page gets a fresh browser instead of being retried as-is, every failure
+// backs off before the next attempt, and too many in a row stops the worker
+// outright rather than spinning on a problem that isn't transient (dead
+// proxy, FB blocking the IP, etc).
+const MAX_CONSECUTIVE_FAILURES = 5
+const FAILURE_BACKOFF_MS = 5000
+const MAX_FAILURE_BACKOFF_MS = 60000
+
+function isPageCrashedError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('Page crashed')
+}
+
 async function main() {
   loadEnvFile()
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
@@ -74,8 +94,8 @@ async function main() {
     logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
   }
 
-  const { page, close } = await launchBrowser({ proxy })
-  const driver = createBrowserDriver(page)
+  let { page, close } = await launchBrowser({ proxy })
+  let driver = createBrowserDriver(page)
 
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — Postgres is the collector\'s only persistence now')
@@ -104,6 +124,7 @@ async function main() {
 
   try {
     let lap = 1
+    let consecutiveFailures = 0
     do {
       const settings = await loadSettings(pool, [
         'collect.max_items_default',
@@ -143,8 +164,29 @@ async function main() {
             pool,
             imageStore,
           )
+          consecutiveFailures = 0
         } catch (err) {
-          logger.error(`query "${query}" failed, skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`)
+          consecutiveFailures += 1
+          logger.error(
+            `query "${query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
+          )
+          if (isPageCrashedError(err)) {
+            logger.warn('page crashed, relaunching browser before continuing')
+            try {
+              await close()
+            } catch (closeErr) {
+              logger.warn(`error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`)
+            }
+            const relaunch = await launchBrowser({ proxy })
+            page = relaunch.page
+            close = relaunch.close
+            driver = createBrowserDriver(page)
+          }
+          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            logger.error(`${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`)
+            return
+          }
+          await realDelay(Math.min(FAILURE_BACKOFF_MS * consecutiveFailures, MAX_FAILURE_BACKOFF_MS))
         }
       }
       if (cycle && isTestRun()) await realDelay(TEST_RUN_LOOP_DELAY_MS)

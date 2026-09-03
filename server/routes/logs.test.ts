@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createLogsHandler } from './logs'
+import { createLogsHandler, MAX_READ_BYTES } from './logs'
 import type { RouteResult } from '../app'
 
 interface LogsBody {
@@ -91,5 +91,43 @@ test(
 
     const result = asLogsResult(await handle({ worker: 'collect', offset: 999999 }))
     expect(result.body.lines).toEqual(['line 0', 'line 1'])
+  }),
+)
+
+// Regression test for a runaway worker crash-looping this whole server: a
+// tight error loop grew collector.log to 16GB, and reading it whole
+// (readFile/Buffer.alloc) blew past Node's 2GiB ceiling and threw uncaught
+// on every request. A file bigger than MAX_READ_BYTES must never trigger a
+// full-file read.
+test(
+  'file larger than the read cap still returns a tail instead of reading the whole file',
+  withTmpDir(async (dir) => {
+    const filePath = path.join(dir, 'collector.log')
+    const line = 'x'.repeat(999) + '\n' // 1000 bytes/line
+    const lineCount = Math.ceil((MAX_READ_BYTES * 2) / line.length)
+    writeFileSync(filePath, line.repeat(lineCount))
+    const fileSize = Buffer.byteLength(line) * lineCount
+
+    const handle = createLogsHandler(dir)
+    const result = asLogsResult(await handle({ worker: 'collect' }))
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.lines).toHaveLength(200)
+    expect(result.body.nextOffset).toBe(fileSize)
+  }),
+)
+
+test(
+  'readFrom caps a single read at MAX_READ_BYTES and reports a partial nextOffset',
+  withTmpDir(async (dir) => {
+    const filePath = path.join(dir, 'collector.log')
+    const line = 'x'.repeat(999) + '\n'
+    const lineCount = Math.ceil((MAX_READ_BYTES * 2) / line.length)
+    writeFileSync(filePath, line.repeat(lineCount))
+
+    const handle = createLogsHandler(dir)
+    const result = asLogsResult(await handle({ worker: 'collect', offset: 0 }))
+
+    expect(result.body.nextOffset).toBe(MAX_READ_BYTES)
   }),
 )
