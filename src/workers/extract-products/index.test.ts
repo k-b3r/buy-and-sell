@@ -13,8 +13,12 @@ afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
 
+// A bare array response is auto-wrapped in the {results: [...]} envelope
+// EXTRACTION_RESPONSE_SCHEMA actually requires (Groq rejects an array-rooted
+// schema - see products.ts) - keeps every test below terse. A non-array
+// response (e.g. the malformed-response test) passes through untouched.
 function fakeGroq(response: unknown): GroqClient {
-  return { generateJson: async () => response }
+  return { generateJson: async () => (Array.isArray(response) ? { results: response } : response) }
 }
 
 function unusedGemini(): GeminiClient {
@@ -193,7 +197,7 @@ test('candidate list passed in is already the pending set — getExtractionCandi
   const groq: GroqClient = {
     generateJson: async (prompt: string) => {
       promptedIds = [...prompt.matchAll(/\[id: (\S+)\]/g)].map((m) => m[1])
-      return [{ id: '2', base_model: 'iPhone 13' }]
+      return { results: [{ id: '2', base_model: 'iPhone 13' }] }
     },
   }
   const logger = createLogger(LOG_PATH)
@@ -395,7 +399,7 @@ test('a transient (non-quota) Groq error is retried with exponential backoff and
       if (callCount < 3) {
         throw new Error('503 UNAVAILABLE: high demand')
       }
-      return [{ id: '1', base_model: 'RTX 3060' }]
+      return { results: [{ id: '1', base_model: 'RTX 3060' }] }
     },
   }
   const logger = createLogger(LOG_PATH)
@@ -424,7 +428,7 @@ test('Groq quota exhaustion falls through to Gemini, which succeeds', async () =
   const gemini: GeminiClient = {
     generateJson: async () => {
       geminiCalled = true
-      return [{ id: '1', base_model: 'RTX 3060' }]
+      return { results: [{ id: '1', base_model: 'RTX 3060' }] }
     },
     generateGroundedText: async () => {
       throw new Error('not used by product extraction')
@@ -452,7 +456,7 @@ test('Groq retries exhausted (non-quota) falls through to Gemini, which succeeds
     },
   }
   const gemini: GeminiClient = {
-    generateJson: async () => [{ id: '1', base_model: 'RTX 3060' }],
+    generateJson: async () => ({ results: [{ id: '1', base_model: 'RTX 3060' }] }),
     generateGroundedText: async () => {
       throw new Error('not used by product extraction')
     },
@@ -502,7 +506,7 @@ test('a null description is sent to Groq as an empty string, not "null"', async 
   const groq: GroqClient = {
     generateJson: async (prompt: string) => {
       capturedPrompt = prompt
-      return [{ id: '1', base_model: 'RTX 3060' }]
+      return { results: [{ id: '1', base_model: 'RTX 3060' }] }
     },
   }
   const logger = createLogger(LOG_PATH)
