@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // public/docs/index.html only serves as a static file at that exact path —
+  // bare /docs falls through to the app's own catch-all route otherwise.
+  async rewrites() {
+    return [{ source: '/docs', destination: '/docs/index.html' }]
+  },
 }
 
 export default nextConfig

@@ -23,6 +23,10 @@
     "detect-model-mismatches": "tsx src/utils/detect-model-mismatches/index.ts",
     "reassign-model-mismatches": "tsx src/utils/reassign-model-mismatches/index.ts",
     "purge-far-listings": "tsx src/utils/purge-far-listings/index.ts",
+    "gen-arch-doc": "tsx scripts/gen-arch-doc.ts",
+    "docs:dev": "vitepress dev docs-site",
+    "docs:build": "vitepress build docs-site",
+    "docs:publish": "pnpm gen-arch-doc && pnpm docs:build && rm -rf dashboard/public/docs && mkdir -p dashboard/public && cp -r docs-site/.vitepress/dist dashboard/public/docs",
     "deploy:server": "./scripts/deploy-server.sh",
     "tunnel": "./scripts/tunnel.sh"
   },
@@ -30,8 +34,10 @@
     "@types/node": "^20.14.0",
     "@types/pg": "^8.23.1",
     "playwright": "^1.47.0",
+    "ts-morph": "^28.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
+    "vitepress": "^1.6.4",
     "vitest": "^2.1.0"
   },
   "dependencies": {

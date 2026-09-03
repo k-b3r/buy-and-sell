@@ -110,8 +110,11 @@ sub-features takes one more segment):
   `routes/*.ts` (only ~20 files total, doesn't need splitting).
 - **dashboard**: first segment after `dashboard/src/` (`lib`); for `app/`
   (Next.js app-router — routes, api handlers, pages, all unrelated to each
-  other), second segment too (`app/api`, `app/admin`, `app/deals`, etc.) —
-  mirrors the `domains/` rule in src.
+  other), second segment too, but only when that second segment is itself a
+  folder (`app/api`, `app/admin`, `app/deals`, etc.) — a loose file directly
+  under `app/` (e.g. `app/BackIcon.tsx`) stays grouped under the plain `app`
+  domain instead of becoming its own one-file domain. Mirrors the `domains/`
+  rule in src (same loose-file carve-out applies there too).
 
 `*.test.ts`/`*.test.tsx` files are excluded from extraction — tests aren't
 part of the design surface this doc maps; skipping them cuts real noise

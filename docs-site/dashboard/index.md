@@ -1,0 +1,15 @@
+# dashboard
+
+- [app](./app.md)
+- [app/@modal](./app-@modal.md)
+- [app/admin](./app-admin.md)
+- [app/analytics](./app-analytics.md)
+- [app/api](./app-api.md)
+- [app/deals](./app-deals.md)
+- [app/listings](./app-listings.md)
+- [app/login](./app-login.md)
+- [app/needs-review](./app-needs-review.md)
+- [app/products](./app-products.md)
+- [app/saved](./app-saved.md)
+- [lib](./lib.md)
+- [proxy.ts](./proxy.ts.md)

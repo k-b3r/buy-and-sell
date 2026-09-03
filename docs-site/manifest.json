@@ -1,0 +1,99 @@
+{
+  "projects": [
+    {
+      "name": "src",
+      "domains": [
+        {
+          "name": "domains/llm-clients",
+          "slug": "domains-llm-clients"
+        },
+        {
+          "name": "domains/marketplace",
+          "slug": "domains-marketplace"
+        },
+        {
+          "name": "platform",
+          "slug": "platform"
+        },
+        {
+          "name": "run.ts",
+          "slug": "run.ts"
+        },
+        {
+          "name": "utils",
+          "slug": "utils"
+        },
+        {
+          "name": "workers",
+          "slug": "workers"
+        }
+      ]
+    },
+    {
+      "name": "server",
+      "domains": [
+        {
+          "name": "server",
+          "slug": "server"
+        }
+      ]
+    },
+    {
+      "name": "dashboard",
+      "domains": [
+        {
+          "name": "app",
+          "slug": "app"
+        },
+        {
+          "name": "app/@modal",
+          "slug": "app-@modal"
+        },
+        {
+          "name": "app/admin",
+          "slug": "app-admin"
+        },
+        {
+          "name": "app/analytics",
+          "slug": "app-analytics"
+        },
+        {
+          "name": "app/api",
+          "slug": "app-api"
+        },
+        {
+          "name": "app/deals",
+          "slug": "app-deals"
+        },
+        {
+          "name": "app/listings",
+          "slug": "app-listings"
+        },
+        {
+          "name": "app/login",
+          "slug": "app-login"
+        },
+        {
+          "name": "app/needs-review",
+          "slug": "app-needs-review"
+        },
+        {
+          "name": "app/products",
+          "slug": "app-products"
+        },
+        {
+          "name": "app/saved",
+          "slug": "app-saved"
+        },
+        {
+          "name": "lib",
+          "slug": "lib"
+        },
+        {
+          "name": "proxy.ts",
+          "slug": "proxy.ts"
+        }
+      ]
+    }
+  ]
+}
