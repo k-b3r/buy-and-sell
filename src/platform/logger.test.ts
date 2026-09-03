@@ -1,5 +1,5 @@
 import { readFileSync, rmSync, existsSync } from 'node:fs'
-import { createLogger } from './logger'
+import { createLogger, MAX_LOG_LINES } from './logger'
 
 const LOG_PATH = 'data/tmp-logger.log'
 
@@ -20,4 +20,22 @@ test('info/warn/error write human-readable timestamped lines to file', () => {
   expect(lines[0]).toMatch(/^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*\] \[INFO\] starting run$/)
   expect(lines[1]).toMatch(/\[WARN\] soft wall detected$/)
   expect(lines[2]).toMatch(/\[ERROR\] hard block, stopping$/)
+})
+
+// Regression test for a runaway worker that logged the same failure in a
+// zero-delay loop and grew its log file to 16GB before anything noticed.
+test('log file never grows past MAX_LOG_LINES, no matter how many lines are written', () => {
+  const logger = createLogger(LOG_PATH)
+  const total = MAX_LOG_LINES + 250
+  for (let i = 0; i < total; i++) {
+    logger.info(`line ${i}`)
+  }
+
+  const lines = readFileSync(LOG_PATH, 'utf-8').trim().split('\n')
+
+  expect(lines).toHaveLength(MAX_LOG_LINES)
+  // Oldest lines are dropped, not newest - the file keeps whatever was
+  // logged most recently.
+  expect(lines[0]).toContain(`line ${total - MAX_LOG_LINES}`)
+  expect(lines[lines.length - 1]).toContain(`line ${total - 1}`)
 })
