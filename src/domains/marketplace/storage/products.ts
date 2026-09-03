@@ -135,6 +135,11 @@ export async function upsertProductEnrichment(
 // price_lookup_review_status instead of guessing. NOT p.price_lookup_excluded
 // in both guards makes this idempotent to re-run every lap without
 // clobbering a curated-list reason that already decided the product.
+// price_lookup_review_dismissed_at guards the second UPDATE specifically -
+// this whole function reruns every enrich-products lap, and confidence='low'
+// never changes (a product is only ever enriched once), so without that
+// guard a human's markProductReviewed resolution gets silently overwritten
+// back to needs_review on the very next lap.
 export async function applyEligibilityFromEnrichment(db: DbClient): Promise<void> {
   await db.query(
     `UPDATE products p SET price_lookup_excluded = true, price_lookup_excluded_reason = 'groq_generic'
@@ -151,7 +156,8 @@ export async function applyEligibilityFromEnrichment(db: DbClient): Promise<void
      WHERE e.product_id = p.id
        AND e.confidence = 'low'
        AND NOT p.price_lookup_excluded
-       AND p.price_lookup_review_status IS DISTINCT FROM 'needs_review'`,
+       AND p.price_lookup_review_status IS DISTINCT FROM 'needs_review'
+       AND p.price_lookup_review_dismissed_at IS NULL`,
     [],
   )
 }

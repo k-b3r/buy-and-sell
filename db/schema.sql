@@ -324,6 +324,17 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_excluded_reason TEXT;
 -- review page - never auto-resolves.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_review_status TEXT;
 
+-- Set by markProductReviewed when a human clears needs_review as "fine
+-- as-is, still priceable" (NOT excludeProductFromReview's "not a real
+-- product" path - that already sticks via price_lookup_excluded). Without
+-- this, applyEligibilityFromEnrichment re-flags the product back to
+-- needs_review on its very next lap: it reruns unconditionally every
+-- enrich-products loop, matching on product_enrichment.confidence = 'low'
+-- alone, which never changes since a product is only ever enriched once -
+-- confirmed live 2026-09-03, already-reviewed products with retail/secondhand
+-- prices resurfacing in the needs-review queue. NULL = never dismissed.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price_lookup_review_dismissed_at TIMESTAMPTZ;
+
 -- Dashboard-only bookmark list (no scraper/src writes or reads this). One
 -- shared saved-list, not per-user — the dashboard has a single shared
 -- password, no account system. ON DELETE CASCADE deliberately, unlike

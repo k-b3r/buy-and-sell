@@ -641,9 +641,16 @@ export async function setManualPrice(
 }
 
 // The only writer that clears price_lookup_review_status - a human looked at
-// the product and it's fine as-is, no exclusion needed.
+// the product and it's fine as-is, no exclusion needed. Also stamps
+// price_lookup_review_dismissed_at so applyEligibilityFromEnrichment (which
+// reruns every enrich-products lap) doesn't flip needs_review back on next
+// lap - confidence='low' on product_enrichment never changes, so without this
+// stamp the same product re-flags forever.
 export async function markProductReviewed(db: QueryClient, productId: number): Promise<void> {
-  await db.query(`UPDATE products SET price_lookup_review_status = NULL WHERE id = $1`, [productId])
+  await db.query(
+    `UPDATE products SET price_lookup_review_status = NULL, price_lookup_review_dismissed_at = now() WHERE id = $1`,
+    [productId],
+  )
 }
 
 // Alternative resolution to markProductReviewed: a human looked and agrees

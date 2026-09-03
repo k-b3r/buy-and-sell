@@ -2145,6 +2145,7 @@ test('markProductReviewed clears price_lookup_review_status back to NULL for one
   await markProductReviewed(db, 12)
 
   expect(capturedSql).toContain('price_lookup_review_status = NULL')
+  expect(capturedSql).toContain('price_lookup_review_dismissed_at = now()')
   expect(capturedSql).toContain('WHERE id = $1')
   expect(capturedParams).toEqual([12])
 })

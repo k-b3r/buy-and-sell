@@ -280,6 +280,7 @@ test('applyEligibilityFromEnrichment auto-excludes high-confidence non-specific 
   expect(calls[1].sql).toContain("UPDATE products p SET price_lookup_review_status = 'needs_review'")
   expect(calls[1].sql).toContain("e.confidence = 'low'")
   expect(calls[1].sql).toContain('NOT p.price_lookup_excluded')
+  expect(calls[1].sql).toContain('p.price_lookup_review_dismissed_at IS NULL')
 })
 
 test('getCategoryBackfillCandidates returns products with no category assigned yet', async () => {
