@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqClient, createFallbackGroqClient } from '../../domains/llm-clients'
+import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -14,7 +14,6 @@ import type { SubCategoryBackfillCandidate } from '../../domains/marketplace'
 // Mirrors backfill-categories/index.ts exactly - same output shape class
 // ({id, sub_category} per item), same batch size reasoning.
 const BATCH_SIZE = 50
-const MODEL = 'openai/gpt-oss-120b'
 
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 3000
@@ -84,7 +83,7 @@ async function attemptBatch(
       break
     } catch (err) {
       const status = (err as { status?: unknown }).status
-      const message = err instanceof Error ? err.message : String(err)
+      const message = summarizeGroqError(err)
       if (status === 429) {
         logger.error(`batch starting at ${offset}: Groq quota exhausted (${message}), stopping run`)
         throw new QuotaExhaustedError(message)
@@ -137,29 +136,16 @@ export async function runSubCategoryBackfill(
 
 async function main() {
   loadEnvFile()
-  const apiKey = process.env.FREE_GROQ_API_KEY
-  if (!apiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
+  const apiKeys = loadGroqApiKeys()
+  if (apiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — sub-category backfill requires Postgres')
 
   const logger = createLogger('data/backfill-sub-categories.log')
-  // Order: BACKFILL_FREE_GROQ_API_KEY (dedicated, if set) -> FREE_GROQ_API_KEY
-  // (required, shared with enrich-products/backfill-categories) ->
-  // ALT_FREE_GROQ_API_KEY (shared alt, if set). Permanent switch to the next
-  // key once the current one is exhausted - see createFallbackGroqClient.
-  const clients: GroqClient[] = []
-  const backfillApiKey = process.env.BACKFILL_FREE_GROQ_API_KEY
-  if (backfillApiKey) {
-    clients.push(createGroqClient(backfillApiKey, MODEL), createGroqClient(backfillApiKey, 'openai/gpt-oss-20b'))
-    logger.info('BACKFILL_FREE_GROQ_API_KEY configured, using it first')
-  }
-  clients.push(createGroqClient(apiKey, MODEL), createGroqClient(apiKey, 'openai/gpt-oss-20b'))
-  const altApiKey = process.env.ALT_FREE_GROQ_API_KEY
-  if (altApiKey) {
-    clients.push(createGroqClient(altApiKey, MODEL), createGroqClient(altApiKey, 'openai/gpt-oss-20b'))
-    logger.info('ALT_FREE_GROQ_API_KEY configured, will fall back to it once prior keys are exhausted')
-  }
-  const groq = createFallbackGroqClient(clients)
+  // See createGroqPool - per-key model fallback round-robined across keys,
+  // logging every hop.
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 
   try {

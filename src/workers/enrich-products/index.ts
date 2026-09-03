@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqClient, createFallbackGroqClient } from '../../domains/llm-clients'
+import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -88,7 +88,7 @@ export async function runProductEnrichment(
         break
       } catch (err) {
         const status = (err as { status?: unknown }).status
-        const message = err instanceof Error ? err.message : String(err)
+        const message = summarizeGroqError(err)
         if (status === 429) {
           logger.error(`batch starting at ${i}: Groq quota exhausted (${message}), stopping run`)
           fatal = true
@@ -172,30 +172,17 @@ export async function runProductEnrichment(
 
 async function main() {
   loadEnvFile()
-  const apiKey = process.env.FREE_GROQ_API_KEY
-  if (!apiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
+  const groqApiKeys = loadGroqApiKeys()
+  if (groqApiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
   const logger = createLogger('data/enrich-products.log')
   writePidFile('data/enrich-products.pid')
-  const clients = [createGroqClient(apiKey, MODEL), createGroqClient(apiKey, 'openai/gpt-oss-20b')]
-  const altApiKey = process.env.ALT_FREE_GROQ_API_KEY
-  if (altApiKey) {
-    clients.push(createGroqClient(altApiKey, MODEL), createGroqClient(altApiKey, 'openai/gpt-oss-20b'))
-    logger.info('ALT_FREE_GROQ_API_KEY configured, will fall back to it once the primary key is exhausted')
-  }
-  // Otherwise-idle key (normally only used by the one-off
-  // backfill-sub-categories script) - worth wiring in here too as a 3rd
-  // tier: extra daily-quota headroom for whenever this worker's own candidate
-  // count spikes (e.g. a bulk re-open of previously-stuck rows), not just
-  // steady-state trickle.
-  const backfillApiKey = process.env.BACKFILL_FREE_GROQ_API_KEY
-  if (backfillApiKey) {
-    clients.push(createGroqClient(backfillApiKey, MODEL), createGroqClient(backfillApiKey, 'openai/gpt-oss-20b'))
-    logger.info('BACKFILL_FREE_GROQ_API_KEY configured, will fall back to it once the primary/alt keys are exhausted')
-  }
-  const groq = createFallbackGroqClient(clients)
+  // Per-key model fallback (best model first) round-robined across keys -
+  // see createGroqPool. Logs every hop so a stuck key/model is visible.
+  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 
   logger.info('looping indefinitely — Ctrl+C to stop')

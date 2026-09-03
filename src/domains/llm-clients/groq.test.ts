@@ -1,5 +1,33 @@
 import type { GroqClient } from './groq'
-import { isQuotaError, createFallbackGroqClient } from './groq'
+import {
+  isQuotaError,
+  createFallbackGroqClient,
+  createRoundRobinGroqClient,
+  createGroqPool,
+  loadGroqApiKeys,
+  summarizeGroqError,
+  GROQ_MODEL_FALLBACK_CHAIN,
+} from './groq'
+
+test('summarizeGroqError collapses whitespace and truncates a long message, leaving a short one untouched', () => {
+  expect(summarizeGroqError(new Error('rate limit exceeded'))).toBe('rate limit exceeded')
+  expect(summarizeGroqError('plain string error')).toBe('plain string error')
+  expect(summarizeGroqError(new Error('line one\n  line two'))).toBe('line one line two')
+
+  const huge = new Error(`400 ${'x'.repeat(500)}`)
+  const summarized = summarizeGroqError(huge)
+  expect(summarized.length).toBe(201) // 200 chars + ellipsis
+  expect(summarized.endsWith('…')).toBe(true)
+})
+
+// createModelFallbackGroqClient itself isn't unit tested here — it's a thin
+// createFallbackGroqClient(models.map(createGroqClient)) composition, and
+// createGroqClient wraps the real SDK (see the comment below). This test
+// just locks down the chain's order — best model first — since a wrong
+// order would silently under-use a healthy key.
+test('GROQ_MODEL_FALLBACK_CHAIN tries the best model first, weakest last', () => {
+  expect(GROQ_MODEL_FALLBACK_CHAIN).toEqual(['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'qwen/qwen3.6-27b', 'openai/gpt-oss-20b'])
+})
 
 // createGroqClient itself wraps the real SDK and is not unit tested here —
 // same precedent as createGeminiClient/createDbPool elsewhere in this repo.
@@ -86,4 +114,128 @@ test('fallback client rethrows the quota error once every client is exhausted', 
   const client = createFallbackGroqClient([exhausted, exhausted])
 
   await expect(client.generateJson('p', {})).rejects.toThrow('quota exceeded')
+})
+
+test('fallback client fires onFallback with the from/to labels the moment it switches', async () => {
+  const primary: GroqClient = {
+    generateJson: async () => {
+      const err = new Error('quota exceeded') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+  }
+  const secondary: GroqClient = { generateJson: async () => ({ from: 'secondary' }) }
+  const events: [string, string][] = []
+  const client = createFallbackGroqClient([primary, secondary], {
+    labels: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+    onFallback: (from, to) => events.push([from, to]),
+  })
+
+  await client.generateJson('p', {})
+
+  expect(events).toEqual([['openai/gpt-oss-120b', 'openai/gpt-oss-20b']])
+})
+
+test('loadGroqApiKeys reads GROQ_API_KEY0, GROQ_API_KEY1, ... until the next index is unset', () => {
+  expect(loadGroqApiKeys({ GROQ_API_KEY0: 'a', GROQ_API_KEY1: 'b', GROQ_API_KEY2: 'c' })).toEqual(['a', 'b', 'c'])
+  expect(loadGroqApiKeys({ GROQ_API_KEY0: 'a', GROQ_API_KEY2: 'c' })).toEqual(['a'])
+  expect(loadGroqApiKeys({})).toEqual([])
+})
+
+test('round-robin client rotates across clients instead of always starting from the first', async () => {
+  const calls: string[] = []
+  const makeClient = (name: string): GroqClient => ({
+    generateJson: async () => {
+      calls.push(name)
+      return { from: name }
+    },
+  })
+  const client = createRoundRobinGroqClient([makeClient('a'), makeClient('b'), makeClient('c')])
+
+  await client.generateJson('p1', {})
+  await client.generateJson('p2', {})
+  await client.generateJson('p3', {})
+  await client.generateJson('p4', {})
+
+  expect(calls).toEqual(['a', 'b', 'c', 'a'])
+})
+
+test('round-robin client permanently drops a client that hits a quota error and keeps rotating the rest', async () => {
+  let bCalls = 0
+  const a: GroqClient = { generateJson: async () => ({ from: 'a' }) }
+  const b: GroqClient = {
+    generateJson: async () => {
+      bCalls += 1
+      const err = new Error('quota exceeded') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+  }
+  const c: GroqClient = { generateJson: async () => ({ from: 'c' }) }
+  const client = createRoundRobinGroqClient([a, b, c])
+
+  await client.generateJson('p1', {}) // a
+  const second = await client.generateJson('p2', {}) // b 429s -> falls to c
+  const third = await client.generateJson('p3', {}) // a again (b permanently dropped)
+
+  expect(second).toEqual({ from: 'c' })
+  expect(third).toEqual({ from: 'a' })
+  expect(bCalls).toBe(1)
+})
+
+test('round-robin client rethrows non-quota errors without rotating away from the failing client', async () => {
+  let aCalls = 0
+  const a: GroqClient = {
+    generateJson: async () => {
+      aCalls += 1
+      throw new Error('some other failure')
+    },
+  }
+  const b: GroqClient = { generateJson: async () => ({ from: 'b' }) }
+  const client = createRoundRobinGroqClient([a, b])
+
+  await expect(client.generateJson('p', {})).rejects.toThrow('some other failure')
+  expect(aCalls).toBe(1)
+})
+
+test('round-robin client rethrows the quota error once every client is exhausted', async () => {
+  const exhausted: GroqClient = {
+    generateJson: async () => {
+      const err = new Error('quota exceeded') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+  }
+  const client = createRoundRobinGroqClient([exhausted, exhausted])
+
+  await expect(client.generateJson('p', {})).rejects.toThrow('quota exceeded')
+})
+
+test('round-robin client fires onFallback with the from/to key labels the moment it drops one', async () => {
+  const a: GroqClient = { generateJson: async () => ({ from: 'a' }) }
+  const b: GroqClient = {
+    generateJson: async () => {
+      const err = new Error('quota exceeded') as Error & { status: number }
+      err.status = 429
+      throw err
+    },
+  }
+  const events: [string, string][] = []
+  const client = createRoundRobinGroqClient([a, b], {
+    labels: ['GROQ_API_KEY0', 'GROQ_API_KEY1'],
+    onFallback: (from, to) => events.push([from, to]),
+  })
+
+  await client.generateJson('p1', {}) // a
+  await client.generateJson('p2', {}) // b 429s -> drops, falls to a
+
+  expect(events).toEqual([['GROQ_API_KEY1', 'GROQ_API_KEY0']])
+})
+
+// createGroqPool composes createFallbackGroqClient/createRoundRobinGroqClient
+// (both covered above) around the real createGroqClient, which wraps the SDK
+// and isn't network-tested here - this just locks down the shape it returns.
+test('createGroqPool returns a GroqClient built from the given keys', () => {
+  const pool = createGroqPool(['key0', 'key1'])
+  expect(typeof pool.generateJson).toBe('function')
 })

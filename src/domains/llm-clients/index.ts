@@ -11,7 +11,17 @@ export type { ExaClient } from './exa'
 export { createExaClient, createFallbackExaClient, isExaCreditsError, loadExaApiKeys } from './exa'
 
 export type { GroqClient } from './groq'
-export { createGroqClient, createFallbackGroqClient, isQuotaError as isGroqQuotaError } from './groq'
+export {
+  createGroqClient,
+  createFallbackGroqClient,
+  createModelFallbackGroqClient,
+  createRoundRobinGroqClient,
+  createGroqPool,
+  loadGroqApiKeys,
+  summarizeGroqError,
+  GROQ_MODEL_FALLBACK_CHAIN,
+  isQuotaError as isGroqQuotaError,
+} from './groq'
 
 export type { TavilyClient, TavilySearchResult } from './tavily'
 export { createTavilyClient } from './tavily'
