@@ -160,19 +160,36 @@ Listings:
 ${lines}`
 }
 
+// Root type must be 'object', not 'array' - confirmed live 2026-09-03 via a
+// direct call: Groq hard-rejects any response_format schema whose top level
+// isn't 'object' ("schema must have type 'object' and not have
+// 'oneOf'/'anyOf'/'enum'/'not' at the top level"), on every model, not just
+// a specific one - this had silently been failing every single Groq call
+// and falling through to Gemini instead. Wrapped in the same {results: [...]}
+// envelope every other schema in this file already uses; variant is nullable
+// rather than omitted from `required`, since strict mode requires every
+// property be listed there.
 export const EXTRACTION_RESPONSE_SCHEMA = {
-  type: 'array',
-  items: {
-    type: 'object',
-    properties: {
-      id: { type: 'string' },
-      base_model: { type: 'string' },
-      variant: { type: 'string' },
-      category: { type: 'string', enum: PRODUCT_CATEGORIES },
-      sub_category: { type: 'string', enum: SUB_CATEGORIES },
+  type: 'object',
+  properties: {
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          base_model: { type: 'string' },
+          variant: { type: ['string', 'null'] },
+          category: { type: 'string', enum: PRODUCT_CATEGORIES },
+          sub_category: { type: 'string', enum: SUB_CATEGORIES },
+        },
+        required: ['id', 'base_model', 'variant', 'category', 'sub_category'],
+        additionalProperties: false,
+      },
     },
-    required: ['id', 'base_model', 'category', 'sub_category'],
   },
+  required: ['results'],
+  additionalProperties: false,
 } as const
 
 export interface CategoryBackfillCandidate {

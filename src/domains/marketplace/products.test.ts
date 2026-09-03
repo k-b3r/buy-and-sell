@@ -31,10 +31,16 @@ test('buildExtractionPrompt includes each listing id and title, and truncates lo
   expect(prompt).not.toContain('no scratches or dents anywhere on the case')
 })
 
-test('EXTRACTION_RESPONSE_SCHEMA is an array schema requiring id, base_model, category, and sub_category, with variant optional', () => {
-  expect(EXTRACTION_RESPONSE_SCHEMA.type).toBe('array')
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toEqual(['id', 'base_model', 'category', 'sub_category'])
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.properties.variant.type).toBe('string')
+// Root must be 'object' (a {results: [...]} envelope), not 'array' - Groq
+// hard-rejects an array-rooted response_format schema regardless of model
+// (confirmed live 2026-09-03). variant is nullable rather than omitted from
+// `required`, since strict mode requires every property be listed there.
+test('EXTRACTION_RESPONSE_SCHEMA is a {results: [...]} schema requiring id, base_model, category, and sub_category, with variant nullable', () => {
+  expect(EXTRACTION_RESPONSE_SCHEMA.type).toBe('object')
+  expect(EXTRACTION_RESPONSE_SCHEMA.required).toEqual(['results'])
+  const items = EXTRACTION_RESPONSE_SCHEMA.properties.results.items
+  expect(items.required).toEqual(['id', 'base_model', 'variant', 'category', 'sub_category'])
+  expect(items.properties.variant.type).toEqual(['string', 'null'])
 })
 
 // Fixed, bounded list - freeform categorization would recreate the exact
@@ -42,13 +48,15 @@ test('EXTRACTION_RESPONSE_SCHEMA is an array schema requiring id, base_model, ca
 // cleaning up, just one level higher (see CONTEXT.md's duplicate-product
 // consolidation finding).
 test('EXTRACTION_RESPONSE_SCHEMA constrains category to the fixed PRODUCT_CATEGORIES enum', () => {
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.properties.category.enum).toEqual(PRODUCT_CATEGORIES)
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toContain('category')
+  const items = EXTRACTION_RESPONSE_SCHEMA.properties.results.items
+  expect(items.properties.category.enum).toEqual(PRODUCT_CATEGORIES)
+  expect(items.required).toContain('category')
 })
 
 test('EXTRACTION_RESPONSE_SCHEMA constrains sub_category to the fixed SUB_CATEGORIES enum', () => {
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.properties.sub_category.enum).toEqual(SUB_CATEGORIES)
-  expect(EXTRACTION_RESPONSE_SCHEMA.items.required).toContain('sub_category')
+  const items = EXTRACTION_RESPONSE_SCHEMA.properties.results.items
+  expect(items.properties.sub_category.enum).toEqual(SUB_CATEGORIES)
+  expect(items.required).toContain('sub_category')
 })
 
 test('PRODUCT_CATEGORIES includes Other as a catch-all', () => {

@@ -186,11 +186,11 @@ export async function runProductExtraction(
     logger.info(`${batchLabel}: sending ${batch.length} listings to Groq`)
     const prompt = buildExtractionPrompt(batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })))
 
-    const raw = await extractBatch(clients, prompt, logger, batchLabel, delay, maxAttempts, retryBaseDelayMs)
+    const raw = (await extractBatch(clients, prompt, logger, batchLabel, delay, maxAttempts, retryBaseDelayMs)) as { results?: unknown } | null
     if (raw === null) break
 
-    if (!Array.isArray(raw)) {
-      logger.error(`batch ${batchNum}/${totalBatches}: unexpected response shape (not an array), skipping batch`)
+    if (!raw || !Array.isArray(raw.results)) {
+      logger.error(`batch ${batchNum}/${totalBatches}: unexpected response shape (no results array), skipping batch`)
       processedSoFar += batch.length
       logProgress(logger, processedSoFar, candidates.length)
       continue
@@ -199,7 +199,7 @@ export async function runProductExtraction(
     const assignments: { id: string; productId: number }[] = []
     let skipped = 0
 
-    for (const item of raw as {
+    for (const item of raw.results as {
       id?: unknown
       base_model?: unknown
       variant?: unknown
