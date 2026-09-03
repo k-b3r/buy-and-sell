@@ -31,8 +31,17 @@ const MAX_CONSECUTIVE_FAILURES = 5
 const FAILURE_BACKOFF_MS = 5000
 const MAX_FAILURE_BACKOFF_MS = 60000
 
-function isPageCrashedError(err: unknown): boolean {
-  return err instanceof Error && err.message.includes('Page crashed')
+// "Page crashed" is the browser tab itself dying; "Target page, context or
+// browser has been closed" is Playwright's error when the browser/context
+// handle is gone entirely - confirmed live 2026-09-03 via
+// buy-and-sell-server.service's KillMode=control-group SIGTERMing a
+// still-running collect worker's browser as collateral damage from an
+// unrelated server restart. Both leave the existing driver permanently
+// unusable, so both need a fresh browser, not just a retry.
+const BROWSER_UNUSABLE_ERROR_SUBSTRINGS = ['Page crashed', 'Target page, context or browser has been closed']
+
+function isBrowserUnusableError(err: unknown): boolean {
+  return err instanceof Error && BROWSER_UNUSABLE_ERROR_SUBSTRINGS.some((s) => err.message.includes(s))
 }
 
 async function main() {
@@ -170,8 +179,8 @@ async function main() {
           logger.error(
             `query "${query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
           )
-          if (isPageCrashedError(err)) {
-            logger.warn('page crashed, relaunching browser before continuing')
+          if (isBrowserUnusableError(err)) {
+            logger.warn('browser is unusable, relaunching before continuing')
             try {
               await close()
             } catch (closeErr) {
