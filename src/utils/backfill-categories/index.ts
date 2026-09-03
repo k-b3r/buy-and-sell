@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqClient, createFallbackGroqClient } from '../../domains/llm-clients'
+import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
@@ -16,7 +16,6 @@ import type { CategoryBackfillCandidate } from '../../domains/marketplace'
 // batch than that script's tested 20. Not yet re-verified live against a
 // real batch at this size; adjust down if a run hits truncation.
 const BATCH_SIZE = 100
-const MODEL = 'openai/gpt-oss-120b'
 
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 3000
@@ -49,7 +48,7 @@ export async function runCategoryBackfill(
         break
       } catch (err) {
         const status = (err as { status?: unknown }).status
-        const message = err instanceof Error ? err.message : String(err)
+        const message = summarizeGroqError(err)
         if (status === 429) {
           logger.error(`batch starting at ${i}: Groq quota exhausted (${message}), stopping run`)
           fatal = true
@@ -93,19 +92,14 @@ export async function runCategoryBackfill(
 
 async function main() {
   loadEnvFile()
-  const apiKey = process.env.FREE_GROQ_API_KEY
-  if (!apiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
+  const apiKeys = loadGroqApiKeys()
+  if (apiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — category backfill requires Postgres')
 
   const logger = createLogger('data/backfill-categories.log')
-  const clients = [createGroqClient(apiKey, MODEL), createGroqClient(apiKey, 'openai/gpt-oss-20b')]
-  const altApiKey = process.env.ALT_FREE_GROQ_API_KEY
-  if (altApiKey) {
-    clients.push(createGroqClient(altApiKey, MODEL), createGroqClient(altApiKey, 'openai/gpt-oss-20b'))
-    logger.info('ALT_FREE_GROQ_API_KEY configured, will fall back to it once the primary key is exhausted')
-  }
-  const groq = createFallbackGroqClient(clients)
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 
   try {

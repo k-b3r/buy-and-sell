@@ -7,9 +7,10 @@ import {
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
   isGeminiQuotaError,
-  createGroqClient,
-  createFallbackGroqClient,
+  createGroqPool,
+  loadGroqApiKeys,
   isGroqQuotaError,
+  summarizeGroqError,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
@@ -88,7 +89,7 @@ async function extractBatch(
     try {
       return await clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = summarizeGroqError(err)
       if (isGroqQuotaError(err)) {
         logger.warn(`${batchLabel}: Groq quota exhausted (${message}), falling back to Gemini`)
         break
@@ -286,12 +287,10 @@ function logProgress(logger: Logger, processedSoFar: number, pendingTotal: numbe
   logger.info(`${processedSoFar}/${pendingTotal} pending processed (${pct}%)`)
 }
 
-const MODEL = 'openai/gpt-oss-120b'
-
 async function main() {
   loadEnvFile()
-  const groqApiKey = process.env.FREE_GROQ_API_KEY
-  if (!groqApiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
+  const groqApiKeys = loadGroqApiKeys()
+  if (groqApiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const geminiApiKey = process.env.FREE_GEMINI_API_KEY
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const exaApiKeys = loadExaApiKeys()
@@ -304,16 +303,10 @@ async function main() {
   const logger = createLogger('data/extract-products.log')
   writePidFile('data/extract-products.pid')
 
-  // Same multi-key/multi-model fallback shape as enrich-products.ts - a
-  // second model on the same key first (cheap, no new credential needed),
-  // then a second key's own pair if configured.
-  const groqClients = [createGroqClient(groqApiKey, MODEL), createGroqClient(groqApiKey, 'openai/gpt-oss-20b')]
-  const altGroqApiKey = process.env.ALT_FREE_GROQ_API_KEY
-  if (altGroqApiKey) {
-    groqClients.push(createGroqClient(altGroqApiKey, MODEL), createGroqClient(altGroqApiKey, 'openai/gpt-oss-20b'))
-    logger.info('ALT_FREE_GROQ_API_KEY configured, will fall back to it once the primary key is exhausted')
-  }
-  const groq = createFallbackGroqClient(groqClients)
+  // Same shape as enrich-products.ts - see createGroqPool. Logs every
+  // model/key hop so a stuck one is visible.
+  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
 
   // Free tier is 20 requests/day per project per model — a second key from a
   // different Google account is a different project, so it has its own

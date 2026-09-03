@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqClient } from '../../domains/llm-clients'
+import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
@@ -39,8 +39,7 @@ export async function runPriceReview(
     try {
       raw = (await groq.generateJson(prompt, PRICE_REVIEW_RESPONSE_SCHEMA)) as { results?: unknown }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      logger.error(`batch starting at ${i}: Groq request failed (${message}), stopping run`)
+      logger.error(`batch starting at ${i}: Groq request failed (${summarizeGroqError(err)}), stopping run`)
       break
     }
 
@@ -78,14 +77,15 @@ export async function runPriceReview(
 
 async function main() {
   loadEnvFile()
-  const apiKey = process.env.FREE_GROQ_API_KEY
-  if (!apiKey) throw new Error('FREE_GROQ_API_KEY not set in .env')
+  const apiKeys = loadGroqApiKeys()
+  if (apiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price review requires Postgres')
 
   const logger = createLogger('data/enrich-listing-prices.log')
   writePidFile('data/enrich-listing-prices.pid')
-  const groq = createGroqClient(apiKey, MODEL)
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 
   logger.info('looping indefinitely — Ctrl+C to stop')
