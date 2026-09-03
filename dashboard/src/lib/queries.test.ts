@@ -2716,3 +2716,33 @@ test('getDeals returns the low-confidence bucket instead of the main list when l
   expect(capturedSql).toContain("(tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) =")
   expect(capturedParams).toContain(true)
 })
+
+// Regression: confirmed live 2026-09-03 that phones (dedupe cleanly across
+// sellers into one product, so they reach sold_comps/peer_listings far more
+// often than one-off items - see SESSION_RESUME.md's ~75%-singleton figure -
+// and produce bigger absolute profit_pesos at their price point) crowded out
+// every other category on the ranked list, since nothing capped how many of
+// one category could appear.
+test('getDeals caps each category at 10 rows via a per-category ROW_NUMBER, applied only to the main list', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
+
+  expect(capturedSql).toContain('ROW_NUMBER() OVER (')
+  expect(capturedSql).toContain("PARTITION BY COALESCE(category, '')")
+  expect(capturedSql).toContain('category_rank <=')
+  expect(capturedParams).toContain(10)
+
+  // lowConfidenceOnly bypasses the cap (the low-confidence bucket isn't
+  // tier/profit-ranked the same way as the main list).
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { lowConfidenceOnly: true })
+  expect(capturedSql).toMatch(/WHERE \$\d+ OR category_rank <= \$\d+/)
+})

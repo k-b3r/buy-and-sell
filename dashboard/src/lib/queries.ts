@@ -1225,6 +1225,16 @@ export interface DealsFilters {
 }
 
 const DEALS_DEFAULT_LIMIT = 30
+// Confirmed live 2026-09-03: phones dominate the ranked list because they
+// both (a) dedupe cleanly into one product across many sellers, reaching the
+// sold_comps/peer_listings tiers far more often than one-off items (~75% of
+// all products are singleton-listing per SESSION_RESUME.md), and (b) produce
+// bigger absolute profit_pesos at their price point even at the same
+// discount %, and profit_pesos - not a normalized rate - is the tie-breaker
+// within a tier. No per-category cap meant a strong category could fill
+// every slot on the page. Applied to the main ranked list only, not the
+// low-confidence bucket (see lowConfidenceOnly below).
+const DEALS_CATEGORY_CAP = 10
 
 // /deals page's ranked-by-profit view of active listings. One row per
 // listing (not per product like getProductSummaries) - a product with 5
@@ -1296,6 +1306,7 @@ export async function getDeals(
   const offset = filters.offset ?? 0
   const limitPlaceholder = push(limit)
   const offsetPlaceholder = push(offset)
+  const categoryCapPlaceholder = push(DEALS_CATEGORY_CAP)
 
   const result = await db.query(
     `WITH sold_product_prices AS (
@@ -1429,29 +1440,50 @@ export async function getDeals(
        SELECT DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id)) *
        FROM deal
        ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id
+     ),
+     filtered AS (
+       SELECT
+         deal_deduped.*,
+         (reference_price - ask_price) AS profit_pesos,
+         CASE WHEN reference_price > 0 THEN round(((reference_price - ask_price) / reference_price) * 100) ELSE NULL END AS discount_percent,
+         (tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) AS is_low_confidence
+       FROM deal_deduped
+       WHERE ask_price >= ${minPricePlaceholder}
+         -- Same magnitude-outlier guard detectAndRecordDiscountNotifications
+         -- applies before ever recording a discount (src/domains/marketplace/
+         -- storage/listings.ts) - a joke/decoy ask (e.g. ₱700 for an iPhone
+         -- 16 Pro Max, confirmed live 2026-09-02) is 10x+ below its own
+         -- reference price and would otherwise rank as the single best "deal"
+         -- on the page. Skipped only when there's no reference_price at all
+         -- (nothing to compare against - those rows are already routed to the
+         -- low-confidence bucket by the tier IS NULL branch below).
+         AND (reference_price IS NULL OR ask_price BETWEEN reference_price / 10 AND reference_price * 10)
+         AND (tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) = ${lowConfidenceOnlyPlaceholder}
+         AND (${lowConfidenceOnlyPlaceholder} OR reference_price - ask_price >= ${minProfitPlaceholder})
+         AND (${lowConfidenceOnlyPlaceholder} OR ${TIER_RANK_SQL} >= ${minTierPlaceholder})
+         ${categoryClause}
+         ${daysListedClause}
+         ${searchClause}
+     ),
+     -- Ranks each category's own deals separately (same ordering as the
+     -- final list) so DEALS_CATEGORY_CAP can cut a category off before it
+     -- fills the whole page - see that constant's comment above. NULL
+     -- categories (the ~2,822 pre-2026-08-23 products never backfilled) are
+     -- grouped into their own bucket via COALESCE so they're capped the same
+     -- way instead of being exempt.
+     capped AS (
+       SELECT filtered.*,
+         ROW_NUMBER() OVER (
+           PARTITION BY COALESCE(category, '')
+           ORDER BY ${TIER_RANK_SQL} DESC, profit_pesos DESC NULLS LAST, listing_id
+         ) AS category_rank
+       FROM filtered
      )
-     SELECT
-       deal_deduped.*,
-       (reference_price - ask_price) AS profit_pesos,
-       CASE WHEN reference_price > 0 THEN round(((reference_price - ask_price) / reference_price) * 100) ELSE NULL END AS discount_percent,
-       (tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) AS is_low_confidence
-     FROM deal_deduped
-     WHERE ask_price >= ${minPricePlaceholder}
-       -- Same magnitude-outlier guard detectAndRecordDiscountNotifications
-       -- applies before ever recording a discount (src/domains/marketplace/
-       -- storage/listings.ts) - a joke/decoy ask (e.g. ₱700 for an iPhone
-       -- 16 Pro Max, confirmed live 2026-09-02) is 10x+ below its own
-       -- reference price and would otherwise rank as the single best "deal"
-       -- on the page. Skipped only when there's no reference_price at all
-       -- (nothing to compare against - those rows are already routed to the
-       -- low-confidence bucket by the tier IS NULL branch below).
-       AND (reference_price IS NULL OR ask_price BETWEEN reference_price / 10 AND reference_price * 10)
-       AND (tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) = ${lowConfidenceOnlyPlaceholder}
-       AND (${lowConfidenceOnlyPlaceholder} OR reference_price - ask_price >= ${minProfitPlaceholder})
-       AND (${lowConfidenceOnlyPlaceholder} OR ${TIER_RANK_SQL} >= ${minTierPlaceholder})
-       ${categoryClause}
-       ${daysListedClause}
-       ${searchClause}
+     SELECT *
+     FROM capped
+     -- Cap only applies to the main ranked list, not the low-confidence
+     -- bucket (that one isn't tier/profit-ranked the same way).
+     WHERE ${lowConfidenceOnlyPlaceholder} OR category_rank <= ${categoryCapPlaceholder}
      -- Tier first (sold comps > peer listings > llm estimate - stronger
      -- evidence always outranks placement, per direct instruction
      -- 2026-09-02), profit only breaks ties within the same tier - without
