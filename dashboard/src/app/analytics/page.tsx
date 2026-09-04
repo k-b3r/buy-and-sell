@@ -1,7 +1,13 @@
-import { getPool } from '@/lib/db'
 import { getSoldCountsBySubCategoryCached } from '@/lib/cachedQueries'
 import type { CategoryWeeklySoldCounts } from '@/lib/queries'
 import CategorySoldChart from './CategorySoldChart'
+
+// Same reason as deals/page.tsx: this reads live data, and prerendering it
+// would pin the numbers to build time. It also made the build itself depend
+// on the database being reachable from the build container - now that the
+// data comes from server/ over the tunnel rather than a managed provider,
+// that would mean a deploy fails whenever the VPS is down.
+export const dynamic = 'force-dynamic'
 
 // Rows arrive from the query already ordered main-category-total desc, then
 // sub-category-total desc within it (see getSoldCountsBySubCategory) - this
@@ -22,7 +28,7 @@ function groupByCategory(rows: CategoryWeeklySoldCounts[]): { category: string; 
 }
 
 export default async function AnalyticsPage() {
-  const categories = await getSoldCountsBySubCategoryCached(getPool())
+  const categories = await getSoldCountsBySubCategoryCached()
   const groups = groupByCategory(categories)
 
   return (

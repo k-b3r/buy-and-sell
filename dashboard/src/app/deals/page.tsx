@@ -1,4 +1,3 @@
-import { getPool } from '@/lib/db'
 import { getDeals, getAllSettings } from '@/lib/queries'
 import DealsClient from './DealsClient'
 
@@ -13,7 +12,7 @@ export const dynamic = 'force-dynamic'
 const PAGE_SIZE = 30
 
 async function getDiscountPolicyFloors() {
-  const settings = await getAllSettings(getPool())
+  const settings = await getAllSettings()
   const byKey = new Map(settings.map((s) => [s.key, s.value]))
   return {
     minProfitPesos: byKey.get('discount_policy.min_profit_pesos') ?? 1000,
@@ -28,8 +27,8 @@ async function getDiscountPolicyFloors() {
 export default async function DealsPage() {
   const discountPolicy = await getDiscountPolicyFloors()
   const [deals, lowConfidenceDeals] = await Promise.all([
-    getDeals(getPool(), discountPolicy, { limit: PAGE_SIZE }),
-    getDeals(getPool(), discountPolicy, { lowConfidenceOnly: true, limit: PAGE_SIZE }),
+    getDeals(discountPolicy, { limit: PAGE_SIZE }),
+    getDeals(discountPolicy, { lowConfidenceOnly: true, limit: PAGE_SIZE }),
   ])
   const nextOffset = deals.length === PAGE_SIZE ? PAGE_SIZE : null
   const lowConfidenceNextOffset = lowConfidenceDeals.length === PAGE_SIZE ? PAGE_SIZE : null

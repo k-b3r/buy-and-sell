@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { PRODUCT_CATEGORIES, type DealListing, type DealsConfidenceTier } from '@/lib/queries'
+import { PRODUCT_CATEGORIES } from '@/lib/categories'
+import type { DealListing, DealsConfidenceTier } from '@/lib/queries'
 import SaveButton from '../SaveButton'
 import { Spinner, SkeletonDealRow } from '../Skeleton'
 

@@ -10,6 +10,7 @@ import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
+import { createQueryHandler } from './routes/query'
 import { createRefreshLock } from './refreshLock'
 import { createRefreshPacer } from './refreshPacer'
 import { createJobStore } from './jobState'
@@ -66,6 +67,7 @@ async function main() {
     'POST /refresh-job/cancel': createCancelRefreshJobHandler(jobs),
     'POST /logs': createLogsHandler(),
     'POST /worker-control': createWorkerControlHandler(),
+    'POST /query': createQueryHandler(pool, (msg) => logger.error(msg)),
   })
 
   app.listen(port, () => {

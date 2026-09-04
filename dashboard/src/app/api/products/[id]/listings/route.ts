@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getPool } from '@/lib/db'
 import { getProductDetailCached } from '@/lib/cachedQueries'
 import { paginateListings, parseListingsFilters } from '../../../../products/[id]/listingsFilters'
 
@@ -15,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const filters = parseListingsFilters(url.searchParams)
   const offset = Number(url.searchParams.get('offset') ?? '0')
 
-  const product = await getProductDetailCached(getPool(), productId)
+  const product = await getProductDetailCached(productId)
   if (!product) {
     return NextResponse.json({ listings: [], nextOffset: null, matchedCount: 0, allIds: [] }, { status: 404 })
   }

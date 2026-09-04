@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { getPool } from '@/lib/db'
 import { saveListing, unsaveListing } from '@/lib/queries'
 
 // Dashboard-wide bookmark toggle (see db/schema.sql's saved_listings) - no
@@ -16,7 +15,7 @@ function productTag(url: URL): string | null {
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  await saveListing(getPool(), id)
+  await saveListing(id)
 
   revalidateTag(`listing:${id}`, { expire: 0 })
   revalidateTag('saved-listings', { expire: 0 })
@@ -28,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  await unsaveListing(getPool(), id)
+  await unsaveListing(id)
 
   revalidateTag(`listing:${id}`, { expire: 0 })
   revalidateTag('saved-listings', { expire: 0 })

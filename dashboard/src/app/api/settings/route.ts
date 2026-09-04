@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getPool } from '@/lib/db'
 import { getAllSettings, updateSettings } from '@/lib/queries'
 
 // Floors per key, replacing a blanket "≥ 0" - kept dashboard-side, same
@@ -65,7 +64,7 @@ const PACING_PAIRS: [string, string][] = [
 ]
 
 export async function GET() {
-  const settings = await getAllSettings(getPool())
+  const settings = await getAllSettings()
   return NextResponse.json({ settings })
 }
 
@@ -107,6 +106,6 @@ export async function PATCH(request: Request) {
     }
   }
 
-  await updateSettings(getPool(), parsed)
+  await updateSettings(parsed)
   return NextResponse.json({ ok: true })
 }

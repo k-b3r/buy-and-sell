@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getPool } from '@/lib/db'
 import { getDeals, getAllSettings, type DealsConfidenceTier } from '@/lib/queries'
 
 const PAGE_SIZE = 30
@@ -11,7 +10,7 @@ const CONFIDENCE_TIERS: DealsConfidenceTier[] = ['sold_comps', 'peer_listings', 
 // edit takes effect without a redeploy; this page shouldn't be the one place
 // that still reads a hardcoded floor.
 async function getDiscountPolicyFloors() {
-  const settings = await getAllSettings(getPool())
+  const settings = await getAllSettings()
   const byKey = new Map(settings.map((s) => [s.key, s.value]))
   return {
     minProfitPesos: byKey.get('discount_policy.min_profit_pesos') ?? 1000,
@@ -34,7 +33,7 @@ export async function GET(request: Request) {
     minTierParam && (CONFIDENCE_TIERS as string[]).includes(minTierParam) ? (minTierParam as DealsConfidenceTier) : undefined
 
   const discountPolicy = await getDiscountPolicyFloors()
-  const deals = await getDeals(getPool(), discountPolicy, {
+  const deals = await getDeals(discountPolicy, {
     search: search || undefined,
     categories: categories.length > 0 ? categories : undefined,
     minProfitPesos: minProfitParam ? Number(minProfitParam) : undefined,
