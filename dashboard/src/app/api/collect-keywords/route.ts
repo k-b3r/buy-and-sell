@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getPool } from '@/lib/db'
 import { getCollectKeywords, replaceCollectKeywords } from '@/lib/queries'
 
 export async function GET() {
-  const keywords = await getCollectKeywords(getPool())
+  const keywords = await getCollectKeywords()
   return NextResponse.json({ keywords })
 }
 
@@ -36,6 +35,6 @@ export async function PUT(request: Request) {
     cleaned.push(trimmed)
   }
 
-  await replaceCollectKeywords(getPool(), cleaned)
+  await replaceCollectKeywords(cleaned)
   return NextResponse.json({ ok: true })
 }

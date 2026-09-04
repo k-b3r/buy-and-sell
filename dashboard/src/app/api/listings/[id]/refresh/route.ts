@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getListingProductId } from '@/lib/queries'
 import { revalidateTag } from 'next/cache'
-import { getPool } from '@/lib/db'
 
 // Hands off to the POST /refresh route on server/ (server/routes/refresh.ts,
 // registered in server/index.ts) running on the box that actually has
@@ -35,10 +35,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (res.ok) {
     revalidateTag(`listing:${id}`, { expire: 0 })
     revalidateTag('products-list', { expire: 0 })
-    const productRow = await getPool()
-      .query('SELECT product_id FROM listings WHERE id = $1', [id])
-      .then((r) => (r.rows as { product_id: number | null }[])[0])
-    if (productRow?.product_id != null) revalidateTag(`product:${productRow.product_id}`, { expire: 0 })
+    const productId = await getListingProductId(id)
+    if (productId != null) revalidateTag(`product:${productId}`, { expire: 0 })
   }
 
   return NextResponse.json(body, { status: res.status })

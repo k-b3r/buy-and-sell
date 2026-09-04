@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { getPool } from '@/lib/db'
 import { setManualPrice, markProductReviewed } from '@/lib/queries'
 
 // A human typed in a retail/secondhand price for a needs_review product -
@@ -25,8 +24,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const productId = Number(id)
-  await setManualPrice(getPool(), productId, kind, priceLow, priceHigh)
-  await markProductReviewed(getPool(), productId)
+  await setManualPrice(productId, kind, priceLow, priceHigh)
+  await markProductReviewed(productId)
 
   revalidateTag('needs-review', { expire: 0 })
   revalidateTag('products-list', { expire: 0 })

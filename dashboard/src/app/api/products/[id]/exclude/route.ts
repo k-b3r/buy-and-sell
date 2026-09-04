@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { getPool } from '@/lib/db'
 import { excludeProductFromReview } from '@/lib/queries'
 
 // A human agrees with Groq's low-confidence hunch that this needs_review
@@ -10,7 +9,7 @@ import { excludeProductFromReview } from '@/lib/queries'
 // since exclusion is itself a resolution.
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  await excludeProductFromReview(getPool(), Number(id), 'manual_review')
+  await excludeProductFromReview(Number(id), 'manual_review')
 
   revalidateTag('needs-review', { expire: 0 })
   revalidateTag('products-list', { expire: 0 })

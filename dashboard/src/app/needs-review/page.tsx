@@ -1,9 +1,14 @@
-import { getPool } from '@/lib/db'
 import { getProductsNeedingReviewCached } from '@/lib/cachedQueries'
 import NeedsReviewClient from './NeedsReviewClient'
 
+// Live data - prerendering would pin it to build time, and would also make
+// the build depend on server/ being reachable from the build container (see
+// analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
+export const dynamic = 'force-dynamic'
+
+
 export default async function NeedsReviewPage() {
-  const products = await getProductsNeedingReviewCached(getPool())
+  const products = await getProductsNeedingReviewCached()
 
   return (
     <div>

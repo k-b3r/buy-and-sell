@@ -1,4 +1,4 @@
-import { isListingPriceNegotiable } from '@/lib/queries'
+import { isListingPriceNegotiable } from '@/lib/pricing'
 import type { ListingDetail } from '@/lib/queries'
 import ListingCarousel from './ListingCarousel'
 import RefreshButton from './RefreshButton'
