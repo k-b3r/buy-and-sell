@@ -387,6 +387,7 @@ INSERT INTO settings (key, value) VALUES
   ('collect.soft_wall_timeout_ms', 5000),
   ('collect.pacing_min_ms', 4000),
   ('collect.pacing_max_ms', 10000),
+  ('collect.loop_delay_ms', 300000),
   ('check_listings.loop_delay_ms', 60000),
   ('check_listings.limit_default', 100),
   ('check_listings.soft_wall_timeout_ms', 5000),

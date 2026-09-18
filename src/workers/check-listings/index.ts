@@ -6,6 +6,7 @@ import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
+import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { resolveProxy } from '../../domains/marketplace'
 import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
 import {
@@ -166,9 +167,6 @@ async function main() {
     logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
   }
 
-  const { page, close } = await launchBrowser({ proxy })
-  const driver = createBrowserDriver(page)
-
   logger.info('looping indefinitely — Ctrl+C to stop')
   try {
     let lap = 1
@@ -185,24 +183,42 @@ async function main() {
       const candidates = await getCheckListingsCandidates(pool, limit)
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
+      } else if (candidates.length > 0) {
+        // Browser only exists for the lifetime of this lap's batch, not the
+        // whole process - collect (the only other browser-launching worker)
+        // shares this same lock, and the VPS can't run both Chromiums at
+        // once without swapping hard (see browserLock.ts). Skipped entirely
+        // when there's nothing to check, same effect a min-batch gate would
+        // have had, for free.
+        await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
+        try {
+          const { page, close } = await launchBrowser({ proxy })
+          const driver = createBrowserDriver(page)
+          try {
+            await runCheckListings(
+              driver,
+              pool,
+              imageStore,
+              logger,
+              candidates,
+              settings['check_listings.soft_wall_timeout_ms'],
+              settings['check_listings.pacing_min_ms'],
+              settings['check_listings.pacing_max_ms'],
+            )
+          } finally {
+            await close()
+          }
+        } finally {
+          releaseBrowserLock(BROWSER_LOCK_PATH)
+        }
       } else {
-        await runCheckListings(
-          driver,
-          pool,
-          imageStore,
-          logger,
-          candidates,
-          settings['check_listings.soft_wall_timeout_ms'],
-          settings['check_listings.pacing_min_ms'],
-          settings['check_listings.pacing_max_ms'],
-        )
+        logger.info('lap has no candidates, skipping browser launch')
       }
       logger.info(`lap ${lap} complete, sleeping ${settings['check_listings.loop_delay_ms']}ms`)
       lap++
       await realDelay(settings['check_listings.loop_delay_ms'])
     }
   } finally {
-    await close()
     await pool.end()
   }
 }

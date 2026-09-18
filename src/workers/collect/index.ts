@@ -4,6 +4,7 @@ import { createLogger } from '../../platform/logger'
 import { autoApprove } from '../../platform/review'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
+import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { createR2ImageStore } from '../../platform/images'
 import { resolveProxy } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
@@ -103,9 +104,6 @@ async function main() {
     logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
   }
 
-  let { page, close } = await launchBrowser({ proxy })
-  let driver = createBrowserDriver(page)
-
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — Postgres is the collector\'s only persistence now')
   const pool = createDbPool(dbUrl)
@@ -140,69 +138,98 @@ async function main() {
         'collect.soft_wall_timeout_ms',
         'collect.pacing_min_ms',
         'collect.pacing_max_ms',
+        'collect.loop_delay_ms',
       ])
       const maxItems = explicitMaxItems ?? settings['collect.max_items_default']
       const queries = explicitQuery !== undefined ? [explicitQuery] : await loadCollectKeywords(pool)
       if (cycle) logger.info(`--cycle: lap ${lap} starting, ${queries.length} motivated-seller keywords`)
-      for (const query of queries) {
-        if (isTestRun()) {
+
+      if (isTestRun()) {
+        for (const query of queries) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
-          continue
         }
-        // One keyword's transient error (network blip, FB rate limit, a DB
-        // write failure) used to propagate all the way up through main()'s
-        // catch and kill the whole --cycle process - confirmed live
-        // 2026-09-01: a single query failure ended a run meant to loop
-        // keywords forever. Isolate per-keyword so --cycle actually survives
-        // one bad query and moves on to the next.
+      } else {
+        // Browser (and the cross-process lock guarding it) only lives for
+        // this one lap - check-listings shares the same lock and the VPS
+        // can't run both Chromiums at once without swapping hard (see
+        // browserLock.ts). Closing here, not just at process exit, is also
+        // what actually lowers collect's request cadence: the pause below
+        // (collect.loop_delay_ms) now happens with no browser open at all,
+        // not just a paused-but-still-resident one.
+        await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
         try {
-          await runCollection(
-            driver,
-            logger,
-            autoApprove,
-            process.stdin,
-            process.stdout,
-            {
-              query,
-              softWallTimeoutMs: settings['collect.soft_wall_timeout_ms'],
-              pacingMinMs: settings['collect.pacing_min_ms'],
-              pacingMaxMs: settings['collect.pacing_max_ms'],
-              maxItems,
-              daysSinceListed,
-            },
-            pool,
-            imageStore,
-          )
-          consecutiveFailures = 0
-        } catch (err) {
-          consecutiveFailures += 1
-          logger.error(
-            `query "${query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
-          )
-          if (isBrowserUnusableError(err)) {
-            logger.warn('browser is unusable, relaunching before continuing')
-            try {
-              await close()
-            } catch (closeErr) {
-              logger.warn(`error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`)
+          let { page, close } = await launchBrowser({ proxy })
+          let driver = createBrowserDriver(page)
+          try {
+            for (const query of queries) {
+              // One keyword's transient error (network blip, FB rate limit, a
+              // DB write failure) used to propagate all the way up through
+              // main()'s catch and kill the whole --cycle process - confirmed
+              // live 2026-09-01: a single query failure ended a run meant to
+              // loop keywords forever. Isolate per-keyword so --cycle
+              // actually survives one bad query and moves on to the next.
+              try {
+                await runCollection(
+                  driver,
+                  logger,
+                  autoApprove,
+                  process.stdin,
+                  process.stdout,
+                  {
+                    query,
+                    softWallTimeoutMs: settings['collect.soft_wall_timeout_ms'],
+                    pacingMinMs: settings['collect.pacing_min_ms'],
+                    pacingMaxMs: settings['collect.pacing_max_ms'],
+                    maxItems,
+                    daysSinceListed,
+                  },
+                  pool,
+                  imageStore,
+                )
+                consecutiveFailures = 0
+              } catch (err) {
+                consecutiveFailures += 1
+                logger.error(
+                  `query "${query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
+                )
+                if (isBrowserUnusableError(err)) {
+                  logger.warn('browser is unusable, relaunching before continuing')
+                  try {
+                    await close()
+                  } catch (closeErr) {
+                    logger.warn(`error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`)
+                  }
+                  const relaunch = await launchBrowser({ proxy })
+                  page = relaunch.page
+                  close = relaunch.close
+                  driver = createBrowserDriver(page)
+                }
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                  logger.error(`${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`)
+                  return
+                }
+                await realDelay(Math.min(FAILURE_BACKOFF_MS * consecutiveFailures, MAX_FAILURE_BACKOFF_MS))
+              }
             }
-            const relaunch = await launchBrowser({ proxy })
-            page = relaunch.page
-            close = relaunch.close
-            driver = createBrowserDriver(page)
+          } finally {
+            await close()
           }
-          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-            logger.error(`${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`)
-            return
-          }
-          await realDelay(Math.min(FAILURE_BACKOFF_MS * consecutiveFailures, MAX_FAILURE_BACKOFF_MS))
+        } finally {
+          releaseBrowserLock(BROWSER_LOCK_PATH)
         }
       }
-      if (cycle && isTestRun()) await realDelay(TEST_RUN_LOOP_DELAY_MS)
+
+      if (cycle) {
+        if (isTestRun()) {
+          await realDelay(TEST_RUN_LOOP_DELAY_MS)
+        } else {
+          logger.info(`--cycle: lap ${lap} complete, sleeping ${settings['collect.loop_delay_ms']}ms with the browser closed`)
+          await realDelay(settings['collect.loop_delay_ms'])
+        }
+      }
       lap++
     } while (cycle)
   } finally {
-    await close()
     await pool.end()
   }
 }

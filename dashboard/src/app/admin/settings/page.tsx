@@ -77,6 +77,14 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
             min: 2000,
             defaultValue: 10000,
           },
+          {
+            key: 'collect.loop_delay_ms',
+            label: 'Loop delay',
+            description: 'Pause between laps (a full pass through the keyword list) in --cycle mode. Also how long the browser stays closed between laps, freeing it for check-listings to use.',
+            unit: 'ms',
+            min: 10000,
+            defaultValue: 300000,
+          },
         ],
       },
       {
