@@ -16,6 +16,7 @@ const SETTING_FLOORS: Record<string, number> = {
   'collect.soft_wall_timeout_ms': 1000,
   'collect.pacing_min_ms': 2000,
   'collect.pacing_max_ms': 2000,
+  'collect.loop_delay_ms': 10000,
 
   'check_listings.loop_delay_ms': 10000,
   'check_listings.limit_default': 1,
