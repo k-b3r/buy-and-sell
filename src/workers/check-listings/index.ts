@@ -88,9 +88,10 @@ export async function checkOneListing(
     logger.info(`listing ${candidate.id} recovered — was flagged, now accessible again, clearing flag`)
   }
   // Still live — sync title/price/description/condition in case the
-  // seller edited them since we first saw this listing (see
-  // refreshListingFields; photos are deliberately left untouched).
-  await refreshListingFields(db, detailFields)
+  // seller edited them since we first saw this listing, and re-sync photos
+  // too if Facebook's own photo ids show the seller actually swapped them
+  // (see refreshListingFields).
+  await refreshListingFields(db, imageStore, logger, candidate.source_photo_ids, detailFields)
   await markListingAlive(db, candidate.id)
   return { status: 'alive' }
 }

@@ -1,4 +1,6 @@
 import type { DbClient } from '../../../platform/storage'
+import type { Logger } from '../../../platform/logger'
+import type { ImageStore, FetchBytes, CompressImage } from '../../../platform/images'
 import {
   upsertListing,
   getCollectedListingIds,
@@ -35,6 +37,36 @@ function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] }
   }
 }
 
+function fakeLogger(): Logger & { warnings: string[] } {
+  const warnings: string[] = []
+  return {
+    warnings,
+    info: () => {},
+    warn: (msg) => warnings.push(msg),
+    error: () => {},
+  }
+}
+
+function fakeImageStore(): ImageStore & { puts: { key: string }[]; deletedPrefixes: string[] } {
+  const puts: { key: string }[] = []
+  const deletedPrefixes: string[] = []
+  return {
+    puts,
+    deletedPrefixes,
+    async put(key) {
+      puts.push({ key })
+      return `https://images.example.com/${key}`
+    },
+    async deleteAll(prefix) {
+      deletedPrefixes.push(prefix)
+    },
+  }
+}
+
+const workingFetchBytes: FetchBytes = async () => ({ body: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' })
+const failingFetchBytes: FetchBytes = async () => null
+const identityCompress: CompressImage = async (body, contentType) => ({ body, contentType })
+
 test('upsertListing extracts known fields and stores the full raw object as json', async () => {
   const { db, calls } = mockDb()
   const listing = {
@@ -57,7 +89,7 @@ test('upsertListing extracts known fields and stores the full raw object as json
   expect(calls).toHaveLength(1)
   const [
     id, title, priceAmount, priceCurrency, description, condition, categoryId, lat, lng, city,
-    photoUrl, storedPhotoUrls, listedAt, rawJson,
+    photoUrl, storedPhotoUrls, sourcePhotoIds, listedAt, rawJson,
   ] = calls[0].params
 
   expect(id).toBe('12345')
@@ -72,8 +104,22 @@ test('upsertListing extracts known fields and stores the full raw object as json
   expect(city).toBe('Dasmariñas')
   expect(photoUrl).toBe('https://scontent.example/photo.jpg')
   expect(storedPhotoUrls).toBeNull()
+  expect(sourcePhotoIds).toBeNull()
   expect((listedAt as Date).getTime()).toBe(1786660802 * 1000)
   expect(JSON.parse(rawJson as string)).toEqual(listing)
+})
+
+test('upsertListing stores photo ids from listing_photos as a json array, in carousel order', async () => {
+  const { db, calls } = mockDb()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
+  }
+
+  await upsertListing(db, listing)
+
+  expect(JSON.parse(calls[0].params[12] as string)).toEqual(['photo-a', 'photo-b'])
 })
 
 test('upsertListing extracts condition from attribute_data, not a top-level field', async () => {
@@ -134,6 +180,7 @@ test('upsertListing fills missing optional fields with null instead of throwing'
   expect(params[9]).toBeNull()
   expect(params[10]).toBeNull()
   expect(params[11]).toBeNull()
+  expect(params[12]).toBeNull()
 })
 
 test('upsertListing falls back to custom_title when marketplace_listing_title is absent', async () => {
@@ -194,7 +241,7 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
     attribute_data: [{ label: 'Used - Fair', value: 'used_fair', attribute_name: 'Condition' }],
   }
 
-  await refreshListingFields(db, listing)
+  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, listing)
 
   // Two calls: the field update, plus the keyword scan's price-review
   // upsert - the description says "Now negotiable", so it should fire.
@@ -202,6 +249,7 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
   expect(calls[0].sql).toMatch(/^UPDATE listings SET/)
   expect(calls[0].sql).not.toContain('primary_photo_url')
   expect(calls[0].sql).not.toContain('stored_photo_urls')
+  expect(calls[0].sql).not.toContain('source_photo_ids')
   const [id, title, priceAmount, priceCurrency, description, condition, rawJson] = calls[0].params
   expect(id).toBe('12345')
   expect(title).toBe('Sony WH-1000XM6 (price cut!)')
@@ -213,6 +261,91 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
 
   expect(calls[1].sql).toContain('INSERT INTO listing_price_review')
   expect(calls[1].params).toEqual(['12345', 'keyword match: "negotiable"'])
+})
+
+test('refreshListingFields captures photo ids as a baseline on first sighting, without touching photos', async () => {
+  const { db, calls } = mockDb()
+  const store = fakeImageStore()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
+  }
+
+  await refreshListingFields(db, store, fakeLogger(), null, listing)
+
+  expect(calls[0].sql).toContain('source_photo_ids = $8')
+  expect(calls[0].sql).not.toContain('primary_photo_url')
+  expect(calls[0].sql).not.toContain('stored_photo_urls')
+  expect(JSON.parse(calls[0].params[7] as string)).toEqual(['photo-a', 'photo-b'])
+  expect(store.puts).toEqual([])
+  expect(store.deletedPrefixes).toEqual([])
+})
+
+test('refreshListingFields leaves photos untouched when the ids match the stored baseline', async () => {
+  const { db, calls } = mockDb()
+  const store = fakeImageStore()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
+  }
+
+  await refreshListingFields(db, store, fakeLogger(), ['photo-a', 'photo-b'], listing)
+
+  expect(calls[0].sql).not.toContain('primary_photo_url')
+  expect(calls[0].sql).not.toContain('stored_photo_urls')
+  expect(calls[0].sql).not.toContain('source_photo_ids')
+  expect(store.puts).toEqual([])
+  expect(store.deletedPrefixes).toEqual([])
+})
+
+test('refreshListingFields re-fetches and re-uploads photos when the seller swapped them', async () => {
+  const { db, calls } = mockDb()
+  const store = fakeImageStore()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    primary_listing_photo: { image: { uri: 'https://scontent.example/new-primary.jpg' } },
+    listing_photos: [{ id: 'photo-c', image: { uri: 'https://scontent.example/c.jpg' } }, { id: 'photo-d', image: { uri: 'https://scontent.example/d.jpg' } }],
+  }
+
+  await refreshListingFields(db, store, fakeLogger(), ['photo-a', 'photo-b'], listing, workingFetchBytes, identityCompress)
+
+  expect(store.deletedPrefixes).toEqual(['listings/12345/'])
+  expect(store.puts).toEqual([{ key: 'listings/12345/0.jpg' }, { key: 'listings/12345/1.jpg' }])
+  expect(calls[0].sql).toContain('primary_photo_url')
+  expect(calls[0].sql).toContain('stored_photo_urls')
+  expect(calls[0].sql).toContain('source_photo_ids')
+  const primaryPhotoUrl = calls[0].params[7]
+  const storedPhotoUrls = calls[0].params[8]
+  const sourcePhotoIds = calls[0].params[9]
+  expect(primaryPhotoUrl).toBe('https://scontent.example/new-primary.jpg')
+  expect(JSON.parse(storedPhotoUrls as string)).toEqual([
+    'https://images.example.com/listings/12345/0.jpg',
+    'https://images.example.com/listings/12345/1.jpg',
+  ])
+  expect(JSON.parse(sourcePhotoIds as string)).toEqual(['photo-c', 'photo-d'])
+})
+
+test('refreshListingFields keeps the existing photos when a detected change fails to re-fetch entirely', async () => {
+  const { db, calls } = mockDb()
+  const store = fakeImageStore()
+  const logger = fakeLogger()
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    listing_photos: [{ id: 'photo-c', image: { uri: 'https://scontent.example/c.jpg' } }],
+  }
+
+  await refreshListingFields(db, store, logger, ['photo-a', 'photo-b'], listing, failingFetchBytes, identityCompress)
+
+  expect(store.deletedPrefixes).toEqual(['listings/12345/'])
+  expect(store.puts).toEqual([])
+  expect(calls[0].sql).not.toContain('primary_photo_url')
+  expect(calls[0].sql).not.toContain('stored_photo_urls')
+  expect(calls[0].sql).not.toContain('source_photo_ids')
+  expect(logger.warnings.some((w) => w.includes('returned nothing'))).toBe(true)
 })
 
 test('getCheckListingsCandidates orders by last_checked_at then listed_at, oldest/never-checked first', async () => {

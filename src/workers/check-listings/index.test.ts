@@ -61,7 +61,7 @@ test('real content found: marks the listing alive, does not flag or delete', asy
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }])
+  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }])
 
   const aliveCall = calls.find((c) => c.sql.includes('last_checked_at = now()'))
   expect(aliveCall?.sql).toContain('flagged_removed_at = NULL')
@@ -74,7 +74,7 @@ test('real content found: refreshes title/price/description/condition, but not p
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }])
+  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }])
 
   const refreshCall = calls.find((c) => c.sql.includes('last_seen_at = now()'))
   expect(refreshCall).toBeDefined()
@@ -91,7 +91,7 @@ test('real content found with is_sold true: marks the listing sold, not alive', 
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }])
+  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }])
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('sold_at = now()')
@@ -107,7 +107,7 @@ test('soft-wall persists, not previously flagged: flags it, does not delete', as
   const { store, deletedPrefixes } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null }], 10)
+  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }], 10)
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('flagged_removed_at = now()')
@@ -125,7 +125,7 @@ test('soft-wall persists, already flagged from a prior run: confirmed removed, d
     db,
     store,
     logger,
-    [{ id: '1', flagged_removed_at: '2026-08-01T00:00:00Z' }],
+    [{ id: '1', flagged_removed_at: '2026-08-01T00:00:00Z', source_photo_ids: null }],
     10,
   )
 
@@ -141,8 +141,8 @@ test('hard-block stops the whole run immediately, does not flag or delete anythi
   const logger = createLogger(LOG_PATH)
 
   await runCheckListings(driver, db, store, logger, [
-    { id: '1', flagged_removed_at: null },
-    { id: '2', flagged_removed_at: null },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
+    { id: '2', flagged_removed_at: null, source_photo_ids: null },
   ])
 
   expect(calls).toHaveLength(0)
@@ -159,7 +159,7 @@ test('checkOneListing returns a status describing what happened, for callers oth
     db1,
     store,
     logger,
-    { id: '1', flagged_removed_at: null },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
   )
   expect(alive).toEqual({ status: 'alive' })
 
@@ -169,7 +169,7 @@ test('checkOneListing returns a status describing what happened, for callers oth
     db2,
     store,
     logger,
-    { id: '1', flagged_removed_at: null },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
   )
   expect(sold).toEqual({ status: 'sold' })
 
@@ -179,7 +179,7 @@ test('checkOneListing returns a status describing what happened, for callers oth
     db3,
     store,
     logger,
-    { id: '1', flagged_removed_at: null },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
     10,
   )
   expect(flagged).toEqual({ status: 'flagged' })
@@ -190,7 +190,7 @@ test('checkOneListing returns a status describing what happened, for callers oth
     db4,
     store,
     logger,
-    { id: '1', flagged_removed_at: '2026-08-01T00:00:00Z' },
+    { id: '1', flagged_removed_at: '2026-08-01T00:00:00Z', source_photo_ids: null },
     10,
   )
   expect(removed).toEqual({ status: 'removed' })
@@ -201,7 +201,7 @@ test('checkOneListing returns a status describing what happened, for callers oth
     db5,
     store,
     logger,
-    { id: '1', flagged_removed_at: null },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
   )
   expect(blocked).toEqual({ status: 'hard-block' })
 })
@@ -222,7 +222,7 @@ test('checkOneListing does not navigate or pace itself - that stays with the cal
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await checkOneListing(driver, db, store, logger, { id: '1', flagged_removed_at: null })
+  await checkOneListing(driver, db, store, logger, { id: '1', flagged_removed_at: null, source_photo_ids: null })
 
   expect(openListingCalled).toBe(false)
   expect(waitRandomCalled).toBe(false)
@@ -241,8 +241,8 @@ test('paces with waitRandom before each listing', async () => {
   const logger = createLogger(LOG_PATH)
 
   await runCheckListings(driver, db, store, logger, [
-    { id: '1', flagged_removed_at: null },
-    { id: '2', flagged_removed_at: null },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
+    { id: '2', flagged_removed_at: null, source_photo_ids: null },
   ])
 
   expect(waits).toEqual([

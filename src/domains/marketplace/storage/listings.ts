@@ -3,6 +3,9 @@ import type { PriceReviewCandidate, PriceReviewData } from '../price-review'
 import { descriptionPriceDiverges } from '../price-review'
 import { matchesNegotiableKeyword } from '../negotiable-keywords'
 import type { PriceRange } from '../price-lookup'
+import type { ImageStore, FetchBytes, CompressImage } from '../../../platform/images'
+import { storeListingPhotos, deleteListingPhotos, defaultFetchBytes, defaultCompressImage } from '../../../platform/images'
+import type { Logger } from '../../../platform/logger'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {
@@ -77,15 +80,34 @@ export function parseListingFields(listing: Record<string, unknown>): ParsedList
   }
 }
 
+// Facebook's own per-photo id, stable across the CDN url's ever-rotating
+// signed tokens (unlike the url itself) - this is what lets a later recheck
+// tell "seller swapped photos" apart from "same photo, url just re-signed".
+// Returns null when listing_photos isn't present/an array at all (a plain
+// title/price re-scrape can legitimately lack it) - distinct from an empty
+// array, which means Facebook explicitly reported zero photos right now.
+export function extractPhotoIds(listing: Record<string, unknown>): string[] | null {
+  const photos = listing.listing_photos
+  if (!Array.isArray(photos)) return null
+  return photos
+    .map((p) => (p as { id?: unknown } | undefined)?.id)
+    .filter((id): id is string => typeof id === 'string')
+}
+
+function photoIdsEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i])
+}
+
 export async function upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void> {
   const f = parseListingFields(listing)
+  const photoIds = extractPhotoIds(listing)
 
   await db.query(
     `INSERT INTO listings (
        id, title, price_amount, price_currency, description, condition, category_id,
-       location_lat, location_lng, location_city, primary_photo_url, stored_photo_urls, listed_at, raw_json
+       location_lat, location_lng, location_city, primary_photo_url, stored_photo_urls, source_photo_ids, listed_at, raw_json
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      ON CONFLICT (id) DO UPDATE SET
        title = EXCLUDED.title,
        price_amount = EXCLUDED.price_amount,
@@ -98,6 +120,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
        location_city = EXCLUDED.location_city,
        primary_photo_url = EXCLUDED.primary_photo_url,
        stored_photo_urls = EXCLUDED.stored_photo_urls,
+       source_photo_ids = EXCLUDED.source_photo_ids,
        listed_at = EXCLUDED.listed_at,
        raw_json = EXCLUDED.raw_json,
        last_seen_at = now(),
@@ -115,6 +138,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
       f.locationCity,
       f.primaryPhotoUrl,
       f.storedPhotoUrls ? JSON.stringify(f.storedPhotoUrls) : null,
+      photoIds ? JSON.stringify(photoIds) : null,
       f.listedAt,
       JSON.stringify(listing),
     ],
@@ -133,6 +157,7 @@ export async function getCollectedListingIds(db: DbClient): Promise<Set<string>>
 export interface CheckListingsCandidate {
   id: string
   flagged_removed_at: string | null
+  source_photo_ids: string[] | null
 }
 
 // Never-checked listings (NULLS FIRST) all come before any re-check cycle —
@@ -142,7 +167,7 @@ export interface CheckListingsCandidate {
 // sold/removed, so checking those first finds genuinely-stale listings fastest.
 export async function getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]> {
   const result = (await db.query(
-    `SELECT id, flagged_removed_at FROM listings
+    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
      WHERE sold_at IS NULL
      ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
      LIMIT $1`,
@@ -161,7 +186,7 @@ export async function getListingCheckCandidatesForProduct(
   productId: number,
 ): Promise<CheckListingsCandidate[]> {
   const result = (await db.query(
-    `SELECT id, flagged_removed_at FROM listings
+    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
      WHERE product_id = $1
      AND sold_at IS NULL
      ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
@@ -177,7 +202,7 @@ export async function getListingCheckCandidatesForProduct(
 // filter on sold_at IS NULL - a sold listing can still be manually refreshed
 // (e.g. to double-check it wasn't a false positive).
 export async function getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null> {
-  const result = (await db.query(`SELECT id, flagged_removed_at FROM listings WHERE id = $1`, [
+  const result = (await db.query(`SELECT id, flagged_removed_at, source_photo_ids FROM listings WHERE id = $1`, [
     id,
   ])) as { rows: CheckListingsCandidate[] }
   return result.rows[0] ?? null
@@ -219,27 +244,72 @@ export async function deleteListing(db: DbClient, id: string): Promise<void> {
 // live (not sold/removed) - a re-scraped detail page reflects whatever the
 // seller has since edited (price cut, updated description, corrected
 // condition), so without this the stored row would only ever show its
-// first-seen snapshot forever. Deliberately excludes photo fields
-// (primary_photo_url/stored_photo_urls) and category_id/location - a plain
-// detail-page scrape has no knowledge of the R2-uploaded copy the backfill
-// util already produced, and overwriting with the raw FB CDN link (or null)
-// would silently undo that work.
-export async function refreshListingFields(db: DbClient, listing: Record<string, unknown>): Promise<void> {
+// first-seen snapshot forever. Deliberately excludes category_id/location -
+// scoped to fields a seller can actually edit post-listing.
+//
+// Photos are the one field that DOES get touched here, but conditionally:
+// storedPhotoIds is the listing's last-known source_photo_ids (from the
+// CheckListingsCandidate row) - the caller's job, not this function's, to
+// avoid a redundant read. Facebook's own per-photo id (unlike the CDN url,
+// which re-signs on every fetch) is what lets "seller swapped photos" be
+// told apart from "same photo, url just rotated":
+//   - no stored baseline yet (null) -> capture the current ids, no re-fetch.
+//     Ships against ~11k listings with zero history - forcing a real
+//     re-fetch on all of them the moment this lands would spike CPU (sharp
+//     compression) and R2 writes across the whole backlog at once.
+//   - baseline present, ids match -> untouched, same as before this existed.
+//   - baseline present, ids differ -> a real change: re-download + re-upload
+//     via the same storeListingPhotos used at initial collection (not
+//     duplicated), overwriting primary_photo_url/stored_photo_urls/
+//     source_photo_ids together. A total re-fetch failure (all photos
+//     unreachable) leaves the existing good copies untouched rather than
+//     wiping them - it'll just look "changed" again next check and retry.
+export async function refreshListingFields(
+  db: DbClient,
+  imageStore: ImageStore,
+  logger: Logger,
+  storedPhotoIds: string[] | null,
+  listing: Record<string, unknown>,
+  fetchBytes: FetchBytes = defaultFetchBytes,
+  compress: CompressImage = defaultCompressImage,
+): Promise<void> {
   const f = parseListingFields(listing)
+  const currentPhotoIds = extractPhotoIds(listing)
 
-  await db.query(
-    `UPDATE listings SET
-       title = $2,
-       price_amount = $3,
-       price_currency = $4,
-       description = $5,
-       condition = $6,
-       raw_json = $7,
-       last_seen_at = now(),
-       updated_at = now()
-     WHERE id = $1`,
-    [f.id, f.title, f.priceAmount, f.priceCurrency, f.description, f.condition, JSON.stringify(listing)],
-  )
+  const setClauses = [
+    'title = $2',
+    'price_amount = $3',
+    'price_currency = $4',
+    'description = $5',
+    'condition = $6',
+    'raw_json = $7',
+    'last_seen_at = now()',
+    'updated_at = now()',
+  ]
+  const params: unknown[] = [f.id, f.title, f.priceAmount, f.priceCurrency, f.description, f.condition, JSON.stringify(listing)]
+
+  if (currentPhotoIds !== null) {
+    if (storedPhotoIds === null) {
+      params.push(JSON.stringify(currentPhotoIds))
+      setClauses.push(`source_photo_ids = $${params.length}`)
+    } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
+      logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
+      await deleteListingPhotos(imageStore, logger, f.id)
+      const newUrls = await storeListingPhotos(imageStore, logger, f.id, listing.listing_photos, fetchBytes, compress)
+      if (newUrls.length > 0) {
+        params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
+        setClauses.push(
+          `primary_photo_url = $${params.length - 2}`,
+          `stored_photo_urls = $${params.length - 1}`,
+          `source_photo_ids = $${params.length}`,
+        )
+      } else {
+        logger.warn(`listing ${f.id} photo re-fetch returned nothing, keeping existing photos`)
+      }
+    }
+  }
+
+  await db.query(`UPDATE listings SET ${setClauses.join(', ')} WHERE id = $1`, params)
   await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 }
 

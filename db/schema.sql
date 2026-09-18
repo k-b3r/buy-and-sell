@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS listings (
   location_city TEXT,
   primary_photo_url TEXT,
   stored_photo_urls JSONB,
+  -- Facebook's own per-photo id (listing_photos[].id) in carousel order -
+  -- stable across the CDN URL's ever-rotating signed tokens, unlike the URL
+  -- itself. check-listings diffs this on every recheck to detect the seller
+  -- actually swapping photos (not just the signed URL changing), and
+  -- re-fetches to R2 only then - see refreshListingFields.
+  source_photo_ids JSONB,
   listed_at TIMESTAMPTZ,
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -29,6 +35,8 @@ CREATE INDEX IF NOT EXISTS listings_product_id_idx ON listings (product_id);
 
 -- Migration for tables created before stored_photo_urls existed (safe to re-run).
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS stored_photo_urls JSONB;
+-- Migration for tables created before source_photo_ids existed (safe to re-run).
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_photo_ids JSONB;
 
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
