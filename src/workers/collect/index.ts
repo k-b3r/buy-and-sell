@@ -8,7 +8,8 @@ import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../..
 import { createR2ImageStore } from '../../platform/images'
 import { resolveProxy } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
-import { loadCollectKeywords } from '../../platform/collect-keywords'
+import { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from '../../platform/collect-keywords'
+import type { LapQuery } from '../../platform/collect-keywords'
 
 // Real mode paces itself per-listing (driver.waitRandom, 4-10s) inside
 // runCollection - TEST_RUN skips that entirely (no live Facebook calls at
@@ -139,13 +140,28 @@ async function main() {
         'collect.pacing_min_ms',
         'collect.pacing_max_ms',
         'collect.loop_delay_ms',
+        'collect.re_keywords_enabled',
+        'collect.re_every_n_laps',
+        'collect.re_max_items',
       ])
       const maxItems = explicitMaxItems ?? settings['collect.max_items_default']
-      const queries = explicitQuery !== undefined ? [explicitQuery] : await loadCollectKeywords(pool)
+      const queries: LapQuery[] =
+        explicitQuery !== undefined
+          ? [{ query: explicitQuery, maxItems }]
+          : planLapQueries({
+              general: await loadCollectKeywords(pool),
+              // Only queried when the flag is on, so flag-off laps do no extra DB work.
+              realEstate: settings['collect.re_keywords_enabled'] >= 1 ? await loadRealEstateKeywords(pool) : [],
+              lap,
+              reEnabled: settings['collect.re_keywords_enabled'],
+              reEveryNLaps: settings['collect.re_every_n_laps'],
+              reMaxItems: settings['collect.re_max_items'],
+              defaultMaxItems: maxItems,
+            })
       if (cycle) logger.info(`--cycle: lap ${lap} starting, ${queries.length} motivated-seller keywords`)
 
       if (isTestRun()) {
-        for (const query of queries) {
+        for (const { query, maxItems: queryMaxItems } of queries) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
         }
       } else {
@@ -161,7 +177,7 @@ async function main() {
           let { page, close } = await launchBrowser({ proxy })
           let driver = createBrowserDriver(page)
           try {
-            for (const query of queries) {
+            for (const { query, maxItems: queryMaxItems } of queries) {
               // One keyword's transient error (network blip, FB rate limit, a
               // DB write failure) used to propagate all the way up through
               // main()'s catch and kill the whole --cycle process - confirmed
@@ -180,7 +196,7 @@ async function main() {
                     softWallTimeoutMs: settings['collect.soft_wall_timeout_ms'],
                     pacingMinMs: settings['collect.pacing_min_ms'],
                     pacingMaxMs: settings['collect.pacing_max_ms'],
-                    maxItems,
+                    maxItems: queryMaxItems,
                     daysSinceListed,
                   },
                   pool,

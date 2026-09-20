@@ -532,3 +532,9 @@ INSERT INTO settings (key, value) VALUES
   ('collect.re_max_items', 50),
   ('check_listings.re_recheck_min_days', 0)
 ON CONFLICT (key) DO NOTHING;
+
+-- 'general' = today's motivated-seller list (default, so every existing row is
+-- unchanged). 'real_estate' phrases run in their own capped pass every Nth lap
+-- (see planLapQueries) so property searches never lengthen the general lap.
+ALTER TABLE collect_keywords ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'general'
+  CHECK (kind IN ('general', 'real_estate'));

@@ -2759,3 +2759,14 @@ test('getDeals caps each category at 10 rows via a per-category ROW_NUMBER, appl
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { lowConfidenceOnly: true })
   expect(capturedSql).toMatch(/WHERE \$\d+ OR category_rank <= \$\d+/)
 })
+
+test('getCollectKeywords and replaceCollectKeywords only touch general keywords', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db: QueryClient = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [] } } }
+
+  await getCollectKeywords(db)
+  await replaceCollectKeywords(db, [{ keyword: 'rush sale', enabled: true }])
+
+  expect(calls[0].sql).toContain("kind = 'general'")
+  expect(calls[1].sql).toContain("DELETE FROM collect_keywords WHERE kind = 'general'")
+})

@@ -1756,7 +1756,7 @@ export interface CollectKeyword {
 }
 
 export async function getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]> {
-  const result = await db.query(`SELECT keyword, enabled FROM collect_keywords ORDER BY keyword`, [])
+  const result = await db.query(`SELECT keyword, enabled FROM collect_keywords WHERE kind = 'general' ORDER BY keyword`, [])
   return (result.rows as CollectKeyword[]).map((r) => ({ keyword: r.keyword, enabled: r.enabled }))
 }
 
@@ -1764,7 +1764,7 @@ export async function getCollectKeywords(db: QueryClient): Promise<CollectKeywor
 // handful of rows edited rarely from one shared dashboard, so the simplicity
 // of "save the whole list" outweighs the cost of a delete-then-insert.
 export async function replaceCollectKeywords(db: QueryClient, keywords: CollectKeyword[]): Promise<void> {
-  await db.query(`DELETE FROM collect_keywords`, [])
+  await db.query(`DELETE FROM collect_keywords WHERE kind = 'general'`, [])
   if (keywords.length === 0) return
   const valuesSql = keywords.map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`).join(', ')
   const params = keywords.flatMap((k) => [k.keyword, k.enabled])
