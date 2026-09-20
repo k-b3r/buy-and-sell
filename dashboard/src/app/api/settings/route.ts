@@ -46,6 +46,9 @@ const SETTING_FLOORS: Record<string, number> = {
   'enrich_listing_prices.batch_size': 1,
   'enrich_listing_prices.loop_delay_ms': 1000,
 
+  'extract_real_estate.batch_size': 1,
+  'extract_real_estate.loop_delay_ms': 1000,
+
   'verify_discount.lap_limit_default': 1,
   'verify_discount.fetch_batch_size': 1,
   'verify_discount.loop_delay_ms': 1000,

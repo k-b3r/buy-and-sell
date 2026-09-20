@@ -538,3 +538,32 @@ ON CONFLICT (key) DO NOTHING;
 -- (see planLapQueries) so property searches never lengthen the general lap.
 ALTER TABLE collect_keywords ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'general'
   CHECK (kind IN ('general', 'real_estate'));
+
+CREATE TABLE IF NOT EXISTS real_estate_details (
+  listing_id TEXT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+  listing_type TEXT CHECK (listing_type IN ('sale', 'rent')),
+  property_type TEXT NOT NULL CHECK (property_type IN ('house_and_lot', 'condo', 'land', 'commercial', 'other')),
+  price_php NUMERIC,
+  price_basis TEXT NOT NULL CHECK (price_basis IN ('total', 'per_sqm', 'monthly', 'equity', 'unresolved')),
+  lot_sqm NUMERIC,
+  floor_sqm NUMERIC,
+  bedrooms INTEGER,
+  bathrooms INTEGER,
+  project_name TEXT,
+  area_text TEXT,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  confidence TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low')),
+  -- md5 of title|description|price_amount at extraction time. Re-extract when it
+  -- differs. listings.updated_at can't be used: refreshListingFields bumps it on
+  -- every recheck whether anything changed or not.
+  source_hash TEXT NOT NULL,
+  model TEXT NOT NULL,
+  extracted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS real_estate_details_type_idx ON real_estate_details (listing_type, property_type);
+
+INSERT INTO settings (key, value) VALUES
+  ('extract_real_estate.batch_size', 20),
+  ('extract_real_estate.loop_delay_ms', 300000)
+ON CONFLICT (key) DO NOTHING;

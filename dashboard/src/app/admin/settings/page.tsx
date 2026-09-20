@@ -303,6 +303,28 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
         ],
       },
       {
+        id: 'extract_real_estate',
+        title: 'extract-real-estate',
+        fields: [
+          {
+            key: 'extract_real_estate.batch_size',
+            label: 'Batch size',
+            description: 'Listings sent to the LLM per extraction request.',
+            unit: 'count',
+            min: 1,
+            defaultValue: 20,
+          },
+          {
+            key: 'extract_real_estate.loop_delay_ms',
+            label: 'Loop delay',
+            description: 'Pause between laps.',
+            unit: 'ms',
+            min: 1000,
+            defaultValue: 300000,
+          },
+        ],
+      },
+      {
         id: 'verify_discount',
         title: 'verify-discount-notifications',
         fields: [
