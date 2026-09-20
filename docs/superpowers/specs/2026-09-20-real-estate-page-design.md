@@ -93,7 +93,7 @@ listings skip this branch entirely. Cascade delete matches the FK fix already ma
 
 ### 2. Recheck cadence
 
-Add a setting `check.re_recheck_min_days`, defaulting to 0 (today's behavior). When above 0,
+Add a setting `check_listings.re_recheck_min_days`, defaulting to 0 (today's behavior). When above 0,
 `getCheckListingsCandidates` skips real estate listings checked more recently than that many days. Other
 categories are unaffected. Exact query shape is settled in the plan. The settings PATCH allowlist and its
 floors must include every new key (a missing entry caused a bug before, see commit `1f00b53`).
@@ -128,7 +128,8 @@ Pure functions, unit-tested first:
 - **Price normalization:** deterministic pass first for shorthand in title/description ("13M", "1.5 mil",
   "500k"). When `price_amount` is implausibly small and the text has a matching amount, propose it. Otherwise
   the LLM decides `price_php` and `price_basis`. If neither resolves, `price_basis = 'unresolved'`.
-- Unit conversion: sqft to sqm (x0.0929), hectares to sqm (x10,000).
+- Unit conversion (sqft to sqm x0.0929, hectares x10,000) is done by the LLM per the prompt and validated by
+  the clamps below, since only 1 of 453 listings uses sqft.
 - Clamps turn implausible values into null with confidence downgraded: sale total outside 100k to 5B,
   monthly rent outside 1k to 1M, lot over 10M sqm, beds over 50.
 - Ranges in the text produce null, not a midpoint.
@@ -138,8 +139,8 @@ Pure functions, unit-tested first:
 
 ### 5. Storage and worker
 
-- Candidates: active listings whose product category is Real Estate and that have no details row, or whose
-  stored `source_hash` differs from the current hash. `updated_at` is not used (it changes on every recheck).
+- Candidates: listings (active or sold, never removed) whose product category is Real Estate and that have no
+  details row, or whose stored `source_hash` differs from the current hash. `updated_at` is not used (it changes on every recheck).
 - `src/workers/extract-real-estate/index.ts`: batches of 20 to 35, halving on persistent failure, quota
   handling, pid file, log. Modeled on `backfill-sub-categories` and `extract-products`.
 - Depends on `extract-products` having assigned the Real Estate category, so it runs after it.
