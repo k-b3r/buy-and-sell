@@ -525,3 +525,10 @@ CREATE TABLE IF NOT EXISTS listing_price_history (
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (listing_id, recorded_at)
 );
+
+INSERT INTO settings (key, value) VALUES
+  ('collect.re_keywords_enabled', 0),
+  ('collect.re_every_n_laps', 3),
+  ('collect.re_max_items', 50),
+  ('check_listings.re_recheck_min_days', 0)
+ON CONFLICT (key) DO NOTHING;

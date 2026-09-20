@@ -17,12 +17,16 @@ const SETTING_FLOORS: Record<string, number> = {
   'collect.pacing_min_ms': 2000,
   'collect.pacing_max_ms': 2000,
   'collect.loop_delay_ms': 10000,
+  'collect.re_keywords_enabled': 0,
+  'collect.re_every_n_laps': 1,
+  'collect.re_max_items': 1,
 
   'check_listings.loop_delay_ms': 10000,
   'check_listings.limit_default': 1,
   'check_listings.soft_wall_timeout_ms': 1000,
   'check_listings.pacing_min_ms': 2000,
   'check_listings.pacing_max_ms': 2000,
+  'check_listings.re_recheck_min_days': 0,
 
   'extract_products.max_attempts': 1,
   'extract_products.retry_base_delay_ms': 1000,

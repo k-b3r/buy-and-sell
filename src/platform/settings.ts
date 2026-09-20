@@ -11,12 +11,16 @@ export const SETTING_DEFAULTS: Record<string, number> = {
   'collect.pacing_min_ms': 4000,
   'collect.pacing_max_ms': 10000,
   'collect.loop_delay_ms': 300000,
+  'collect.re_keywords_enabled': 0,
+  'collect.re_every_n_laps': 3,
+  'collect.re_max_items': 50,
 
   'check_listings.loop_delay_ms': 60000,
   'check_listings.limit_default': 100,
   'check_listings.soft_wall_timeout_ms': 5000,
   'check_listings.pacing_min_ms': 2000,
   'check_listings.pacing_max_ms': 4000,
+  'check_listings.re_recheck_min_days': 0,
 
   'extract_products.max_attempts': 5,
   'extract_products.retry_base_delay_ms': 30000,
