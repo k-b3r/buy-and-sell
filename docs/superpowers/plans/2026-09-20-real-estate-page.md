@@ -42,8 +42,6 @@
 | `src/domains/marketplace/real-estate.ts` | Pure domain: types, price hints, clamps, NCR normalization, prompt, schema | 2 |
 | `src/domains/marketplace/storage/real-estate.ts` | Candidates query and upsert | 2 |
 | `src/workers/extract-real-estate/index.ts` | Batch extraction worker | 2 |
-| `src/utils/eval-real-estate/index.ts` | Golden-set scoring | 2 |
-| `fixtures/real-estate-golden.jsonl` | Labeled listings | 0 |
 | `dashboard/src/lib/realEstate.ts` | Filter parsing, price/area formatting | 3 |
 | `dashboard/src/app/real-estate/page.tsx`, `RealEstateCard.tsx` | The page | 3 |
 
@@ -51,106 +49,11 @@ Spec deviations recorded here: (a) the setting is named `check_listings.re_reche
 
 ---
 
-# Phase 0: golden set and keyword agreement (no application code)
+# Phase 0: keyword agreement (done)
 
-### Task 0.1: Export a scrubbed sample
+No golden set or eval (user decision 2026-09-20): what the extractor cannot resolve goes to **Under review**, and the user does a ~20-listing spot check at the end of Phase 2. The first collection keyword is just `house and lot`.
 
-**Files:**
-- Create: `fixtures/real-estate-golden.draft.jsonl`
-
-- [ ] **Step 1: Pull the sample from prod (read-only)**
-
-```bash
-cat > /tmp/golden_sample.sql <<'EOF'
-\pset format unaligned
-\pset tuples_only on
-WITH re AS (
-  SELECT l.id, l.title, left(coalesce(l.description,''), 900) AS description, l.price_amount,
-         coalesce(sc.name,'') AS sub_category
-  FROM listings l JOIN products p ON p.id = l.product_id
-  JOIN categories c ON c.id = p.category_id AND c.name = 'Real Estate'
-  LEFT JOIN categories sc ON sc.id = p.sub_category_id
-  WHERE l.flagged_removed_at IS NULL),
-tiny AS (SELECT * FROM re WHERE price_amount <= 1000 ORDER BY random() LIMIT 60),
-rest AS (SELECT * FROM re WHERE price_amount > 1000 ORDER BY random() LIMIT 60),
-rent AS (SELECT * FROM re WHERE lower(title||' '||description) ~ 'for rent|rental|per month|/mo' ORDER BY random() LIMIT 30)
-SELECT row_to_json(x) FROM (SELECT * FROM tiny UNION SELECT * FROM rest UNION SELECT * FROM rent) x;
-EOF
-ssh -o BatchMode=yes root@203.0.113.10 'set -a; . /root/bas-db-credentials.env; set +a; PGOPTIONS="-c default_transaction_read_only=on -c statement_timeout=30000" psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1' < /tmp/golden_sample.sql > /tmp/golden_raw.jsonl
-wc -l /tmp/golden_raw.jsonl
-```
-
-Expected: between 100 and 150 lines (rows can appear in more than one bucket, `UNION` dedupes).
-
-- [ ] **Step 2: Scrub phone numbers and emails, then write the draft fixture**
-
-```bash
-python3 - <<'EOF'
-import json, re
-PHONE = re.compile(r'(\+?63|0)[\s\-.]?9\d{2}[\s\-.]?\d{3}[\s\-.]?\d{4}|\b\d{3}[\s\-.]?\d{3}[\s\-.]?\d{4}\b')
-EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.]+')
-out = open('fixtures/real-estate-golden.draft.jsonl', 'w')
-for line in open('/tmp/golden_raw.jsonl'):
-    r = json.loads(line)
-    for k in ('title', 'description'):
-        r[k] = EMAIL.sub('[email]', PHONE.sub('[phone]', r[k] or ''))
-    r['expected'] = None
-    out.write(json.dumps(r, ensure_ascii=False) + '\n')
-EOF
-grep -c '\[phone\]' fixtures/real-estate-golden.draft.jsonl; grep -Ec '9[0-9]{9}' fixtures/real-estate-golden.draft.jsonl
-```
-
-Expected: the second count is 0 (no raw 10-digit mobile numbers left). If not 0, extend the regex and rerun.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add fixtures/real-estate-golden.draft.jsonl
-git commit -m "add scrubbed real estate golden set draft" -m "Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
-```
-
-### Task 0.2: Draft labels and get user corrections
-
-**Files:**
-- Create: `fixtures/real-estate-golden.jsonl`
-
-- [ ] **Step 1: Draft `expected` for every line in the draft file.** Each line keeps `id, title, description, price_amount, sub_category` and gets an `expected` object with exactly these keys: `listing_type` (`sale`, `rent` or `null`), `property_type` (`house_and_lot`, `condo`, `land`, `commercial`, `other`), `price_php` (number or `null`), `price_basis` (`total`, `per_sqm`, `monthly`, `equity`, `unresolved`), `lot_sqm`, `floor_sqm`, `bedrooms`, `bathrooms` (numbers or `null`), `project_name` (string or `null`), `area_text` (one of the 17 NCR names or the raw text or `null`). Rules: `null` means the listing does not state it; never guess; a range is `null`. Example line:
-
-```json
-{"id":"1001","title":"For Sale - 1 bedroom 1 bath unit with sunrise views at Portico Pasig","description":"13M all in","price_amount":13,"sub_category":"Condo/Apartment","expected":{"listing_type":"sale","property_type":"condo","price_php":13000000,"price_basis":"total","lot_sqm":null,"floor_sqm":null,"bedrooms":1,"bathrooms":1,"project_name":"Portico","area_text":"Pasig"}}
-```
-
-- [ ] **Step 2: Save as `fixtures/real-estate-golden.jsonl`, delete the draft file, and stop.** Show the user a summary (count, how many are tiny-price, how many `unresolved`) and ask them to correct labels. This is a user checkpoint: do not continue until corrections are in.
-
-- [ ] **Step 3: After the user's corrections, verify every line parses and has all keys**
-
-```bash
-python3 - <<'EOF'
-import json
-KEYS = {'listing_type','property_type','price_php','price_basis','lot_sqm','floor_sqm','bedrooms','bathrooms','project_name','area_text'}
-n = 0
-for line in open('fixtures/real-estate-golden.jsonl'):
-    r = json.loads(line); n += 1
-    assert set(r['expected']) == KEYS, (r['id'], set(r['expected']) ^ KEYS)
-print('ok', n)
-EOF
-```
-
-Expected: `ok <n>` with n between 100 and 150.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git rm -q --cached fixtures/real-estate-golden.draft.jsonl 2>/dev/null; rm -f fixtures/real-estate-golden.draft.jsonl
-git add fixtures/real-estate-golden.jsonl
-git commit -m "add real estate golden set" -m "Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
-```
-
-### Task 0.3: Agree the first NCR keywords
-
-- [ ] **Step 1: Propose this starting set to the user and record their answer:** `condo for sale makati`, `house and lot quezon city`, `condo for rent bgc`, `lot for sale manila`. Ask for additions or removals.
-
-**Phase 0 exit:** golden set corrected by the user, keyword set agreed. **Pause and report.**
+**Phase 0 exit:** done. Continue to Phase 1.
 
 ---
 
@@ -801,15 +704,12 @@ Expected: `kind` column present, 4 settings rows (`0/3/50/0`), privilege `t`. If
 
 - [ ] **Step 4: Verify nothing changed with the flag at 0.** Start `collect` and `check-listings` from the dashboard Workers page. Watch `collector.log`: the keyword count in the lap-start line is the same as before and no real estate queries appear. Re-run the Task 1.1 Step 2 queries a few hours later and compare the non-real-estate numbers to baseline.
 
-- [ ] **Step 5: Insert the agreed NCR keywords disabled-by-flag, then enable in stages**
+- [ ] **Step 5: Insert the agreed keyword (inactive while the flag is 0), then enable**
 
 ```bash
 ssh root@203.0.113.10 'set -a; . /root/bas-db-credentials.env; set +a; psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1' <<'EOF'
 INSERT INTO collect_keywords (keyword, kind) VALUES
-  ('condo for sale makati', 'real_estate'),
-  ('house and lot quezon city', 'real_estate'),
-  ('condo for rent bgc', 'real_estate'),
-  ('lot for sale manila', 'real_estate')
+  ('house and lot', 'real_estate')
 ON CONFLICT (keyword) DO NOTHING;
 EOF
 ```
@@ -1243,7 +1143,7 @@ export function buildRealEstatePrompt(candidates: RealEstateCandidate[]): string
 Rules:
 - listing_type: "rent" if it offers a monthly rental or lease; "sale" if it is for sale (including pasalo/assume balance); "unknown" if unclear. Decide from the text, not from anything else.
 - property_type: one of ${['house_and_lot', 'condo', 'land', 'commercial', 'other'].join(', ')}.
-- listed_price is what the seller typed into Facebook's price field and is often shorthand or a placeholder (for example 13 meaning 13 million, or 2 meaning 2 million). amounts_in_text lists amounts found in the text (it can include unrelated numbers). Use them to work out the real price in pesos.
+- listed_price is what the seller typed into Facebook's price field. When it is small it is unreliable (it can mean thousands, hundred-thousands or millions), so never use a small listed_price on its own. amounts_in_text lists amounts found in the text (it can include unrelated numbers). Take the price from the text. If the text states no price and listed_price is not a plausible full price, set price_basis to \"unresolved\" and price_php to null.
 - price_php is the price in whole pesos. price_basis says what it is: "total" (full sale price), "per_sqm" (price per square meter), "monthly" (monthly rent), "equity" (only a downpayment or the amount to take over a loan on a pasalo/assume deal), or "unresolved" when you cannot tell (then price_php is null).
 - lot_sqm and floor_sqm are in square meters. Convert square feet (x0.0929) and hectares (x10000). Use null when not stated. If the text gives a range, use null.
 - bedrooms and bathrooms are counts (0 for a studio); null when not stated.
@@ -1696,205 +1596,7 @@ git commit -m "add extract-real-estate worker" -m "Co-Authored-By: Claude Sonnet
 
 Expected: all suites PASS; the `Record<Worker, string>` type in the logs page forces `WORKER_DESCRIPTIONS` to include the new key (a typecheck failure means it was missed).
 
-### Task 2.5: Golden-set eval
-
-**Files:**
-- Create: `src/utils/eval-real-estate/index.ts`
-- Test: `src/utils/eval-real-estate/index.test.ts`
-- Modify: `package.json` (`"eval-real-estate": "tsx src/utils/eval-real-estate/index.ts"`)
-
-**Interfaces:**
-- Consumes: `extractRealEstateBatch` (`../../workers/extract-real-estate`), `RealEstateFields`
-- Produces: `scoreExtraction(expected: Expected, actual: RealEstateFields | undefined): FieldScores`, `summarize(scores: FieldScores[]): Record<string, number>`
-
-- [ ] **Step 1: Write the failing tests**
-
-```ts
-import { scoreExtraction, summarize } from './index'
-import type { RealEstateFields } from '../../domains/marketplace'
-
-const expected = {
-  listing_type: 'sale', property_type: 'condo', price_php: 13000000, price_basis: 'total',
-  lot_sqm: null, floor_sqm: 35, bedrooms: 1, bathrooms: 1, project_name: 'Portico', area_text: 'Pasig',
-}
-const actual: RealEstateFields = {
-  listing_type: 'sale', property_type: 'condo', price_php: 13000000, price_basis: 'total',
-  lot_sqm: null, floor_sqm: 35, bedrooms: 1, bathrooms: 1, project_name: 'Portico Pasig', area_text: 'Pasig',
-  tags: [], confidence: 'high',
-}
-
-test('scoreExtraction marks every matching field correct and price normalization correct', () => {
-  const s = scoreExtraction(expected, actual)
-  expect(s.price_normalization).toBe(true)
-  expect(s.property_type).toBe(true)
-  expect(s.project_name).toBe(true)
-})
-
-test('price normalization needs both the amount (within 1%) and the basis to match', () => {
-  expect(scoreExtraction(expected, { ...actual, price_php: 13050000 }).price_normalization).toBe(true)
-  expect(scoreExtraction(expected, { ...actual, price_php: 15000000 }).price_normalization).toBe(false)
-  expect(scoreExtraction(expected, { ...actual, price_basis: 'monthly' }).price_normalization).toBe(false)
-})
-
-test('null expected and null actual count as a match; a null actual against a value does not', () => {
-  expect(scoreExtraction(expected, actual).lot_sqm).toBe(true)
-  expect(scoreExtraction(expected, { ...actual, floor_sqm: null }).floor_sqm).toBe(false)
-})
-
-test('a missing extraction scores everything false', () => {
-  const s = scoreExtraction(expected, undefined)
-  expect(Object.values(s).every((v) => v === false)).toBe(true)
-})
-
-test('summarize returns per-field accuracy between 0 and 1', () => {
-  const a = scoreExtraction(expected, actual)
-  const b = scoreExtraction(expected, undefined)
-  expect(summarize([a, b]).price_normalization).toBe(0.5)
-})
-```
-
-- [ ] **Step 2: Run to verify it fails.** Run: `pnpm exec vitest run src/utils/eval-real-estate/index.test.ts`. Expected: FAIL.
-
-- [ ] **Step 3: Implement**
-
-```ts
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { createLogger } from '../../platform/logger'
-import { createGroqPool, loadGroqApiKeys } from '../../domains/llm-clients'
-import { loadEnvFile, realDelay } from '../../platform/utils'
-import type { RealEstateCandidate, RealEstateFields } from '../../domains/marketplace'
-import { extractRealEstateBatch } from '../../workers/extract-real-estate'
-
-export interface Expected {
-  listing_type: string | null
-  property_type: string
-  price_php: number | null
-  price_basis: string
-  lot_sqm: number | null
-  floor_sqm: number | null
-  bedrooms: number | null
-  bathrooms: number | null
-  project_name: string | null
-  area_text: string | null
-}
-
-export type FieldScores = Record<
-  | 'listing_type' | 'property_type' | 'price_normalization' | 'lot_sqm' | 'floor_sqm'
-  | 'bedrooms' | 'bathrooms' | 'project_name' | 'area_text',
-  boolean
->
-
-const within = (a: number | null, b: number | null, tol: number): boolean => {
-  if (a === null || b === null) return a === b
-  return Math.abs(a - b) <= Math.abs(a) * tol
-}
-
-const looseText = (a: string | null, b: string | null): boolean => {
-  if (a === null || b === null) return a === b
-  const x = a.toLowerCase()
-  const y = b.toLowerCase()
-  return x === y || x.includes(y) || y.includes(x)
-}
-
-export function scoreExtraction(expected: Expected, actual: RealEstateFields | undefined): FieldScores {
-  if (!actual) {
-    return {
-      listing_type: false, property_type: false, price_normalization: false, lot_sqm: false, floor_sqm: false,
-      bedrooms: false, bathrooms: false, project_name: false, area_text: false,
-    }
-  }
-  return {
-    listing_type: actual.listing_type === expected.listing_type,
-    property_type: actual.property_type === expected.property_type,
-    // Amount within 1% AND the same basis: a right number with the wrong meaning
-    // (say monthly instead of total) is still a wrong price.
-    price_normalization: within(expected.price_php, actual.price_php, 0.01) && actual.price_basis === expected.price_basis,
-    lot_sqm: within(expected.lot_sqm, actual.lot_sqm, 0.02),
-    floor_sqm: within(expected.floor_sqm, actual.floor_sqm, 0.02),
-    bedrooms: actual.bedrooms === expected.bedrooms,
-    bathrooms: actual.bathrooms === expected.bathrooms,
-    project_name: looseText(expected.project_name, actual.project_name),
-    area_text: looseText(expected.area_text, actual.area_text),
-  }
-}
-
-export function summarize(scores: FieldScores[]): Record<string, number> {
-  const out: Record<string, number> = {}
-  if (scores.length === 0) return out
-  for (const key of Object.keys(scores[0])) {
-    out[key] = scores.filter((s) => s[key as keyof FieldScores]).length / scores.length
-  }
-  return out
-}
-
-async function main() {
-  loadEnvFile()
-  const threshold = Number(process.argv[2] ?? '0.9')
-  const apiKeys = loadGroqApiKeys()
-  if (apiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> set in .env')
-  const logger = createLogger('data/eval-real-estate.log')
-  const groq = createGroqPool(apiKeys, () => {})
-
-  const rows = readFileSync('fixtures/real-estate-golden.jsonl', 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => JSON.parse(l) as { id: string; title: string; description: string; price_amount: number | null; expected: Expected })
-  const candidates: RealEstateCandidate[] = rows.map((r) => ({
-    id: r.id, title: r.title, description: r.description, price_amount: r.price_amount, source_hash: '',
-  }))
-
-  const extracted = new Map<string, RealEstateFields>()
-  for (let i = 0; i < candidates.length; i += 20) {
-    for (const [id, fields] of await extractRealEstateBatch(groq, logger, realDelay, candidates.slice(i, i + 20))) {
-      extracted.set(id, fields)
-    }
-  }
-
-  const scores = rows.map((r) => scoreExtraction(r.expected, extracted.get(r.id)))
-  const summary = summarize(scores)
-  for (const [field, accuracy] of Object.entries(summary)) console.log(`${field.padEnd(20)} ${(accuracy * 100).toFixed(1)}%`)
-  console.log(`\n${rows.length} listings, ${extracted.size} extracted`)
-  if (summary.price_normalization < threshold) {
-    console.error(`price_normalization ${(summary.price_normalization * 100).toFixed(1)}% is below the ${(threshold * 100).toFixed(0)}% target`)
-    process.exit(1)
-  }
-}
-
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err) => {
-    console.error(err)
-    process.exit(1)
-  })
-}
-```
-
-- [ ] **Step 4: Run and commit**
-
-```bash
-pnpm exec vitest run src/utils/eval-real-estate/index.test.ts
-pnpm exec tsc --noEmit
-git add src/utils/eval-real-estate package.json
-git commit -m "add real estate golden set eval" -m "Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
-```
-
-### Task 2.6: Run the eval and tune until the target is met
-
-- [ ] **Step 1: Run the eval against the real model** (uses Groq quota; ~120 listings is about 6 requests)
-
-Run: `pnpm eval-real-estate`
-Expected: a per-field accuracy table. The exit code is 0 only if `price_normalization` is at least 90%.
-
-- [ ] **Step 2: If below target, inspect the misses.** Add a temporary `console.log` of wrong listings (id, expected, actual) and change only `buildRealEstatePrompt` wording or the `BOUNDS`/fallback logic, adding one failing unit test in `real-estate.test.ts` for each rule you change. Rerun until at or above target. Do not edit the golden set to make it pass unless the user agrees a label was wrong. Stop and ask the user after 3 tuning rounds without reaching the target (per the standing rule).
-
-- [ ] **Step 3: Commit any prompt or rule changes**
-
-```bash
-git add -A src/domains/marketplace
-git commit -m "tune real estate extraction against golden set" -m "Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
-```
-
-### Task 2.7: Phase 2 deploy, backfill, verification (needs user go-ahead)
+### Task 2.5: Phase 2 deploy, backfill, verification, spot check (needs user go-ahead)
 
 - [ ] **Step 1: Ask the user for a deploy go-ahead.**
 
@@ -1920,7 +1622,25 @@ ssh -o BatchMode=yes root@203.0.113.10 'set -a; . /root/bas-db-credentials.env; 
 
 Expected: rows in `real_estate_details`, `still_unextracted` trending to 0, and the share of `unresolved` price basis far below the 42% unusable prices seen before.
 
-**Phase 2 exit:** golden-set price normalization at or above target, backfill done, `unresolved` share reported. **Pause and report** (accuracy table, counts by price basis and confidence).
+- [ ] **Step 6: Spot check with the user.** Show about 20 random extracted listings next to their text (read-only), and ask the user to say which look wrong.
+
+```bash
+cat > /tmp/spot.sql <<'SQLEND'
+\pset format unaligned
+\pset tuples_only on
+SELECT '#' || row_number() OVER () || ' ' || l.id || E'\n  RAW ' || coalesce(l.price_amount::text, '-') || ' | ' || left(replace(l.title, E'\n', ' '), 90)
+  || E'\n  TXT ' || left(replace(coalesce(l.description, ''), E'\n', ' '), 260)
+  || E'\n  OUT ' || coalesce(d.listing_type, '?') || '/' || d.property_type || ' price=' || coalesce(d.price_php::text, '-') || ' ' || d.price_basis
+  || ' lot=' || coalesce(d.lot_sqm::text, '-') || ' floor=' || coalesce(d.floor_sqm::text, '-') || ' br=' || coalesce(d.bedrooms::text, '-')
+  || ' ' || d.confidence || ' | ' || coalesce(d.project_name, '-') || ' | ' || coalesce(d.area_text, '-')
+FROM real_estate_details d JOIN listings l ON l.id = d.listing_id ORDER BY random() LIMIT 20;
+SQLEND
+ssh -o BatchMode=yes root@203.0.113.10 'set -a; . /root/bas-db-credentials.env; set +a; PGOPTIONS="-c default_transaction_read_only=on" psql "$DATABASE_URL" -X' < /tmp/spot.sql
+```
+
+If the user flags wrong rows, fix the cause in `buildRealEstatePrompt` or the clamps (add one failing unit test per rule change in `real-estate.test.ts`), redeploy the domain file, and re-extract by clearing the affected rows' `source_hash`. Stop and ask after 3 rounds without a clean spot check.
+
+**Phase 2 exit:** backfill done, `unresolved` share reported, the user's spot check looks right. **Pause and report** (counts by price basis and confidence, the spot-check result).
 
 ---
 
@@ -1949,7 +1669,7 @@ const reRow = {
   id: '1', title: 'Condo', primary_photo_url: null, stored_photo_urls: null, listed_at: null,
   first_seen_at: '2026-09-01T00:00:00.000Z', listed_price: '13', listing_type: 'sale', property_type: 'condo',
   price_php: '13000000', price_basis: 'total', lot_sqm: null, floor_sqm: '35', bedrooms: 1, bathrooms: 1,
-  project_name: 'Portico', area_text: 'Pasig', tags: ['rfo'], confidence: 'high', price_per_sqm: '371428.5714',
+  project_name: 'Portico', area_text: 'Pasig', tags: ['rfo'], confidence: 'high', price_per_sqm: '371428.5714', needs_review: false,
 }
 
 test('getRealEstateListings maps rows, coerces numerics and returns price per sqm', async () => {
@@ -1984,6 +1704,17 @@ test('getRealEstateListings caps limit and falls back to newest for an unknown s
   expect(calls[0].params.at(-2)).toBe(100)
   expect(calls[0].sql).toContain('COALESCE(x.listed_at, x.first_seen_at) DESC')
 })
+
+test('getRealEstateListings excludes listings needing review by default and returns only those for view=review', async () => {
+  const main = recordingDb()
+  await getRealEstateListings(main.db)
+  expect(main.calls[0].sql).toContain('x.needs_review = false')
+
+  const review = recordingDb()
+  await getRealEstateListings(review.db, { view: 'review' })
+  expect(review.calls[0].sql).toContain('x.needs_review = true')
+  expect(review.calls[0].sql).toContain("d.price_basis = 'unresolved' OR d.confidence = 'low' OR d.listing_type IS NULL")
+})
 ```
 
 Append to `server/routes/query.test.ts` next to the other `QUERY_NAMES` assertions:
@@ -2008,6 +1739,7 @@ export interface RealEstateFilters {
   maxPrice?: number
   minSqm?: number
   sort?: 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
+  view?: 'main' | 'review'
   limit?: number
   offset?: number
 }
@@ -2032,6 +1764,7 @@ export interface RealEstateListing {
   tags: string[]
   confidence: string
   price_per_sqm: number | null
+  needs_review: boolean
 }
 
 const REAL_ESTATE_SORTS: Record<NonNullable<RealEstateFilters['sort']>, string> = {
@@ -2062,6 +1795,9 @@ export async function getRealEstateListings(db: QueryClient, filters: RealEstate
   if (filters.minPrice !== undefined) add('x.price_php >= ?', filters.minPrice)
   if (filters.maxPrice !== undefined) add('x.price_php <= ?', filters.maxPrice)
   if (filters.minSqm !== undefined) add('COALESCE(x.lot_sqm, x.floor_sqm) >= ?', filters.minSqm)
+  // Main list = listings the extractor could resolve; review list = the ones it could not (price unresolved,
+  // low confidence, or sale/rent unclear). The literal comes from a boolean comparison, never user input.
+  where.push(`x.needs_review = ${filters.view === 'review'}`)
 
   const limit = Math.min(Math.max(filters.limit ?? 30, 1), REAL_ESTATE_MAX_LIMIT)
   const offset = Math.max(filters.offset ?? 0, 0)
@@ -2079,7 +1815,8 @@ export async function getRealEstateListings(db: QueryClient, filters: RealEstate
                   WHEN d.property_type IN ('land', 'house_and_lot') THEN d.lot_sqm
                   WHEN d.property_type = 'condo' THEN d.floor_sqm
                   ELSE COALESCE(d.floor_sqm, d.lot_sqm) END, 0)
-              END AS price_per_sqm
+              END AS price_per_sqm,
+              (d.price_basis = 'unresolved' OR d.confidence = 'low' OR d.listing_type IS NULL) AS needs_review
        FROM real_estate_details d
        JOIN listings l ON l.id = d.listing_id
        WHERE l.sold_at IS NULL AND l.flagged_removed_at IS NULL
@@ -2109,6 +1846,7 @@ export async function getRealEstateListings(db: QueryClient, filters: RealEstate
     tags: (r.tags as string[] | null) ?? [],
     confidence: r.confidence as string,
     price_per_sqm: toNullableNumber(r.price_per_sqm),
+    needs_review: r.needs_review === true,
   }))
 }
 ```
@@ -2138,14 +1876,14 @@ Expected: PASS. The first test's `price_per_sqm` string `'371428.5714'` becomes 
 - [ ] **Step 1: Write the failing tests** (`dashboard/src/lib/realEstate.test.ts`)
 
 ```ts
-import { parseRealEstateFilters, formatPrice, formatAreaLine, NCR_AREAS } from './realEstate'
+import { parseRealEstateFilters, formatPrice, formatAreaLine, formatReviewReason, NCR_AREAS } from './realEstate'
 import type { RealEstateListing } from './queries'
 
 const listing = (over: Partial<RealEstateListing> = {}): RealEstateListing => ({
   id: '1', title: 'Condo', primary_photo_url: null, listed_at: null, first_seen_at: '2026-09-01T00:00:00.000Z',
   listed_price: 13, listing_type: 'sale', property_type: 'condo', price_php: 13000000, price_basis: 'total',
   lot_sqm: null, floor_sqm: 35, bedrooms: 1, bathrooms: 1, project_name: 'Portico', area_text: 'Pasig',
-  tags: [], confidence: 'high', price_per_sqm: 371428, ...over,
+  tags: [], confidence: 'high', price_per_sqm: 371428, needs_review: false, ...over,
 })
 
 test('NCR_AREAS lists the 17 Metro Manila LGUs', () => {
@@ -2185,6 +1923,18 @@ test('formatAreaLine joins only the facts that exist', () => {
   expect(formatAreaLine(listing({ lot_sqm: 120, floor_sqm: 60, bedrooms: null, bathrooms: null }))).toBe('120 sqm lot · 60 sqm floor')
   expect(formatAreaLine(listing({ floor_sqm: null, bedrooms: null, bathrooms: null }))).toBe('')
 })
+
+test('formatReviewReason lists why a listing needs review, and is empty for a clear one', () => {
+  expect(formatReviewReason(listing({ price_basis: 'unresolved', price_php: null, listing_type: null, confidence: 'low' }))).toBe(
+    'price not stated, sale or rent unclear, low confidence',
+  )
+  expect(formatReviewReason(listing())).toBe('')
+})
+
+test('parseRealEstateFilters reads the review tab and ignores any other view value', () => {
+  expect(parseRealEstateFilters({ view: 'review' }).filters.view).toBe('review')
+  expect(parseRealEstateFilters({ view: 'nonsense' }).filters.view).toBeUndefined()
+})
 ```
 
 - [ ] **Step 2: Run to verify it fails.** Run: `cd dashboard && pnpm exec vitest run src/lib/realEstate.test.ts`. Expected: FAIL.
@@ -2201,6 +1951,7 @@ export interface RealEstateFilters {
   maxPrice?: number
   minSqm?: number
   sort?: 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
+  view?: 'main' | 'review'
   limit?: number
   offset?: number
 }
@@ -2225,6 +1976,7 @@ export interface RealEstateListing {
   tags: string[]
   confidence: string
   price_per_sqm: number | null
+  needs_review: boolean
 }
 
 export function getRealEstateListings(filters: RealEstateFilters = {}): Promise<RealEstateListing[]> {
@@ -2278,6 +2030,7 @@ export function parseRealEstateFilters(params: Record<string, string | undefined
   if (max !== undefined) filters.maxPrice = max
   if (sqm !== undefined) filters.minSqm = sqm
   if (params.sort && (SORTS as readonly string[]).includes(params.sort)) filters.sort = params.sort as RealEstateFilters['sort']
+  if (params.view === 'review') filters.view = 'review'
   return { filters, page }
 }
 
@@ -2300,6 +2053,16 @@ export function formatAreaLine(l: RealEstateListing): string {
   if (l.bedrooms !== null) parts.push(`${l.bedrooms} BR`)
   if (l.bathrooms !== null) parts.push(`${l.bathrooms} BA`)
   return parts.join(' · ')
+}
+
+// Why a listing is on the Under review tab - mirrors the needs_review rule in
+// server/queries.ts (price unresolved, low confidence, or sale/rent unclear).
+export function formatReviewReason(l: RealEstateListing): string {
+  const reasons: string[] = []
+  if (l.price_basis === 'unresolved') reasons.push('price not stated')
+  if (l.listing_type === null) reasons.push('sale or rent unclear')
+  if (l.confidence === 'low') reasons.push('low confidence')
+  return reasons.join(', ')
 }
 ```
 
@@ -2326,7 +2089,7 @@ Expected: PASS.
 ```tsx
 import Link from 'next/link'
 import type { RealEstateListing } from '@/lib/queries'
-import { formatAreaLine, formatPrice, PROPERTY_TYPE_LABELS } from '@/lib/realEstate'
+import { formatAreaLine, formatPrice, formatReviewReason, PROPERTY_TYPE_LABELS } from '@/lib/realEstate'
 
 export default function RealEstateCard({ l }: { l: RealEstateListing }) {
   const area = formatAreaLine(l)
@@ -2348,6 +2111,9 @@ export default function RealEstateCard({ l }: { l: RealEstateListing }) {
           </div>
           {where ? <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 2 }}>{where}</div> : null}
           <div className="mono" style={{ marginTop: 6 }}>{formatPrice(l)}</div>
+          {l.needs_review ? (
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 4 }}>Under review: {formatReviewReason(l)}</div>
+          ) : null}
           {l.price_per_sqm !== null ? (
             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em' }}>₱{Math.round(l.price_per_sqm).toLocaleString('en-US')} / sqm</div>
           ) : null}
@@ -2379,7 +2145,7 @@ import RealEstateCard from './RealEstateCard'
 // build time and make every build depend on the VPS server being reachable.
 export const dynamic = 'force-dynamic'
 
-type Params = { kind?: string; type?: string; area?: string; project?: string; min?: string; max?: string; sqm?: string; sort?: string; page?: string }
+type Params = { kind?: string; type?: string; area?: string; project?: string; min?: string; max?: string; sqm?: string; sort?: string; view?: string; page?: string }
 
 const field = { padding: '6px 8px', background: 'var(--color-surface)', color: 'inherit', border: '1px solid var(--color-border)', borderRadius: 6 } as const
 
@@ -2398,7 +2164,12 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
   return (
     <div>
       <h1>Real estate</h1>
-      <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0 20px' }}>
+      <div style={{ display: 'flex', gap: 16, margin: '12px 0' }}>
+        <Link href="/real-estate" style={{ fontWeight: filters.view === 'review' ? 400 : 700 }}>Listings</Link>
+        <Link href="/real-estate?view=review" style={{ fontWeight: filters.view === 'review' ? 700 : 400 }}>Under review</Link>
+      </div>
+      <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 20px' }}>
+        {filters.view === 'review' ? <input type="hidden" name="view" value="review" /> : null}
         <select name="kind" defaultValue={params.kind ?? ''} style={field}>
           <option value="">Sale &amp; rent</option>
           <option value="sale">For sale</option>
@@ -2458,7 +2229,7 @@ Expected: typecheck clean, tests PASS, build succeeds with `/real-estate` listed
 
 - [ ] **Step 1: Run the stack locally against the VPS database.** Follow the procedure recorded in memory `project_neon_quota_outage_2026_09_04`: open `ssh -N -L 15432:localhost:5432 root@203.0.113.10`, run `server/` and `dashboard/` locally with `DATABASE_URL` pointed at the tunnel (see `server/.env.example` and `dashboard/.env.local` for the variable names). To screenshot authenticated pages, use the cookie-injecting proxy described there, never a saved HTML file over `file://` (hydration fails and looks like an outage). `/api/login` takes form-encoded data.
 
-- [ ] **Step 2: Check `/real-estate` with real rows.** Confirm: cards render with photos, the sale/rent and type filters change results, an NCR area filter works, ₱/sqm shows only on sale listings with a total price, unresolved prices show "Price unclear (listed as ₱…)", low-confidence badges appear, pagination links appear when more than 30 rows match, and clicking a card opens the existing listing modal at `/listings/<id>`.
+- [ ] **Step 2: Check `/real-estate` with real rows.** Confirm: cards render with photos, the Listings tab shows only clear listings and the Under review tab shows the unclear ones with a reason, the sale/rent and type filters change results, an NCR area filter works, ₱/sqm shows only on sale listings with a total price, unresolved prices show "Price unclear (listed as ₱…)", low-confidence badges appear, pagination links appear when more than 30 rows match, and clicking a card opens the existing listing modal at `/listings/<id>`.
 
 - [ ] **Step 3: Confirm other pages are unchanged.** Open `/deals`, `/`, `/saved`, `/needs-review` and `/admin/settings`. The nav shows the new "Real Estate" pill without breaking the header at desktop and mobile widths (the hamburger breakpoint in `globals.css` decides when it collapses). Check the Workers page lists `extract-real-estate` and the Settings page shows the new fields.
 

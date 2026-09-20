@@ -67,8 +67,8 @@ gated to real estate, and defaults to today's behavior. Concretely:
 | 7 | Location | `area_text` and `project_name` extracted from text. lat/lng treated as coarse. No barangay matching. |
 | D1 | Geography v1 | **NCR only** (user, 2026-09-20). Service area stays 80 km from Manila, which already covers NCR. Region 4-A and beyond are deferred. |
 | D2 | Price history | **Real estate listings only** in v1, to leave other categories untouched. Extending to all categories is a separate, later change. |
-| D3 | Golden set | Assistant drafts labels, user corrects. Weighted to NCR listings. |
-| D4 | Accuracy target | >= 90% correct on price normalization on the golden set. |
+| D3 | No golden set (user, 2026-09-20) | A listing can only offer so much. What the LLM cannot resolve goes to **Under review** instead of being guessed. Quality check is a ~20-listing spot check by the user at the end of phase 2. |
+| D4 | Under review rule | A listing needs review when its price basis is `unresolved`, its confidence is `low`, or sale/rent is unclear. It is excluded from the main list and shown on an Under review tab, read-only in v1. |
 | D5 | `/products` | Unchanged. Real Estate stays visible there. |
 
 ## Design
@@ -146,11 +146,13 @@ Pure functions, unit-tested first:
 - Depends on `extract-products` having assigned the Real Estate category, so it runs after it.
 - Registered in the four places listed above.
 
-### 6. Golden set and eval
+### 6. Under review and spot check
 
-`fixtures/real-estate-golden.jsonl`: 100 to 150 listings, weighted to price normalization, labels drafted by
-the assistant and corrected by the user. Phone numbers and emails are stripped from descriptions before the
-file is written. An eval script reports per-field accuracy against it. Acceptance: D4.
+No golden set or eval script (user, 2026-09-20). Anything the extractor cannot resolve is marked, not guessed:
+`price_basis = 'unresolved'`, `confidence = 'low'`, or `listing_type` null. Those listings are "needs review" and
+are derived at query time, not stored. At the end of phase 2 the assistant shows the user about 20 random
+extracted listings next to their source text for a quick visual check. In a 77-listing sample about 44% had no
+stated price, so roughly half the listings are expected to sit under review. That is a limit of the data.
 
 ### 7. Query and page
 
@@ -160,7 +162,9 @@ file is written. An eval script reports per-field accuracy against it. Acceptanc
 - Price per sqm at query time, sale and `price_basis = 'total'` only: land and house_and_lot use `lot_sqm`,
   condo uses `floor_sqm`, commercial/other use `floor_sqm` else `lot_sqm`. Rent rows show monthly rent.
 - `dashboard/src/app/real-estate/page.tsx` (`force-dynamic`) plus a client component: filters, sale/rent
-  toggle, confidence badges, an "unresolved price" bucket. Reuses the existing listing detail modal.
+  toggle, confidence badges. The main list shows only listings that do not need review; an Under review tab
+  shows the rest with the reason (read-only in v1; manual price entry can come later). Reuses the existing
+  listing detail modal.
   `NavLinks` gets an exact-match entry. The dashboard's `AGENTS.md` says its Next version is non-standard,
   so the relevant docs in `node_modules/next/dist/docs/` are read before writing page code.
 
@@ -172,9 +176,8 @@ file is written. An eval script reports per-field accuracy against it. Acceptanc
   N laps (`collect.re_every_n_laps`, default 3), capped by `collect.re_max_items`, and only when
   `collect.re_keywords_enabled` is 1 (default 0, so shipping the code changes nothing until it is switched
   on). New settings need entries in the PATCH allowlist and floors.
-- NCR-first keyword set, staged: start with 3 to 4 and watch lap duration before adding more, for example
-  "condo for sale makati", "house and lot quezon city", "condo for rent bgc", "lot for sale manila". The
-  final list is confirmed with the user at the start of phase 1.
+- NCR-first keyword set, staged: start with just `house and lot` (user, 2026-09-20) and watch lap duration
+  before adding more.
 - Region 4-A and a real estate service-area radius are deferred (D1). If added later they need a per-kind
   radius setting and `purge-far-listings` reading the same setting.
 - Spike (optional, after NCR works): category-scoped Facebook search (`commerce_search_and_rp_category_id`
@@ -187,9 +190,9 @@ root, server and dashboard suites green before any commit. No commits without th
 
 | Phase | Contents | Exit criteria |
 |---|---|---|
-| 0 | Build the golden set (NCR-weighted), confirm the first keyword set | Golden set corrected by the user, keywords agreed |
+| 0 | Confirm the first keyword set (`house and lot`) | Keyword agreed |
 | 1 | Price history (real estate only), recheck cadence setting, `collect_keywords.kind` and the gated real estate pass, first 3-4 NCR keywords | Non-real-estate throughput unchanged versus baseline, price rows appear for real estate rechecks, real estate pass verified with the flag on |
-| 2 | Schema, domain module, storage, worker, eval script, backfill of existing real estate listings | Golden-set accuracy meets D4 |
+| 2 | Schema, domain module, storage, worker, backfill of existing real estate listings, spot check | User's ~20-listing spot check looks right, unresolved share reported |
 | 3 | Query, registry entry, page, nav entry | Page renders real prod rows, low-confidence rows marked, other pages unchanged |
 | 4 | More NCR keywords, category-search spike | Volume grows, pacing holds |
 
@@ -202,7 +205,7 @@ Explicit user go-ahead before every deploy. Diff each target file first so VPS-o
 
 ## Risks
 
-- LLM accuracy on price shorthand. Mitigation: deterministic pass, golden set, `unresolved` state.
+- LLM accuracy on price shorthand. Mitigation: price comes from the text only, clamps turn implausible values into `unresolved`, and the Under review tab holds what is unclear. A confidently wrong price is only caught by the clamps and the spot check.
 - Facebook pacing: more keywords means longer laps and more block risk. Mitigation: staged rollout,
   no burst live testing.
 - Prod box is one vCPU already at load ~2. Extraction is small (453 listings, ~15 batches) but is watched.
