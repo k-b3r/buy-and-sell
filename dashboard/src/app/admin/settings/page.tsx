@@ -414,10 +414,10 @@ export default function SettingsPage() {
   const [activeCategoryId, setActiveCategoryId] = useState(SETTINGS_CATEGORIES[0].id)
   const [activeSubgroupId, setActiveSubgroupId] = useState(SETTINGS_CATEGORIES[0].subgroups[0].id)
 
-  // collect's search-query list - a row editor (add/remove keywords), not
+  // collect's search-query list - a row editor (add/remove/toggle keywords), not
   // number knobs, hence its own state/endpoint separate from `values`/
   // `/api/settings` above. Only rendered when the collect tab is active.
-  const [keywords, setKeywords] = useState<string[]>([])
+  const [keywords, setKeywords] = useState<{ keyword: string; enabled: boolean }[]>([])
   const [keywordsLoaded, setKeywordsLoaded] = useState(false)
   const [newKeyword, setNewKeyword] = useState('')
   const [keywordsSaveState, setKeywordsSaveState] = useState<SaveState>('idle')
@@ -466,7 +466,7 @@ export default function SettingsPage() {
     async function loadKeywords() {
       try {
         const res = await fetch('/api/collect-keywords')
-        const body = (await res.json()) as { keywords?: string[] }
+        const body = (await res.json()) as { keywords?: { keyword: string; enabled: boolean }[] }
         if (!cancelled && res.ok) {
           setKeywords(body.keywords ?? [])
           setKeywordsLoaded(true)
@@ -483,13 +483,17 @@ export default function SettingsPage() {
 
   function handleAddKeyword() {
     const trimmed = newKeyword.trim().toLowerCase()
-    if (trimmed === '' || keywords.includes(trimmed)) return
-    setKeywords((prev) => [...prev, trimmed])
+    if (trimmed === '' || keywords.some((k) => k.keyword === trimmed)) return
+    setKeywords((prev) => [...prev, { keyword: trimmed, enabled: true }])
     setNewKeyword('')
   }
 
   function handleRemoveKeyword(keyword: string) {
-    setKeywords((prev) => prev.filter((k) => k !== keyword))
+    setKeywords((prev) => prev.filter((k) => k.keyword !== keyword))
+  }
+
+  function handleToggleKeyword(keyword: string) {
+    setKeywords((prev) => prev.map((k) => (k.keyword === keyword ? { ...k, enabled: !k.enabled } : k)))
   }
 
   async function handleSaveKeywords() {
@@ -664,7 +668,7 @@ export default function SettingsPage() {
           <h2 className="mono" style={{ fontSize: '1em', marginTop: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
             Search keywords
             <InfoTooltip
-              text="Motivated-seller phrases the collector searches on --cycle laps (e.g. 'rush sale', 'moving out'). Add or remove as many as you like — collect loops through every one, every lap."
+              text="Motivated-seller phrases the collector searches on --cycle laps (e.g. 'rush sale', 'moving out'). Add or remove as many as you like — collect loops through every enabled one, every lap. Untick to skip a keyword without deleting it."
               style={{ color: 'var(--color-text-muted)' }}
             />
           </h2>
@@ -673,10 +677,11 @@ export default function SettingsPage() {
           ) : (
             <>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 12 }}>
-                {keywords.map((keyword) => (
+                {keywords.map(({ keyword, enabled }) => (
                   <span
                     key={keyword}
                     style={{
+                      opacity: enabled ? 1 : 0.5,
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 6,
@@ -687,7 +692,10 @@ export default function SettingsPage() {
                       fontSize: '0.85em',
                     }}
                   >
-                    {keyword}
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={enabled} onChange={() => handleToggleKeyword(keyword)} />
+                      <span style={{ textDecoration: enabled ? 'none' : 'line-through' }}>{keyword}</span>
+                    </label>
                     <button
                       onClick={() => handleRemoveKeyword(keyword)}
                       aria-label={`Remove "${keyword}"`}

@@ -2246,12 +2246,20 @@ test('updateSettings does nothing for an empty updates array', async () => {
   expect(calls).toHaveLength(0)
 })
 
-test('getCollectKeywords maps rows into a plain string list', async () => {
+test('getCollectKeywords maps rows into keyword + enabled entries', async () => {
   const db: QueryClient = {
-    query: async () => ({ rows: [{ keyword: 'moving out' }, { keyword: 'rush sale' }] }),
+    query: async () => ({
+      rows: [
+        { keyword: 'moving out', enabled: true },
+        { keyword: 'rush sale', enabled: false },
+      ],
+    }),
   }
 
-  expect(await getCollectKeywords(db)).toEqual(['moving out', 'rush sale'])
+  expect(await getCollectKeywords(db)).toEqual([
+    { keyword: 'moving out', enabled: true },
+    { keyword: 'rush sale', enabled: false },
+  ])
 })
 
 test('replaceCollectKeywords deletes all rows then inserts the new list in one batch', async () => {
@@ -2263,12 +2271,16 @@ test('replaceCollectKeywords deletes all rows then inserts the new list in one b
     },
   }
 
-  await replaceCollectKeywords(db, ['rush sale', 'garage sale'])
+  await replaceCollectKeywords(db, [
+    { keyword: 'rush sale', enabled: true },
+    { keyword: 'garage sale', enabled: false },
+  ])
 
   expect(calls).toHaveLength(2)
   expect(calls[0].sql).toContain('DELETE FROM collect_keywords')
   expect(calls[1].sql).toContain('INSERT INTO collect_keywords')
-  expect(calls[1].params).toEqual(['rush sale', 'garage sale'])
+  expect(calls[1].sql).toContain('enabled')
+  expect(calls[1].params).toEqual(['rush sale', true, 'garage sale', false])
 })
 
 test('replaceCollectKeywords still deletes when the new list is empty, skips the insert', async () => {

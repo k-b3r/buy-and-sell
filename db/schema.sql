@@ -447,6 +447,11 @@ INSERT INTO collect_keywords (keyword) VALUES
   ('for disposal')
 ON CONFLICT (keyword) DO NOTHING;
 
+-- Per-keyword on/off toggle - a disabled keyword stays in the table (and the
+-- dashboard list) but loadCollectKeywords skips it, so an operator can pause
+-- one without deleting and re-typing it later.
+ALTER TABLE collect_keywords ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
+
 -- listing_price_review's FK to listings was missing ON DELETE CASCADE -
 -- check-listings.ts's deleteListing() does a bare DELETE FROM listings with
 -- no child-row cleanup (same gap saved_listings/discount_notifications were

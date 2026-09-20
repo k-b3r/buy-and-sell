@@ -1750,19 +1750,25 @@ export async function updateSettings(db: QueryClient, updates: { key: string; va
 // collect.ts's --cycle search-query list - editable via the Settings page's
 // collect tab (add/remove rows, not per-field number knobs like the rest of
 // settings, hence its own table/endpoint instead of a settings row).
-export async function getCollectKeywords(db: QueryClient): Promise<string[]> {
-  const result = await db.query(`SELECT keyword FROM collect_keywords ORDER BY keyword`, [])
-  return (result.rows as { keyword: string }[]).map((r) => r.keyword)
+export interface CollectKeyword {
+  keyword: string
+  enabled: boolean
+}
+
+export async function getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]> {
+  const result = await db.query(`SELECT keyword, enabled FROM collect_keywords ORDER BY keyword`, [])
+  return (result.rows as CollectKeyword[]).map((r) => ({ keyword: r.keyword, enabled: r.enabled }))
 }
 
 // Full-list replace rather than a diffed add/remove - the table is a
 // handful of rows edited rarely from one shared dashboard, so the simplicity
 // of "save the whole list" outweighs the cost of a delete-then-insert.
-export async function replaceCollectKeywords(db: QueryClient, keywords: string[]): Promise<void> {
+export async function replaceCollectKeywords(db: QueryClient, keywords: CollectKeyword[]): Promise<void> {
   await db.query(`DELETE FROM collect_keywords`, [])
   if (keywords.length === 0) return
-  const valuesSql = keywords.map((_, i) => `($${i + 1})`).join(', ')
-  await db.query(`INSERT INTO collect_keywords (keyword) VALUES ${valuesSql}`, keywords)
+  const valuesSql = keywords.map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`).join(', ')
+  const params = keywords.flatMap((k) => [k.keyword, k.enabled])
+  await db.query(`INSERT INTO collect_keywords (keyword, enabled) VALUES ${valuesSql}`, params)
 }
 
 // The dashboard's refresh route busts the product-detail cache tag after a

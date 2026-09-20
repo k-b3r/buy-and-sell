@@ -381,11 +381,16 @@ export function updateSettings(updates: { key: string; value: number }[]): Promi
   return rpc('updateSettings', [updates])
 }
 
-export function getCollectKeywords(): Promise<string[]> {
+export interface CollectKeyword {
+  keyword: string
+  enabled: boolean
+}
+
+export function getCollectKeywords(): Promise<CollectKeyword[]> {
   return rpc('getCollectKeywords')
 }
 
-export function replaceCollectKeywords(keywords: string[]): Promise<void> {
+export function replaceCollectKeywords(keywords: CollectKeyword[]): Promise<void> {
   return rpc('replaceCollectKeywords', [keywords])
 }
 

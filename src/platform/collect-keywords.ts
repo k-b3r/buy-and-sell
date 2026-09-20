@@ -19,9 +19,11 @@ export const DEFAULT_COLLECT_KEYWORDS = [
 
 // Loaded fresh every --cycle lap (not once at startup), same no-restart
 // pattern as loadSettings - an operator's dashboard edit to the keyword
-// list takes effect on the next lap.
+// list takes effect on the next lap. Disabled keywords are kept in the table
+// but skipped here; the dashboard API refuses to save a list with none
+// enabled, so the empty fallback below is only reachable via a manual DB edit.
 export async function loadCollectKeywords(db: DbClient): Promise<string[]> {
-  const result = (await db.query('SELECT keyword FROM collect_keywords ORDER BY keyword', [])) as {
+  const result = (await db.query('SELECT keyword FROM collect_keywords WHERE enabled ORDER BY keyword', [])) as {
     rows: { keyword: string }[]
   }
   if (result.rows.length === 0) return DEFAULT_COLLECT_KEYWORDS

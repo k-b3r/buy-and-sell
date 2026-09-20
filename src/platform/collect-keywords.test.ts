@@ -30,3 +30,9 @@ test('loadCollectKeywords queries the collect_keywords table', async () => {
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('FROM collect_keywords')
 })
+
+test('loadCollectKeywords only selects enabled keywords', async () => {
+  const { db, calls } = mockDb([])
+  await loadCollectKeywords(db)
+  expect(calls[0].sql).toContain('WHERE enabled')
+})
