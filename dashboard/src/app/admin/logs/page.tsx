@@ -13,6 +13,7 @@ const WORKERS = [
   'enrich-products',
   'price-lookup',
   'enrich-listing-prices',
+  'extract-real-estate',
   'verify-discount-notifications',
 ] as const
 
@@ -25,6 +26,7 @@ const WORKER_DESCRIPTIONS: Record<Worker, string> = {
   'enrich-products': 'LLM-enriches product records with category and eligibility.',
   'price-lookup': 'Web-search-grounded market price lookup per product.',
   'enrich-listing-prices': "LLM price review flagging listings priced as outliers vs. their product's range.",
+  'extract-real-estate': 'LLM-extracts structured fields (type, price basis, area, project) from real estate listings.',
   'verify-discount-notifications': 'Confirms candidate discounts against fresh market data before they reach the dashboard.',
 }
 

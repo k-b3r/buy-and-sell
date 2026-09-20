@@ -14,6 +14,7 @@
     "enrich-products": "tsx src/workers/enrich-products/index.ts",
     "flag-price-ineligible": "tsx src/utils/flag-price-ineligible/index.ts",
     "enrich-listing-prices": "tsx src/workers/enrich-listing-prices/index.ts",
+    "extract-real-estate": "tsx src/workers/extract-real-estate/index.ts",
     "verify-discount-notifications": "tsx src/workers/verify-discount-notifications/index.ts",
     "flag-negotiable-keywords": "tsx src/utils/flag-negotiable-keywords/index.ts",
     "backfill-categories": "tsx src/utils/backfill-categories/index.ts",

@@ -10,6 +10,7 @@ export const WORKER_LOG_FILES: Record<string, string> = {
   'enrich-products': 'enrich-products.log',
   'price-lookup': 'price-lookup.log',
   'enrich-listing-prices': 'enrich-listing-prices.log',
+  'extract-real-estate': 'extract-real-estate.log',
   'verify-discount-notifications': 'verify-discount-notifications.log',
 }
 
