@@ -165,14 +165,34 @@ export interface CheckListingsCandidate {
 // Within that, oldest by the seller's actual FB posting date (listed_at)
 // goes first: the longer something's been posted, the likelier it's already
 // sold/removed, so checking those first finds genuinely-stale listings fastest.
-export async function getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]> {
-  const result = (await db.query(
-    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
-     WHERE sold_at IS NULL
-     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
-     LIMIT $1`,
-    [limit],
-  )) as { rows: CheckListingsCandidate[] }
+export async function getCheckListingsCandidates(
+  db: DbClient,
+  limit: number,
+  reRecheckMinDays = 0,
+): Promise<CheckListingsCandidate[]> {
+  // reRecheckMinDays = 0 (the default) runs the exact original query, so nothing
+  // changes for any listing until an operator opts in. When > 0, real estate
+  // listings checked within that many days are skipped - property listings
+  // change slowly, and every recheck costs live browser time. COALESCE keeps
+  // never-checked and non-real-estate rows in (NULL AND ... would drop them).
+  const result = (reRecheckMinDays > 0
+    ? await db.query(
+        `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
+         LEFT JOIN products p ON p.id = l.product_id
+         LEFT JOIN categories c ON c.id = p.category_id
+         WHERE l.sold_at IS NULL
+           AND NOT COALESCE(c.name = 'Real Estate' AND l.last_checked_at > now() - make_interval(days => $2), false)
+         ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST
+         LIMIT $1`,
+        [limit, reRecheckMinDays],
+      )
+    : await db.query(
+        `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+         WHERE sold_at IS NULL
+         ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
+         LIMIT $1`,
+        [limit],
+      )) as { rows: CheckListingsCandidate[] }
   return result.rows
 }
 

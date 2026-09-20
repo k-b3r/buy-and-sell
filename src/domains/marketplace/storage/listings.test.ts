@@ -919,3 +919,25 @@ test('refreshListingFields still completes when the price-history write fails, a
   expect(calls[0].sql).toMatch(/^UPDATE listings SET/)
   expect(logger.warnings.some((w) => w.includes('price-history'))).toBe(true)
 })
+
+test('getCheckListingsCandidates keeps the original query when reRecheckMinDays is 0', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows: [] } } }
+
+  await getCheckListingsCandidates(db, 50, 0)
+
+  expect(calls[0].sql).not.toContain('Real Estate')
+  expect(calls[0].params).toEqual([50])
+})
+
+test('getCheckListingsCandidates skips recently checked real estate listings only when reRecheckMinDays > 0', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows: [] } } }
+
+  await getCheckListingsCandidates(db, 50, 7)
+
+  expect(calls[0].sql).toContain("c.name = 'Real Estate'")
+  expect(calls[0].sql).toContain('l.sold_at IS NULL')
+  expect(calls[0].sql).toContain('ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST')
+  expect(calls[0].params).toEqual([50, 7])
+})

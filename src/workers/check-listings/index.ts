@@ -179,9 +179,10 @@ async function main() {
         'check_listings.soft_wall_timeout_ms',
         'check_listings.pacing_min_ms',
         'check_listings.pacing_max_ms',
+        'check_listings.re_recheck_min_days',
       ])
       const limit = explicitLimit ?? settings['check_listings.limit_default']
-      const candidates = await getCheckListingsCandidates(pool, limit)
+      const candidates = await getCheckListingsCandidates(pool, limit, settings['check_listings.re_recheck_min_days'])
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
       } else if (candidates.length > 0) {
