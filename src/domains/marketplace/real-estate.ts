@@ -108,6 +108,13 @@ function countOrNull(value: unknown): number | null {
   return n === null ? null : Math.round(n)
 }
 
+// The model tends to answer 0 for "not stated". Zero bedrooms only means
+// something for a condo (a studio); zero bathrooms never does.
+function roomCount(value: unknown, zeroMeansStudio: boolean): number | null {
+  const n = countOrNull(value)
+  return n === 0 && !zeroMeansStudio ? null : n
+}
+
 function stringOrNull(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null
   const t = value.trim()
@@ -158,8 +165,8 @@ export function normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateC
     price_basis: basis,
     lot_sqm: boundedOrNull(r.lot_sqm, 1, 10_000_000),
     floor_sqm: boundedOrNull(r.floor_sqm, 1, 1_000_000),
-    bedrooms: countOrNull(r.bedrooms),
-    bathrooms: countOrNull(r.bathrooms),
+    bedrooms: roomCount(r.bedrooms, propertyType === 'condo'),
+    bathrooms: roomCount(r.bathrooms, false),
     project_name: stringOrNull(r.project_name, 120),
     area_text: normalizeNcrArea(stringOrNull(r.area_text, 100)),
     tags,

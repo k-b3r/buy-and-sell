@@ -126,3 +126,10 @@ test('buildRealEstatePrompt lists each listing with its raw price and text amoun
   expect(prompt).toContain('13000000')
   expect(prompt).toContain('Taguig')
 })
+
+test('normalizeRealEstateItem keeps 0 bedrooms only for a condo (studio) and nulls zero bathrooms', () => {
+  expect(normalizeRealEstateItem(raw({ property_type: 'condo', bedrooms: 0, bathrooms: 1 }), candidate())!.bedrooms).toBe(0)
+  expect(normalizeRealEstateItem(raw({ property_type: 'land', bedrooms: 0 }), candidate())!.bedrooms).toBeNull()
+  expect(normalizeRealEstateItem(raw({ property_type: 'commercial', bedrooms: 0 }), candidate())!.bedrooms).toBeNull()
+  expect(normalizeRealEstateItem(raw({ bathrooms: 0 }), candidate())!.bathrooms).toBeNull()
+})

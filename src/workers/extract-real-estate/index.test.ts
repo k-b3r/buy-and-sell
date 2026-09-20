@@ -84,3 +84,31 @@ test('runRealEstateExtraction upserts each extracted listing with its source has
   expect(params[0][13]).toBe('hash-1')
   expect(params[0][14]).toBe('openai/gpt-oss-120b')
 })
+
+test('extractRealEstateBatch retries the listings the model left out of its response', async () => {
+  let calls = 0
+  const groq: GroqClient = {
+    generateJson: async (prompt: string) => {
+      calls++
+      const ids = [...prompt.matchAll(/"id":"(\w+)"/g)].map((m) => m[1])
+      // The model drops the back half of whatever it is given.
+      return { results: ids.slice(0, Math.ceil(ids.length / 2)).map((id) => item(id)) }
+    },
+  }
+  const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1'), cand('2'), cand('3')])
+  expect([...out.keys()].sort()).toEqual(['1', '2', '3'])
+  expect(calls).toBe(2)
+})
+
+test('extractRealEstateBatch retries missing listings only once, so a stubborn model cannot loop', async () => {
+  let calls = 0
+  const groq: GroqClient = {
+    generateJson: async () => {
+      calls++
+      return { results: [] }
+    },
+  }
+  const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1'), cand('2')])
+  expect(out.size).toBe(0)
+  expect(calls).toBe(2)
+})
