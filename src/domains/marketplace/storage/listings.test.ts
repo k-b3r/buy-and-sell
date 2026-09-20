@@ -832,3 +832,90 @@ test('markDiscountNotificationAttempted bumps last_verification_attempt_at witho
   expect(calls[0].sql).not.toContain('verified_at = now()')
   expect(calls[0].params).toEqual([7])
 })
+
+function historyDb(opts: {
+  prior?: { old_price_amount: string | null; old_price_currency: string | null; old_first_seen_at: string }
+  realEstate: boolean
+  hasHistory: boolean
+  failProbe?: boolean
+}): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
+  const calls: { sql: string; params: unknown[] }[] = []
+  return {
+    calls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        if (sql.startsWith('UPDATE listings SET')) return { rows: opts.prior ? [opts.prior] : [] }
+        if (sql.includes('FROM listings l') && sql.includes("c.name = 'Real Estate'")) {
+          if (opts.failProbe) throw new Error('probe boom')
+          return { rows: opts.realEstate ? [{ has_history: opts.hasHistory }] : [] }
+        }
+        return { rows: [] }
+      },
+    },
+  }
+}
+
+const condoListing = (amount: string) => ({
+  id: '12345',
+  marketplace_listing_title: 'Condo for sale Makati',
+  listing_price: { amount, currency: 'PHP' },
+  redacted_description: { text: 'Nice unit near Ayala.' },
+})
+
+const priorRow = (amount: string | null) => ({
+  old_price_amount: amount,
+  old_price_currency: 'PHP',
+  old_first_seen_at: '2026-08-20T00:00:00.000Z',
+})
+
+const historyInserts = (calls: { sql: string; params: unknown[] }[]) =>
+  calls.filter((c) => c.sql.includes('INSERT INTO listing_price_history'))
+
+test('refreshListingFields records no price history for a non-real-estate listing whose price changed', async () => {
+  const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: false, hasHistory: false })
+
+  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, condoListing('4500000.00'))
+
+  expect(historyInserts(calls)).toHaveLength(0)
+})
+
+test('refreshListingFields writes a baseline row then the new price on a real estate first price change', async () => {
+  const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: false })
+
+  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, condoListing('4500000.00'))
+
+  const inserts = historyInserts(calls)
+  expect(inserts).toHaveLength(2)
+  expect(inserts[0].params).toEqual(['12345', 5000000, 'PHP', '2026-08-20T00:00:00.000Z'])
+  expect(inserts[1].params).toEqual(['12345', 4500000, 'PHP'])
+})
+
+test('refreshListingFields writes only the new price when real estate history already exists', async () => {
+  const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: true })
+
+  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, condoListing('4500000.00'))
+
+  const inserts = historyInserts(calls)
+  expect(inserts).toHaveLength(1)
+  expect(inserts[0].params).toEqual(['12345', 4500000, 'PHP'])
+})
+
+test('refreshListingFields does not even probe when the price is unchanged', async () => {
+  const { db, calls } = historyDb({ prior: priorRow('4500000.00'), realEstate: true, hasHistory: false })
+
+  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, condoListing('4500000.00'))
+
+  expect(calls.filter((c) => c.sql.includes("c.name = 'Real Estate'"))).toHaveLength(0)
+  expect(historyInserts(calls)).toHaveLength(0)
+})
+
+test('refreshListingFields still completes when the price-history write fails, and logs a warning', async () => {
+  const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: false, failProbe: true })
+  const logger = fakeLogger()
+
+  await refreshListingFields(db, fakeImageStore(), logger, null, condoListing('4500000.00'))
+
+  expect(calls[0].sql).toMatch(/^UPDATE listings SET/)
+  expect(logger.warnings.some((w) => w.includes('price-history'))).toBe(true)
+})

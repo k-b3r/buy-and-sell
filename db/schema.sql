@@ -513,3 +513,15 @@ ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO server_service;
 ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO server_service;
+
+-- Price history for real estate listings only (see
+-- docs/superpowers/specs/2026-09-20-real-estate-page-design.md). refreshListingFields
+-- overwrites listings.price_amount on every recheck, so a price drop was
+-- previously lost. Written only for Real Estate; other categories never touch it.
+CREATE TABLE IF NOT EXISTS listing_price_history (
+  listing_id TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  price_amount NUMERIC,
+  price_currency TEXT,
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (listing_id, recorded_at)
+);
