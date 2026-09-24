@@ -10,7 +10,7 @@ export {
 export type { ExaClient } from './exa'
 export { createExaClient, createFallbackExaClient, isExaCreditsError, loadExaApiKeys } from './exa'
 
-export type { GroqClient } from './groq'
+export type { GroqClient, GroqRequestOptions } from './groq'
 export {
   createGroqClient,
   createFallbackGroqClient,

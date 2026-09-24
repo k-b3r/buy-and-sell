@@ -6,6 +6,7 @@ import {
   createGroqPool,
   loadGroqApiKeys,
   summarizeGroqError,
+  buildGroqRequest,
   GROQ_MODEL_FALLBACK_CHAIN,
 } from './groq'
 
@@ -238,4 +239,18 @@ test('round-robin client fires onFallback with the from/to key labels the moment
 test('createGroqPool returns a GroqClient built from the given keys', () => {
   const pool = createGroqPool(['key0', 'key1'])
   expect(typeof pool.generateJson).toBe('function')
+})
+
+test('buildGroqRequest without options is the exact request every existing worker sends', () => {
+  const req = buildGroqRequest('openai/gpt-oss-120b', 'hi', { type: 'object' })
+  expect(req).toEqual({
+    model: 'openai/gpt-oss-120b',
+    messages: [{ role: 'user', content: 'hi' }],
+    response_format: { type: 'json_schema', json_schema: { name: 'response', strict: true, schema: { type: 'object' } } },
+  })
+})
+
+test('buildGroqRequest adds reasoning effort and an output cap only when asked', () => {
+  const req = buildGroqRequest('openai/gpt-oss-120b', 'hi', { type: 'object' }, { reasoningEffort: 'low', maxCompletionTokens: 4096 })
+  expect(req).toMatchObject({ reasoning_effort: 'low', max_completion_tokens: 4096 })
 })

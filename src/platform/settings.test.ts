@@ -51,6 +51,6 @@ test("real estate settings default to today's behavior (collection off, no reche
 })
 
 test('extract-real-estate settings have defaults', () => {
-  expect(SETTING_DEFAULTS['extract_real_estate.batch_size']).toBe(20)
+  expect(SETTING_DEFAULTS['extract_real_estate.batch_size']).toBe(10)
   expect(SETTING_DEFAULTS['extract_real_estate.loop_delay_ms']).toBe(300000)
 })

@@ -564,6 +564,6 @@ CREATE TABLE IF NOT EXISTS real_estate_details (
 CREATE INDEX IF NOT EXISTS real_estate_details_type_idx ON real_estate_details (listing_type, property_type);
 
 INSERT INTO settings (key, value) VALUES
-  ('extract_real_estate.batch_size', 20),
+  ('extract_real_estate.batch_size', 10),
   ('extract_real_estate.loop_delay_ms', 300000)
 ON CONFLICT (key) DO NOTHING;

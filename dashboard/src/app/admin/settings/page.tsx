@@ -312,7 +312,7 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
             description: 'Listings sent to the LLM per extraction request.',
             unit: 'count',
             min: 1,
-            defaultValue: 20,
+            defaultValue: 10,
           },
           {
             key: 'extract_real_estate.loop_delay_ms',

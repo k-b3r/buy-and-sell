@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GroqClient } from '../../domains/llm-clients'
+import type { GroqClient, GroqRequestOptions } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
@@ -23,6 +23,10 @@ const LAP_CANDIDATE_LIMIT = 200
 // stops (429 -> QuotaExhaustedError) and resumes next lap; unextracted listings stay
 // candidates, so nothing is lost.
 export const EXTRACTOR_MODELS = ['openai/gpt-oss-120b'] as const
+
+// See GroqRequestOptions: default reasoning truncated 20-listing batches. With a
+// 10-listing batch (~2500 prompt tokens) a 4096 cap stays under the 8000 TPM limit.
+export const EXTRACTOR_REQUEST_OPTIONS: GroqRequestOptions = { reasoningEffort: 'low', maxCompletionTokens: 4096 }
 
 // A 429 means the key itself is dead - retrying smaller does not help, so it
 // unwinds the whole run (same rule as the sub-category backfill).
@@ -104,7 +108,7 @@ export async function runRealEstateExtraction(
   db: DbClient,
   logger: Logger,
   candidates: RealEstateCandidate[],
-  batchSize = 20,
+  batchSize = 10,
   delay: DelayFn = realDelay,
 ): Promise<void> {
   logger.info(`${candidates.length} real estate listings to extract`)
@@ -139,6 +143,7 @@ async function main() {
     apiKeys,
     (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
     EXTRACTOR_MODELS,
+    EXTRACTOR_REQUEST_OPTIONS,
   )
   logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)

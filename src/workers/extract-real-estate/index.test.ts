@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from 'node:fs'
-import { extractRealEstateBatch, runRealEstateExtraction, EXTRACTOR_MODELS } from './index'
+import { extractRealEstateBatch, runRealEstateExtraction, EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS } from './index'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -115,4 +115,8 @@ test('extractRealEstateBatch retries missing listings only once, so a stubborn m
 
 test('the extractor only uses gpt-oss-120b, never the qwen fallbacks that fail its schema', () => {
   expect(EXTRACTOR_MODELS).toEqual(['openai/gpt-oss-120b'])
+})
+
+test('the extractor asks for low reasoning effort with an output cap that fits the free-tier 8000 TPM limit', () => {
+  expect(EXTRACTOR_REQUEST_OPTIONS).toEqual({ reasoningEffort: 'low', maxCompletionTokens: 4096 })
 })

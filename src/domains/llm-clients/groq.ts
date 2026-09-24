@@ -18,25 +18,41 @@ export function loadGroqApiKeys(env: NodeJS.ProcessEnv = process.env): string[] 
   return keys
 }
 
-export function createGroqClient(apiKey: string, model = 'openai/gpt-oss-120b'): GroqClient {
+// Opt-in per worker. Unset (every existing worker) leaves the request exactly
+// as it was. Confirmed live 2026-09-24: gpt-oss-120b's default reasoning spent
+// 2844 of a 3072-token output budget on a 20-listing batch (finish_reason=length),
+// truncating the JSON. Low effort plus an explicit cap fixed it - the cap must
+// keep prompt + cap under the free tier's 8000 tokens-per-minute request limit.
+export interface GroqRequestOptions {
+  reasoningEffort?: 'low' | 'medium' | 'high'
+  maxCompletionTokens?: number
+}
+
+export function buildGroqRequest(model: string, prompt: string, schema: object, options: GroqRequestOptions = {}) {
+  return {
+    model,
+    messages: [{ role: 'user' as const, content: prompt }],
+    response_format: {
+      type: 'json_schema' as const,
+      json_schema: {
+        name: 'response',
+        strict: true,
+        // groq-sdk types `schema` as `{ [key: string]: unknown }` (a Record),
+        // not the plain `object` this client's public interface exposes —
+        // confirmed via node_modules/groq-sdk/resources/chat/completions.d.ts.
+        schema: schema as Record<string, unknown>,
+      },
+    },
+    ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
+    ...(options.maxCompletionTokens ? { max_completion_tokens: options.maxCompletionTokens } : {}),
+  }
+}
+
+export function createGroqClient(apiKey: string, model = 'openai/gpt-oss-120b', options: GroqRequestOptions = {}): GroqClient {
   const client = new Groq({ apiKey })
   return {
     async generateJson(prompt: string, schema: object): Promise<unknown> {
-      const response = await client.chat.completions.create({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'response',
-            strict: true,
-            // groq-sdk types `schema` as `{ [key: string]: unknown }` (a Record),
-            // not the plain `object` this client's public interface exposes —
-            // confirmed via node_modules/groq-sdk/resources/chat/completions.d.ts.
-            schema: schema as Record<string, unknown>,
-          },
-        },
-      })
+      const response = await client.chat.completions.create(buildGroqRequest(model, prompt, schema, options))
       const content = response.choices[0]?.message?.content
       if (!content) {
         throw new Error('Groq response contained no content')
@@ -174,11 +190,12 @@ export function createGroqPool(
   apiKeys: string[],
   onFallback?: (fromLabel: string, toLabel: string) => void,
   models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN,
+  requestOptions: GroqRequestOptions = {},
 ): GroqClient {
   const keyLabels = apiKeys.map((_, i) => `GROQ_API_KEY${i}`)
   const perKeyClients = apiKeys.map((apiKey, i) =>
     createFallbackGroqClient(
-      models.map((model) => createGroqClient(apiKey, model)),
+      models.map((model) => createGroqClient(apiKey, model, requestOptions)),
       { labels: [...models], onFallback: (fromModel, toModel) => onFallback?.(`${keyLabels[i]}:${fromModel}`, `${keyLabels[i]}:${toModel}`) },
     ),
   )

@@ -40,7 +40,7 @@ export const SETTING_DEFAULTS: Record<string, number> = {
   'enrich_listing_prices.batch_size': 35,
   'enrich_listing_prices.loop_delay_ms': 300000,
 
-  'extract_real_estate.batch_size': 20,
+  'extract_real_estate.batch_size': 10,
   'extract_real_estate.loop_delay_ms': 300000,
 
   'verify_discount.lap_limit_default': 3,
