@@ -51,7 +51,9 @@ export function createGroqClient(apiKey: string, model = 'openai/gpt-oss-120b'):
 // falling back to the next model on the same key buys extra headroom before
 // that key is considered exhausted — but only after the strongest model
 // available has been tried, never skipping ahead to save quota.
-export const GROQ_MODEL_FALLBACK_CHAIN = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'qwen/qwen3.6-27b', 'openai/gpt-oss-20b'] as const
+// qwen/qwen3.6-27b dropped 2026-09-24: Groq now 404s it ("does not exist or you
+// do not have access to it"), so it only added a dead hop to every fallback.
+export const GROQ_MODEL_FALLBACK_CHAIN = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'] as const
 
 // One key, walked down GROQ_MODEL_FALLBACK_CHAIN on quota exhaustion.
 export function createModelFallbackGroqClient(

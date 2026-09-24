@@ -17,6 +17,13 @@ const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 3000
 const LAP_CANDIDATE_LIMIT = 200
 
+// gpt-oss-120b only. Confirmed live 2026-09-24: once its quota ran out, the shared
+// chain's qwen fallbacks kept producing JSON that fails this schema (Groq 400s), so
+// they burned requests without saving anything. On 120b exhaustion the lap now
+// stops (429 -> QuotaExhaustedError) and resumes next lap; unextracted listings stay
+// candidates, so nothing is lost.
+export const EXTRACTOR_MODELS = ['openai/gpt-oss-120b'] as const
+
 // A 429 means the key itself is dead - retrying smaller does not help, so it
 // unwinds the whole run (same rule as the sub-category backfill).
 export class QuotaExhaustedError extends Error {}
@@ -128,7 +135,11 @@ async function main() {
 
   const logger = createLogger('data/extract-real-estate.log')
   writePidFile('data/extract-real-estate.pid')
-  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(
+    apiKeys,
+    (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+    EXTRACTOR_MODELS,
+  )
   logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 

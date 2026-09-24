@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from 'node:fs'
-import { extractRealEstateBatch, runRealEstateExtraction } from './index'
+import { extractRealEstateBatch, runRealEstateExtraction, EXTRACTOR_MODELS } from './index'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -111,4 +111,8 @@ test('extractRealEstateBatch retries missing listings only once, so a stubborn m
   const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1'), cand('2')])
   expect(out.size).toBe(0)
   expect(calls).toBe(2)
+})
+
+test('the extractor only uses gpt-oss-120b, never the qwen fallbacks that fail its schema', () => {
+  expect(EXTRACTOR_MODELS).toEqual(['openai/gpt-oss-120b'])
 })

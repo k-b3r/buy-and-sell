@@ -26,7 +26,7 @@ test('summarizeGroqError collapses whitespace and truncates a long message, leav
 // just locks down the chain's order — best model first — since a wrong
 // order would silently under-use a healthy key.
 test('GROQ_MODEL_FALLBACK_CHAIN tries the best model first, weakest last', () => {
-  expect(GROQ_MODEL_FALLBACK_CHAIN).toEqual(['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'qwen/qwen3.6-27b', 'openai/gpt-oss-20b'])
+  expect(GROQ_MODEL_FALLBACK_CHAIN).toEqual(['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'])
 })
 
 // createGroqClient itself wraps the real SDK and is not unit tested here —
