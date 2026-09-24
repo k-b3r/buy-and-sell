@@ -133,3 +133,41 @@ test('normalizeRealEstateItem keeps 0 bedrooms only for a condo (studio) and nul
   expect(normalizeRealEstateItem(raw({ property_type: 'commercial', bedrooms: 0 }), candidate())!.bedrooms).toBeNull()
   expect(normalizeRealEstateItem(raw({ bathrooms: 0 }), candidate())!.bathrooms).toBeNull()
 })
+
+test('normalizeRealEstateItem treats a pasalo cash-out read as a total as equity when no selling price is stated', () => {
+  const pasalo = candidate({
+    title: 'House and Lot pasalo in Las Piñas City',
+    description: 'Lot area: 35.97sqm Floor area: 42sqm Remaining balance: 820k Asking cash out: 1.6M Negotiable',
+    price_amount: 16,
+  })
+  const f = normalizeRealEstateItem(raw({ property_type: 'house_and_lot', price_php: 1600000, price_basis: 'total', tags: ['pasalo'], confidence: 'high' }), pasalo)!
+  expect(f.price_basis).toBe('equity')
+  expect(f.confidence).toBe('medium')
+})
+
+test('normalizeRealEstateItem keeps a pasalo total when the text states the selling price', () => {
+  const pasalo = candidate({
+    title: 'Rush Sale Pasalo Condo Vista Plumeria',
+    description: 'Selling Price: 3,550,000 Asking downpayment: 1,905,807 Remaining balance: 1,644,193',
+    price_amount: 1900000,
+  })
+  const f = normalizeRealEstateItem(raw({ price_php: 3550000, price_basis: 'total', tags: ['pasalo'] }), pasalo)!
+  expect(f.price_basis).toBe('total')
+  expect(f.price_php).toBe(3550000)
+})
+
+test('normalizeRealEstateItem tags room, bedspace and roommate listings as room_share', () => {
+  for (const title of ['Male Condo Roommate | Beside LRT Gil Puyat', 'Condo Sharing - Room for Rent at EDSA Boni', 'Bedspace for rent near UST']) {
+    const f = normalizeRealEstateItem(raw({ listing_type: 'rent', price_php: 9000, price_basis: 'monthly', tags: [] }), candidate({ title }))!
+    expect(f.tags).toContain('room_share')
+  }
+  const whole = normalizeRealEstateItem(raw({ listing_type: 'rent', price_php: 15000, price_basis: 'monthly' }), candidate({ title: '2BR condo for rent, 3 rooms total' }))!
+  expect(whole.tags).not.toContain('room_share')
+})
+
+test('buildRealEstatePrompt explains pasalo cash-out, condo detection and room shares', () => {
+  const prompt = buildRealEstatePrompt([candidate()])
+  expect(prompt).toContain('cash out')
+  expect(prompt).toContain('room_share')
+  expect(prompt).toContain('parking slot')
+})

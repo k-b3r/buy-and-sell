@@ -2,7 +2,7 @@ export const PROPERTY_TYPES = ['house_and_lot', 'condo', 'land', 'commercial', '
 export const LISTING_TYPES = ['sale', 'rent'] as const
 export const PRICE_BASES = ['total', 'per_sqm', 'monthly', 'equity', 'unresolved'] as const
 export const RE_CONFIDENCES = ['high', 'medium', 'low'] as const
-export const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title', 'furnished'] as const
+export const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title', 'furnished', 'room_share'] as const
 
 // The 16 cities plus the one municipality (Pateros) of Metro Manila.
 export const NCR_LGUS = [
@@ -125,6 +125,15 @@ function oneOf<T extends string>(values: readonly T[], value: unknown): T | null
   return typeof value === 'string' && (values as readonly string[]).includes(value) ? (value as T) : null
 }
 
+// Deterministic backstops for two mistakes seen in the 2026-09-25 spot check,
+// since the model is not fully consistent run to run.
+// 1. A pasalo "cash out" read as the full price: the text talks about taking over
+//    a balance but never states a selling price, so the amount is equity.
+const PASALO_EQUITY_HINT = /cash ?out|remaining balance|assume balance|assumption/i
+const FULL_PRICE_HINT = /selling price|total (contract )?price|\btcp\b|full price/i
+// 2. A single room, bedspace or roommate slot offered as if it were a whole unit.
+const ROOM_SHARE_HINT = /room ?mate|bed ?space|condo sharing|room sharing|room for rent|looking for .{0,20}roommate/i
+
 function lowerConfidence(c: RealEstateConfidence, to: RealEstateConfidence): RealEstateConfidence {
   return RE_CONFIDENCES.indexOf(c) >= RE_CONFIDENCES.indexOf(to) ? c : to
 }
@@ -157,6 +166,13 @@ export function normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateC
   }
 
   const tags = Array.isArray(r.tags) ? r.tags.filter((t): t is RealEstateTag => oneOf(RE_TAGS, t) !== null) : []
+  const text = `${candidate.title} ${candidate.description ?? ''}`
+
+  if (basis === 'total' && tags.includes('pasalo') && PASALO_EQUITY_HINT.test(text) && !FULL_PRICE_HINT.test(text)) {
+    basis = 'equity'
+    confidence = lowerConfidence(confidence, 'medium')
+  }
+  if (!tags.includes('room_share') && ROOM_SHARE_HINT.test(text)) tags.push('room_share')
 
   return {
     listing_type: listingType,
@@ -191,14 +207,14 @@ export function buildRealEstatePrompt(candidates: RealEstateCandidate[]): string
 
 Rules:
 - listing_type: "rent" if it offers a monthly rental or lease; "sale" if it is for sale (including pasalo/assume balance); "unknown" if unclear. Decide from the text, not from anything else.
-- property_type: one of ${PROPERTY_TYPES.join(', ')}.
+- property_type: one of ${PROPERTY_TYPES.join(', ')}. A unit in a named tower, "residences" or condominium project, or one with a floor number or a parking slot, is a condo even if the seller calls it a house.
 - listed_price is what the seller typed into Facebook's price field. When it is small it is unreliable (it can mean thousands, hundred-thousands or millions), so never use a small listed_price on its own. amounts_in_text lists amounts found in the text (it can include unrelated numbers). Take the price from the text. If the text states no price and listed_price is not a plausible full price, set price_basis to "unresolved" and price_php to null.
-- price_php is the price in whole pesos. price_basis says what it is: "total" (full sale price), "per_sqm" (price per square meter), "monthly" (monthly rent), "equity" (only a downpayment or the amount to take over a loan on a pasalo/assume deal), or "unresolved" when you cannot tell (then price_php is null).
+- price_php is the price in whole pesos. price_basis says what it is: "total" (full sale price), "per_sqm" (price per square meter), "monthly" (monthly rent), "equity" (only a downpayment or the amount to take over a loan on a pasalo/assume deal), or "unresolved" when you cannot tell (then price_php is null). On a pasalo/assume deal, an "asking cash out" or downpayment amount is equity, not the total, unless the text also states the full selling price.
 - lot_sqm and floor_sqm are in square meters. Convert square feet (x0.0929) and hectares (x10000). Use null when not stated. If the text gives a range, use null.
 - bedrooms and bathrooms are counts (0 for a studio); null when not stated.
 - project_name is the building, condo or subdivision name as written; null when none.
 - area_text is the city or district named in the text. If it is in Metro Manila, use exactly one of: ${NCR_LGUS.join(', ')} (BGC is Taguig). Otherwise copy the place as written. null when not stated.
-- tags: any of ${RE_TAGS.join(', ')} that the text clearly states.
+- tags: any of ${RE_TAGS.join(', ')} that the text clearly states. Use room_share when only a room, a bedspace or a roommate slot is offered, not a whole unit.
 - confidence: "high" when the key fields are stated plainly, "medium" when you inferred some, "low" when mostly guessing. Never guess a value: use null.
 
 Listings:
