@@ -42,6 +42,7 @@ const REGISTRY = {
   getCollectKeywords: queries.getCollectKeywords,
   replaceCollectKeywords: queries.replaceCollectKeywords,
   getListingProductId: queries.getListingProductId,
+  getRealEstateListings: queries.getRealEstateListings,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
 export type QueryName = keyof typeof REGISTRY
