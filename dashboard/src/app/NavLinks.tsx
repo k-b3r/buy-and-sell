@@ -7,6 +7,7 @@ import HamburgerIcon from './HamburgerIcon'
 
 const NAV_LINKS = [
   { href: '/deals', label: 'Deals' },
+  { href: '/real-estate', label: 'Real Estate' },
   { href: '/admin/logs', label: 'Workers' },
   { href: '/analytics', label: 'Analytics' },
   { href: '/needs-review', label: 'Needs Review' },
@@ -15,7 +16,7 @@ const NAV_LINKS = [
 
 // Client component (needs usePathname) split out of layout.tsx so the rest
 // of the header - a server component - doesn't have to become one just for
-// this. Exact-match, not startsWith: none of these five routes has a nested
+// this. Exact-match, not startsWith: none of these routes has a nested
 // page today, and /admin/logs vs /admin/settings would both wrongly light
 // up under a shared "/admin" prefix check.
 //
