@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getRealEstateListings } from '@/lib/queries'
-import { NCR_AREAS, PROPERTY_TYPE_LABELS, REAL_ESTATE_PAGE_SIZE, parseRealEstateFilters } from '@/lib/realEstate'
-import RealEstateCard from './RealEstateCard'
+import { NCR_AREAS, PROPERTY_TYPE_LABELS, REAL_ESTATE_PAGE_SIZE, parseRealEstateFilters, realEstatePageQuery } from '@/lib/realEstate'
+import RealEstateGrid from './RealEstateGrid'
 
 // Live data, same reasoning as deals/page.tsx: prerendering would pin it to
 // build time and make every build depend on the VPS server being reachable.
@@ -20,16 +20,11 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
   const params: Record<string, string | undefined> = Object.fromEntries(
     Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]),
   )
-  const { filters, page } = parseRealEstateFilters(params)
+  // Always start at page 1 - later pages load on scroll (RealEstateGrid).
+  const { filters } = parseRealEstateFilters({ ...params, page: '1' })
   const listings = await getRealEstateListings(filters)
-  const hasNext = listings.length === REAL_ESTATE_PAGE_SIZE
+  const nextPage = listings.length === REAL_ESTATE_PAGE_SIZE ? 2 : null
   const review = filters.view === 'review'
-
-  const pageHref = (p: number) => {
-    const q = new URLSearchParams()
-    for (const [k, v] of Object.entries({ ...params, page: String(p) })) if (v) q.set(k, v)
-    return `/real-estate?${q.toString()}`
-  }
 
   return (
     <div>
@@ -69,18 +64,13 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
         <button type="submit" style={{ ...field, cursor: 'pointer' }}>Filter</button>
       </form>
 
-      {listings.length === 0 ? (
-        <p style={{ color: 'var(--color-text-muted)' }}>{review ? 'Nothing under review matches.' : 'No real estate listings match.'}</p>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-          {listings.map((l) => <RealEstateCard key={l.id} l={l} />)}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 16, marginTop: 20 }}>
-        {page > 1 ? <Link href={pageHref(page - 1)}>← Previous</Link> : null}
-        {hasNext ? <Link href={pageHref(page + 1)}>Next →</Link> : null}
-      </div>
+      <RealEstateGrid
+        key={realEstatePageQuery(params, 1)}
+        initialListings={listings}
+        initialNextPage={nextPage}
+        params={params}
+        emptyText={review ? 'Nothing under review matches.' : 'No real estate listings match.'}
+      />
     </div>
   )
 }

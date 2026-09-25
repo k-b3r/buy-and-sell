@@ -79,3 +79,12 @@ export function formatReviewReason(l: RealEstateListing): string {
   if (l.confidence === 'low') reasons.push('low confidence')
   return reasons.join(', ')
 }
+
+// Query string for one page of results, used by the infinite-scroll grid to ask
+// /api/real-estate for the next page with the same filters.
+export function realEstatePageQuery(params: Record<string, string | undefined>, page: number): string {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v && k !== 'page') q.set(k, v)
+  q.set('page', String(page))
+  return q.toString()
+}

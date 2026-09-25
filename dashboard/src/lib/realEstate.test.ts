@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { parseRealEstateFilters, formatPrice, formatAreaLine, formatReviewReason, NCR_AREAS } from './realEstate'
+import { parseRealEstateFilters, formatPrice, formatAreaLine, formatReviewReason, realEstatePageQuery, NCR_AREAS } from './realEstate'
 import type { RealEstateListing } from './queries'
 
 const listing = (over: Partial<RealEstateListing> = {}): RealEstateListing => ({
@@ -60,4 +60,9 @@ test('formatReviewReason lists why a listing needs review, and is empty for a cl
     'price not stated, sale or rent unclear, low confidence',
   )
   expect(formatReviewReason(listing())).toBe('')
+})
+
+test('realEstatePageQuery keeps the active filters, drops empty ones and sets the page', () => {
+  expect(realEstatePageQuery({ kind: 'rent', area: 'Makati', min: '', page: '1' }, 3)).toBe('kind=rent&area=Makati&page=3')
+  expect(realEstatePageQuery({ view: 'review' }, 2)).toBe('view=review&page=2')
 })
