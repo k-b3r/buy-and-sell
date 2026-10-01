@@ -64,10 +64,23 @@ Re-visits each already-saved listing live (paced same as a normal run) to pick u
 ## Testing
 
 ```bash
-pnpm test
+pnpm check              # format check, lint, typecheck, unit tests: run before every PR
+pnpm format             # apply Prettier
+pnpm test               # unit tests only
+pnpm test:integration   # needs TEST_DATABASE_URL
+pnpm test:e2e           # needs TEST_DATABASE_URL; builds the dashboard, starts it and the server
 ```
 
 Unit tests cover extraction, parsing, pacing/wall-handling logic, and the orchestration loop, all against fixtures — no live network calls in the test suite.
+
+Integration (`*.int.test.ts`) and e2e (`e2e/`) tests apply `db/schema.sql` to the database in `TEST_DATABASE_URL` and write to it. Point it at a disposable database, never prod (it is deliberately not `DATABASE_URL`). A throwaway local one:
+
+```bash
+docker run -d --rm --name bas-test-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bas_test -p 55432:5432 postgres:17
+export TEST_DATABASE_URL=postgres://postgres:postgres@localhost:55432/bas_test
+```
+
+CI (`.github/workflows/`) runs every check above on each PR, plus an agent review against the coding standards and a gate: a PR labeled `agent-changes-requested`, or `needs-human` without `human-approved`, fails the gate.
 
 ## Project layout
 
