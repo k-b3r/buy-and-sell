@@ -34,7 +34,8 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server && tsc --noEmit -p dashboard",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

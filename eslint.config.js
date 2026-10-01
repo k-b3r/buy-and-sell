@@ -27,7 +27,15 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.node },
       parserOptions: {
-        projectService: { allowDefaultProject: ['docs-site/.vitepress/config.ts', 'scripts/*.ts', 'vitest.config.ts'] },
+        projectService: {
+          allowDefaultProject: [
+            'docs-site/.vitepress/config.ts',
+            'scripts/*.ts',
+            'vitest.config.ts',
+            'vitest.integration.config.ts',
+            'playwright.config.ts',
+          ],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
