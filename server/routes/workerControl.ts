@@ -40,7 +40,7 @@ export interface WorkerControlDeps {
     command: string,
     args: string[],
     options: { cwd: string; detached: boolean; stdio: ['ignore', 'ignore', number] },
-  ) => { pid?: number; on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => void }
+  ) => { pid?: number; unref?: () => void; on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => void }
 }
 
 const defaultDeps: WorkerControlDeps = {
@@ -176,9 +176,7 @@ export function createWorkerControlHandler(
     // overwrites this moments later with its more precise leaf pid; until
     // then this wrapper pid is a correct enough "something is running" fact.
     if (child.pid !== undefined) writeFileSync(pidFile, String(child.pid))
-    if (typeof (child as { unref?: () => void }).unref === 'function') {
-      ;(child as { unref: () => void }).unref()
-    }
+    child.unref?.()
     // A stop for THIS worker requested before this new run's own exit fires
     // is treated as intentional regardless of what (code, signal) shape the
     // wrapper reports - see stoppedIntentionally's comment. Otherwise, a

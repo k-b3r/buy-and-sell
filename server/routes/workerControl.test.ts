@@ -296,7 +296,7 @@ test(
 test(
   'start: redirects stderr to the log file instead of discarding it (stdout stays ignored - createLogger already writes there too)',
   withTmpDir(async (dir) => {
-    const spawn = vi.fn(() => fakeChild())
+    const spawn = vi.fn((..._args: unknown[]) => fakeChild())
     const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false, spawn }))
     await handle({ worker: 'collect', action: 'start' })
 
