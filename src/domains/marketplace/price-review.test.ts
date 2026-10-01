@@ -26,7 +26,9 @@ test('buildPriceReviewPrompt includes each listing id, recorded price, title, an
 
 test('extractDescriptionPrice reads a keyword/currency-prefixed or k-abbreviated amount', () => {
   expect(
-    extractDescriptionPrice('iphone 16 slightly use 128gb 2cycle count 100 battery under warranty march 2027\nprice 39k'),
+    extractDescriptionPrice(
+      'iphone 16 slightly use 128gb 2cycle count 100 battery under warranty march 2027\nprice 39k',
+    ),
   ).toBe(39000)
   expect(extractDescriptionPrice('₱39,000 fixed')).toBe(39000)
   expect(extractDescriptionPrice('asking 39000, slightly nego')).toBe(39000)

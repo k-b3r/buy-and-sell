@@ -7,7 +7,6 @@ import ListingDetailContent from './ListingDetailContent'
 // analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
 export const dynamic = 'force-dynamic'
 
-
 export default async function ListingDetailPage({
   params,
   searchParams,

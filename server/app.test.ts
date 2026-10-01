@@ -18,7 +18,16 @@ test('routes a matching method+path to its handler and returns the parsed body t
     },
   }
 
-  const result = await handleRequest(routes, API_KEY, 'POST', '/refresh', `Bearer ${API_KEY}`, '{"id":"123"}', IP, freshLimiter())
+  const result = await handleRequest(
+    routes,
+    API_KEY,
+    'POST',
+    '/refresh',
+    `Bearer ${API_KEY}`,
+    '{"id":"123"}',
+    IP,
+    freshLimiter(),
+  )
 
   expect(result).toEqual({ statusCode: 200, body: { ok: true } })
   expect(receivedBody).toEqual({ id: '123' })
@@ -54,7 +63,16 @@ test('rejects a wrong or missing bearer token for a route that exists', async ()
 test('400s on an invalid JSON body for an authenticated, matching route', async () => {
   const routes: RouteTable = { 'POST /refresh': async () => ({ statusCode: 200, body: {} }) }
 
-  const result = await handleRequest(routes, API_KEY, 'POST', '/refresh', `Bearer ${API_KEY}`, 'not json', IP, freshLimiter())
+  const result = await handleRequest(
+    routes,
+    API_KEY,
+    'POST',
+    '/refresh',
+    `Bearer ${API_KEY}`,
+    'not json',
+    IP,
+    freshLimiter(),
+  )
 
   expect(result).toEqual({ statusCode: 400, body: { error: 'invalid JSON body' } })
 })
@@ -109,7 +127,16 @@ test('rate limiting is per-IP - one IP failing does not block another', async ()
   await handleRequest(routes, API_KEY, 'POST', '/refresh', 'Bearer wrong', '{}', '1.1.1.1', limiter)
   await handleRequest(routes, API_KEY, 'POST', '/refresh', 'Bearer wrong', '{}', '1.1.1.1', limiter)
 
-  const otherIp = await handleRequest(routes, API_KEY, 'POST', '/refresh', `Bearer ${API_KEY}`, '{}', '2.2.2.2', limiter)
+  const otherIp = await handleRequest(
+    routes,
+    API_KEY,
+    'POST',
+    '/refresh',
+    `Bearer ${API_KEY}`,
+    '{}',
+    '2.2.2.2',
+    limiter,
+  )
 
   expect(otherIp).toEqual({ statusCode: 200, body: { ok: true } })
 })

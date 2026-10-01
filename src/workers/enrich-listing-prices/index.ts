@@ -49,7 +49,11 @@ export async function runPriceReview(
     }
 
     for (const item of raw.results as RawPriceReviewItem[]) {
-      if (typeof item.id !== 'string' || typeof item.is_negotiable !== 'boolean' || typeof item.reasoning !== 'string') {
+      if (
+        typeof item.id !== 'string' ||
+        typeof item.is_negotiable !== 'boolean' ||
+        typeof item.reasoning !== 'string'
+      ) {
         const idHint = typeof item.id === 'string' ? item.id : '(missing/invalid id)'
         logger.warn(`item ${idHint}: malformed fields in Groq response, skipping`)
         continue
@@ -84,7 +88,9 @@ async function main() {
 
   const logger = createLogger('data/enrich-listing-prices.log')
   writePidFile('data/enrich-listing-prices.pid')
-  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
+    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+  )
   logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 
@@ -94,7 +100,10 @@ async function main() {
     for (;;) {
       logger.info(`lap ${lap} starting`)
       const candidates = await getPriceReviewCandidates(pool)
-      const settings = await loadSettings(pool, ['enrich_listing_prices.batch_size', 'enrich_listing_prices.loop_delay_ms'])
+      const settings = await loadSettings(pool, [
+        'enrich_listing_prices.batch_size',
+        'enrich_listing_prices.loop_delay_ms',
+      ])
       if (isTestRun()) {
         logger.info(`TEST_RUN: marketplace will call Groq for price review on ${candidates.length} listings this lap`)
       } else {

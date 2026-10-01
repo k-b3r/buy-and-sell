@@ -51,8 +51,21 @@ export async function upsertRealEstateDetails(
        tags = EXCLUDED.tags, confidence = EXCLUDED.confidence,
        source_hash = EXCLUDED.source_hash, model = EXCLUDED.model, extracted_at = now()`,
     [
-      listingId, f.listing_type, f.property_type, f.price_php, f.price_basis, f.lot_sqm, f.floor_sqm,
-      f.bedrooms, f.bathrooms, f.project_name, f.area_text, JSON.stringify(f.tags), f.confidence, sourceHash, model,
+      listingId,
+      f.listing_type,
+      f.property_type,
+      f.price_php,
+      f.price_basis,
+      f.lot_sqm,
+      f.floor_sqm,
+      f.bedrooms,
+      f.bathrooms,
+      f.project_name,
+      f.area_text,
+      JSON.stringify(f.tags),
+      f.confidence,
+      sourceHash,
+      model,
     ],
   )
 }

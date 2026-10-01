@@ -1,7 +1,10 @@
 import { mergeDuplicateProducts } from './index'
 import type { DbClient } from '../../platform/storage'
 
-function scriptedDb(script: (sql: string, params: unknown[]) => unknown): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
+function scriptedDb(script: (sql: string, params: unknown[]) => unknown): {
+  db: DbClient
+  calls: { sql: string; params: unknown[] }[]
+} {
   const calls: { sql: string; params: unknown[] }[] = []
   return {
     calls,

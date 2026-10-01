@@ -80,7 +80,13 @@ export default function SaveButton({
 
   if (variant === 'icon') {
     return (
-      <button onClick={handleClick} disabled={loading} style={iconStyle} aria-label={saved ? 'Unsave' : 'Save'} title={saved ? 'Unsave' : 'Save'}>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        style={iconStyle}
+        aria-label={saved ? 'Unsave' : 'Save'}
+        title={saved ? 'Unsave' : 'Save'}
+      >
         {saved ? '★' : '☆'}
       </button>
     )

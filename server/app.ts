@@ -87,7 +87,16 @@ export function createApp(apiKey: string, routes: RouteTable): Server {
     })
     req.on('end', async () => {
       const clientIp = clientIpFrom(req)
-      const result = await handleRequest(routes, apiKey, req.method, req.url, req.headers.authorization, raw, clientIp, rateLimiter)
+      const result = await handleRequest(
+        routes,
+        apiKey,
+        req.method,
+        req.url,
+        req.headers.authorization,
+        raw,
+        clientIp,
+        rateLimiter,
+      )
       res.writeHead(result.statusCode, { 'content-type': 'application/json' })
       res.end(JSON.stringify(result.body))
     })

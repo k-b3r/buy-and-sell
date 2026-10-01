@@ -44,11 +44,13 @@ fixtures/
 ### Task 1: Cursor/LSD Extraction (pure, TDD)
 
 **Files:**
+
 - Create: `src/paginate.ts`
 - Create: `fixtures/ssr-page-with-cursor.html`
 - Test: `test/paginate.test.ts`
 
 **Interfaces:**
+
 - Produces: `interface PageCursor { raw: string; pg: number }`, `extractCursor(html: string): PageCursor | null`, `extractLsd(html: string): string | null`.
 
 `extractCursor` finds the `"end_cursor":"..."` JSON-string value under `page_info` in the SSR HTML, JSON-unescapes it once (it's a JSON string containing escaped JSON), then parses that as JSON to read `pg`. Returns `{ raw: <the still-escaped-for-reuse string>, pg: <number> }` — `raw` is what gets sent back verbatim in the next request's `cursor` variable. `extractLsd` finds the `lsd` token from the `["LSD",[],{"token":"..."}]` pattern Facebook embeds in every page (confirmed present on logged-out pages).
@@ -57,10 +59,28 @@ fixtures/
 
 ```html
 <!-- fixtures/ssr-page-with-cursor.html -->
-<html><body>
-<script type="application/json">{"require":[["LSD",[],{"token":"FAKE_LSD_TOKEN_0000000000"}]]}</script>
-<script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[{"node":{"id":"1"}}],"page_info":{"end_cursor":"{\"pg\":0,\"b2c\":{\"br\":\"\",\"it\":0,\"hmsr\":false,\"tbi\":0},\"c2c\":{\"br\":\"OPAQUE_TOKEN_ABC\",\"it\":24,\"rpbr\":\"\",\"rphr\":false,\"rmhr\":false,\"ssi\":false,\"ssco\":0,\"sspi\":[]},\"irr\":false,\"serp_cta\":false,\"rui\":[],\"mpid\":[],\"ubp\":null,\"ncrnd\":0,\"irsr\":false,\"bmpr\":[],\"bmpeid\":[],\"nmbmp\":false,\"skrr\":false,\"ioour\":false,\"ise\":false,\"sms_cursor\":{\"page_index\":0,\"blended_ad_index\":0,\"organics_since_last_ad\":0,\"page_organic_count\":0,\"blended_organic_index\":0,\"returned_ad_index\":0,\"total_index\":0}}","has_next_page":true}}}}}</script>
-</body></html>
+<html>
+  <body>
+    <script type="application/json">
+      { "require": [["LSD", [], { "token": "FAKE_LSD_TOKEN_0000000000" }]] }
+    </script>
+    <script type="application/json">
+      {
+        "data": {
+          "marketplace_search": {
+            "feed_units": {
+              "edges": [{ "node": { "id": "1" } }],
+              "page_info": {
+                "end_cursor": "{\"pg\":0,\"b2c\":{\"br\":\"\",\"it\":0,\"hmsr\":false,\"tbi\":0},\"c2c\":{\"br\":\"OPAQUE_TOKEN_ABC\",\"it\":24,\"rpbr\":\"\",\"rphr\":false,\"rmhr\":false,\"ssi\":false,\"ssco\":0,\"sspi\":[]},\"irr\":false,\"serp_cta\":false,\"rui\":[],\"mpid\":[],\"ubp\":null,\"ncrnd\":0,\"irsr\":false,\"bmpr\":[],\"bmpeid\":[],\"nmbmp\":false,\"skrr\":false,\"ioour\":false,\"ise\":false,\"sms_cursor\":{\"page_index\":0,\"blended_ad_index\":0,\"organics_since_last_ad\":0,\"page_organic_count\":0,\"blended_organic_index\":0,\"returned_ad_index\":0,\"total_index\":0}}",
+                "has_next_page": true
+              }
+            }
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
 ```
 
 ```ts
@@ -135,12 +155,14 @@ git commit -m "add cursor/lsd extraction for marketplace pagination"
 ### Task 2: Pagination Response Parsing (pure, TDD)
 
 **Files:**
+
 - Modify: `src/paginate.ts`
 - Create: `fixtures/pagination-response.json`
 - Create: `fixtures/pagination-response-empty.json`
 - Test: `test/paginate.test.ts` (append)
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: `interface PaginationPage { nodes: Record<string, unknown>[]; nextCursor: PageCursor | null; hasNextPage: boolean }`, `parsePaginationResponse(json: string): PaginationPage | null`. Returns `null` if the response doesn't have the expected `data.marketplace_search.feed_units` shape (fail-closed signal for the caller, same philosophy as `detectPageState`).
 
@@ -148,12 +170,33 @@ git commit -m "add cursor/lsd extraction for marketplace pagination"
 
 ```json
 // fixtures/pagination-response.json
-{"data":{"marketplace_search":{"feed_units":{"edges":[{"node":{"id":"111","marketplace_listing_title":"Sony WH-1000XM6"}},{"node":{"id":"222","marketplace_listing_title":"Beats Solo"}}],"page_info":{"end_cursor":"{\"pg\":1,\"c2c\":{\"br\":\"NEXT_TOKEN\"}}","has_next_page":true}}}}}
+{
+  "data": {
+    "marketplace_search": {
+      "feed_units": {
+        "edges": [
+          { "node": { "id": "111", "marketplace_listing_title": "Sony WH-1000XM6" } },
+          { "node": { "id": "222", "marketplace_listing_title": "Beats Solo" } }
+        ],
+        "page_info": { "end_cursor": "{\"pg\":1,\"c2c\":{\"br\":\"NEXT_TOKEN\"}}", "has_next_page": true }
+      }
+    }
+  }
+}
 ```
 
 ```json
 // fixtures/pagination-response-empty.json
-{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\"pg\":1,\"c2c\":{\"br\":\"NEXT_TOKEN\"}}","has_next_page":false}}}}}
+{
+  "data": {
+    "marketplace_search": {
+      "feed_units": {
+        "edges": [],
+        "page_info": { "end_cursor": "{\"pg\":1,\"c2c\":{\"br\":\"NEXT_TOKEN\"}}", "has_next_page": false }
+      }
+    }
+  }
+}
 ```
 
 ```ts
@@ -238,10 +281,12 @@ git commit -m "add pagination response parsing"
 ### Task 3: Extend PageDriver with fetchNextPage
 
 **Files:**
+
 - Modify: `src/driver.ts`
 - Modify: `src/browser.ts`
 
 **Interfaces:**
+
 - Consumes: `PageCursor` from `src/paginate.ts`.
 - Produces: extends `PageDriver` with `fetchNextPage(cursor: PageCursor, lsd: string, query: string): Promise<string>` — returns the raw GraphQL response body text (parsing happens in `run.ts` via `parsePaginationResponse`, keeping `browser.ts` a thin real-API wrapper same as the rest of the file).
 
@@ -349,11 +394,13 @@ git commit -m "add fetchNextPage to PageDriver"
 ### Task 4: Pagination Continuation Loop in run.ts
 
 **Files:**
+
 - Modify: `src/run.ts`
 - Modify: `src/cli.ts`
 - Test: `test/run.test.ts` (append)
 
 **Interfaces:**
+
 - Consumes: `extractCursor`, `extractLsd`, `parsePaginationResponse` from `src/paginate.ts`; `driver.fetchNextPage` from Task 3.
 - Produces: `RunOptions` gains `maxItems?: number` (default: unlimited — same as today's single-batch behavior when omitted, preserving v0's existing behavior for callers that don't set it).
 
@@ -396,7 +443,10 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
     maxItems: 2,
   })
 
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  const saved = readFileSync(OUT_PATH, 'utf-8')
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l))
   expect(saved.map((s) => s.id)).toEqual(['1', '2'])
 })
 ```
@@ -423,41 +473,41 @@ export interface RunOptions {
 
 ```ts
 // src/run.ts — replace the `const listings = extractGridListings(gridResult.html)` section
-  const seen = new Set<string>()
-  const listings = extractGridListings(gridResult.html).filter((l) => {
-    if (seen.has(l.id)) return false
-    seen.add(l.id)
-    return true
-  })
-  logger.info(`found ${listings.length} listings in search grid`)
+const seen = new Set<string>()
+const listings = extractGridListings(gridResult.html).filter((l) => {
+  if (seen.has(l.id)) return false
+  seen.add(l.id)
+  return true
+})
+logger.info(`found ${listings.length} listings in search grid`)
 
-  const maxItems = options.maxItems ?? listings.length
-  let cursor = extractCursor(gridResult.html)
-  let hasNextPage = true
-  while (listings.length < maxItems && cursor && hasNextPage) {
-    const lsd = extractLsd(gridResult.html)
-    if (!lsd) {
-      logger.error('no lsd token found for pagination, stopping')
-      break
-    }
-    await driver.waitRandom(4000, 10000)
-    const raw = await driver.fetchNextPage(cursor, lsd, options.query)
-    const page = parsePaginationResponse(raw)
-    if (!page) {
-      logger.error('unrecognized pagination response shape, failing closed and stopping pagination')
-      break
-    }
-    for (const node of page.nodes) {
-      const id = node.id as string
-      if (!seen.has(id)) {
-        seen.add(id)
-        listings.push(node as (typeof listings)[number])
-      }
-    }
-    logger.info(`paginated: now have ${listings.length} listings (page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'})`)
-    cursor = page.nextCursor
-    hasNextPage = page.hasNextPage
+const maxItems = options.maxItems ?? listings.length
+let cursor = extractCursor(gridResult.html)
+let hasNextPage = true
+while (listings.length < maxItems && cursor && hasNextPage) {
+  const lsd = extractLsd(gridResult.html)
+  if (!lsd) {
+    logger.error('no lsd token found for pagination, stopping')
+    break
   }
+  await driver.waitRandom(4000, 10000)
+  const raw = await driver.fetchNextPage(cursor, lsd, options.query)
+  const page = parsePaginationResponse(raw)
+  if (!page) {
+    logger.error('unrecognized pagination response shape, failing closed and stopping pagination')
+    break
+  }
+  for (const node of page.nodes) {
+    const id = node.id as string
+    if (!seen.has(id)) {
+      seen.add(id)
+      listings.push(node as (typeof listings)[number])
+    }
+  }
+  logger.info(`paginated: now have ${listings.length} listings (page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'})`)
+  cursor = page.nextCursor
+  hasNextPage = page.hasNextPage
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -475,13 +525,13 @@ const maxItems = maxItemsArg ? Number(maxItemsArg) : undefined
 
 ```ts
 // src/cli.ts — pass through to runCollection's options
-    await runCollection(driver, logger, promptReview, process.stdin, process.stdout, {
-      query,
-      location,
-      outputPath: 'data/listings.jsonl',
-      softWallTimeoutMs: 5000,
-      maxItems,
-    })
+await runCollection(driver, logger, promptReview, process.stdin, process.stdout, {
+  query,
+  location,
+  outputPath: 'data/listings.jsonl',
+  softWallTimeoutMs: 5000,
+  maxItems,
+})
 ```
 
 - [ ] **Step 6: Run full suite and type-check**
@@ -503,6 +553,7 @@ git commit -m "add pagination continuation loop with dedup and item cap"
 Same category as the base plan's Task 10: this can't be automated, because the exact `browse_request_params` Facebook's own client sends can only be observed on the live site, and CI can't safely hit live Facebook.
 
 **Files:**
+
 - Modify: `src/browser.ts` (the `browse_request_params` object in `fetchNextPage`)
 
 - [ ] **Step 1: Find the real browse_request_params in the live page**

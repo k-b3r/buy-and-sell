@@ -6,8 +6,23 @@ export const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title
 
 // The 16 cities plus the one municipality (Pateros) of Metro Manila.
 export const NCR_LGUS = [
-  'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong', 'Manila', 'Marikina', 'Muntinlupa', 'Navotas',
-  'Parañaque', 'Pasay', 'Pasig', 'Pateros', 'Quezon City', 'San Juan', 'Taguig', 'Valenzuela',
+  'Caloocan',
+  'Las Piñas',
+  'Makati',
+  'Malabon',
+  'Mandaluyong',
+  'Manila',
+  'Marikina',
+  'Muntinlupa',
+  'Navotas',
+  'Parañaque',
+  'Pasay',
+  'Pasig',
+  'Pateros',
+  'Quezon City',
+  'San Juan',
+  'Taguig',
+  'Valenzuela',
 ] as const
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number]
@@ -246,8 +261,19 @@ export const REAL_ESTATE_RESPONSE_SCHEMA = {
           confidence: { type: 'string', enum: [...RE_CONFIDENCES] },
         },
         required: [
-          'id', 'listing_type', 'property_type', 'price_php', 'price_basis', 'lot_sqm', 'floor_sqm',
-          'bedrooms', 'bathrooms', 'project_name', 'area_text', 'tags', 'confidence',
+          'id',
+          'listing_type',
+          'property_type',
+          'price_php',
+          'price_basis',
+          'lot_sqm',
+          'floor_sqm',
+          'bedrooms',
+          'bathrooms',
+          'project_name',
+          'area_text',
+          'tags',
+          'confidence',
         ],
         additionalProperties: false,
       },

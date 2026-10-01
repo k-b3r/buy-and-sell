@@ -20,11 +20,11 @@ The project is intended for **personal use** with a **₱0 software/tooling budg
 
 **This overrides the original assumption of using the user's authenticated account.** Real-world testing showed:
 
-* Meta's Terms of Service prohibit automated data collection outright, logged in or not — using the user's real account risked an actual account ban (checkpoints, restrictions, permanent loss of access).
-* A **no-login, logged-out** collector removes that risk entirely: no session, no cookies, nothing tied to a real account for Facebook to act against. The only residual risk is IP-level rate-limiting/soft-walls, which is far lower stakes and just means a slower run, not a lost account.
-* Facebook still requires a real browser (Playwright/Chromium) even logged out — plain HTTP requests are rejected outright at the edge (missing browser fingerprint signals). No shortcut around running an actual browser.
-* Logged-out Marketplace pages embed listing data as JSON directly in the page (server-rendered), which the collector reads — no scraping of rendered HTML text, no DOM-scraping fragility.
-* Consequence: private Groups and Pages (login-gated) are **not reachable** this way. Deferred to a later phase with a separate access strategy.
+- Meta's Terms of Service prohibit automated data collection outright, logged in or not — using the user's real account risked an actual account ban (checkpoints, restrictions, permanent loss of access).
+- A **no-login, logged-out** collector removes that risk entirely: no session, no cookies, nothing tied to a real account for Facebook to act against. The only residual risk is IP-level rate-limiting/soft-walls, which is far lower stakes and just means a slower run, not a lost account.
+- Facebook still requires a real browser (Playwright/Chromium) even logged out — plain HTTP requests are rejected outright at the edge (missing browser fingerprint signals). No shortcut around running an actual browser.
+- Logged-out Marketplace pages embed listing data as JSON directly in the page (server-rendered), which the collector reads — no scraping of rendered HTML text, no DOM-scraping fragility.
+- Consequence: private Groups and Pages (login-gated) are **not reachable** this way. Deferred to a later phase with a separate access strategy.
 
 See `CONTEXT.md` → "Collector" for full technical detail (bot-detection findings, wall-handling behavior, pacing rationale).
 
@@ -100,20 +100,20 @@ The collector uses a locally controlled, **logged-out headed browser** (Playwrig
 
 Two-stage collection per run:
 
-* **Stage 1 (grid):** the search-results page, read as-loaded — title, price, thumbnail, location, listing ID/URL. Near-zero navigations, wall rarely triggers here.
-* **Stage 2 (detail):** each listing opened individually for full detail — description, condition (when the seller filled it in), images, seller info. This is where pacing/wall-handling matters most.
+- **Stage 1 (grid):** the search-results page, read as-loaded — title, price, thumbnail, location, listing ID/URL. Near-zero navigations, wall rarely triggers here.
+- **Stage 2 (detail):** each listing opened individually for full detail — description, condition (when the seller filled it in), images, seller info. This is where pacing/wall-handling matters most.
 
 No fixed schema is forced — the collector captures **whatever fields Facebook's page actually includes** for a given listing (condition and multi-photo galleries are seller-dependent and often absent even at detail level). A `raw_json`-style catch-all is the intended long-term approach once a database exists, so newly-discovered fields don't require a schema migration every time.
 
 Data actually available per listing includes (not all fields guaranteed present):
 
-* Listing ID, URL, title, price (nested object with currency, not a flat number)
-* Location (city name at grid level via reverse-geocode; raw lat/long only at detail level — inconsistent between stages)
-* Condition (often missing)
-* Description (`redacted_description.text`)
-* Primary photo URL (grid) / photo gallery (detail, when present)
-* Delivery type (local pickup / shipping)
-* Listed timestamp
+- Listing ID, URL, title, price (nested object with currency, not a flat number)
+- Location (city name at grid level via reverse-geocode; raw lat/long only at detail level — inconsistent between stages)
+- Condition (often missing)
+- Description (`redacted_description.text`)
+- Primary photo URL (grid) / photo gallery (detail, when present)
+- Delivery type (local pickup / shipping)
+- Listed timestamp
 
 **Image URLs are signed and expire** (days, not permanent) — Facebook's CDN issues a fresh signed URL on every real page load. For long-term storage, the actual image bytes need to be downloaded while the URL is valid, not just the URL string.
 
@@ -280,16 +280,16 @@ High
 
 The score can consider:
 
-* Difference from median market price
-* Expected resale value
-* Expected ROI
-* Listing age
-* Price reductions
-* Product demand
-* Condition
-* Location
-* Historical resale performance
-* Number of competing listings
+- Difference from median market price
+- Expected resale value
+- Expected ROI
+- Listing age
+- Price reductions
+- Product demand
+- Condition
+- Location
+- Historical resale performance
+- Number of competing listings
 
 ---
 
@@ -422,47 +422,47 @@ calculated_at
 
 ## Backend
 
-* Node.js
-* TypeScript
-* pnpm (package manager)
+- Node.js
+- TypeScript
+- pnpm (package manager)
 
 ## Browser Automation
 
-* Playwright (headed Chromium, logged-out)
+- Playwright (headed Chromium, logged-out)
 
 ## Testing
 
-* Vitest
+- Vitest
 
 ## Database
 
-* PostgreSQL (not yet built — v0 is JSONL only)
+- PostgreSQL (not yet built — v0 is JSONL only)
 
 ## Data Processing
 
-* TypeScript initially
-* Python optionally for advanced analysis
+- TypeScript initially
+- Python optionally for advanced analysis
 
 ## API
 
 Optional, future:
 
-* Node.js
-* Fastify or Express
+- Node.js
+- Fastify or Express
 
 ## Dashboard
 
 Optional, future:
 
-* Next.js
-* React
+- Next.js
+- React
 
 ## AI
 
 Optional later:
 
-* LLM API
-* Local LLM
+- LLM API
+- Local LLM
 
 The core system should remain functional without paid AI services.
 
@@ -476,12 +476,12 @@ Target operating cost:
 
 No paid:
 
-* Scraping APIs
-* Proxy services
-* Marketplace APIs
-* Cloud servers
-* Paid databases
-* Paid analytics platforms
+- Scraping APIs
+- Proxy services
+- Marketplace APIs
+- Cloud servers
+- Paid databases
+- Paid analytics platforms
 
 The system runs entirely on the developer's own computer / network.
 
@@ -493,11 +493,11 @@ The system runs entirely on the developer's own computer / network.
 
 Actual implementation (superseded the original "authenticate manually" plan — see Collection Approach above):
 
-* Launch headed, logged-out browser
-* Open Marketplace search (no auth)
-* Read currently loaded listings (grid stage)
-* Extract listing IDs, URLs, whatever fields are present
-* Save results to JSONL
+- Launch headed, logged-out browser
+- Open Marketplace search (no auth)
+- Read currently loaded listings (grid stage)
+- Extract listing IDs, URLs, whatever fields are present
+- Save results to JSONL
 
 Output:
 
@@ -515,18 +515,18 @@ Extract per-listing detail (stage 2): title, price, location, condition (when pr
 
 Move from JSONL to PostgreSQL:
 
-* Listing insertion, deduplication, updates
-* Historical observations, price history
+- Listing insertion, deduplication, updates
+- Historical observations, price history
 
 ## Phase 4 — Market Analytics — Not started
 
-* Average/median price, percentiles, price distributions
-* Product comparisons, category analysis, geographic analysis
+- Average/median price, percentiles, price distributions
+- Product comparisons, category analysis, geographic analysis
 
 ## Phase 5 — Deal Detection — Not started
 
-* Expected resale price, profit calculation, ROI
-* Deal score, confidence score
+- Expected resale price, profit calculation, ROI
+- Deal score, confidence score
 
 ## Phase 6 — Automation — Not started, and reconsider before building
 
@@ -563,20 +563,20 @@ The first category should be selected based on: high demand, reasonable resale v
 
 Potential future improvements:
 
-* Automatic product matching
-* Price prediction
-* Seller behavior analysis
-* Listing-age prediction
-* Price-drop alerts
-* Telegram notifications
-* Deal dashboard
-* Category opportunity ranking
-* Geographic arbitrage detection
-* Resale probability prediction
-* Estimated time-to-sale
-* Profit forecasting
-* Historical market charts
-* Personal transaction tracking
+- Automatic product matching
+- Price prediction
+- Seller behavior analysis
+- Listing-age prediction
+- Price-drop alerts
+- Telegram notifications
+- Deal dashboard
+- Category opportunity ranking
+- Geographic arbitrage detection
+- Resale probability prediction
+- Estimated time-to-sale
+- Profit forecasting
+- Historical market charts
+- Personal transaction tracking
 
 ---
 

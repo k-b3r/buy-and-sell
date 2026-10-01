@@ -34,7 +34,12 @@ test('first call with an empty list toasts nothing and leaves the baseline unset
 test('a later call toasts only rows newer than the baseline, oldest first', () => {
   const baseline = '2026-08-30T01:00:00.000Z'
   const result = selectNewToasts(
-    [notif(1, '2026-08-30T00:00:00.000Z'), notif(2, baseline), notif(3, '2026-08-30T02:00:00.000Z'), notif(4, '2026-08-30T01:30:00.000Z')],
+    [
+      notif(1, '2026-08-30T00:00:00.000Z'),
+      notif(2, baseline),
+      notif(3, '2026-08-30T02:00:00.000Z'),
+      notif(4, '2026-08-30T01:30:00.000Z'),
+    ],
     baseline,
   )
 

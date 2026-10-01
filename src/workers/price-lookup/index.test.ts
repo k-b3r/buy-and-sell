@@ -17,7 +17,10 @@ afterEach(() => {
 // domains/marketplace/price-lookup.test.ts. These tests just confirm the
 // loop calls it once per product, with the right pacing.
 function fakeClients(): PriceLookupClients {
-  const gemini: GeminiClient = { generateJson: async () => ({}), generateGroundedText: async () => '```json\n{"found": false}\n```' }
+  const gemini: GeminiClient = {
+    generateJson: async () => ({}),
+    generateGroundedText: async () => '```json\n{"found": false}\n```',
+  }
   const exa: ExaClient = { searchStructured: async () => ({ output: { content: { found: false } } }) }
   const tavily: TavilyClient = { search: async () => ({ answer: null, results: [] }) }
   return { gemini, exa, tavily }

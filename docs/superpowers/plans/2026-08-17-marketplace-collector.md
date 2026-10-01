@@ -66,6 +66,7 @@ data/                   # gitignored: run output lands here
 ### Task 1: Project Scaffold
 
 **Files:**
+
 - Create: `package.json`
 - Create: `tsconfig.json`
 - Create: `vitest.config.ts`
@@ -165,10 +166,12 @@ git commit -m "scaffold marketplace collector project"
 ### Task 2: Logger
 
 **Files:**
+
 - Create: `src/logger.ts`
 - Test: `test/logger.test.ts`
 
 **Interfaces:**
+
 - Produces: `createLogger(logFilePath: string): Logger` where `Logger = { info(msg: string): void; warn(msg: string): void; error(msg: string): void }`. Each call writes a timestamped, human-readable line to stdout and appends the same line to `logFilePath`.
 
 - [ ] **Step 1: Write the failing test**
@@ -249,10 +252,12 @@ git commit -m "add human-readable logger"
 ### Task 3: Output Writer (JSONL)
 
 **Files:**
+
 - Create: `src/output.ts`
 - Test: `test/output.test.ts`
 
 **Interfaces:**
+
 - Produces: `appendApprovedListing(outputFilePath: string, listing: Record<string, unknown>): void` — appends one JSON object per line (JSON Lines format) to `outputFilePath`, creating the file if absent.
 
 - [ ] **Step 1: Write the failing test**
@@ -312,10 +317,12 @@ git commit -m "add JSONL output writer"
 ### Task 4: Review Prompt (y/n/stop)
 
 **Files:**
+
 - Create: `src/review.ts`
 - Test: `test/review.test.ts`
 
 **Interfaces:**
+
 - Produces: `type ReviewDecision = 'approve' | 'reject' | 'stop'` and `promptReview(listing: Record<string, unknown>, input: NodeJS.ReadableStream, output: NodeJS.WritableStream): Promise<ReviewDecision>`. Prints a summary of `listing` to `output`, then a prompt `"[y]es / [n]o / [s]top > "`; reads one line from `input`; `y`/`yes` → `'approve'`, `n`/`no` → `'reject'`, `s`/`stop` → `'stop'` (case-insensitive, trimmed). Anything else re-prompts.
 
 - [ ] **Step 1: Write the failing test**
@@ -424,6 +431,7 @@ git commit -m "add y/n/stop review prompt"
 ### Task 5: Page-State Detector (wall / hard-block)
 
 **Files:**
+
 - Create: `src/wall.ts`
 - Create: `fixtures/normal-page.html`
 - Create: `fixtures/soft-wall-page.html`
@@ -431,6 +439,7 @@ git commit -m "add y/n/stop review prompt"
 - Test: `test/wall.test.ts`
 
 **Interfaces:**
+
 - Produces: `type PageState = 'normal' | 'soft-wall' | 'hard-block'` and `detectPageState(html: string): PageState`.
 
 Detection is marker-string based for v0 — exact Facebook markup is unknown until live calibration (Task 10). The known soft-wall marker from the user's manual testing is a login-prompt overlay; heuristic: presence of a login-form marker (`"login_form"` or the text `"Log in to continue"`/`"You must log in"`) while marketplace content markers are still present → soft-wall. Presence of CAPTCHA/checkpoint markers (`"captcha"`, `"checkpoint"`, case-insensitive) → hard-block. Neither → normal.
@@ -439,20 +448,30 @@ Detection is marker-string based for v0 — exact Facebook markup is unknown unt
 
 ```html
 <!-- fixtures/normal-page.html -->
-<html><body><div id="marketplace_feed_unit">Sony WH-1000XM4 - ₱8,500</div></body></html>
+<html>
+  <body>
+    <div id="marketplace_feed_unit">Sony WH-1000XM4 - ₱8,500</div>
+  </body>
+</html>
 ```
 
 ```html
 <!-- fixtures/soft-wall-page.html -->
-<html><body>
-<div id="marketplace_feed_unit">Sony WH-1000XM4 - ₱8,500</div>
-<div id="login_form">You must log in to continue browsing.</div>
-</body></html>
+<html>
+  <body>
+    <div id="marketplace_feed_unit">Sony WH-1000XM4 - ₱8,500</div>
+    <div id="login_form">You must log in to continue browsing.</div>
+  </body>
+</html>
 ```
 
 ```html
 <!-- fixtures/hard-block-page.html -->
-<html><body><div class="checkpoint_challenge">Please complete this CAPTCHA to continue.</div></body></html>
+<html>
+  <body>
+    <div class="checkpoint_challenge">Please complete this CAPTCHA to continue.</div>
+  </body>
+</html>
 ```
 
 ```ts
@@ -518,11 +537,13 @@ git commit -m "add page-state detector for soft-wall/hard-block"
 ### Task 6: Grid Extractor (Stage 1)
 
 **Files:**
+
 - Create: `src/extract/grid.ts`
 - Create: `fixtures/grid-page.html`
 - Test: `test/extract/grid.test.ts`
 
 **Interfaces:**
+
 - Produces: `interface GridListing { id: string; url: string; [field: string]: unknown }` and `extractGridListings(html: string): GridListing[]`.
 
 Per resolved decision, extract whatever fields are present — no fixed schema. Implementation: recursively walk any `<script type="application/json">` blocks' parsed JSON, collecting objects that look like a listing (have an `id`-like key plus at least one price/title-like key), keeping all of that object's own fields as-is.
@@ -531,18 +552,35 @@ Per resolved decision, extract whatever fields are present — no fixed schema. 
 
 ```html
 <!-- fixtures/grid-page.html -->
-<html><body>
-<script type="application/json" data-sjs>
-{
-  "require": [[["MarketplaceFeed"], {
-    "results": [
-      { "id": "111", "marketplace_listing_title": "Sony WH-1000XM4", "listing_price": { "amount": "8500", "currency": "PHP" }, "location_text": "Dasmarinas, Cavite" },
-      { "id": "222", "marketplace_listing_title": "Audio-Technica ATH-M50x", "listing_price": { "amount": "4200", "currency": "PHP" }, "location_text": "Imus, Cavite" }
-    ]
-  }]]
-}
-</script>
-</body></html>
+<html>
+  <body>
+    <script type="application/json" data-sjs>
+      {
+        "require": [
+          [
+            ["MarketplaceFeed"],
+            {
+              "results": [
+                {
+                  "id": "111",
+                  "marketplace_listing_title": "Sony WH-1000XM4",
+                  "listing_price": { "amount": "8500", "currency": "PHP" },
+                  "location_text": "Dasmarinas, Cavite"
+                },
+                {
+                  "id": "222",
+                  "marketplace_listing_title": "Audio-Technica ATH-M50x",
+                  "listing_price": { "amount": "4200", "currency": "PHP" },
+                  "location_text": "Imus, Cavite"
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    </script>
+  </body>
+</html>
 ```
 
 ```ts
@@ -635,34 +673,43 @@ git commit -m "add stage-1 grid listing extractor"
 ### Task 7: Detail Extractor (Stage 2)
 
 **Files:**
+
 - Create: `src/extract/detail.ts`
 - Create: `fixtures/detail-page.html`
 - Test: `test/extract/detail.test.ts`
 
 **Interfaces:**
+
 - Produces: `extractDetailFields(html: string): Record<string, unknown>`. Same walker strategy as grid extractor, but returns the single richest matching object found (the one with the most keys), since a detail page embeds one listing's full data. Returns `{}` if none found.
 
 - [ ] **Step 1: Write the failing test with fixture**
 
 ```html
 <!-- fixtures/detail-page.html -->
-<html><body>
-<script type="application/json" data-sjs>
-{
-  "require": [[["MarketplacePDP"], {
-    "target": {
-      "id": "111",
-      "marketplace_listing_title": "Sony WH-1000XM4",
-      "listing_price": { "amount": "8500", "currency": "PHP" },
-      "redacted_description": { "text": "Barely used, comes with case and cable." },
-      "condition": "Used - like new",
-      "location_text": "Dasmarinas, Cavite",
-      "photos": [{ "image": { "uri": "https://example.com/1.jpg" } }]
-    }
-  }]]
-}
-</script>
-</body></html>
+<html>
+  <body>
+    <script type="application/json" data-sjs>
+      {
+        "require": [
+          [
+            ["MarketplacePDP"],
+            {
+              "target": {
+                "id": "111",
+                "marketplace_listing_title": "Sony WH-1000XM4",
+                "listing_price": { "amount": "8500", "currency": "PHP" },
+                "redacted_description": { "text": "Barely used, comes with case and cable." },
+                "condition": "Used - like new",
+                "location_text": "Dasmarinas, Cavite",
+                "photos": [{ "image": { "uri": "https://example.com/1.jpg" } }]
+              }
+            }
+          ]
+        ]
+      }
+    </script>
+  </body>
+</html>
 ```
 
 ```ts
@@ -750,11 +797,13 @@ git commit -m "add stage-2 detail listing extractor"
 ### Task 8: PageDriver Interface + Orchestration Loop
 
 **Files:**
+
 - Create: `src/driver.ts`
 - Create: `src/run.ts`
 - Test: `test/run.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Logger` from `src/logger.ts`, `appendApprovedListing` from `src/output.ts`, `promptReview`/`ReviewDecision` from `src/review.ts`, `detectPageState`/`PageState` from `src/wall.ts`, `extractGridListings`/`GridListing` from `src/extract/grid.ts`, `extractDetailFields` from `src/extract/detail.ts`.
 - Produces:
   - `interface PageDriver { gotoSearch(query: string, location: string): Promise<void>; getGridHtml(): Promise<string>; openListing(listing: GridListing): Promise<void>; getDetailHtml(): Promise<string>; refresh(): Promise<void>; waitRandom(minMs: number, maxMs: number): Promise<void> }`
@@ -800,7 +849,11 @@ function mockInput(...lines: string[]): Readable {
 }
 
 function silentOutput(): Writable {
-  return new Writable({ write(_c, _e, cb) { cb() } })
+  return new Writable({
+    write(_c, _e, cb) {
+      cb()
+    },
+  })
 }
 
 function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
@@ -821,8 +874,7 @@ test('approved item gets saved, then loop advances to next item', async () => {
     { id: '2', marketplace_listing_title: 'Mic B' },
   ]
   const driver = makeDriver({
-    getGridHtml: async () =>
-      `<script type="application/json"><![CDATA[]]></script>`, // overridden below via monkeypatch
+    getGridHtml: async () => `<script type="application/json"><![CDATA[]]></script>`, // overridden below via monkeypatch
   })
   // Simplify: directly stub extractGridListings behavior by controlling getGridHtml + getDetailHtml content
   // using real fixture-shaped JSON so extractGridListings/extractDetailFields parse it for real.
@@ -841,16 +893,17 @@ test('approved item gets saved, then loop advances to next item', async () => {
   })
 
   const logger = createLogger(LOG_PATH)
-  await runCollection(
-    finalDriver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-  )
+  await runCollection(finalDriver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    location: 'Dasmarinas, Cavite',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+  })
 
-  const saved = readFileSync(OUT_PATH, 'utf-8').trim().split('\n').map((l) => JSON.parse(l))
+  const saved = readFileSync(OUT_PATH, 'utf-8')
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l))
   expect(saved).toHaveLength(2)
   expect(saved[0].id).toBe('1')
   expect(saved[1].id).toBe('2')
@@ -869,14 +922,12 @@ test('"stop" decision ends the run without processing remaining items', async ()
   })
   const logger = createLogger(LOG_PATH)
 
-  await runCollection(
-    driver,
-    logger,
-    async () => 'stop',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-  )
+  await runCollection(driver, logger, async () => 'stop', mockInput(), silentOutput(), {
+    query: 'headphones',
+    location: 'Dasmarinas, Cavite',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+  })
 
   expect(existsSync(OUT_PATH)).toBe(false)
 })
@@ -893,14 +944,12 @@ test('hard-block page state fails closed and stops the run', async () => {
   })
   const logger = createLogger(LOG_PATH)
 
-  await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
-    { query: 'headphones', location: 'Dasmarinas, Cavite', outputPath: OUT_PATH, softWallTimeoutMs: 100 },
-  )
+  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
+    query: 'headphones',
+    location: 'Dasmarinas, Cavite',
+    outputPath: OUT_PATH,
+    softWallTimeoutMs: 100,
+  })
 
   expect(existsSync(OUT_PATH)).toBe(false)
   const logText = readFileSync(LOG_PATH, 'utf-8')
@@ -1021,10 +1070,12 @@ git commit -m "add orchestration loop with wall handling and review gate"
 ### Task 9: Real Playwright Driver + CLI Entrypoint
 
 **Files:**
+
 - Create: `src/browser.ts`
 - Create: `src/cli.ts`
 
 **Interfaces:**
+
 - Consumes: `PageDriver` from `src/driver.ts`, `runCollection` from `src/run.ts`, `createLogger` from `src/logger.ts`, `promptReview` from `src/review.ts`.
 - Produces: `createBrowserDriver(page: Page): PageDriver` (real Playwright implementation); `cli.ts` is the executable entrypoint.
 
@@ -1133,6 +1184,7 @@ git commit -m "add real Playwright driver and CLI entrypoint"
 This task can't be automated: Facebook's actual DOM/embedded-JSON shape is unknown until observed live, and CI can't hit a real, logged-out Facebook session safely. Run this by hand.
 
 **Files:**
+
 - Modify: `src/wall.ts` (marker strings)
 - Modify: `src/extract/grid.ts` (key hints, script-tag matching)
 - Modify: `src/extract/detail.ts` (key hints)

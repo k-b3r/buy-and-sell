@@ -70,9 +70,13 @@ async function main() {
       `[variant-alias rules]${dryRun ? ' (dry run)' : ''} renamed ${variantResult.renamed} products, merged ${variantResult.merged} duplicate rows`,
     )
     if (variantResult.noMatch.length > 0) {
-      console.log(`${variantResult.noMatch.length} rule(s) matched nothing live (already applied, or a transcription mismatch):`)
+      console.log(
+        `${variantResult.noMatch.length} rule(s) matched nothing live (already applied, or a transcription mismatch):`,
+      )
       for (const rule of variantResult.noMatch) {
-        console.log(`  ${rule.aliasBase} [${rule.aliasVariant ?? ''}] -> ${rule.canonicalBase} [${rule.canonicalVariant ?? ''}]`)
+        console.log(
+          `  ${rule.aliasBase} [${rule.aliasVariant ?? ''}] -> ${rule.canonicalBase} [${rule.canonicalVariant ?? ''}]`,
+        )
       }
     }
   } finally {

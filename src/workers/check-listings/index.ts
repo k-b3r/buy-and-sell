@@ -24,11 +24,7 @@ import { resolvePageState } from '../../run'
 import { loadSettings } from '../../platform/settings'
 
 export type CheckOneListingResult =
-  | { status: 'sold' }
-  | { status: 'alive' }
-  | { status: 'flagged' }
-  | { status: 'removed' }
-  | { status: 'hard-block' }
+  { status: 'sold' } | { status: 'alive' } | { status: 'flagged' } | { status: 'removed' } | { status: 'hard-block' }
 
 // Single-listing core, decoupled from the batch loop below so it can also be
 // driven on-demand (see refresh-server.ts) rather than only via the

@@ -1,7 +1,10 @@
 import { mergeProductVariantAliases } from './variant-aliases'
 import type { DbClient } from '../../platform/storage'
 
-function scriptedDb(script: (sql: string, params: unknown[]) => unknown): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
+function scriptedDb(script: (sql: string, params: unknown[]) => unknown): {
+  db: DbClient
+  calls: { sql: string; params: unknown[] }[]
+} {
   const calls: { sql: string; params: unknown[] }[] = []
   return {
     calls,
@@ -14,7 +17,8 @@ function scriptedDb(script: (sql: string, params: unknown[]) => unknown): { db: 
   }
 }
 
-const FIND_SQL = 'SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2'
+const FIND_SQL =
+  'SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2'
 
 test('renames base+variant to canonical when nothing collides (variant moves from base into tier)', async () => {
   const { db, calls } = scriptedDb((sql, params) => {
@@ -81,7 +85,12 @@ test('reports a rule as noMatch when the alias row does not exist, instead of to
     return { rows: [] }
   })
 
-  const rule = { aliasBase: 'Nonexistent Product', aliasVariant: null, canonicalBase: 'Something Else', canonicalVariant: null }
+  const rule = {
+    aliasBase: 'Nonexistent Product',
+    aliasVariant: null,
+    canonicalBase: 'Something Else',
+    canonicalVariant: null,
+  }
   const result = await mergeProductVariantAliases(db, [rule])
 
   expect(result).toEqual({ renamed: 0, merged: 0, noMatch: [rule] })
@@ -116,7 +125,8 @@ test('processes multiple alias rows sharing the same canonical target independen
       const [base, variant] = params
       if (base === 'ps4 slim' && variant === null) return { rows: [{ id: 1698 }] }
       if (base === 'ps4' && variant === 'slim') return { rows: [{ id: 1505 }] }
-      if (base === 'playstation 4' && variant === 'slim') return state.canonicalExists ? { rows: [{ id: 1698 }] } : { rows: [] }
+      if (base === 'playstation 4' && variant === 'slim')
+        return state.canonicalExists ? { rows: [{ id: 1698 }] } : { rows: [] }
       return { rows: [] }
     }
     if (sql.startsWith('UPDATE products SET')) {

@@ -8,13 +8,13 @@
 
 ## Your Configuration
 
-| Setting | Value |
-|---------|-------|
-| Coding Tool | Claude |
-| Integration | JavaScript |
-| Use Case | Web search tool |
+| Setting     | Value                                         |
+| ----------- | --------------------------------------------- |
+| Coding Tool | Claude                                        |
+| Integration | JavaScript                                    |
+| Use Case    | Web search tool                               |
 | Search Type | Auto - Balanced relevance and speed (default) |
-| Content | Highlights |
+| Content     | Highlights                                    |
 
 **Project Description:** (Not provided)
 
@@ -37,9 +37,9 @@ EXA_API_KEY=YOUR_API_KEY
 ### Usage in Code
 
 ```javascript
-import Exa from "exa-js";
+import Exa from 'exa-js'
 
-const exa = new Exa(process.env.EXA_API_KEY);
+const exa = new Exa(process.env.EXA_API_KEY)
 ```
 
 ---
@@ -51,21 +51,21 @@ npm install exa-js@2.14.0
 ```
 
 ```javascript
-import Exa from "exa-js";
+import Exa from 'exa-js'
 
-const exa = new Exa("YOUR_API_KEY");
+const exa = new Exa('YOUR_API_KEY')
 
-const results = await exa.search("recent product announcements from developer tools companies", {
-  "type": "auto",
-  "numResults": 10,
-  "contents": {
-    "highlights": true
-  }
-});
+const results = await exa.search('recent product announcements from developer tools companies', {
+  type: 'auto',
+  numResults: 10,
+  contents: {
+    highlights: true,
+  },
+})
 
-results.results.forEach(result => {
-  console.log(result.title, result.url);
-});
+results.results.forEach((result) => {
+  console.log(result.title, result.url)
+})
 ```
 
 ---
@@ -106,9 +106,7 @@ Use this when you want Exa to synthesize a grounded answer or structured payload
         "description": "A grounded summary of the most important findings"
       }
     },
-    "required": [
-      "summary"
-    ]
+    "required": ["summary"]
   },
   "contents": {
     "highlights": true
@@ -129,6 +127,7 @@ Use this when you want Exa to synthesize a grounded answer or structured payload
 Function calling (also known as tool use) allows your AI agent to dynamically decide when to search the web based on the conversation context. Instead of searching on every request, the LLM intelligently determines when real-time information would improve its response—making your agent more efficient and accurate.
 
 **Why use function calling with Exa?**
+
 - Your agent can ground responses in current, factual information
 - Reduces hallucinations by fetching real sources when needed
 - Enables multi-step reasoning where the agent searches, analyzes, and responds
@@ -138,99 +137,103 @@ Function calling (also known as tool use) allows your AI agent to dynamically de
 ### OpenAI Function Calling
 
 ```javascript
-import OpenAI from "openai";
-import Exa from "exa-js";
+import OpenAI from 'openai'
+import Exa from 'exa-js'
 
-const openai = new OpenAI();
-const exa = new Exa(process.env.EXA_API_KEY);
+const openai = new OpenAI()
+const exa = new Exa(process.env.EXA_API_KEY)
 
-const tools = [{
-  type: "function",
-  function: {
-    name: "exa_search",
-    description: "Search the web for current information.",
-    parameters: {
-      type: "object",
-      properties: { query: { type: "string", description: "Search query" } },
-      required: ["query"],
+const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'exa_search',
+      description: 'Search the web for current information.',
+      parameters: {
+        type: 'object',
+        properties: { query: { type: 'string', description: 'Search query' } },
+        required: ['query'],
+      },
     },
   },
-}];
+]
 
 async function exaSearch(query) {
   const results = await exa.search(query, {
-    type: "auto",
+    type: 'auto',
     numResults: 10,
     contents: { highlights: true },
-  });
-  return results.results.map((r) => `${r.title}: ${r.url}`).join("\n");
+  })
+  return results.results.map((r) => `${r.title}: ${r.url}`).join('\n')
 }
 
-const messages = [{ role: "user", content: "What's the latest in AI safety?" }];
-const response = await openai.chat.completions.create({ model: "gpt-4o", messages, tools });
+const messages = [{ role: 'user', content: "What's the latest in AI safety?" }]
+const response = await openai.chat.completions.create({ model: 'gpt-4o', messages, tools })
 
-const toolCall = response.choices[0].message.tool_calls?.[0];
+const toolCall = response.choices[0].message.tool_calls?.[0]
 if (toolCall) {
-  const args = JSON.parse(toolCall.function.arguments);
-  const searchResults = await exaSearch(args.query);
-  messages.push(response.choices[0].message);
-  messages.push({ role: "tool", tool_call_id: toolCall.id, content: searchResults });
-  const final = await openai.chat.completions.create({ model: "gpt-4o", messages });
-  console.log(final.choices[0].message.content);
+  const args = JSON.parse(toolCall.function.arguments)
+  const searchResults = await exaSearch(args.query)
+  messages.push(response.choices[0].message)
+  messages.push({ role: 'tool', tool_call_id: toolCall.id, content: searchResults })
+  const final = await openai.chat.completions.create({ model: 'gpt-4o', messages })
+  console.log(final.choices[0].message.content)
 }
 ```
 
 ### Anthropic Tool Use
 
 ```javascript
-import Anthropic from "@anthropic-ai/sdk";
-import Exa from "exa-js";
+import Anthropic from '@anthropic-ai/sdk'
+import Exa from 'exa-js'
 
-const client = new Anthropic();
-const exa = new Exa(process.env.EXA_API_KEY);
+const client = new Anthropic()
+const exa = new Exa(process.env.EXA_API_KEY)
 
-const tools = [{
-  name: "exa_search",
-  description: "Search the web for current information.",
-  input_schema: {
-    type: "object",
-    properties: { query: { type: "string", description: "Search query" } },
-    required: ["query"],
+const tools = [
+  {
+    name: 'exa_search',
+    description: 'Search the web for current information.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'Search query' } },
+      required: ['query'],
+    },
   },
-}];
+]
 
 async function exaSearch(query) {
   const results = await exa.search(query, {
-    type: "auto",
+    type: 'auto',
     numResults: 10,
     contents: { highlights: true },
-  });
-  return results.results.map((r) => `${r.title}: ${r.url}`).join("\n");
+  })
+  return results.results.map((r) => `${r.title}: ${r.url}`).join('\n')
 }
 
-const messages = [{ role: "user", content: "Latest quantum computing developments?" }];
+const messages = [{ role: 'user', content: 'Latest quantum computing developments?' }]
 const response = await client.messages.create({
-  model: "claude-sonnet-4-20250514",
+  model: 'claude-sonnet-4-20250514',
   max_tokens: 4096,
   tools,
   messages,
-});
+})
 
-if (response.stop_reason === "tool_use") {
-  const toolUse = response.content.find((b) => b.type === "tool_use");
-  const toolResult = await exaSearch(toolUse.input.query);
-  messages.push({ role: "assistant", content: response.content });
+if (response.stop_reason === 'tool_use') {
+  const toolUse = response.content.find((b) => b.type === 'tool_use')
+  const toolResult = await exaSearch(toolUse.input.query)
+  messages.push({ role: 'assistant', content: response.content })
   messages.push({
-    role: "user",
-    content: [{ type: "tool_result", tool_use_id: toolUse.id, content: toolResult }],
-  });
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: toolResult }],
+  })
   const final = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 4096,
     tools,
     messages,
-  });
-  console.log(final.content[0].text);
+  })
+  console.log(final.content[0].text)
 }
 ```
 
@@ -238,14 +241,14 @@ if (response.stop_reason === "tool_use") {
 
 ## Search Type Reference
 
-| Type | Best For | Approx Latency | Depth |
-|------|----------|----------------|-------|
-| `auto` | Most queries — balanced relevance and speed | ~1 second | Smart | ← your selection
-| `fast` | Latency-sensitive queries that still need good relevance | ~450 ms | Basic |
-| `instant` | Chat, voice, autocomplete, quick lookups | ~250 ms | Basic |
-| `deep-lite` | Cheaper synthesis when full deep search is overkill | 4 seconds | Deep |
-| `deep` | Research, enrichment, thorough results | 4-15 seconds | Deep |
-| `deep-reasoning` | Complex research, multi-step reasoning, hard synthesis tasks | 12-40 seconds | Deepest |
+| Type             | Best For                                                     | Approx Latency | Depth   |
+| ---------------- | ------------------------------------------------------------ | -------------- | ------- |
+| `auto`           | Most queries — balanced relevance and speed                  | ~1 second      | Smart   | ← your selection |
+| `fast`           | Latency-sensitive queries that still need good relevance     | ~450 ms        | Basic   |
+| `instant`        | Chat, voice, autocomplete, quick lookups                     | ~250 ms        | Basic   |
+| `deep-lite`      | Cheaper synthesis when full deep search is overkill          | 4 seconds      | Deep    |
+| `deep`           | Research, enrichment, thorough results                       | 4-15 seconds   | Deep    |
+| `deep-reasoning` | Complex research, multi-step reasoning, hard synthesis tasks | 12-40 seconds  | Deepest |
 
 Latency numbers are ballpark — synthesis (`outputSchema`) and forced livecrawls (`contents.maxAgeHours: 0`) stack on top of the base `type`. See the Latency Characteristics section for details.
 
@@ -264,45 +267,46 @@ Raw `results` + `highlights` should still be your default starting point for man
 **Schema controls:** `type`, `description`, `required`, `properties`, `items`. Max nesting depth 2, max total properties 10. Do NOT add citation or confidence fields to the schema — `/search` returns grounding data automatically.
 
 ```javascript
-import Exa from "exa-js";
+import Exa from 'exa-js'
 
-const exa = new Exa("YOUR_API_KEY");
+const exa = new Exa('YOUR_API_KEY')
 
-const results = await exa.search("articles about GPUs", {
-  type: "auto",
-  systemPrompt: "Prefer official sources, collapse duplicate reporting, and keep the output grounded.",
+const results = await exa.search('articles about GPUs', {
+  type: 'auto',
+  systemPrompt: 'Prefer official sources, collapse duplicate reporting, and keep the output grounded.',
   outputSchema: {
-    type: "object",
-    description: "Companies mentioned in articles",
-    required: ["companies"],
+    type: 'object',
+    description: 'Companies mentioned in articles',
+    required: ['companies'],
     properties: {
       companies: {
-        type: "array",
-        description: "List of companies mentioned",
+        type: 'array',
+        description: 'List of companies mentioned',
         items: {
-          type: "object",
-          required: ["name"],
+          type: 'object',
+          required: ['name'],
           properties: {
-            name: { type: "string", description: "Name of the company" },
-            description: { type: "string", description: "Short description of what the company does" }
-          }
-        }
-      }
-    }
+            name: { type: 'string', description: 'Name of the company' },
+            description: { type: 'string', description: 'Short description of what the company does' },
+          },
+        },
+      },
+    },
   },
   contents: {
-    highlights: true
-  }
-});
+    highlights: true,
+  },
+})
 
 // Access structured output
-console.log(results.output.content);   // {"companies": [{"name": "Nvidia", ...}]}
-console.log(results.output.grounding); // Field-level citations
+console.log(results.output.content) // {"companies": [{"name": "Nvidia", ...}]}
+console.log(results.output.grounding) // Field-level citations
 ```
 
 ### Response Shape
 
 Responses with `outputSchema` include:
+
 - `output.content` — structured JSON matching your schema (or a string for `{"type": "text"}` schemas)
 - `output.grounding` — array of `{field, citations, confidence}` entries with source URLs
 
@@ -311,14 +315,14 @@ Responses with `outputSchema` include:
   "output": {
     "content": {
       "companies": [
-        {"name": "Nvidia", "description": "GPU and AI chip manufacturer"},
-        {"name": "AMD", "description": "Semiconductor company producing GPUs and CPUs"}
+        { "name": "Nvidia", "description": "GPU and AI chip manufacturer" },
+        { "name": "AMD", "description": "Semiconductor company producing GPUs and CPUs" }
       ]
     },
     "grounding": [
       {
         "field": "companies[0].name",
-        "citations": [{"url": "https://...", "title": "Source"}],
+        "citations": [{ "url": "https://...", "title": "Source" }],
         "confidence": "high"
       }
     ]
@@ -349,11 +353,11 @@ Highlights return query-relevant excerpts, which are usually the right content m
 
 Content is controlled via the `contents` object on `/search` (or top-level fields on `/contents`). Pick one of `text`, `highlights`, or `summary` by default. You can combine them, but it is usually an antipattern to do so at the start of a project.
 
-| Mode | Config | Best For |
-|------|--------|----------|
-| Highlights | `"highlights": true` | Token-efficient excerpts |
-| Text | `"text": {"maxCharacters": 20000}` | Full content extraction, RAG |
-| Summary | `"summary": {"query": "your question"}` or `"summary": true` | LLM-written summary per result |
+| Mode       | Config                                                       | Best For                       |
+| ---------- | ------------------------------------------------------------ | ------------------------------ |
+| Highlights | `"highlights": true`                                         | Token-efficient excerpts       |
+| Text       | `"text": {"maxCharacters": 20000}`                           | Full content extraction, RAG   |
+| Summary    | `"summary": {"query": "your question"}` or `"summary": true` | LLM-written summary per result |
 
 ### Tuning knobs
 
@@ -374,6 +378,7 @@ Content is controlled via the `contents` object on `/search` (or top-level field
 Usually not needed - Exa's neural search finds relevant results without domain restrictions.
 
 **When to use:**
+
 - Targeting specific authoritative sources
 - Excluding low-quality domains from results
 
@@ -403,6 +408,7 @@ Usually not needed - Exa's neural search finds relevant results without domain r
 ```
 
 **Tips:**
+
 - Use `type: "auto"` for most queries
 - Great for building search-powered chatbots or agents
 - Combine with contents for RAG workflows
@@ -413,13 +419,13 @@ Usually not needed - Exa's neural search finds relevant results without domain r
 
 `maxAgeHours` sets the maximum acceptable age (in hours) for cached content. If the cached version is older than this threshold, Exa will livecrawl the page to get fresh content.
 
-| Value | Behavior | Best For |
-|-------|----------|----------|
-| 24 | Use cache if less than 24 hours old, otherwise livecrawl | Daily-fresh content |
-| 1 | Use cache if less than 1 hour old, otherwise livecrawl | Near real-time data |
-| 0 | Always livecrawl (ignore cache entirely) | Real-time data where cached content is unusable |
-| -1 | Never livecrawl (cache only) | Maximum speed, historical/static content |
-| *(omit)* | Default behavior (livecrawl as fallback if no cache exists) | **Recommended** — balanced speed and freshness |
+| Value    | Behavior                                                    | Best For                                        |
+| -------- | ----------------------------------------------------------- | ----------------------------------------------- |
+| 24       | Use cache if less than 24 hours old, otherwise livecrawl    | Daily-fresh content                             |
+| 1        | Use cache if less than 1 hour old, otherwise livecrawl      | Near real-time data                             |
+| 0        | Always livecrawl (ignore cache entirely)                    | Real-time data where cached content is unusable |
+| -1       | Never livecrawl (cache only)                                | Maximum speed, historical/static content        |
+| _(omit)_ | Default behavior (livecrawl as fallback if no cache exists) | **Recommended** — balanced speed and freshness  |
 
 **When LiveCrawl Isn't Necessary:**
 Cached data is sufficient for many queries, especially for historical topics or educational content. These subjects rarely change, so reliable cached results can provide accurate information quickly.
@@ -432,10 +438,10 @@ See [maxAgeHours docs](https://exa.ai/docs/reference/livecrawling-contents#maxAg
 
 Beyond `/search`, the next two endpoints to know are `/contents` and `/answer`:
 
-| Endpoint | Description | Docs |
-|----------|-------------|------|
-| `/contents` | Get clean, parsed content for URLs you already have | [Docs](https://exa.ai/docs/reference/get-contents) |
-| `/answer` | Get a grounded answer with citations when the UI is question-first | [Docs](https://exa.ai/docs/reference/answer) |
+| Endpoint    | Description                                                        | Docs                                               |
+| ----------- | ------------------------------------------------------------------ | -------------------------------------------------- |
+| `/contents` | Get clean, parsed content for URLs you already have                | [Docs](https://exa.ai/docs/reference/get-contents) |
+| `/answer`   | Get a grounded answer with citations when the UI is question-first | [Docs](https://exa.ai/docs/reference/answer)       |
 
 > For new structured search flows, prefer `/search` + `outputSchema` when you want both retrieval control and grounded output. Keep `/answer` for question-first UIs where you do not need to inspect raw search results.
 
@@ -444,32 +450,32 @@ Beyond `/search`, the next two endpoints to know are `/contents` and `/answer`:
 Use `/contents` when you already have URLs and need their content. Unlike `/search` (which finds and optionally retrieves content), `/contents` is purely for content extraction from known URLs.
 
 **When to use `/contents` vs `/search`:**
+
 - URLs from another source (database, user input, RSS feeds) → `/contents`
 - Need to refresh stale content for URLs you already have → `/contents` with `maxAgeHours`
 - Need to find AND get content in one call → `/search` with `contents`
 
 ```javascript
-import Exa from "exa-js";
+import Exa from 'exa-js'
 
-const exa = new Exa("YOUR_API_KEY");
+const exa = new Exa('YOUR_API_KEY')
 
-const results = await exa.getContents(
-  ["https://example.com/article", "https://example.com/blog-post"],
-  { highlights: true }
-);
+const results = await exa.getContents(['https://example.com/article', 'https://example.com/blog-post'], {
+  highlights: true,
+})
 
-results.results.forEach(result => {
-  console.log(result.title, result.url);
-  console.log(result.highlights);
-});
+results.results.forEach((result) => {
+  console.log(result.title, result.url)
+  console.log(result.highlights)
+})
 ```
 
 **Content retrieval options** (choose one per request):
 
-| Option | Config | Best For |
-|--------|--------|----------|
-| Highlights | `"highlights": true` | Key excerpts, lower token usage |
-| Text | `"text": {"max_characters": 20000}` | Full content extraction, RAG |
+| Option     | Config                              | Best For                        |
+| ---------- | ----------------------------------- | ------------------------------- |
+| Highlights | `"highlights": true`                | Key excerpts, lower token usage |
+| Text       | `"text": {"max_characters": 20000}` | Full content extraction, RAG    |
 
 **Highlights example:**
 
@@ -481,6 +487,7 @@ results.results.forEach(result => {
 ```
 
 **Freshness control:** Add `maxAgeHours` to ensure content is fresh:
+
 - `24` — livecrawl if cached content is older than 24 hours
 - `0` — always livecrawl (ignore cache)
 - Omit — use cache when available, livecrawl as fallback
@@ -490,6 +497,7 @@ results.results.forEach(result => {
 ## Troubleshooting
 
 **⚠️ COMMON PARAMETER MISTAKES — avoid these:**
+
 - `useAutoprompt` → **deprecated**, remove it entirely
 - `includeUrls` / `excludeUrls` → **do not exist**. Use `includeDomains` / `excludeDomains`
 - `text`, `summary`, `highlights` at the top level of `/search` → **must be nested** inside `contents` (e.g. `"contents": {"highlights": true}`). On `/contents` they ARE top-level — don't confuse the two.
@@ -501,21 +509,25 @@ results.results.forEach(result => {
 > **`stream: true`** switches `/search` to SSE mode (OpenAI-compatible chat-completion chunks). It's supported — just expect streaming chunks instead of one JSON response.
 
 **Results not relevant?**
+
 1. Try `type: "auto"` - most balanced option
 2. Try `type: "deep"` - runs multiple query variations and ranks the combined results
 3. Refine query - use singular form, be specific
 4. Check category matches your use case
 
 **Need structured data from search?**
+
 1. Pass `outputSchema` on any search type — `auto` works, `deep`/`deep-reasoning` gives higher-quality synthesis
 2. Define the fields you need in the schema, then add `systemPrompt` for source preferences and dedupe rules
 
 **Results too slow?**
+
 1. Use `type: "fast"` or `type: "instant"`
 2. Reduce `numResults`
 3. Skip contents if you only need URLs
 
 **No results?**
+
 1. Remove filters (date, domain restrictions)
 2. Simplify query
 3. Try `type: "auto"` - has fallback mechanisms

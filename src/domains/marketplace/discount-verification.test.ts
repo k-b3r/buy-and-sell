@@ -165,7 +165,9 @@ test('Exa answer is used when available, Tavily/Gemini never called', async () =
   let tavilyCalled = false
   let geminiCalled = false
   const clients = fakeClients({
-    exa: { searchStructured: async () => ({ output: { content: { summary: 'Typical secondhand price PHP 9,500-10,500' } } }) },
+    exa: {
+      searchStructured: async () => ({ output: { content: { summary: 'Typical secondhand price PHP 9,500-10,500' } } }),
+    },
     tavily: {
       search: async () => {
         tavilyCalled = true

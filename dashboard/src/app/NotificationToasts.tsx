@@ -112,13 +112,24 @@ export default function NotificationToasts() {
         <Link key={n.id} href={`/listings/${n.listing_id}`} style={toastStyle} onClick={() => handleClick(n.id)}>
           <img src={n.primary_photo_url ?? ''} alt="" style={thumbStyle} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: '0.85em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {n.title ?? 'Listing'}
             </div>
             <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>
               {n.discount_percent}% below market
               {n.verification_reasoning && (
-                <InfoTooltip text={n.verification_reasoning} style={{ marginLeft: 4, color: 'var(--color-text-muted)' }} />
+                <InfoTooltip
+                  text={n.verification_reasoning}
+                  style={{ marginLeft: 4, color: 'var(--color-text-muted)' }}
+                />
               )}
             </div>
           </div>

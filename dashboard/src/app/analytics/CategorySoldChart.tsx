@@ -105,7 +105,9 @@ function MiniChart({
 }
 
 export default function CategorySoldChart({ subCategory, totalSold, weeklyCounts }: CategoryWeeklySoldCounts) {
-  const weeks = weeklyCounts.map((w) => new Date(w.weekStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  const weeks = weeklyCounts.map((w) =>
+    new Date(w.weekStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+  )
   const countData = weeklyCounts.map((w, i) => ({ week: weeks[i], value: w.count }))
   const priceData = weeklyCounts.map((w, i) => ({ week: weeks[i], value: w.avgPrice }))
   const formatPriceFull = (v: number) => `₱${Math.round(v).toLocaleString()}`

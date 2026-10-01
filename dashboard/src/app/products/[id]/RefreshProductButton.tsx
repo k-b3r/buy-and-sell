@@ -112,9 +112,7 @@ export default function RefreshProductButton({ productId }: { productId: number 
       <button onClick={handleStart} disabled={starting} style={buttonStyle}>
         {starting ? 'Starting…' : '↻ Refresh all listings'}
       </button>
-      {error && (
-        <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{error}</span>
-      )}
+      {error && <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{error}</span>}
     </span>
   )
 }

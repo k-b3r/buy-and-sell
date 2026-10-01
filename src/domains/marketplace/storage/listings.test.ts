@@ -88,8 +88,21 @@ test('upsertListing extracts known fields and stores the full raw object as json
 
   expect(calls).toHaveLength(1)
   const [
-    id, title, priceAmount, priceCurrency, description, condition, categoryId, lat, lng, city,
-    photoUrl, storedPhotoUrls, sourcePhotoIds, listedAt, rawJson,
+    id,
+    title,
+    priceAmount,
+    priceCurrency,
+    description,
+    condition,
+    categoryId,
+    lat,
+    lng,
+    city,
+    photoUrl,
+    storedPhotoUrls,
+    sourcePhotoIds,
+    listedAt,
+    rawJson,
   ] = calls[0].params
 
   expect(id).toBe('12345')
@@ -152,7 +165,10 @@ test('upsertListing stores re-hosted photo URLs as a json array', async () => {
   const listing = {
     id: '12345',
     marketplace_listing_title: 'Sony WH-1000XM6',
-    stored_photo_urls: ['https://images.example.com/listings/12345/0.jpg', 'https://images.example.com/listings/12345/1.jpg'],
+    stored_photo_urls: [
+      'https://images.example.com/listings/12345/0.jpg',
+      'https://images.example.com/listings/12345/1.jpg',
+    ],
   }
 
   await upsertListing(db, listing)
@@ -307,10 +323,21 @@ test('refreshListingFields re-fetches and re-uploads photos when the seller swap
     id: '12345',
     marketplace_listing_title: 'Sony WH-1000XM6',
     primary_listing_photo: { image: { uri: 'https://scontent.example/new-primary.jpg' } },
-    listing_photos: [{ id: 'photo-c', image: { uri: 'https://scontent.example/c.jpg' } }, { id: 'photo-d', image: { uri: 'https://scontent.example/d.jpg' } }],
+    listing_photos: [
+      { id: 'photo-c', image: { uri: 'https://scontent.example/c.jpg' } },
+      { id: 'photo-d', image: { uri: 'https://scontent.example/d.jpg' } },
+    ],
   }
 
-  await refreshListingFields(db, store, fakeLogger(), ['photo-a', 'photo-b'], listing, workingFetchBytes, identityCompress)
+  await refreshListingFields(
+    db,
+    store,
+    fakeLogger(),
+    ['photo-a', 'photo-b'],
+    listing,
+    workingFetchBytes,
+    identityCompress,
+  )
 
   expect(store.deletedPrefixes).toEqual(['listings/12345/'])
   expect(store.puts).toEqual([{ key: 'listings/12345/0.jpg' }, { key: 'listings/12345/1.jpg' }])
@@ -552,7 +579,7 @@ test('getPriceReviewCandidates also flags placeholder digit-pattern prices (123,
   // of the magnitude-outlier OR branch.
   expect(calls[0].sql).toContain("~ '^(\\d+)\\1+$'")
   expect(calls[0].sql).toContain("~ '012|123|234|345|456|567|678|789'")
-  const occurrences = calls[0].sql.split("^(\\d+)\\1+$").length - 1
+  const occurrences = calls[0].sql.split('^(\\d+)\\1+$').length - 1
   expect(occurrences).toBe(2) // once excluding placeholders from the median, once flagging the listing itself
 })
 
@@ -562,7 +589,12 @@ test('upsertListingPriceReview inserts is_negotiable, price range, reasoning, an
   await upsertListingPriceReview(
     db,
     '1000000000000001',
-    { isNegotiable: true, priceLow: 7500, priceHigh: 9000, reasoning: 'Swap-only listing, real price is negotiable per description.' },
+    {
+      isNegotiable: true,
+      priceLow: 7500,
+      priceHigh: 9000,
+      reasoning: 'Swap-only listing, real price is negotiable per description.',
+    },
     'openai/gpt-oss-120b',
     'FOR SWAP SA RTX 3060, ADD AKO.',
   )
@@ -592,7 +624,15 @@ test('upsertListingPriceReview stores null price range when no real price could 
     null,
   )
 
-  expect(calls[0].params).toEqual(['123', false, null, null, 'No price mentioned anywhere in the text.', 'openai/gpt-oss-120b', null])
+  expect(calls[0].params).toEqual([
+    '123',
+    false,
+    null,
+    null,
+    'No price mentioned anywhere in the text.',
+    'openai/gpt-oss-120b',
+    null,
+  ])
 })
 
 test('upsertKeywordNegotiable inserts is_negotiable=true with no price estimate, tagged as a keyword-scan match', async () => {
@@ -810,7 +850,13 @@ test('markDiscountNotificationVerified sets verified_at and overwrites discount_
   expect(calls[0].sql).toMatch(/^UPDATE discount_notifications/)
   expect(calls[0].sql).toContain('verified_at = now()')
   expect(calls[0].sql).toContain('WHERE id = $1')
-  expect(calls[0].params).toEqual([7, 32, 10000, 'tavily', 'Fresh secondhand market ~₱10k; minor wear does not explain the gap.'])
+  expect(calls[0].params).toEqual([
+    7,
+    32,
+    10000,
+    'tavily',
+    'Fresh secondhand market ~₱10k; minor wear does not explain the gap.',
+  ])
 })
 
 test('rejectDiscountNotification deletes the row outright', async () => {
@@ -911,7 +957,12 @@ test('refreshListingFields does not even probe when the price is unchanged', asy
 })
 
 test('refreshListingFields still completes when the price-history write fails, and logs a warning', async () => {
-  const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: false, failProbe: true })
+  const { db, calls } = historyDb({
+    prior: priorRow('5000000.00'),
+    realEstate: true,
+    hasHistory: false,
+    failProbe: true,
+  })
   const logger = fakeLogger()
 
   await refreshListingFields(db, fakeImageStore(), logger, null, condoListing('4500000.00'))
@@ -922,7 +973,12 @@ test('refreshListingFields still completes when the price-history write fails, a
 
 test('getCheckListingsCandidates keeps the original query when reRecheckMinDays is 0', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
-  const db = { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows: [] } } }
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await getCheckListingsCandidates(db, 50, 0)
 
@@ -932,7 +988,12 @@ test('getCheckListingsCandidates keeps the original query when reRecheckMinDays 
 
 test('getCheckListingsCandidates skips recently checked real estate listings only when reRecheckMinDays > 0', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
-  const db = { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows: [] } } }
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await getCheckListingsCandidates(db, 50, 7)
 

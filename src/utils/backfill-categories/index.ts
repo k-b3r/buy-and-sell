@@ -8,7 +8,11 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
 import { getCategoryBackfillCandidates, updateProductCategories } from '../../domains/marketplace/storage/products'
-import { buildCategoryBackfillPrompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA, PRODUCT_CATEGORIES } from '../../domains/marketplace'
+import {
+  buildCategoryBackfillPrompt,
+  CATEGORY_BACKFILL_RESPONSE_SCHEMA,
+  PRODUCT_CATEGORIES,
+} from '../../domains/marketplace'
 import type { CategoryBackfillCandidate } from '../../domains/marketplace'
 
 // Output per item here is just {id, category} — far smaller than
@@ -55,7 +59,9 @@ export async function runCategoryBackfill(
           break
         }
         if (attempt === MAX_ATTEMPTS) {
-          logger.error(`batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`)
+          logger.error(
+            `batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`,
+          )
           fatal = true
           break
         }
@@ -98,7 +104,9 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — category backfill requires Postgres')
 
   const logger = createLogger('data/backfill-categories.log')
-  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
+    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+  )
   logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 

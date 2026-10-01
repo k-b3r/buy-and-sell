@@ -15,7 +15,10 @@ export interface NewToastsResult {
 export function selectNewToasts(notifications: DiscountNotification[], baselineIso: string | null): NewToastsResult {
   if (notifications.length === 0) return { toasts: [], nextBaselineIso: baselineIso }
 
-  const newestIso = notifications.reduce((max, n) => (n.created_at > max ? n.created_at : max), notifications[0].created_at)
+  const newestIso = notifications.reduce(
+    (max, n) => (n.created_at > max ? n.created_at : max),
+    notifications[0].created_at,
+  )
 
   if (baselineIso === null) return { toasts: [], nextBaselineIso: newestIso }
 

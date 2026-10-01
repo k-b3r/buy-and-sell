@@ -47,9 +47,7 @@ export function summarizeDiscounts(discountPercents: (number | null)[]): Discoun
     const bandFloor = Math.floor(d / 10) * 10
     counts.set(bandFloor, (counts.get(bandFloor) ?? 0) + 1)
   }
-  const bands = [...counts.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .map(([bandFloor, count]) => ({ bandFloor, count }))
+  const bands = [...counts.entries()].sort((a, b) => b[0] - a[0]).map(([bandFloor, count]) => ({ bandFloor, count }))
 
   return { bestDiscountPercent: Math.max(...qualifying), discountedListingCount: qualifying.length, bands }
 }
@@ -721,7 +719,11 @@ function median(values: number[]): number | null {
   return (sorted[Math.floor(mid)] + sorted[Math.ceil(mid)]) / 2
 }
 
-function computeMedians(prices: number[]): { rawMedian: number | null; cleanMedian: number | null; sampleSize: number } {
+function computeMedians(prices: number[]): {
+  rawMedian: number | null
+  cleanMedian: number | null
+  sampleSize: number
+} {
   const rawMedian = median(prices)
   if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
   const clean = prices.filter((p) => p >= rawMedian / 10 && p <= rawMedian * 10)
@@ -849,7 +851,12 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
   const listings = rawListings.map((l) => {
     const discount = computeListingDiscount(l.price_amount, rawMedian, cleanMedian, sampleSize)
     const priceAmount = l.price_amount !== null && isPriceInvalidated(l.price_amount, rawMedian) ? null : l.price_amount
-    return { ...l, price_amount: priceAmount, discount_percent: discount.discountPercent, reference_price: discount.referencePrice }
+    return {
+      ...l,
+      price_amount: priceAmount,
+      discount_percent: discount.discountPercent,
+      reference_price: discount.referencePrice,
+    }
   })
 
   const discountSummary = summarizeDiscounts(listings.map((l) => l.discount_percent))
@@ -967,7 +974,12 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const medianRow = (medianResult.rows as Record<string, unknown>[])[0]
   const rawMedian = medianRow ? toNullableNumber(medianRow.raw_median_price) : null
   const discount = medianRow
-    ? computeListingDiscount(row.price_amount, medianRow.raw_median_price, medianRow.clean_median_price, medianRow.sample_size)
+    ? computeListingDiscount(
+        row.price_amount,
+        medianRow.raw_median_price,
+        medianRow.clean_median_price,
+        medianRow.sample_size,
+      )
     : { discountPercent: null, referencePrice: null }
 
   const priceAmount = toNullableNumber(row.price_amount)
@@ -1756,7 +1768,10 @@ export interface CollectKeyword {
 }
 
 export async function getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]> {
-  const result = await db.query(`SELECT keyword, enabled FROM collect_keywords WHERE kind = 'general' ORDER BY keyword`, [])
+  const result = await db.query(
+    `SELECT keyword, enabled FROM collect_keywords WHERE kind = 'general' ORDER BY keyword`,
+    [],
+  )
   return (result.rows as CollectKeyword[]).map((r) => ({ keyword: r.keyword, enabled: r.enabled }))
 }
 
@@ -1838,7 +1853,10 @@ const REAL_ESTATE_MAX_LIMIT = 100
 // could not (price unresolved, low confidence, or sale/rent unclear). Room
 // shares (a single room or bedspace) are hidden unless asked for - found in the
 // 2026-09-25 spot check, they would otherwise drag condo rents down.
-export async function getRealEstateListings(db: QueryClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]> {
+export async function getRealEstateListings(
+  db: QueryClient,
+  filters: RealEstateFilters = {},
+): Promise<RealEstateListing[]> {
   const where: string[] = []
   const params: unknown[] = []
   const add = (clause: string, value: unknown) => {

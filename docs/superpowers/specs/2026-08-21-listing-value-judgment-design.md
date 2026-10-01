@@ -114,17 +114,18 @@ sibling variant names) are needed as input.
 **Batching:** 35 products per Groq call — derived from this call's own output size,
 not copied from `extract-products.ts`'s Pass 1 (that batch size of 25 fit a much
 lighter per-item output, just a `base_model` string; this call returns a description
-+ value-drivers paragraph + price fields per product, roughly 165-200 output tokens
-each). Target ~7,000 tokens/request (200 output-tokens/product estimate × 35, leaving
-margin under the 8,000 TPM cap for input tokens and estimate error). Bigger batches
-trim the repeated-instruction-boilerplate overhead per product and request count
-(helps RPM/RPD margin), but total output tokens for the full backlog is roughly
-fixed regardless of batch size — the 200,000 TPD cap still means multi-day
-resumability for the full ~1,244 products either way (see Open Risks). The
-implementation plan should include a live check with a few batches at this size to
-confirm per-item quality holds before trusting it at scale (batches large enough to
-matter also risk the model rushing/genericizing later items in a long array — a real
-but fuzzy failure mode, worth eyeballing rather than assuming away).
+
+- value-drivers paragraph + price fields per product, roughly 165-200 output tokens
+  each). Target ~7,000 tokens/request (200 output-tokens/product estimate × 35, leaving
+  margin under the 8,000 TPM cap for input tokens and estimate error). Bigger batches
+  trim the repeated-instruction-boilerplate overhead per product and request count
+  (helps RPM/RPD margin), but total output tokens for the full backlog is roughly
+  fixed regardless of batch size — the 200,000 TPD cap still means multi-day
+  resumability for the full ~1,244 products either way (see Open Risks). The
+  implementation plan should include a live check with a few batches at this size to
+  confirm per-item quality holds before trusting it at scale (batches large enough to
+  matter also risk the model rushing/genericizing later items in a long array — a real
+  but fuzzy failure mode, worth eyeballing rather than assuming away).
 
 **Prompt:**
 

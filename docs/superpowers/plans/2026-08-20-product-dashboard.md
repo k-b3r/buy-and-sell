@@ -24,6 +24,7 @@
 ### Task 1: Scaffold the Next.js app, password auth, middleware gate
 
 **Files:**
+
 - Create: `dashboard/package.json`, `dashboard/tsconfig.json`, `dashboard/next.config.ts`, `dashboard/vitest.config.ts`
 - Create: `dashboard/src/app/layout.tsx`, `dashboard/src/app/page.tsx` (placeholder, replaced properly in Task 2)
 - Create: `dashboard/src/lib/auth.ts`
@@ -35,6 +36,7 @@
 - Create: `dashboard/.gitignore`
 
 **Interfaces:**
+
 - Produces: `AUTH_COOKIE_NAME` (const), `hashPassword(password: string): string`, `isAuthCookieValid(cookieValue: string | undefined, expectedPassword: string): boolean` — Task 2/3's middleware reasoning and any future auth-touching code depend on these exact names.
 
 - [ ] **Step 1: Create the `dashboard/` directory and initialize the app**
@@ -218,7 +220,14 @@ export default function LoginPage() {
   return (
     <form method="POST" action="/api/login" style={{ maxWidth: 320 }}>
       <h1>Dashboard login</h1>
-      <input type="password" name="password" placeholder="Password" autoFocus required style={{ width: '100%', padding: 8 }} />
+      <input
+        type="password"
+        name="password"
+        placeholder="Password"
+        autoFocus
+        required
+        style={{ width: '100%', padding: 8 }}
+      />
       <button type="submit" style={{ marginTop: 8, padding: '8px 16px' }}>
         Log in
       </button>
@@ -305,12 +314,14 @@ git commit -m "scaffold dashboard app with password-gated auth"
 ### Task 2: Products list page — the "clear variant issues" view
 
 **Files:**
+
 - Create: `dashboard/src/lib/queries.ts`
 - Create: `dashboard/test/queries.test.ts`
 - Modify: `dashboard/src/app/page.tsx` (replace Task 1's placeholder)
 - Create: `dashboard/src/lib/db.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from Task 1 beyond the auth gate already protecting this route.
 - Produces: `QueryClient` interface (`{query(sql: string, params: unknown[]): Promise<{rows: unknown[]}>}`), `ProductSummary` type, `getProductSummaries(db: QueryClient, options?: {onlyUnsplit?: boolean}): Promise<ProductSummary[]>`, `getPool(): QueryClient` (real Postgres connection). Task 3 reuses `QueryClient` and `dashboard/src/lib/db.ts`'s `getPool`.
 
@@ -430,11 +441,7 @@ import Link from 'next/link'
 import { getPool } from '@/lib/db'
 import { getProductSummaries } from '@/lib/queries'
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ filter?: string }>
-}) {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const { filter } = await searchParams
   const onlyUnsplit = filter === 'unsplit'
   const products = await getProductSummaries(getPool(), { onlyUnsplit })
@@ -498,12 +505,14 @@ git commit -m "add products list page with un-split filter"
 ### Task 3: Product detail page + variant enum curation form
 
 **Files:**
+
 - Modify: `dashboard/src/lib/queries.ts` (add `getProductDetail`, `parseEnumValuesInput`)
 - Modify: `dashboard/test/queries.test.ts` (add tests for the above)
 - Create: `dashboard/src/app/products/[id]/page.tsx`
 - Create: `dashboard/src/app/api/variant-enums/route.ts`
 
 **Interfaces:**
+
 - Consumes: `QueryClient`, `getPool` (Task 2).
 - Produces: `getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null>`, `parseEnumValuesInput(raw: string): string[]`.
 
@@ -535,9 +544,7 @@ test('getProductDetail returns the product plus its listings', async () => {
         return { rows: [{ id: 1, base_model: 'RTX 3060', base_model_normalized: 'rtx 3060', variant_tier: null }] }
       }
       return {
-        rows: [
-          { id: '123', title: 'RTX 3060 OC Asus', price_amount: '15000', primary_photo_url: 'https://x/0.jpg' },
-        ],
+        rows: [{ id: '123', title: 'RTX 3060 OC Asus', price_amount: '15000', primary_photo_url: 'https://x/0.jpg' }],
       }
     },
   }
@@ -689,7 +696,9 @@ export default async function ProductDetailPage({
       </p>
       <h1>{product.base_model}</h1>
       <p>Variant tier: {product.variant_tier ?? '— not split yet'}</p>
-      {saved === '1' && <p style={{ color: 'green' }}>Variant enum saved — pnpm run variant-classify will pick it up.</p>}
+      {saved === '1' && (
+        <p style={{ color: 'green' }}>Variant enum saved — pnpm run variant-classify will pick it up.</p>
+      )}
 
       {product.variant_tier === null && (
         <form method="POST" action="/api/variant-enums" style={{ margin: '1rem 0', maxWidth: 480 }}>

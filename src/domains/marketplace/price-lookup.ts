@@ -196,7 +196,9 @@ export async function lookupRetail(
     const price = parseGeminiPriceResponse(text)
     if (price) {
       if (!isWideSpread(price)) return { price, source: 'gemini_new_retail', rawResponse: text }
-      logger.warn(`product ${product.id} (${label}): Gemini retail range too wide (${price.low}-${price.high}), falling back to Exa`)
+      logger.warn(
+        `product ${product.id} (${label}): Gemini retail range too wide (${price.low}-${price.high}), falling back to Exa`,
+      )
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -204,11 +206,17 @@ export async function lookupRetail(
   }
 
   try {
-    const response = await clients.exa.searchStructured(buildExaQuery('retail', product), buildExaSystemPrompt('retail', product), EXA_PRICE_SCHEMA)
+    const response = await clients.exa.searchStructured(
+      buildExaQuery('retail', product),
+      buildExaSystemPrompt('retail', product),
+      EXA_PRICE_SCHEMA,
+    )
     const price = parseExaPriceResponse(response)
     if (price) {
       if (!isWideSpread(price)) return { price, source: 'exa_new_retail', rawResponse: JSON.stringify(response) }
-      logger.warn(`product ${product.id} (${label}): Exa retail range too wide (${price.low}-${price.high}), falling back to Tavily`)
+      logger.warn(
+        `product ${product.id} (${label}): Exa retail range too wide (${price.low}-${price.high}), falling back to Tavily`,
+      )
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -221,7 +229,9 @@ export async function lookupRetail(
     const price = parseTavilyPriceAnswer(text)
     if (!price) return null
     if (isWideSpread(price)) {
-      logger.warn(`product ${product.id} (${label}): Tavily retail range too wide (${price.low}-${price.high}), dropped`)
+      logger.warn(
+        `product ${product.id} (${label}): Tavily retail range too wide (${price.low}-${price.high}), dropped`,
+      )
       return null
     }
     return { price, source: 'tavily_new_retail', rawResponse: text }
@@ -246,7 +256,9 @@ export async function lookupSecondhand(
     const price = parseGeminiPriceResponse(text)
     if (price) {
       if (!isWideSpread(price)) return { price, source: 'gemini_grounding', rawResponse: text }
-      logger.warn(`product ${product.id} (${label}): Gemini secondhand range too wide (${price.low}-${price.high}), falling back to Exa`)
+      logger.warn(
+        `product ${product.id} (${label}): Gemini secondhand range too wide (${price.low}-${price.high}), falling back to Exa`,
+      )
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -262,7 +274,9 @@ export async function lookupSecondhand(
     const price = parseExaPriceResponse(response)
     if (price) {
       if (!isWideSpread(price)) return { price, source: 'exa_secondhand', rawResponse: JSON.stringify(response) }
-      logger.warn(`product ${product.id} (${label}): Exa secondhand range too wide (${price.low}-${price.high}), falling back to Tavily`)
+      logger.warn(
+        `product ${product.id} (${label}): Exa secondhand range too wide (${price.low}-${price.high}), falling back to Tavily`,
+      )
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -275,7 +289,9 @@ export async function lookupSecondhand(
     const price = parseTavilyPriceAnswer(text)
     if (!price) return null
     if (isWideSpread(price)) {
-      logger.warn(`product ${product.id} (${label}): Tavily secondhand range too wide (${price.low}-${price.high}), dropped`)
+      logger.warn(
+        `product ${product.id} (${label}): Tavily secondhand range too wide (${price.low}-${price.high}), dropped`,
+      )
       return null
     }
     return { price, source: 'tavily_secondhand', rawResponse: text }
@@ -313,7 +329,9 @@ export async function ensureProductPriced(
   const generic = detectGenericBaseModel(product.base_model)
   if (generic) {
     await flagProductPriceLookupExcluded(db, product.id, generic.reason)
-    logger.warn(`product ${product.id} (${label}): detected generic (${generic.reason}: "${generic.matched}"), flagged and skipping`)
+    logger.warn(
+      `product ${product.id} (${label}): detected generic (${generic.reason}: "${generic.matched}"), flagged and skipping`,
+    )
     return { retail: null, secondhand: null, excluded: true }
   }
 
@@ -326,11 +344,15 @@ export async function ensureProductPriced(
     // text-pattern check above, per direct instruction (2026-08-31) - not
     // worth trying secondhand either.
     await flagProductPriceLookupExcluded(db, product.id, 'retail_not_found')
-    logger.warn(`product ${product.id} (${label}): retail price not found via any provider, excluding from pricing entirely`)
+    logger.warn(
+      `product ${product.id} (${label}): retail price not found via any provider, excluding from pricing entirely`,
+    )
     return { retail: null, secondhand: null, excluded: true }
   }
   await insertPriceCheck(db, product.id, retail.price, retail.rawResponse, retail.source, 'New')
-  logger.info(`product ${product.id} (${label}): retail ${retail.price.low}-${retail.price.high} ${retail.price.currency} (${retail.source})`)
+  logger.info(
+    `product ${product.id} (${label}): retail ${retail.price.low}-${retail.price.high} ${retail.price.currency} (${retail.source})`,
+  )
 
   const secondhand = await lookupSecondhand(clients, product, logger, label)
   if (secondhand) {
@@ -344,7 +366,9 @@ export async function ensureProductPriced(
     // later some other way (a human entry, a future re-check). Per direct
     // instruction (2026-08-31): retail failing means "probably not a real
     // product," secondhand failing just means "no data yet."
-    logger.warn(`product ${product.id} (${label}): secondhand price not found via any provider, may become available later`)
+    logger.warn(
+      `product ${product.id} (${label}): secondhand price not found via any provider, may become available later`,
+    )
   }
 
   return { retail: retail.price, secondhand: secondhand?.price ?? null, excluded: false }

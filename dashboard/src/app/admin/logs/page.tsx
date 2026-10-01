@@ -27,7 +27,8 @@ const WORKER_DESCRIPTIONS: Record<Worker, string> = {
   'price-lookup': 'Web-search-grounded market price lookup per product.',
   'enrich-listing-prices': "LLM price review flagging listings priced as outliers vs. their product's range.",
   'extract-real-estate': 'LLM-extracts structured fields (type, price basis, area, project) from real estate listings.',
-  'verify-discount-notifications': 'Confirms candidate discounts against fresh market data before they reach the dashboard.',
+  'verify-discount-notifications':
+    'Confirms candidate discounts against fresh market data before they reach the dashboard.',
 }
 
 const POLL_INTERVAL_MS = 3000
@@ -254,7 +255,10 @@ export default function LogsPage() {
                 {status?.running && <span className="spinner" aria-label="running" />}
                 {w}
               </button>
-              <InfoTooltip text={WORKER_DESCRIPTIONS[w]} style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }} />
+              <InfoTooltip
+                text={WORKER_DESCRIPTIONS[w]}
+                style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}
+              />
             </span>
           )
         })}

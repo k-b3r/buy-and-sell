@@ -47,15 +47,20 @@ const client = new S3Client({
   credentials: { accessKeyId: env.R2_ACCESS_KEY_ID, secretAccessKey: env.R2_SECRET_KEY },
 })
 
-await client.send(new PutObjectCommand({
-  Bucket: env.R2_BUCKET_NAME,
-  Key: PREFIX + name,
-  Body: readFileSync(target),
-}))
+await client.send(
+  new PutObjectCommand({
+    Bucket: env.R2_BUCKET_NAME,
+    Key: PREFIX + name,
+    Body: readFileSync(target),
+  }),
+)
 console.log(`uploaded ${PREFIX}${name}`)
 
 // Local rotation: newest KEEP_LOCAL survive.
-const local = readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.dump')).sort().reverse()
+const local = readdirSync(BACKUP_DIR)
+  .filter((f) => f.endsWith('.dump'))
+  .sort()
+  .reverse()
 for (const stale of local.slice(KEEP_LOCAL)) {
   unlinkSync(path.join(BACKUP_DIR, stale))
   console.log(`pruned local ${stale}`)
@@ -63,13 +68,18 @@ for (const stale of local.slice(KEEP_LOCAL)) {
 
 // Remote rotation. Keys are timestamp-named, so lexical sort is chronological.
 const listed = await client.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET_NAME, Prefix: PREFIX }))
-const remote = (listed.Contents ?? []).map((o) => o.Key).sort().reverse()
+const remote = (listed.Contents ?? [])
+  .map((o) => o.Key)
+  .sort()
+  .reverse()
 const expired = remote.slice(KEEP_REMOTE)
 if (expired.length > 0) {
-  await client.send(new DeleteObjectsCommand({
-    Bucket: env.R2_BUCKET_NAME,
-    Delete: { Objects: expired.map((Key) => ({ Key })) },
-  }))
+  await client.send(
+    new DeleteObjectsCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Delete: { Objects: expired.map((Key) => ({ Key })) },
+    }),
+  )
   console.log(`pruned ${expired.length} remote`)
 }
 console.log(`done - ${Math.min(local.length, KEEP_LOCAL)} local, ${Math.min(remote.length, KEEP_REMOTE)} remote`)

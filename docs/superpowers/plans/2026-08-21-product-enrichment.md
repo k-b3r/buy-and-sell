@@ -24,11 +24,13 @@
 ### Task 1: Groq client wrapper (`src/groq.ts`)
 
 **Files:**
+
 - Create: `src/groq.ts`
 - Create: `test/groq.test.ts`
 - Modify: `package.json` (add `groq-sdk` dependency)
 
 **Interfaces:**
+
 - Produces: `GroqClient` interface (`{generateJson(prompt: string, schema: object): Promise<unknown>}`), `createGroqClient(apiKey: string, model?: string): GroqClient`. Task 4 (`enrich-products.ts`) depends on the `GroqClient` type (its tests inject a fake; only the CLI `main()` uses the real `createGroqClient`).
 
 - [ ] **Step 1: Install the dependency**
@@ -109,15 +111,12 @@ The exact response field names above (`response.choices[0].message.content`, `re
 1. Run `pnpm exec tsc --noEmit` — if any field above doesn't exist on the real SDK's return type, this fails loudly with the actual field name to use instead. Fix `src/groq.ts` to match.
 2. Write and run a one-off throwaway script (not committed) that loads `.env` and calls:
    ```ts
-   createGroqClient(process.env.FREE_GROQ_API_KEY!).generateJson(
-     'Say hello',
-     {
-       type: 'object',
-       properties: { greeting: { type: 'string' } },
-       required: ['greeting'],
-       additionalProperties: false,
-     },
-   )
+   createGroqClient(process.env.FREE_GROQ_API_KEY!).generateJson('Say hello', {
+     type: 'object',
+     properties: { greeting: { type: 'string' } },
+     required: ['greeting'],
+     additionalProperties: false,
+   })
    ```
    `console.log` the result. Confirm it returns real parsed JSON (e.g. `{ greeting: "..." }`), not an error. Delete the script after confirming.
 
@@ -135,10 +134,12 @@ git commit -m "add Groq structured-output client wrapper"
 ### Task 2: Enrichment prompt/schema builder (`src/enrichment.ts`)
 
 **Files:**
+
 - Create: `src/enrichment.ts`
 - Create: `test/enrichment.test.ts`
 
 **Interfaces:**
+
 - Produces: `EnrichmentCandidate` type (`{id: number, base_model: string, variant_tier: string | null, sibling_variants: string[]}`), `buildEnrichmentPrompt(products: EnrichmentCandidate[]): string`, `ENRICHMENT_RESPONSE_SCHEMA` (const). Task 3 (`getEnrichmentCandidates`'s return type) and Task 4 (`enrich-products.ts`) both consume these.
 
 - [ ] **Step 1: Write the failing test**
@@ -280,10 +281,12 @@ git commit -m "add product enrichment prompt/schema builder"
 ### Task 3: `product_enrichment` DB layer (`getEnrichmentCandidates`, `upsertProductEnrichment`)
 
 **Files:**
+
 - Modify: `src/db.ts`
 - Modify: `test/db.test.ts`
 
 **Interfaces:**
+
 - Consumes: `EnrichmentCandidate` from `src/enrichment.ts` (Task 2), `DbClient` (already in `src/db.ts`).
 - Produces: `getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]>`, `EnrichmentData` type (`{description: string, valueDrivers: string, hasTrainedPriceKnowledge: boolean, trainedPriceLow: number | null, trainedPriceHigh: number | null}`), `upsertProductEnrichment(db: DbClient, productId: number, data: EnrichmentData, model: string): Promise<void>`. Task 4 calls both.
 
@@ -463,11 +466,13 @@ git commit -m "add product_enrichment candidate query and upsert"
 ### Task 4: Product enrichment script (`src/enrich-products.ts`)
 
 **Files:**
+
 - Create: `src/enrich-products.ts`
 - Create: `test/enrich-products.test.ts`
 - Modify: `package.json` (add `"enrich-products": "tsx src/enrich-products.ts"` script)
 
 **Interfaces:**
+
 - Consumes: `getEnrichmentCandidates`/`upsertProductEnrichment`/`EnrichmentData` (Task 3), `buildEnrichmentPrompt`/`ENRICHMENT_RESPONSE_SCHEMA`/`EnrichmentCandidate` (Task 2), `GroqClient`/`createGroqClient` (Task 1), `DbClient`/`createDbPool` (existing), `Logger`/`createLogger` (existing).
 - Produces: `runProductEnrichment(groq: GroqClient, db: DbClient, logger: Logger, candidates: EnrichmentCandidate[]): Promise<void>`.
 
@@ -554,7 +559,9 @@ test('has_trained_price_knowledge false with no price fields stores null prices 
   })
   const { db, upserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
-  const candidates: EnrichmentCandidate[] = [{ id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [] }]
+  const candidates: EnrichmentCandidate[] = [
+    { id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [] },
+  ]
 
   await runProductEnrichment(groq, db, logger, candidates)
 

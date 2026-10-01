@@ -74,7 +74,11 @@ export default function InfoTooltip({ text, style }: { text: string; style?: CSS
     if (!el) return
     const rect = el.getBoundingClientRect()
     const centerX = rect.left + rect.width / 2
-    const left = clamp(centerX, BUBBLE_WIDTH / 2 + VIEWPORT_MARGIN, window.innerWidth - BUBBLE_WIDTH / 2 - VIEWPORT_MARGIN)
+    const left = clamp(
+      centerX,
+      BUBBLE_WIDTH / 2 + VIEWPORT_MARGIN,
+      window.innerWidth - BUBBLE_WIDTH / 2 - VIEWPORT_MARGIN,
+    )
     setPhase({ rect, left, top: rect.bottom + GAP, direction: 'below', ready: false })
   }
   function hide() {

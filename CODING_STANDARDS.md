@@ -52,7 +52,7 @@ db/schema.sql   single source of schema truth
 
 ## Comments
 
-- Explain *why*, not *what*. Include evidence and date when a choice came from a live observation (`Confirmed live 2026-09-24: ...`).
+- Explain _why_, not _what_. Include evidence and date when a choice came from a live observation (`Confirmed live 2026-09-24: ...`).
 - Cross-reference sibling code that follows the same rule instead of re-explaining (`same rule as the sub-category backfill`).
 - No comments on obvious code.
 

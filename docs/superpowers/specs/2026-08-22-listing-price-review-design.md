@@ -22,6 +22,7 @@ Two independent signals per listing, never coupled: a listing can be a single
 fixed price AND negotiable, a genuine range AND not negotiable, etc.
 
 **Two-stage pipeline, cheap filter before the expensive one:**
+
 1. SQL-only, no LLM: flag listings whose price is several magnitudes off their
    product's median. Computed live against the real DB: **140 listings** flagged
    out of 2,051 with a product assigned (~6.8%) — small, bounded scope.
@@ -161,6 +162,7 @@ as the rest of this pipeline.
 `getProductDetail`'s listings query and `getListingDetail` both gain a `LEFT
 JOIN listing_price_review` (mirrors the existing `product_enrichment` join
 pattern). Where a review row exists:
+
 - If `price_low !== price_high`: show the range (`₱low–₱high`) instead of the
   flat `price_amount`.
 - If `price_low === price_high` and not null: show that single value instead of

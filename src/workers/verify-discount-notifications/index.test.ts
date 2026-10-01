@@ -15,7 +15,9 @@ function notImplemented(): never {
   throw new Error('not implemented in this fake')
 }
 
-function fakeClients(overrides: Partial<{ tavilyAnswer: string | null; openrouterResponse: unknown }>): VerificationClients {
+function fakeClients(
+  overrides: Partial<{ tavilyAnswer: string | null; openrouterResponse: unknown }>,
+): VerificationClients {
   const tavilyAnswer = 'tavilyAnswer' in overrides ? overrides.tavilyAnswer! : 'Fresh market ~₱10,000'
   return {
     tavily: { search: async () => ({ answer: tavilyAnswer, results: [] }) },
@@ -180,7 +182,10 @@ test('one candidate throwing unexpectedly is logged and skipped, not fatal to th
   // verifyDiscountCandidate itself never throws (fails closed to 'pending'),
   // so this exercises the same path as the "no fresh data" test above, just
   // confirming the loop processes every candidate given, not just the first.
-  await runVerifyDiscountNotifications(clients, db, logger, [candidate({ id: 1, listing_id: 'a' }), candidate({ id: 2, listing_id: 'b' })])
+  await runVerifyDiscountNotifications(clients, db, logger, [
+    candidate({ id: 1, listing_id: 'a' }),
+    candidate({ id: 2, listing_id: 'b' }),
+  ])
 
   const attemptCalls = calls.filter((c) => c.sql.includes('last_verification_attempt_at = now()'))
   expect(attemptCalls.map((c) => c.params)).toEqual([[1], [2]])

@@ -3,8 +3,23 @@ import type { RealEstateFilters, RealEstateListing } from './queries'
 // Types-only import from queries.ts, so this module is safe in client components.
 
 export const NCR_AREAS = [
-  'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong', 'Manila', 'Marikina', 'Muntinlupa', 'Navotas',
-  'Parañaque', 'Pasay', 'Pasig', 'Pateros', 'Quezon City', 'San Juan', 'Taguig', 'Valenzuela',
+  'Caloocan',
+  'Las Piñas',
+  'Makati',
+  'Malabon',
+  'Mandaluyong',
+  'Manila',
+  'Marikina',
+  'Muntinlupa',
+  'Navotas',
+  'Parañaque',
+  'Pasay',
+  'Pasig',
+  'Pateros',
+  'Quezon City',
+  'San Juan',
+  'Taguig',
+  'Valenzuela',
 ] as const
 
 export const PROPERTY_TYPE_LABELS: Record<string, string> = {
@@ -25,7 +40,10 @@ function positiveNumber(value: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
-export function parseRealEstateFilters(params: Record<string, string | undefined>): { filters: RealEstateFilters; page: number } {
+export function parseRealEstateFilters(params: Record<string, string | undefined>): {
+  filters: RealEstateFilters
+  page: number
+} {
   const pageNumber = Number(params.page)
   const page = Number.isInteger(pageNumber) && pageNumber >= 1 ? pageNumber : 1
   const filters: RealEstateFilters = {
@@ -42,7 +60,8 @@ export function parseRealEstateFilters(params: Record<string, string | undefined
   if (min !== undefined) filters.minPrice = min
   if (max !== undefined) filters.maxPrice = max
   if (sqm !== undefined) filters.minSqm = sqm
-  if (params.sort && (SORTS as readonly string[]).includes(params.sort)) filters.sort = params.sort as RealEstateFilters['sort']
+  if (params.sort && (SORTS as readonly string[]).includes(params.sort))
+    filters.sort = params.sort as RealEstateFilters['sort']
   if (params.view === 'review') filters.view = 'review'
   if (params.rooms === '1') filters.includeRoomShares = true
   return { filters, page }

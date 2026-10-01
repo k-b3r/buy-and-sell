@@ -8,7 +8,6 @@ import ListingDetailContent from '../../../listings/[id]/ListingDetailContent'
 // analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
 export const dynamic = 'force-dynamic'
 
-
 export default async function ListingModal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const listing = await getListingDetailCached(id)

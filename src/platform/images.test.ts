@@ -109,7 +109,7 @@ test('returns an empty array when there is no photo carousel', async () => {
   expect(store.puts).toEqual([])
 })
 
-test('deleteListingPhotos deletes everything under the listing\'s own key prefix', async () => {
+test("deleteListingPhotos deletes everything under the listing's own key prefix", async () => {
   const store = fakeStore()
   const logger = fakeLogger()
 

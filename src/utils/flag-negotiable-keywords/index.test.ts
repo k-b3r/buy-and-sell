@@ -43,7 +43,9 @@ test('flags listings whose title or description matches a negotiability keyword'
 test('skips listings with no negotiability signal, no db call made', async () => {
   const { db, upserts } = fakeDb()
   const logger = createLogger(LOG_PATH)
-  const candidates: NegotiableKeywordCandidate[] = [{ id: '1', title: 'Sony WH-1000XM6, barely used', description: null }]
+  const candidates: NegotiableKeywordCandidate[] = [
+    { id: '1', title: 'Sony WH-1000XM6, barely used', description: null },
+  ]
 
   const flagged = await runFlagNegotiableKeywords(db, logger, candidates)
 

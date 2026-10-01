@@ -105,8 +105,9 @@ export function createBrowserDriver(page: Page): PageDriver {
                 commerce_search_and_rp_available: true,
                 commerce_search_and_rp_category_id: [],
                 commerce_search_and_rp_condition: null,
-                commerce_search_and_rp_ctime_days: Array.from({ length: 31 }, (_, i) =>
-                  Math.floor(Date.now() / 86400000) - i,
+                commerce_search_and_rp_ctime_days: Array.from(
+                  { length: 31 },
+                  (_, i) => Math.floor(Date.now() / 86400000) - i,
                 ).join(';'),
                 filter_location_latitude: 14.5896,
                 filter_location_longitude: 120.9808,

@@ -21,7 +21,11 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
-import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace/storage/products'
+import {
+  findOrCreateProduct,
+  updateListingProductIds,
+  getExtractionCandidates,
+} from '../../domains/marketplace/storage/products'
 import type { DiscountPolicyThresholds } from '../../domains/marketplace/storage/listings'
 import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace/storage/listings'
 import { getProductPricingStatus } from '../../domains/marketplace/storage/pricing'
@@ -95,11 +99,15 @@ async function extractBatch(
         break
       }
       if (attempt === maxAttempts) {
-        logger.warn(`${batchLabel}: Groq request failed after ${maxAttempts} attempts (${message}), falling back to Gemini`)
+        logger.warn(
+          `${batchLabel}: Groq request failed after ${maxAttempts} attempts (${message}), falling back to Gemini`,
+        )
         break
       }
       const retryDelay = retryBaseDelayMs * 2 ** (attempt - 1)
-      logger.warn(`${batchLabel}: Groq request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`)
+      logger.warn(
+        `${batchLabel}: Groq request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`,
+      )
       await delay(retryDelay)
     }
   }
@@ -114,11 +122,15 @@ async function extractBatch(
         return null
       }
       if (attempt === maxAttempts) {
-        logger.error(`${batchLabel}: Gemini request failed after ${maxAttempts} attempts too (${message}), stopping run`)
+        logger.error(
+          `${batchLabel}: Gemini request failed after ${maxAttempts} attempts too (${message}), stopping run`,
+        )
         return null
       }
       const retryDelay = retryBaseDelayMs * 2 ** (attempt - 1)
-      logger.warn(`${batchLabel}: Gemini request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`)
+      logger.warn(
+        `${batchLabel}: Gemini request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`,
+      )
       await delay(retryDelay)
     }
   }
@@ -147,7 +159,12 @@ async function ensureProductPricing(
   // description/sibling_variants come back empty for a product this new -
   // it hasn't been through enrich-products.ts yet. The search still works,
   // just with less disambiguating context than a backfilled lookup gets.
-  return ensureProductPriced(clients, db, { id: productId, base_model: baseModel, variant_tier: variantTier, description: null, sibling_variants: [] }, logger)
+  return ensureProductPriced(
+    clients,
+    db,
+    { id: productId, base_model: baseModel, variant_tier: variantTier, description: null, sibling_variants: [] },
+    logger,
+  )
 }
 
 export async function runProductExtraction(
@@ -184,9 +201,13 @@ export async function runProductExtraction(
     const batch = candidates.slice(i, i + options.batchSize)
     const batchLabel = `batch ${batchNum}/${totalBatches}`
     logger.info(`${batchLabel}: sending ${batch.length} listings to Groq`)
-    const prompt = buildExtractionPrompt(batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })))
+    const prompt = buildExtractionPrompt(
+      batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })),
+    )
 
-    const raw = (await extractBatch(clients, prompt, logger, batchLabel, delay, maxAttempts, retryBaseDelayMs)) as { results?: unknown } | null
+    const raw = (await extractBatch(clients, prompt, logger, batchLabel, delay, maxAttempts, retryBaseDelayMs)) as {
+      results?: unknown
+    } | null
     if (raw === null) break
 
     if (!raw || !Array.isArray(raw.results)) {
@@ -305,7 +326,9 @@ async function main() {
 
   // Same shape as enrich-products.ts - see createGroqPool. Logs every
   // model/key hop so a stuck one is visible.
-  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
+    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+  )
   logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
 
   // Free tier is 20 requests/day per project per model — a second key from a
@@ -314,7 +337,10 @@ async function main() {
   // DEFAULT_MAX_ATTEMPTS' comment above), tried only once Groq is exhausted.
   const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
   const geminiForExtraction = altGeminiApiKey
-    ? createFallbackGeminiClient([createGeminiClient(geminiApiKey), createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash')])
+    ? createFallbackGeminiClient([
+        createGeminiClient(geminiApiKey),
+        createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash'),
+      ])
     : createGeminiClient(geminiApiKey)
   if (altGeminiApiKey) {
     logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')

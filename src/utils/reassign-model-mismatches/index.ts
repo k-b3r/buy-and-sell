@@ -27,7 +27,11 @@ async function getMatchedListings(db: DbClient): Promise<CandidateRow[]> {
   return result.rows
 }
 
-async function findExistingProductId(db: DbClient, baseModel: string, variantTierNormalized: string | null): Promise<number | null> {
+async function findExistingProductId(
+  db: DbClient,
+  baseModel: string,
+  variantTierNormalized: string | null,
+): Promise<number | null> {
   const result = (await db.query(
     `SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2`,
     [normalizeBaseModel(baseModel), variantTierNormalized],
@@ -43,7 +47,10 @@ async function findExistingProductId(db: DbClient, baseModel: string, variantTie
 // deriveTargetBaseModel resolves unambiguously AND that exact product
 // already exists in the catalog; anything else is logged as skipped for a
 // human to resolve rather than guessed at or auto-created.
-export async function reassignModelMismatches(db: DbClient, dryRun: boolean): Promise<{ reassigned: number; skipped: number }> {
+export async function reassignModelMismatches(
+  db: DbClient,
+  dryRun: boolean,
+): Promise<{ reassigned: number; skipped: number }> {
   const rows = await getMatchedListings(db)
   let reassigned = 0
   let skipped = 0
@@ -66,7 +73,9 @@ export async function reassignModelMismatches(db: DbClient, dryRun: boolean): Pr
 
     const targetProductId = await findExistingProductId(db, targetBaseModel, row.variant_tier_normalized)
     if (targetProductId === null) {
-      console.log(`skip listing ${row.listing_id}: derived target "${targetBaseModel}" has no existing matching product`)
+      console.log(
+        `skip listing ${row.listing_id}: derived target "${targetBaseModel}" has no existing matching product`,
+      )
       skipped++
       continue
     }
@@ -97,7 +106,9 @@ async function main(): Promise<void> {
   const pool = createDbPool(dbUrl)
   try {
     const { reassigned, skipped } = await reassignModelMismatches(pool, dryRun)
-    logger.info(`${dryRun ? '[dry run] ' : ''}${reassigned} listing(s) reassigned, ${skipped} skipped (ambiguous or no matching product)`)
+    logger.info(
+      `${dryRun ? '[dry run] ' : ''}${reassigned} listing(s) reassigned, ${skipped} skipped (ambiguous or no matching product)`,
+    )
   } finally {
     await pool.end()
   }

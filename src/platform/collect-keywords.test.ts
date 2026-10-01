@@ -1,5 +1,10 @@
 import type { DbClient } from './storage'
-import { loadCollectKeywords, loadRealEstateKeywords, planLapQueries, DEFAULT_COLLECT_KEYWORDS } from './collect-keywords'
+import {
+  loadCollectKeywords,
+  loadRealEstateKeywords,
+  planLapQueries,
+  DEFAULT_COLLECT_KEYWORDS,
+} from './collect-keywords'
 
 function mockDb(rows: { keyword: string }[]): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -50,7 +55,13 @@ test('loadRealEstateKeywords loads enabled real_estate keywords and never falls 
   expect(calls[0].sql).toContain('enabled')
 })
 
-const lapBase = { general: ['rush sale', 'preloved'], realEstate: ['house and lot'], reEveryNLaps: 3, reMaxItems: 50, defaultMaxItems: 100 }
+const lapBase = {
+  general: ['rush sale', 'preloved'],
+  realEstate: ['house and lot'],
+  reEveryNLaps: 3,
+  reMaxItems: 50,
+  defaultMaxItems: 100,
+}
 
 test('planLapQueries returns only general keywords, unchanged, while the real estate flag is off', () => {
   const plan = planLapQueries({ ...lapBase, lap: 1, reEnabled: 0 })

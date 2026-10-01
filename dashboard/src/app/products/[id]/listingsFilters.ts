@@ -79,7 +79,8 @@ export function buildListingsQueryString(filters: ListingsFilters): string {
   const params = new URLSearchParams()
   if (filters.view !== DEFAULT_VIEW) params.set('view', filters.view)
   if (filters.sortKey !== DEFAULT_SORT_KEY) params.set('sort', filters.sortKey)
-  if (filters.listedWithinDays !== DEFAULT_LISTED_WITHIN_DAYS) params.set('listedWithin', String(filters.listedWithinDays))
+  if (filters.listedWithinDays !== DEFAULT_LISTED_WITHIN_DAYS)
+    params.set('listedWithin', String(filters.listedWithinDays))
   if (filters.hideSold !== DEFAULT_HIDE_SOLD) params.set('hideSold', filters.hideSold ? '1' : '0')
   if (filters.negotiableOnly !== DEFAULT_NEGOTIABLE_ONLY) params.set('negotiable', '1')
   if (filters.selectedBand !== DEFAULT_SELECTED_BAND) params.set('band', String(filters.selectedBand))
@@ -108,9 +109,21 @@ export function sortListings<T extends ProductListingSummary>(listings: T[], sor
     case 'price_desc':
       return sorted.sort((a, b) => compareNullableNumbers(a.price_amount, b.price_amount, -1))
     case 'listed_newest':
-      return sorted.sort((a, b) => compareNullableNumbers(a.listed_at ? Date.parse(a.listed_at) : null, b.listed_at ? Date.parse(b.listed_at) : null, -1))
+      return sorted.sort((a, b) =>
+        compareNullableNumbers(
+          a.listed_at ? Date.parse(a.listed_at) : null,
+          b.listed_at ? Date.parse(b.listed_at) : null,
+          -1,
+        ),
+      )
     case 'listed_oldest':
-      return sorted.sort((a, b) => compareNullableNumbers(a.listed_at ? Date.parse(a.listed_at) : null, b.listed_at ? Date.parse(b.listed_at) : null, 1))
+      return sorted.sort((a, b) =>
+        compareNullableNumbers(
+          a.listed_at ? Date.parse(a.listed_at) : null,
+          b.listed_at ? Date.parse(b.listed_at) : null,
+          1,
+        ),
+      )
   }
 }
 
@@ -154,7 +167,11 @@ export interface ListingsPage {
 // likewise computed over the full filtered/sorted set (cheap - just ids) so
 // the listing-detail modal's prev/next cycling still spans every matching
 // listing, not just whatever pages happen to be loaded client-side.
-export function paginateListings(listings: ProductListingSummary[], filters: ListingsFilters, offset: number): ListingsPage {
+export function paginateListings(
+  listings: ProductListingSummary[],
+  filters: ListingsFilters,
+  offset: number,
+): ListingsPage {
   const repostIds = computeRepostIds(listings)
   const enriched: PaginatedListingSummary[] = listings.map((l) => ({ ...l, is_repost: repostIds.has(l.id) }))
   const visible = sortListings(

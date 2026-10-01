@@ -16,7 +16,10 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace/storage/listings'
+import type {
+  DiscountVerificationCandidate,
+  DiscountPolicyThresholds,
+} from '../../domains/marketplace/storage/listings'
 import {
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
@@ -65,7 +68,9 @@ export async function runVerifyDiscountNotifications(
     }
 
     if (paidUsed >= paidLimit) {
-      logger.info(`candidate ${candidate.id} (${candidate.base_model}): leaving for next lap, paid-call budget (${paidLimit}) used up this lap`)
+      logger.info(
+        `candidate ${candidate.id} (${candidate.base_model}): leaving for next lap, paid-call budget (${paidLimit}) used up this lap`,
+      )
       continue
     }
     if (paidUsed > 0) await delay(pacingDelayMs)
@@ -81,7 +86,9 @@ export async function runVerifyDiscountNotifications(
           source: result.source,
           reasoning: result.reasoning,
         })
-        logger.info(`candidate ${candidate.id} (${candidate.base_model}): verified, ${result.discountPercent}% off via ${result.source}`)
+        logger.info(
+          `candidate ${candidate.id} (${candidate.base_model}): verified, ${result.discountPercent}% off via ${result.source}`,
+        )
       } else if (result.outcome === 'rejected') {
         await rejectDiscountNotification(db, candidate.id)
         logger.info(`candidate ${candidate.id} (${candidate.base_model}): rejected — ${result.reasoning}`)
@@ -91,7 +98,9 @@ export async function runVerifyDiscountNotifications(
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      logger.error(`candidate ${candidate.id} (${candidate.base_model}): unexpected error (${message}), skipping this lap`)
+      logger.error(
+        `candidate ${candidate.id} (${candidate.base_model}): unexpected error (${message}), skipping this lap`,
+      )
     }
   }
 }
@@ -169,12 +178,25 @@ async function main() {
         minProfitPesos: settings['discount_policy.min_profit_pesos'],
         minPricePesos: settings['discount_policy.min_price_pesos'],
       }
-      const pending = await getUnverifiedDiscountCandidates(pool, settings['verify_discount.fetch_batch_size'], thresholds.minPricePesos)
+      const pending = await getUnverifiedDiscountCandidates(
+        pool,
+        settings['verify_discount.fetch_batch_size'],
+        thresholds.minPricePesos,
+      )
       logger.info(`${pending.length} pending this lap`)
       if (isTestRun()) {
         logger.info(`TEST_RUN: would verify ${pending.length} discount notifications this lap`)
       } else {
-        await runVerifyDiscountNotifications(clients, pool, logger, pending, limit, realDelay, settings['verify_discount.pacing_delay_ms'], thresholds)
+        await runVerifyDiscountNotifications(
+          clients,
+          pool,
+          logger,
+          pending,
+          limit,
+          realDelay,
+          settings['verify_discount.pacing_delay_ms'],
+          thresholds,
+        )
       }
       logger.info(`lap ${lap} complete, sleeping ${settings['verify_discount.loop_delay_ms']}ms`)
       lap++

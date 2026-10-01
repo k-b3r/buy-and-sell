@@ -196,13 +196,11 @@ test('checkOneListing returns a status describing what happened, for callers oth
   expect(removed).toEqual({ status: 'removed' })
 
   const { db: db5 } = fakeDb()
-  const blocked = await checkOneListing(
-    makeDriver({ getDetailHtml: async () => hardBlockHtml }),
-    db5,
-    store,
-    logger,
-    { id: '1', flagged_removed_at: null, source_photo_ids: null },
-  )
+  const blocked = await checkOneListing(makeDriver({ getDetailHtml: async () => hardBlockHtml }), db5, store, logger, {
+    id: '1',
+    flagged_removed_at: null,
+    source_photo_ids: null,
+  })
   expect(blocked).toEqual({ status: 'hard-block' })
 })
 

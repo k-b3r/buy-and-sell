@@ -48,7 +48,11 @@ export function buildGroqRequest(model: string, prompt: string, schema: object, 
   }
 }
 
-export function createGroqClient(apiKey: string, model = 'openai/gpt-oss-120b', options: GroqRequestOptions = {}): GroqClient {
+export function createGroqClient(
+  apiKey: string,
+  model = 'openai/gpt-oss-120b',
+  options: GroqRequestOptions = {},
+): GroqClient {
   const client = new Groq({ apiKey })
   return {
     async generateJson(prompt: string, schema: object): Promise<unknown> {
@@ -196,7 +200,10 @@ export function createGroqPool(
   const perKeyClients = apiKeys.map((apiKey, i) =>
     createFallbackGroqClient(
       models.map((model) => createGroqClient(apiKey, model, requestOptions)),
-      { labels: [...models], onFallback: (fromModel, toModel) => onFallback?.(`${keyLabels[i]}:${fromModel}`, `${keyLabels[i]}:${toModel}`) },
+      {
+        labels: [...models],
+        onFallback: (fromModel, toModel) => onFallback?.(`${keyLabels[i]}:${fromModel}`, `${keyLabels[i]}:${toModel}`),
+      },
     ),
   )
   return createRoundRobinGroqClient(perKeyClients, { labels: keyLabels, onFallback })

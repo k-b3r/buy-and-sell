@@ -33,11 +33,13 @@ function fakeChild(pid = 4242) {
   return child
 }
 
-function fakeDeps(overrides: {
-  isAlive?: (pid: number) => boolean
-  kill?: ReturnType<typeof vi.fn>
-  spawn?: ReturnType<typeof vi.fn>
-} = {}) {
+function fakeDeps(
+  overrides: {
+    isAlive?: (pid: number) => boolean
+    kill?: ReturnType<typeof vi.fn>
+    spawn?: ReturnType<typeof vi.fn>
+  } = {},
+) {
   return {
     isAlive: overrides.isAlive ?? (() => false),
     kill: overrides.kill ?? vi.fn(),
@@ -165,7 +167,7 @@ test(
 )
 
 test(
-  'start: clears the worker\'s existing log file',
+  "start: clears the worker's existing log file",
   withTmpDir(async (dir) => {
     writeFileSync(path.join(dir, 'collector.log'), 'old run output\nmore old output\n')
     const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: () => false }))

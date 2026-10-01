@@ -43,8 +43,7 @@ type ReviewFn = (
 ) => Promise<ReviewDecision>
 
 type PageStateResult =
-  | { status: 'ok'; html: string }
-  | { status: 'stop'; reason: 'soft-wall-persisted' | 'hard-block' | 'unrecognized' }
+  { status: 'ok'; html: string } | { status: 'stop'; reason: 'soft-wall-persisted' | 'hard-block' | 'unrecognized' }
 
 export async function resolvePageState(
   driver: PageDriver,
@@ -69,7 +68,9 @@ export async function resolvePageState(
     if (state === 'normal') return { status: 'ok', html }
     if (state === 'soft-wall') {
       dumpDebugHtml(html)
-      logger.error('soft login-wall persisted after refresh, failing closed and stopping run — html dumped for inspection')
+      logger.error(
+        'soft login-wall persisted after refresh, failing closed and stopping run — html dumped for inspection',
+      )
       return { status: 'stop', reason: 'soft-wall-persisted' }
     }
   }
@@ -177,7 +178,7 @@ export async function runCollection(
     return 'continue'
   }
 
-  if (await processBatch(firstBatch) === 'stop') return
+  if ((await processBatch(firstBatch)) === 'stop') return
   let processedCount = firstBatch.length
 
   let cursor = extractCursor(gridResult.html)
@@ -238,7 +239,7 @@ export async function runCollection(
       }
     } else {
       consecutiveEmptyPages = 0
-      if (await processBatch(newItems) === 'stop') return
+      if ((await processBatch(newItems)) === 'stop') return
       processedCount += newItems.length
     }
     cursor = page.nextCursor

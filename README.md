@@ -46,7 +46,7 @@ pnpm run collect -- "headphones" 100 7   # only listings posted in the last 7 da
 ```
 
 - Defaults: query `headphones`, `maxItems` unset (single 24-item batch, no pagination), `daysSinceListed` 30.
-- `maxItems` is a per-run budget of *new* items (capped at 1000), not a lifetime total — already-saved listings (any query, any prior run) are skipped via dedup regardless, so re-running the same command after a crash just continues collecting fresh ones on top of what's already saved.
+- `maxItems` is a per-run budget of _new_ items (capped at 1000), not a lifetime total — already-saved listings (any query, any prior run) are skipped via dedup regardless, so re-running the same command after a crash just continues collecting fresh ones on top of what's already saved.
 - `daysSinceListed` narrows the search to recently-posted listings — useful for periodic re-runs of the same keyword (e.g. weekly with `7`), since it shrinks the pool to mostly-new-since-last-time listings instead of re-wading through a wide window of stuff you already have (dedup skips those anyway, but this avoids burning pagination budget getting past them).
 - Walks listings one at a time in the background (headless), auto-approving each and saving it — no manual review step anymore.
 - Listings already in Postgres from a prior run (any machine — it's the shared source of truth) are skipped entirely (not re-opened, not re-saved), so re-running the same query is safe and cheap.

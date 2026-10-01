@@ -48,7 +48,9 @@ async function main(): Promise<void> {
       candidates++
       logger.info(
         `listing ${row.listing_id} "${row.title}" -> product ${row.product_id} "${productText}" | ` +
-          mismatches.map((m) => `${m.prefix}: title=${m.titleNumbers.join(',')} product=${m.productNumbers.join(',')}`).join('; '),
+          mismatches
+            .map((m) => `${m.prefix}: title=${m.titleNumbers.join(',')} product=${m.productNumbers.join(',')}`)
+            .join('; '),
       )
     }
 

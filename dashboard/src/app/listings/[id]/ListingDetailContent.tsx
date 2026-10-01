@@ -202,7 +202,7 @@ export default function ListingDetailContent({
           )}
         </div>
 
-        {(listing.recent_sales?.length || listing.similar_listings?.length) ? (
+        {listing.recent_sales?.length || listing.similar_listings?.length ? (
           <div className="listing-detail-evidence">
             <PriceEvidence recentSales={listing.recent_sales} similarListings={listing.similar_listings} />
           </div>

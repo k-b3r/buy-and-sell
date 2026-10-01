@@ -14,8 +14,7 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
   const sinDLat = Math.sin(dLat / 2)
   const sinDLng = Math.sin(dLng / 2)
   const h =
-    sinDLat * sinDLat +
-    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * sinDLng * sinDLng
+    sinDLat * sinDLat + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * sinDLng * sinDLng
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h))
 }
 

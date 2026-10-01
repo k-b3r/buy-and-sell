@@ -5,13 +5,76 @@
 // Digit-before-letter specs (128GB, 5G, 4K, 2024) are naturally excluded
 // since both patterns below require the letters to come first.
 const NOISE_PREFIXES = new Set([
-  'gb', 'tb', 'mb', 'kb', 'ram', 'rom', 'rm', 'mp', 'mah', 'hz', 'khz', 'mhz',
-  'cm', 'mm', 'km', 'kg', 'hr', 'hrs', 'min', 'mins', 'sec', 'secs', 'pc',
-  'pcs', 'php', 'peso', 'pesos', 'p', 'no', 'unit', 'units', 'day', 'days',
-  'month', 'months', 'year', 'years', 'yr', 'yrs', 'floor', 'flr', 'lot',
-  'block', 'blk', 'room', 'sqm', 'sq', 'sqft', 'sf', 'qty', 'pack', 'set',
-  'sets', 'pax', 'person', 'persons', 'w', 'v', 'inch', 'inches', 'in',
-  'ft', 'vol', 'ep', 'season', 'page', 'pg', 'step', 'level', 'lvl',
+  'gb',
+  'tb',
+  'mb',
+  'kb',
+  'ram',
+  'rom',
+  'rm',
+  'mp',
+  'mah',
+  'hz',
+  'khz',
+  'mhz',
+  'cm',
+  'mm',
+  'km',
+  'kg',
+  'hr',
+  'hrs',
+  'min',
+  'mins',
+  'sec',
+  'secs',
+  'pc',
+  'pcs',
+  'php',
+  'peso',
+  'pesos',
+  'p',
+  'no',
+  'unit',
+  'units',
+  'day',
+  'days',
+  'month',
+  'months',
+  'year',
+  'years',
+  'yr',
+  'yrs',
+  'floor',
+  'flr',
+  'lot',
+  'block',
+  'blk',
+  'room',
+  'sqm',
+  'sq',
+  'sqft',
+  'sf',
+  'qty',
+  'pack',
+  'set',
+  'sets',
+  'pax',
+  'person',
+  'persons',
+  'w',
+  'v',
+  'inch',
+  'inches',
+  'in',
+  'ft',
+  'vol',
+  'ep',
+  'season',
+  'page',
+  'pg',
+  'step',
+  'level',
+  'lvl',
 ])
 
 const TIGHT_CODE = /\b([A-Za-z]{1,3})(\d{2,3})\b/g
@@ -77,5 +140,11 @@ export function deriveTargetBaseModel(productBaseModel: string, mismatch: ModelC
   const match = productBaseModel.match(pattern)
   if (!match || match.index === undefined) return null
 
-  return productBaseModel.slice(0, match.index) + match[1] + match[2] + titleNumber + productBaseModel.slice(match.index + match[0].length)
+  return (
+    productBaseModel.slice(0, match.index) +
+    match[1] +
+    match[2] +
+    titleNumber +
+    productBaseModel.slice(match.index + match[0].length)
+  )
 }

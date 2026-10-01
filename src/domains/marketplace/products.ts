@@ -51,11 +51,7 @@ export const CANONICAL_BASE_MODEL: Record<string, string> = {
 // merging (e.g. "FE" vs "Founders Edition" still land as separate products).
 // Deliberate deduplication across those is a later, human/AI-assisted phase.
 export function normalizeVariantTier(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .replace(/['’]/g, '')
-    .replace(/\s+/g, ' ')
+  return raw.trim().toLowerCase().replace(/['’]/g, '').replace(/\s+/g, ' ')
 }
 
 export interface ExtractionInput {
@@ -105,19 +101,42 @@ export const PRODUCT_CATEGORIES = [
 // further) so a genuinely-unclassifiable product still has a real,
 // non-forced landing spot.
 export const SUB_CATEGORIES = [
-  'Smartphones', 'Tablets', 'Phone & Tablet Accessories',
-  'Laptops', 'Desktops',
-  'Graphics Cards', 'Processors & Motherboards', 'Storage & Memory', 'Power Supplies & Cases',
-  'TVs', 'Monitors',
-  'Headphones & Earphones', 'Speakers',
-  'Consoles', 'Games & Accessories',
-  'Cameras', 'Drones', 'Camera Accessories',
-  'Small Appliances', 'Large Appliances',
-  'Furniture', 'Home Decor & Household Items',
-  'Cars', 'Motorcycles', 'Bicycles', 'Vehicle Parts & Accessories',
-  'House & Lot', 'Condo/Apartment', 'Land', 'Rentals',
-  "Women's Clothing", "Men's Clothing", 'Bags', 'Shoes',
-  'Exercise Equipment', 'Outdoor & Camping Gear',
+  'Smartphones',
+  'Tablets',
+  'Phone & Tablet Accessories',
+  'Laptops',
+  'Desktops',
+  'Graphics Cards',
+  'Processors & Motherboards',
+  'Storage & Memory',
+  'Power Supplies & Cases',
+  'TVs',
+  'Monitors',
+  'Headphones & Earphones',
+  'Speakers',
+  'Consoles',
+  'Games & Accessories',
+  'Cameras',
+  'Drones',
+  'Camera Accessories',
+  'Small Appliances',
+  'Large Appliances',
+  'Furniture',
+  'Home Decor & Household Items',
+  'Cars',
+  'Motorcycles',
+  'Bicycles',
+  'Vehicle Parts & Accessories',
+  'House & Lot',
+  'Condo/Apartment',
+  'Land',
+  'Rentals',
+  "Women's Clothing",
+  "Men's Clothing",
+  'Bags',
+  'Shoes',
+  'Exercise Equipment',
+  'Outdoor & Camping Gear',
   'Other',
 ] as const
 

@@ -75,22 +75,25 @@ export default function ProductListClient({
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
-  const fetchPage = useCallback(async (q: string, cat: string | null, subCats: string[], offset: number, replace: boolean) => {
-    setLoading(true)
-    const params = new URLSearchParams({ offset: String(offset) })
-    if (q) params.set('q', q)
-    if (cat) params.append('category', cat)
-    for (const sc of subCats) params.append('subCategory', sc)
-    const res = await fetch(`/api/products?${params}`)
-    const data: ProductsPage = await res.json()
-    setProducts((prev) => {
-      if (replace) return data.products
-      const seen = new Set(prev.map((p) => p.id))
-      return [...prev, ...data.products.filter((p) => !seen.has(p.id))]
-    })
-    setNextOffset(data.nextOffset)
-    setLoading(false)
-  }, [])
+  const fetchPage = useCallback(
+    async (q: string, cat: string | null, subCats: string[], offset: number, replace: boolean) => {
+      setLoading(true)
+      const params = new URLSearchParams({ offset: String(offset) })
+      if (q) params.set('q', q)
+      if (cat) params.append('category', cat)
+      for (const sc of subCats) params.append('subCategory', sc)
+      const res = await fetch(`/api/products?${params}`)
+      const data: ProductsPage = await res.json()
+      setProducts((prev) => {
+        if (replace) return data.products
+        const seen = new Set(prev.map((p) => p.id))
+        return [...prev, ...data.products.filter((p) => !seen.has(p.id))]
+      })
+      setNextOffset(data.nextOffset)
+      setLoading(false)
+    },
+    [],
+  )
 
   // Tracks the filters this component itself last pushed into the URL (via
   // router.replace below). Distinguishes "the URL changed because we just
@@ -110,7 +113,12 @@ export default function ProductListClient({
   // a fetch + URL replace.
   useEffect(() => {
     const applied = appliedFiltersRef.current
-    if (search === applied.search && category === applied.category && sortedKey(subCategories) === sortedKey(applied.subCategories)) return
+    if (
+      search === applied.search &&
+      category === applied.category &&
+      sortedKey(subCategories) === sortedKey(applied.subCategories)
+    )
+      return
     const timeout = setTimeout(() => {
       appliedFiltersRef.current = { search, category, subCategories }
       saveFilters({ search, category, subCategories })
@@ -136,9 +144,17 @@ export default function ProductListClient({
   useEffect(() => {
     const initialCategory = initialCategories[0] ?? null
     const applied = appliedFiltersRef.current
-    if (initialSearch === applied.search && initialCategory === applied.category && sortedKey(initialSubCategories) === sortedKey(applied.subCategories))
+    if (
+      initialSearch === applied.search &&
+      initialCategory === applied.category &&
+      sortedKey(initialSubCategories) === sortedKey(applied.subCategories)
+    )
       return
-    appliedFiltersRef.current = { search: initialSearch, category: initialCategory, subCategories: initialSubCategories }
+    appliedFiltersRef.current = {
+      search: initialSearch,
+      category: initialCategory,
+      subCategories: initialSubCategories,
+    }
     saveFilters({ search: initialSearch, category: initialCategory, subCategories: initialSubCategories })
     setSearch(initialSearch)
     setCategory(initialCategory)
@@ -263,7 +279,9 @@ export default function ProductListClient({
         {products.map((p) => (
           <Link
             key={p.id}
-            href={listQueryString ? `/products/${p.id}?from=${encodeURIComponent(listQueryString)}` : `/products/${p.id}`}
+            href={
+              listQueryString ? `/products/${p.id}?from=${encodeURIComponent(listQueryString)}` : `/products/${p.id}`
+            }
             style={{
               display: 'block',
               background: 'var(--color-surface)',
@@ -359,7 +377,9 @@ export default function ProductListClient({
                     ? `₱${p.price_min.toLocaleString()}–₱${p.price_max.toLocaleString()}`
                     : 'No price data'}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 6 }}>
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 6 }}
+                >
                   {p.price_avg !== null && (
                     <span
                       className="mono"

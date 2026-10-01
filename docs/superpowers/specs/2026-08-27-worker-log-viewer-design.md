@@ -10,15 +10,15 @@ Workers (`src/workers/*`) run continuously on the Hetzner VPS, each writing
 plain-text lines via `createLogger` (`src/platform/logger.ts`) to its own file
 under `data/`:
 
-| Worker | Log file |
-|---|---|
-| collect | `data/collector.log` |
-| check-listings | `data/check-listings.log` |
-| extract-products | `data/extract-products.log` |
-| enrich-products | `data/enrich-products.log` |
+| Worker                  | Log file                           |
+| ----------------------- | ---------------------------------- |
+| collect                 | `data/collector.log`               |
+| check-listings          | `data/check-listings.log`          |
+| extract-products        | `data/extract-products.log`        |
+| enrich-products         | `data/enrich-products.log`         |
 | secondhand-price-lookup | `data/secondhand-price-lookup.log` |
-| retail-price-lookup | `data/retail-price-lookup.log` |
-| enrich-listing-prices | `data/enrich-listing-prices.log` |
+| retail-price-lookup     | `data/retail-price-lookup.log`     |
+| enrich-listing-prices   | `data/enrich-listing-prices.log`   |
 
 Log line format: `[ISO timestamp] [INFO|WARN|ERROR] message` (one line per
 call to `logger.info/warn/error`).
@@ -80,6 +80,7 @@ path from the module's own location instead of CWD:
 (`server/routes/logs.ts` → `..` = `server/` → `../..` = repo root → `data/<file>`).
 
 **Read behavior:**
+
 - `offset` omitted: read the **whole file**, return the last 200 lines and
   `nextOffset` = the file's current byte size. (Known simplification: reads
   the whole file just to tail it. Today's logs are low-thousands of lines /
@@ -110,6 +111,7 @@ response and status code back unchanged. Returns `503` if either env var is
 unset (matching the existing proxy routes' behavior).
 
 **Page:** `dashboard/src/app/admin/logs/page.tsx`, client component.
+
 - Worker picker: 7 tabs (or a `<select>` — implementer's call, not
   load-bearing), one per key in `WORKER_LOG_FILES` above. Defaults to
   `collect`.

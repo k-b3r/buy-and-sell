@@ -246,11 +246,19 @@ test('buildGroqRequest without options is the exact request every existing worke
   expect(req).toEqual({
     model: 'openai/gpt-oss-120b',
     messages: [{ role: 'user', content: 'hi' }],
-    response_format: { type: 'json_schema', json_schema: { name: 'response', strict: true, schema: { type: 'object' } } },
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'response', strict: true, schema: { type: 'object' } },
+    },
   })
 })
 
 test('buildGroqRequest adds reasoning effort and an output cap only when asked', () => {
-  const req = buildGroqRequest('openai/gpt-oss-120b', 'hi', { type: 'object' }, { reasoningEffort: 'low', maxCompletionTokens: 4096 })
+  const req = buildGroqRequest(
+    'openai/gpt-oss-120b',
+    'hi',
+    { type: 'object' },
+    { reasoningEffort: 'low', maxCompletionTokens: 4096 },
+  )
   expect(req).toMatchObject({ reasoning_effort: 'low', max_completion_tokens: 4096 })
 })

@@ -182,18 +182,27 @@ function fakeClients(overrides: Partial<PriceLookupClients> = {}): PriceLookupCl
 
 test('lookupRetail tries Gemini first', async () => {
   const clients = fakeClients({
-    gemini: { generateJson: async () => ({}), generateGroundedText: async () => '```json\n{"found": true, "price_low": 14499, "price_high": 19999}\n```' },
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async () => '```json\n{"found": true, "price_low": 14499, "price_high": 19999}\n```',
+    },
   })
   const logger = createLogger(LOG_PATH)
 
   const result = await lookupRetail(clients, product, logger, 'Sony WH-1000XM4')
 
-  expect(result).toEqual({ price: { low: 14499, high: 19999, currency: 'PHP' }, source: 'gemini_new_retail', rawResponse: expect.any(String) })
+  expect(result).toEqual({
+    price: { low: 14499, high: 19999, currency: 'PHP' },
+    source: 'gemini_new_retail',
+    rawResponse: expect.any(String),
+  })
 })
 
 test('lookupRetail falls back Gemini -> Exa -> Tavily in order', async () => {
   const clients = fakeClients({
-    exa: { searchStructured: async () => ({ output: { content: { found: true, price_low: 14499, price_high: 19999 } } }) },
+    exa: {
+      searchStructured: async () => ({ output: { content: { found: true, price_low: 14499, price_high: 19999 } } }),
+    },
   })
   const logger = createLogger(LOG_PATH)
 
@@ -222,18 +231,27 @@ test('lookupRetail returns null when all three providers find nothing', async ()
 
 test('lookupSecondhand tries Gemini first', async () => {
   const clients = fakeClients({
-    gemini: { generateJson: async () => ({}), generateGroundedText: async () => '```json\n{"found": true, "price_low": 8000, "price_high": 11000}\n```' },
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async () => '```json\n{"found": true, "price_low": 8000, "price_high": 11000}\n```',
+    },
   })
   const logger = createLogger(LOG_PATH)
 
   const result = await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')
 
-  expect(result).toEqual({ price: { low: 8000, high: 11000, currency: 'PHP' }, source: 'gemini_grounding', rawResponse: expect.any(String) })
+  expect(result).toEqual({
+    price: { low: 8000, high: 11000, currency: 'PHP' },
+    source: 'gemini_grounding',
+    rawResponse: expect.any(String),
+  })
 })
 
 test('lookupSecondhand falls back Gemini -> Exa -> Tavily in order', async () => {
   const clients = fakeClients({
-    exa: { searchStructured: async () => ({ output: { content: { found: true, price_low: 9000, price_high: 10500 } } }) },
+    exa: {
+      searchStructured: async () => ({ output: { content: { found: true, price_low: 9000, price_high: 10500 } } }),
+    },
   })
   const logger = createLogger(LOG_PATH)
 
@@ -253,7 +271,13 @@ test('ensureProductPriced excludes a text-pattern-generic product before spendin
   const clients = fakeClients()
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
-  const generic: PriceLookupCandidate = { id: 5, base_model: 'Refrigerator', variant_tier: null, description: null, sibling_variants: [] }
+  const generic: PriceLookupCandidate = {
+    id: 5,
+    base_model: 'Refrigerator',
+    variant_tier: null,
+    description: null,
+    sibling_variants: [],
+  }
 
   const result = await ensureProductPriced(clients, db, generic, logger)
 
@@ -307,7 +331,18 @@ test('ensureProductPriced is not excluded when retail succeeds but secondhand do
   expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
   const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
   expect(inserts).toHaveLength(1)
-  expect(inserts[0].params).toEqual([2, 14499, 19999, 'PHP', expect.any(String), 'exa_new_retail', 'New', null, null, null])
+  expect(inserts[0].params).toEqual([
+    2,
+    14499,
+    19999,
+    'PHP',
+    expect.any(String),
+    'exa_new_retail',
+    'New',
+    null,
+    null,
+    null,
+  ])
 })
 
 test('ensureProductPriced records both retail and secondhand when both succeed', async () => {
@@ -332,6 +367,28 @@ test('ensureProductPriced records both retail and secondhand when both succeed',
   })
   const inserts = calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))
   expect(inserts).toHaveLength(2)
-  expect(inserts[0].params).toEqual([2, 14499, 19999, 'PHP', expect.any(String), 'gemini_new_retail', 'New', null, null, null])
-  expect(inserts[1].params).toEqual([2, 8000, 11000, 'PHP', expect.any(String), 'gemini_grounding', 'Used', null, null, null])
+  expect(inserts[0].params).toEqual([
+    2,
+    14499,
+    19999,
+    'PHP',
+    expect.any(String),
+    'gemini_new_retail',
+    'New',
+    null,
+    null,
+    null,
+  ])
+  expect(inserts[1].params).toEqual([
+    2,
+    8000,
+    11000,
+    'PHP',
+    expect.any(String),
+    'gemini_grounding',
+    'Used',
+    null,
+    null,
+    null,
+  ])
 })

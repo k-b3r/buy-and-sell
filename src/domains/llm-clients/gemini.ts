@@ -103,7 +103,9 @@ export function createDailyGroundingCap(
         count = 0
       }
       if (count >= resolvedLimit) {
-        throw new Error(`Gemini grounded-search daily cap (${resolvedLimit}) reached for ${dayKey} - refusing further calls to avoid billing overage`)
+        throw new Error(
+          `Gemini grounded-search daily cap (${resolvedLimit}) reached for ${dayKey} - refusing further calls to avoid billing overage`,
+        )
       }
       count += 1
       return client.generateGroundedText(prompt)
@@ -142,7 +144,9 @@ export function createQuotaAwareGeminiClient(client: GeminiClient, now: () => Da
         exhausted = false
       }
       if (exhausted) {
-        throw new Error(`Gemini free-tier daily quota already confirmed exhausted for ${dayKey} - skipping straight to the next provider`)
+        throw new Error(
+          `Gemini free-tier daily quota already confirmed exhausted for ${dayKey} - skipping straight to the next provider`,
+        )
       }
       try {
         return await client.generateGroundedText(prompt)
