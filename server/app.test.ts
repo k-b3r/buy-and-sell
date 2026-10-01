@@ -153,3 +153,15 @@ test('a successful request clears prior failures, so the IP is not left blocked'
 
   expect(result.statusCode).toBe(200)
 })
+
+test('a handler that throws becomes a 500 instead of an unhandled rejection that would crash the server', async () => {
+  const routes: RouteTable = {
+    'POST /refresh': async () => {
+      throw new Error('boom')
+    },
+  }
+
+  const result = await handleRequest(routes, API_KEY, 'POST', '/refresh', `Bearer ${API_KEY}`, '{}', IP, freshLimiter())
+
+  expect(result).toEqual({ statusCode: 500, body: { error: 'internal error' } })
+})
