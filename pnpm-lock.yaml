@@ -36,6 +36,9 @@ importers:
       playwright:
         specifier: ^1.47.0
         version: 1.62.1
+      prettier:
+        specifier: ^3.9.9
+        version: 3.9.9
       ts-morph:
         specifier: ^28.0.0
         version: 28.0.0
@@ -1501,6 +1504,11 @@ packages:
     peerDependenciesMeta:
       preact-render-to-string:
         optional: true
+
+  prettier@3.9.9:
+    resolution: {integrity: sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   property-information@7.2.0:
     resolution: {integrity: sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg==}
@@ -3117,6 +3125,8 @@ snapshots:
       xtend: 4.0.2
 
   preact@10.29.8: {}
+
+  prettier@3.9.9: {}
 
   property-information@7.2.0: {}
 

@@ -1,0 +1,14 @@
+node_modules
+pnpm-lock.yaml
+dist
+.next
+data
+fixtures
+docs-site/.vitepress/dist
+docs-site/.vitepress/cache
+dashboard/public
+.claude
+.superpowers
+.playwright-mcp
+REPO_MAP.md
+*.log

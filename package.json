@@ -29,12 +29,15 @@
     "docs:build": "vitepress build docs-site",
     "docs:publish": "pnpm gen-arch-doc && pnpm docs:build && rm -rf dashboard/public/docs && mkdir -p dashboard/public && cp -r docs-site/.vitepress/dist dashboard/public/docs",
     "deploy:server": "./scripts/deploy-server.sh",
-    "tunnel": "./scripts/tunnel.sh"
+    "tunnel": "./scripts/tunnel.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/pg": "^8.23.1",
     "playwright": "^1.47.0",
+    "prettier": "^3.9.9",
     "ts-morph": "^28.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
