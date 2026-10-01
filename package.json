@@ -35,11 +35,13 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server && tsc --noEmit -p dashboard",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@next/eslint-plugin-next": "^16.3.8",
+    "@playwright/test": "1.62.1",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.23.1",
     "eslint": "^10.11.0",

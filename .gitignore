@@ -46,3 +46,7 @@ coverage
 
 # playwright MCP tool run artifacts (screenshots/console logs from live testing)
 .playwright-mcp/
+
+# Playwright
+/test-results/
+/playwright-report/

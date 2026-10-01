@@ -12,3 +12,6 @@ dashboard/public
 .playwright-mcp
 REPO_MAP.md
 *.log
+dashboard/next-env.d.ts
+test-results
+playwright-report

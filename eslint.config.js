@@ -33,7 +33,6 @@ export default tseslint.config(
             'scripts/*.ts',
             'vitest.config.ts',
             'vitest.integration.config.ts',
-            'playwright.config.ts',
           ],
         },
         tsconfigRootDir: import.meta.dirname,
