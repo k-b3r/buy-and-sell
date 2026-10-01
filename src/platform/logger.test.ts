@@ -39,3 +39,15 @@ test('log file never grows past MAX_LOG_LINES, no matter how many lines are writ
   expect(lines[0]).toContain(`line ${total - MAX_LOG_LINES}`)
   expect(lines[lines.length - 1]).toContain(`line ${total - 1}`)
 })
+
+test('creates the log directory when it does not exist yet (fresh clone, new host)', () => {
+  const dir = 'data/tmp-logger-missing-dir'
+  rmSync(dir, { recursive: true, force: true })
+  try {
+    createLogger(`${dir}/nested/worker.log`).info('first line')
+
+    expect(readFileSync(`${dir}/nested/worker.log`, 'utf-8')).toMatch(/\[INFO\] first line\n$/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
