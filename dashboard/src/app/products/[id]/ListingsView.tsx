@@ -235,7 +235,7 @@ export default function ListingsView({
       return
     const timeout = setTimeout(() => {
       appliedFiltersRef.current = { sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }
-      fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, 0, true)
+      void fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, 0, true)
     }, 300)
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,7 +247,7 @@ export default function ListingsView({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !loading)
-          fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, nextOffset, false)
+          void fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, nextOffset, false)
       },
       { rootMargin: '200px' },
     )

@@ -51,7 +51,7 @@ export default function RealEstateGrid({
     if (!sentinel || nextPage === null || failed) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) loadMore()
+        if (entries[0].isIntersecting) void loadMore()
       },
       { rootMargin: '200px' },
     )
@@ -78,7 +78,7 @@ export default function RealEstateGrid({
             type="button"
             onClick={() => {
               setFailed(false)
-              loadMore()
+              void loadMore()
             }}
             style={{ cursor: 'pointer' }}
           >

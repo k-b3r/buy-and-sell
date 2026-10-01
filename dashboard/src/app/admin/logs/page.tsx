@@ -93,8 +93,8 @@ export default function LogsPage() {
       }
     }
 
-    poll()
-    const interval = setInterval(poll, POLL_INTERVAL_MS)
+    void poll()
+    const interval = setInterval(() => void poll(), POLL_INTERVAL_MS)
     return () => {
       cancelled = true
       clearInterval(interval)
@@ -133,8 +133,8 @@ export default function LogsPage() {
       }
     }
 
-    pollAllStatuses()
-    const interval = setInterval(pollAllStatuses, POLL_INTERVAL_MS)
+    void pollAllStatuses()
+    const interval = setInterval(() => void pollAllStatuses(), POLL_INTERVAL_MS)
     return () => {
       cancelled = true
       clearInterval(interval)

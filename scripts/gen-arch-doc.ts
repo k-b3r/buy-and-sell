@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 import { Node, Project } from 'ts-morph'
+import type { JSDocableNode } from 'ts-morph'
 
 export interface ExtractedFunction {
   name: string
@@ -119,7 +120,7 @@ function oneLine(text: string): string {
 }
 
 function getJsDocDescription(decl: Node): string | null {
-  let jsDocs: ReturnType<import('ts-morph').JSDocableNode['getJsDocs']> = []
+  let jsDocs: ReturnType<JSDocableNode['getJsDocs']> = []
   if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
     jsDocs = decl.getJsDocs()
   } else if (Node.isVariableDeclaration(decl)) {
@@ -240,5 +241,5 @@ async function main() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main()
+  void main()
 }

@@ -122,7 +122,7 @@ export default function ProductListClient({
     const timeout = setTimeout(() => {
       appliedFiltersRef.current = { search, category, subCategories }
       saveFilters({ search, category, subCategories })
-      fetchPage(search, category, subCategories, 0, true)
+      void fetchPage(search, category, subCategories, 0, true)
       // Mirror filters into the URL via next/navigation's router, not raw
       // history.replaceState - Next's client router keeps its own history/
       // cache stack separate from the browser's, keyed off entries it
@@ -159,7 +159,7 @@ export default function ProductListClient({
     setSearch(initialSearch)
     setCategory(initialCategory)
     setSubCategories(initialSubCategories)
-    fetchPage(initialSearch, initialCategory, initialSubCategories, 0, true)
+    void fetchPage(initialSearch, initialCategory, initialSubCategories, 0, true)
   }, [initialSearch, initialCategories, initialSubCategories, fetchPage])
 
   // Restore session-persisted filters when landing on a completely
@@ -178,7 +178,7 @@ export default function ProductListClient({
     setSearch(stored.search)
     setCategory(stored.category)
     setSubCategories(stored.subCategories)
-    fetchPage(stored.search, stored.category, stored.subCategories, 0, true)
+    void fetchPage(stored.search, stored.category, stored.subCategories, 0, true)
     const qs = buildFilterQueryString(stored.search, stored.category, stored.subCategories)
     router.replace(qs ? `/?${qs}` : '/', { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,7 +189,7 @@ export default function ProductListClient({
     if (!sentinel || nextOffset === null) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) fetchPage(search, category, subCategories, nextOffset, false)
+        if (entries[0].isIntersecting && !loading) void fetchPage(search, category, subCategories, nextOffset, false)
       },
       { rootMargin: '200px' },
     )

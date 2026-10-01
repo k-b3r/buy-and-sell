@@ -161,7 +161,7 @@ async function main() {
       if (cycle) logger.info(`--cycle: lap ${lap} starting, ${queries.length} motivated-seller keywords`)
 
       if (isTestRun()) {
-        for (const { query, maxItems: queryMaxItems } of queries) {
+        for (const { query } of queries) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
         }
       } else {

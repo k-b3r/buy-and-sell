@@ -221,7 +221,7 @@ export default function DealsClient({
       appliedFiltersRef.current = filters
       setLowConfidenceDeals([])
       setFiltersLoading(true)
-      Promise.all([fetchPage(filters, 0, true), fetchLowConfidencePage(filters, 0)]).finally(() =>
+      void Promise.all([fetchPage(filters, 0, true), fetchLowConfidencePage(filters, 0)]).finally(() =>
         setFiltersLoading(false),
       )
     }, 300)
@@ -233,7 +233,7 @@ export default function DealsClient({
     if (!sentinel || nextOffset === null) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) fetchPage(filters, nextOffset, false)
+        if (entries[0].isIntersecting && !loading) void fetchPage(filters, nextOffset, false)
       },
       { rootMargin: '200px' },
     )

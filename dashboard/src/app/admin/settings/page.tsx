@@ -512,7 +512,7 @@ export default function SettingsPage() {
         if (!cancelled) setLoadError('Could not reach the settings API')
       }
     }
-    load()
+    void load()
     return () => {
       cancelled = true
     }
@@ -532,7 +532,7 @@ export default function SettingsPage() {
         // best-effort - the collect tab just won't show the keyword editor if this fails
       }
     }
-    loadKeywords()
+    void loadKeywords()
     return () => {
       cancelled = true
     }

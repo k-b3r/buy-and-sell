@@ -1,7 +1,6 @@
 import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './domains/marketplace'
-import type { GridListing } from './domains/marketplace'
 import type { DbClient } from './platform/storage'
 import { runCollection, resolvePageState } from './run'
 import { createLogger } from './platform/logger'
