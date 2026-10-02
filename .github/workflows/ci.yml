@@ -24,6 +24,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm format:check
       - run: pnpm lint
+      - run: pnpm depcruise
       - run: pnpm typecheck
 
   unit:

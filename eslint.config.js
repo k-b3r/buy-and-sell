@@ -53,6 +53,11 @@ export default tseslint.config(
       '@typescript-eslint/ban-ts-comment': ['error', { 'ts-expect-error': 'allow-with-description' }],
       // Every disable names its rule and says why (`-- reason`).
       '@eslint-community/eslint-comments/require-description': ['error', { ignore: [] }],
+      // A folder's index.ts is its public API: name each export.
+      'no-restricted-syntax': [
+        'error',
+        { selector: 'ExportAllDeclaration', message: 'List exports explicitly; never export *.' },
+      ],
     },
   },
   {
@@ -75,8 +80,10 @@ export default tseslint.config(
     files: ['**/src/**/*.ts'],
     ignores: ['**/*.test.ts', 'src/platform/utils.ts'],
     rules: {
+      // Restates the export ban: a later block's no-restricted-syntax replaces earlier options.
       'no-restricted-syntax': [
         'error',
+        { selector: 'ExportAllDeclaration', message: 'List exports explicitly; never export *.' },
         {
           selector:
             "NewExpression[callee.name='Promise'] > ArrowFunctionExpression > CallExpression[callee.name='setTimeout']",
@@ -88,6 +95,10 @@ export default tseslint.config(
   {
     files: ['**/*.{js,mjs}'],
     languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { ...globals.node } },
   },
   {
     files: ['dashboard/**/*.{ts,tsx}'],
