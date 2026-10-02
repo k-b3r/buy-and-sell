@@ -81,7 +81,7 @@ const TIGHT_CODE = /\b([A-Za-z]{1,3})(\d{2,3})\b/g
 const LOOSE_CODE = /\b([A-Za-z]{2,12})\s+(\d{1,3})\b/g
 
 // prefix (lowercased) -> set of model numbers seen for that prefix
-export function extractModelCodes(text: string): Map<string, Set<string>> {
+function extractModelCodes(text: string): Map<string, Set<string>> {
   const codes = new Map<string, Set<string>>()
   for (const regex of [TIGHT_CODE, LOOSE_CODE]) {
     for (const match of text.matchAll(regex)) {

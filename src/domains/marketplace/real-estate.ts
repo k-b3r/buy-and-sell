@@ -1,8 +1,8 @@
-export const PROPERTY_TYPES = ['house_and_lot', 'condo', 'land', 'commercial', 'other'] as const
-export const LISTING_TYPES = ['sale', 'rent'] as const
-export const PRICE_BASES = ['total', 'per_sqm', 'monthly', 'equity', 'unresolved'] as const
-export const RE_CONFIDENCES = ['high', 'medium', 'low'] as const
-export const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title', 'furnished', 'room_share'] as const
+const PROPERTY_TYPES = ['house_and_lot', 'condo', 'land', 'commercial', 'other'] as const
+const LISTING_TYPES = ['sale', 'rent'] as const
+const PRICE_BASES = ['total', 'per_sqm', 'monthly', 'equity', 'unresolved'] as const
+const RE_CONFIDENCES = ['high', 'medium', 'low'] as const
+const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title', 'furnished', 'room_share'] as const
 
 // The 16 cities plus the one municipality (Pateros) of Metro Manila.
 export const NCR_LGUS = [
@@ -25,11 +25,11 @@ export const NCR_LGUS = [
   'Valenzuela',
 ] as const
 
-export type PropertyType = (typeof PROPERTY_TYPES)[number]
-export type ListingType = (typeof LISTING_TYPES)[number]
-export type PriceBasis = (typeof PRICE_BASES)[number]
-export type RealEstateConfidence = (typeof RE_CONFIDENCES)[number]
-export type RealEstateTag = (typeof RE_TAGS)[number]
+type PropertyType = (typeof PROPERTY_TYPES)[number]
+type ListingType = (typeof LISTING_TYPES)[number]
+type PriceBasis = (typeof PRICE_BASES)[number]
+type RealEstateConfidence = (typeof RE_CONFIDENCES)[number]
+type RealEstateTag = (typeof RE_TAGS)[number]
 
 export interface RealEstateCandidate {
   id: string
