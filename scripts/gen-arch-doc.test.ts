@@ -135,3 +135,17 @@ test('slugify converts a domain name to a filesystem-safe file slug', () => {
   expect(slugify('domains/llm-clients')).toBe('domains-llm-clients')
   expect(slugify('workers')).toBe('workers')
 })
+
+test('inferred return types from other modules render without machine-specific absolute paths', () => {
+  const project = makeProject()
+  project.createSourceFile('/repo/src/lib/result.ts', `export interface Result {\n  ok: boolean\n}\n`)
+  project.createSourceFile(
+    '/repo/src/workers/foo/index.ts',
+    `import { type Result } from '../../lib/result'\nexport function run() {\n  const r: Result = { ok: true }\n  return Promise.resolve(r)\n}\n`,
+  )
+
+  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'workers')
+  const signature = domain.modules.find((m) => m.path === 'src/workers/foo/index.ts')!.functions[0].signature
+
+  expect(signature).toBe('run(): Promise<Result>')
+})
