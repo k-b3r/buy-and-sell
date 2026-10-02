@@ -1,0 +1,6 @@
+# Local guardrail for private repos where GitHub can't require status checks.
+# Bypass only deliberately (LEFTHOOK=0); CI runs the same checks.
+pre-push:
+  jobs:
+    - name: check
+      run: pnpm check
