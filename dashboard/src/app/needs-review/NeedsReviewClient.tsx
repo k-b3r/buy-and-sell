@@ -185,7 +185,7 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
         }}
       >
         {product.sample_photo_url && (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
           <img
             src={product.sample_photo_url}
             alt=""

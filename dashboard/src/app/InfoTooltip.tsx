@@ -102,7 +102,7 @@ export default function InfoTooltip({ text, style }: { text: string; style?: CSS
     if (!phase) return
     window.addEventListener('scroll', hide, { capture: true, once: true })
     return () => window.removeEventListener('scroll', hide, { capture: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-subscribe only when the tooltip opens or closes, not on every reposition
   }, [phase !== null])
 
   return (

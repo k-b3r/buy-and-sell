@@ -25,7 +25,7 @@ export default function RealEstateCard({ l }: { l: RealEstateListing }) {
       <Link href={`/listings/${l.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
         <div style={{ width: '100%', aspectRatio: '4 / 3', background: 'var(--color-bg)' }}>
           {l.primary_photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
             <img
               src={l.primary_photo_url}
               alt=""

@@ -181,7 +181,7 @@ export default function ProductListClient({
     void fetchPage(stored.search, stored.category, stored.subCategories, 0, true)
     const qs = buildFilterQueryString(stored.search, stored.category, stored.subCategories)
     router.replace(qs ? `/?${qs}` : '/', { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount to restore saved filters
   }, [])
 
   useEffect(() => {
@@ -294,7 +294,7 @@ export default function ProductListClient({
           >
             <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)', position: 'relative' }}>
               {p.sample_photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
                 <img
                   src={p.sample_photo_url}
                   alt=""

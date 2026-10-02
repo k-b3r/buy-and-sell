@@ -84,7 +84,7 @@ export default function ListingCarousel({ photoUrls, title }: Props) {
           cursor: 'zoom-in',
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured */}
         <img
           src={photoUrls[index]}
           alt={`${title} photo ${index + 1}`}
@@ -128,7 +128,7 @@ export default function ListingCarousel({ photoUrls, title }: Props) {
       {photoUrls.length > 1 && (
         <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           {photoUrls.map((url, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
             <img
               key={url}
               src={url}
