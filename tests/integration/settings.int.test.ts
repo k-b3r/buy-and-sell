@@ -1,6 +1,6 @@
-import { testDatabaseUrl } from '../../test/integration/global-setup'
-import { loadSettings, SETTING_DEFAULTS } from './settings'
-import { createDbPool } from './storage'
+import { testDatabaseUrl } from './global-setup'
+import { loadSettings, SETTING_DEFAULTS } from '../../src/platform/settings'
+import { createDbPool } from '../../src/platform/storage'
 
 const pool = createDbPool(testDatabaseUrl())
 

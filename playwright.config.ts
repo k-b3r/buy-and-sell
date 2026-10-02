@@ -1,12 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
-import { E2E_API_KEY, E2E_DASHBOARD_PORT, E2E_PASSWORD, E2E_SERVER_PORT } from './e2e/env'
-import { testDatabaseUrl } from './test/integration/global-setup'
+import { E2E_API_KEY, E2E_DASHBOARD_PORT, E2E_PASSWORD, E2E_SERVER_PORT } from './tests/e2e/env'
+import { testDatabaseUrl } from './tests/integration/global-setup'
 
 const databaseUrl = testDatabaseUrl()
 
 export default defineConfig({
-  testDir: 'e2e',
-  globalSetup: './test/integration/global-setup.ts',
+  testDir: 'tests/e2e',
+  globalSetup: './tests/integration/global-setup.ts',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
