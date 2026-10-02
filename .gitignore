@@ -1,6 +1,7 @@
 node_modules/
 dist/
-data/
+**/data/*
+!/data/.gitkeep
 *.log
 docs-site/.vitepress/cache/
 docs-site/.vitepress/dist/
@@ -50,3 +51,4 @@ coverage
 # Playwright
 /test-results/
 /playwright-report/
+.claude/worktrees/
