@@ -258,6 +258,22 @@ test('resolvePageState tags the stop reason so callers can distinguish a real bl
   expect(softWallPersisted).toEqual({ status: 'stop', reason: 'soft-wall-persisted' })
 })
 
+test('resolvePageState waits the soft-wall timeout through the injected delay before refreshing', async () => {
+  const waits: number[] = []
+  const driver = makeDriver({ refresh: async () => {} })
+  await resolvePageState(
+    driver,
+    createLogger(LOG_PATH),
+    async () => `<div class="login_form">log in</div>`,
+    45000,
+    () => false,
+    async (ms) => {
+      waits.push(ms)
+    },
+  )
+  expect(waits).toEqual([45000])
+})
+
 test('soft-wall on detail page recovers via refresh and extracts post-refresh content', async () => {
   const gridHtml = `<script type="application/json">{"results":[
     {"id":"1","marketplace_listing_title":"Mic A"}

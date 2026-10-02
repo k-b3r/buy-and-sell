@@ -8,6 +8,8 @@ import { extractDetailFields } from './domains/marketplace'
 import { extractCursor, extractLsd, parsePaginationResponse } from './domains/marketplace'
 import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './domains/marketplace'
 import type { DbClient } from './platform/storage'
+import type { DelayFn } from './platform/utils'
+import { realDelay } from './platform/utils'
 import { upsertListing, getCollectedListingIds } from './domains/marketplace/storage/listings'
 import type { ImageStore } from './platform/images'
 import { storeListingPhotos } from './platform/images'
@@ -51,6 +53,7 @@ export async function resolvePageState(
   fetchHtml: () => Promise<string>,
   softWallTimeoutMs: number,
   hasContent: (html: string) => boolean,
+  delay: DelayFn = realDelay,
 ): Promise<PageStateResult> {
   let html = await fetchHtml()
   if (hasContent(html)) return { status: 'ok', html }
@@ -60,7 +63,7 @@ export async function resolvePageState(
 
   if (state === 'soft-wall') {
     logger.warn('soft login-wall detected, waiting for manual refresh or auto-refresh fallback')
-    await new Promise((resolve) => setTimeout(resolve, softWallTimeoutMs))
+    await delay(softWallTimeoutMs)
     await driver.refresh()
     html = await fetchHtml()
     if (hasContent(html)) return { status: 'ok', html }
