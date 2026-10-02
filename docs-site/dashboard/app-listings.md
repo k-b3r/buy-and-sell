@@ -20,7 +20,7 @@ _(undocumented)_
 
 ## dashboard/src/app/listings/[id]/ListingDetailContent.tsx
 
-**Interactions:** imports `../../BackLink`, `../../FacebookIcon`, `../../InfoTooltip`, `../../SaveButton`, `../../marketplaceButtonStyle`, `./ListingCarousel`, `./PriceEvidence`, `./RefreshButton`, `@/lib/queries`
+**Interactions:** imports `../../BackLink`, `../../FacebookIcon`, `../../InfoTooltip`, `../../SaveButton`, `../../marketplaceButtonStyle`, `./ListingCarousel`, `./PriceEvidence`, `./RefreshButton`, `@/lib/pricing`, `@/lib/queries`
 
 ### `default({ listing, showBackLink = true, back, }: { listing: ListingDetail showBackLink?: boolean // Raw querystring ListingsView's listing links carried (sort/hide-sold/ // discount-band/etc. - see parseListingsFilters), so "Back to {product}" // returns to that exact filtered view instead of resetting to defaults. back?: string }): React.JSX.Element`
 
@@ -36,7 +36,7 @@ _(undocumented)_
 
 ## dashboard/src/app/listings/[id]/page.tsx
 
-**Interactions:** imports `./ListingDetailContent`, `@/lib/cachedQueries`, `@/lib/db`
+**Interactions:** imports `./ListingDetailContent`, `@/lib/cachedQueries`
 
 ### `default({ params, searchParams, }: { params: Promise<{ id: string }> searchParams: Promise<{ back?: string }> }): Promise<React.JSX.Element>`
 

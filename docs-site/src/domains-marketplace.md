@@ -80,15 +80,47 @@ _(undocumented)_
 
 ## src/domains/marketplace/index.ts
 
-### `shouldBlockResource(resourceType: string): boolean`
+### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
 
 _(undocumented)_
 
-### `launchBrowser(options: { headless?: boolean; proxy?: BrowserProxy } = {}): Promise<{ close: () => Promise<void>; page: Page }>`
+### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
 
 _(undocumented)_
 
-### `createBrowserDriver(page: Page): PageDriver`
+### `buildEnrichmentPrompt(products: EnrichmentCandidate[]): string`
+
+_(undocumented)_
+
+### `extractDetailFields(html: string): Record<string, unknown>`
+
+_(undocumented)_
+
+### `extractGridListings(html: string): GridListing[]`
+
+_(undocumented)_
+
+### `looksLikeListing(obj: unknown): obj is Record<string, unknown>`
+
+_(undocumented)_
+
+### `detectGenericBaseModel(baseModel: string): { reason: GenericReason; matched: string } | null`
+
+_(undocumented)_
+
+### `isWithinServiceArea(listing: Record<string, unknown>): boolean`
+
+_(undocumented)_
+
+### `deriveTargetBaseModel(productBaseModel: string, mismatch: ModelCodeMismatch): string | null`
+
+_(undocumented)_
+
+### `findModelCodeMismatches(title: string, productText: string): ModelCodeMismatch[]`
+
+_(undocumented)_
+
+### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
 
 _(undocumented)_
 
@@ -104,86 +136,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `detectPageState(html: string): PageState`
-
-_(undocumented)_
-
-### `checkTunnelAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: SocksConnect } = {}): Promise<boolean>`
-
-_(undocumented)_
-
-### `defaultSocksConnect({ host, port, destination, timeoutMs, userId, password }): Promise<import("net").Socket>`
-
-_(undocumented)_
-
-### `checkHttpProxyAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: HttpConnect } = {}): Promise<boolean>`
-
-_(undocumented)_
-
-### `defaultHttpConnect({ host, port, destination, timeoutMs, username, password }): Promise<{ destroy: () => void; }>`
-
-_(undocumented)_
-
-### `createDefaultProxyChecker(checkers: { socks5: ProxyChecker; http: ProxyChecker } = { socks5: checkTunnelAlive, http: checkHttpProxyAlive }): ProxyChecker`
-
-_(undocumented)_
-
-### `resolveProxy(checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
-
-_(undocumented)_
-
-### `looksLikeListing(obj: unknown): obj is Record<string, unknown>`
-
-_(undocumented)_
-
-### `extractGridListings(html: string): GridListing[]`
-
-_(undocumented)_
-
-### `extractDetailFields(html: string): Record<string, unknown>`
-
-_(undocumented)_
-
-### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
-
-_(undocumented)_
-
-### `buildGeminiPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `parseGeminiPriceResponse(text: string): PriceRange | null`
-
-_(undocumented)_
-
-### `buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `parseExaPriceResponse(response: unknown): PriceRange | null`
-
-_(undocumented)_
-
-### `buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `parseTavilyPriceAnswer(text: string | null): PriceRange | null`
-
-_(undocumented)_
-
-### `lookupRetail(clients: PriceLookupClients, product: PriceLookupCandidate, logger: Logger, label: string): Promise<PriceLookupResult | null>`
-
-_(undocumented)_
-
-### `lookupSecondhand(clients: PriceLookupClients, product: PriceLookupCandidate, logger: Logger, label: string): Promise<PriceLookupResult | null>`
-
-_(undocumented)_
-
 ### `ensureProductPriced(clients: PriceLookupClients, db: DbClient, product: PriceLookupCandidate, logger: Logger): Promise<ProductPricingResult>`
 
 _(undocumented)_
@@ -192,11 +144,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `extractDescriptionPrice(description: string | null): number | null`
+### `buildCategoryBackfillPrompt(products: CategoryBackfillCandidate[]): string`
 
 _(undocumented)_
 
-### `descriptionPriceDiverges(description: string | null, priceAmount: number, factor = DESCRIPTION_PRICE_DIVERGENCE_FACTOR): boolean`
+### `buildExtractionPrompt(listings: ExtractionInput[]): string`
+
+_(undocumented)_
+
+### `buildSubCategoryBackfillPrompt(products: SubCategoryBackfillCandidate[]): string`
 
 _(undocumented)_
 
@@ -208,63 +164,19 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `buildExtractionPrompt(listings: ExtractionInput[]): string`
+### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
 
 _(undocumented)_
 
-### `buildCategoryBackfillPrompt(products: CategoryBackfillCandidate[]): string`
+### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
 
 _(undocumented)_
 
-### `buildSubCategoryBackfillPrompt(products: SubCategoryBackfillCandidate[]): string`
+### `normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateCandidate): RealEstateFields | null`
 
 _(undocumented)_
 
-### `buildEnrichmentPrompt(products: EnrichmentCandidate[]): string`
-
-_(undocumented)_
-
-### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
-
-_(undocumented)_
-
-### `detectGenericBaseModel(baseModel: string): { reason: GenericReason; matched: string } | null`
-
-_(undocumented)_
-
-### `parseListingFields(listing: Record<string, unknown>): ParsedListingFields`
-
-_(undocumented)_
-
-### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
-
-_(undocumented)_
-
-### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
-
-_(undocumented)_
-
-### `getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]>`
-
-_(undocumented)_
-
-### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
-
-_(undocumented)_
-
-### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
-
-_(undocumented)_
-
-### `markListingAlive(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `markListingSold(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `flagListingRemoved(db: DbClient, id: string): Promise<void>`
+### `checkListingDiscount(db: DbClient, listingId: string, productId: number, condition: string | null, priceAmount: number | null, retailPrice: PriceRange | null, secondhandPrice: PriceRange | null, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
 
 _(undocumented)_
 
@@ -272,7 +184,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `refreshListingFields(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+### `flagListingRemoved(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
 
@@ -280,7 +192,19 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
+### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
+
+_(undocumented)_
+
+### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
+
+_(undocumented)_
+
+### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
 
 _(undocumented)_
 
@@ -292,31 +216,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `upsertListingPriceReview(db: DbClient, listingId: string, data: PriceReviewData, model: string, reviewedDescription: string | null): Promise<void>`
-
-_(undocumented)_
-
-### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
-
-_(undocumented)_
-
-### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
-
-_(undocumented)_
-
-### `checkListingDiscount(db: DbClient, listingId: string, productId: number, condition: string | null, priceAmount: number | null, retailPrice: PriceRange | null, secondhandPrice: PriceRange | null, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
-
-_(undocumented)_
-
 ### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
-
-_(undocumented)_
-
-### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
-
-_(undocumented)_
-
-### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
 
 _(undocumented)_
 
@@ -324,67 +224,39 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null, category: string | null = null, subCategory: string | null = null): Promise<number>`
+### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
 
 _(undocumented)_
 
-### `updateListingProductIds(db: DbClient, assignments: { id: string; productId: number }[]): Promise<void>`
+### `markListingAlive(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
 
-### `getExtractionCandidates(db: DbClient): Promise<ExtractionCandidate[]>`
+### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
 
-### `getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]>`
+### `markListingSold(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
 
-### `upsertProductEnrichment(db: DbClient, productId: number, data: EnrichmentData, model: string): Promise<void>`
+### `refreshListingFields(db: DbClient, imageStore: ImageStore, logger: Logger, storedPhotoIds: string[] | null, listing: Record<string, unknown>, fetchBytes: FetchBytes = defaultFetchBytes, compress: CompressImage = defaultCompressImage): Promise<void>`
 
 _(undocumented)_
 
-### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
+### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
 
 _(undocumented)_
 
-### `getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]>`
+### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
 
 _(undocumented)_
 
-### `updateProductCategories(db: DbClient, assignments: { id: number; category: string }[]): Promise<void>`
+### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
 
 _(undocumented)_
 
-### `getSubCategoryBackfillCandidates(db: DbClient): Promise<SubCategoryBackfillCandidate[]>`
-
-_(undocumented)_
-
-### `updateProductSubCategories(db: DbClient, assignments: { id: number; subCategory: string }[]): Promise<void>`
-
-_(undocumented)_
-
-### `mergeDuplicateProduct(db: DbClient, survivorId: number, loserId: number): Promise<void>`
-
-_(undocumented)_
-
-### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
-
-_(undocumented)_
-
-### `insertPriceCheck(db: DbClient, productId: number, price: PriceRange, rawResponse: string, source: PriceCheckSource, condition: string | null = null, confidence: string | null = null, releaseYear: number | null = null, isDiscontinued: boolean | null = null): Promise<void>`
-
-_(undocumented)_
-
-### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
-
-_(undocumented)_
-
-### `flagProductPriceLookupExcluded(db: DbClient, productId: number, reason: string): Promise<void>`
-
-_(undocumented)_
-
-### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
+### `upsertListingPriceReview(db: DbClient, listingId: string, data: PriceReviewData, model: string, reviewedDescription: string | null): Promise<void>`
 
 _(undocumented)_
 
@@ -392,11 +264,75 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number`
+### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
 
 _(undocumented)_
 
-### `isWithinServiceArea(listing: Record<string, unknown>): boolean`
+### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
+
+_(undocumented)_
+
+### `insertPriceCheck(db: DbClient, productId: number, price: PriceRange, rawResponse: string, source: PriceCheckSource, condition: string | null = null, confidence: string | null = null, releaseYear: number | null = null, isDiscontinued: boolean | null = null): Promise<void>`
+
+_(undocumented)_
+
+### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
+
+_(undocumented)_
+
+### `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null, category: string | null = null, subCategory: string | null = null): Promise<number>`
+
+_(undocumented)_
+
+### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
+
+_(undocumented)_
+
+### `getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]>`
+
+_(undocumented)_
+
+### `getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]>`
+
+_(undocumented)_
+
+### `getExtractionCandidates(db: DbClient): Promise<ExtractionCandidate[]>`
+
+_(undocumented)_
+
+### `getSubCategoryBackfillCandidates(db: DbClient): Promise<SubCategoryBackfillCandidate[]>`
+
+_(undocumented)_
+
+### `mergeDuplicateProduct(db: DbClient, survivorId: number, loserId: number): Promise<void>`
+
+_(undocumented)_
+
+### `updateListingProductIds(db: DbClient, assignments: { id: string; productId: number }[]): Promise<void>`
+
+_(undocumented)_
+
+### `updateProductCategories(db: DbClient, assignments: { id: number; category: string }[]): Promise<void>`
+
+_(undocumented)_
+
+### `updateProductSubCategories(db: DbClient, assignments: { id: number; subCategory: string }[]): Promise<void>`
+
+_(undocumented)_
+
+### `upsertProductEnrichment(db: DbClient, productId: number, data: EnrichmentData, model: string): Promise<void>`
+
+_(undocumented)_
+
+### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
+
+_(undocumented)_
+
+### `upsertRealEstateDetails(db: DbClient, listingId: string, f: RealEstateFields, model: string, sourceHash: string): Promise<void>`
+
+_(undocumented)_
+
+### `detectPageState(html: string): PageState`
 
 _(undocumented)_
 
@@ -536,177 +472,37 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `resolveProxy(checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
+### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
 
 _(undocumented)_
 
-## src/domains/marketplace/storage/index.ts
+## src/domains/marketplace/real-estate.ts
 
-### `parseListingFields(listing: Record<string, unknown>): ParsedListingFields`
-
-_(undocumented)_
-
-### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+### `parsePriceShorthand(text: string): number[]`
 
 _(undocumented)_
 
-### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
+### `normalizeNcrArea(text: string | null): string | null`
 
 _(undocumented)_
 
-### `getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]>`
+### `normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateCandidate): RealEstateFields | null`
 
 _(undocumented)_
 
-### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
-
-_(undocumented)_
-
-### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
-
-_(undocumented)_
-
-### `markListingAlive(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `markListingSold(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `flagListingRemoved(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `deleteListing(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `refreshListingFields(db: DbClient, listing: Record<string, unknown>): Promise<void>`
-
-_(undocumented)_
-
-### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
-
-_(undocumented)_
-
-### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]>`
-
-_(undocumented)_
-
-### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
-
-_(undocumented)_
-
-### `upsertListingPriceReview(db: DbClient, listingId: string, data: PriceReviewData, model: string, reviewedDescription: string | null): Promise<void>`
-
-_(undocumented)_
-
-### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
-
-_(undocumented)_
-
-### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
-
-_(undocumented)_
-
-### `checkListingDiscount(db: DbClient, listingId: string, productId: number, condition: string | null, priceAmount: number | null, retailPrice: PriceRange | null, secondhandPrice: PriceRange | null, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
-
-_(undocumented)_
-
-### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
-
-_(undocumented)_
-
-### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
-
-_(undocumented)_
-
-### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null, category: string | null = null, subCategory: string | null = null): Promise<number>`
-
-_(undocumented)_
-
-### `updateListingProductIds(db: DbClient, assignments: { id: string; productId: number }[]): Promise<void>`
-
-_(undocumented)_
-
-### `getExtractionCandidates(db: DbClient): Promise<ExtractionCandidate[]>`
-
-_(undocumented)_
-
-### `getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]>`
-
-_(undocumented)_
-
-### `upsertProductEnrichment(db: DbClient, productId: number, data: EnrichmentData, model: string): Promise<void>`
-
-_(undocumented)_
-
-### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
-
-_(undocumented)_
-
-### `getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]>`
-
-_(undocumented)_
-
-### `updateProductCategories(db: DbClient, assignments: { id: number; category: string }[]): Promise<void>`
-
-_(undocumented)_
-
-### `getSubCategoryBackfillCandidates(db: DbClient): Promise<SubCategoryBackfillCandidate[]>`
-
-_(undocumented)_
-
-### `updateProductSubCategories(db: DbClient, assignments: { id: number; subCategory: string }[]): Promise<void>`
-
-_(undocumented)_
-
-### `mergeDuplicateProduct(db: DbClient, survivorId: number, loserId: number): Promise<void>`
-
-_(undocumented)_
-
-### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
-
-_(undocumented)_
-
-### `insertPriceCheck(db: DbClient, productId: number, price: PriceRange, rawResponse: string, source: PriceCheckSource, condition: string | null = null, confidence: string | null = null, releaseYear: number | null = null, isDiscontinued: boolean | null = null): Promise<void>`
-
-_(undocumented)_
-
-### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
-
-_(undocumented)_
-
-### `flagProductPriceLookupExcluded(db: DbClient, productId: number, reason: string): Promise<void>`
-
-_(undocumented)_
-
-### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
-
-_(undocumented)_
-
-### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
+### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
 
 _(undocumented)_
 
 ## src/domains/marketplace/storage/listings.ts
 
-**Interactions:** imports `../../../platform/storage`, `../negotiable-keywords`, `../price-lookup`, `../price-review`
+**Interactions:** imports `../../../platform/images`, `../../../platform/logger`, `../../../platform/storage`, `../negotiable-keywords`, `../price-lookup`, `../price-review`
 
 ### `parseListingFields(listing: Record<string, unknown>): ParsedListingFields`
+
+_(undocumented)_
+
+### `extractPhotoIds(listing: Record<string, unknown>): string[] | null`
 
 _(undocumented)_
 
@@ -718,7 +514,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getCheckListingsCandidates(db: DbClient, limit: number): Promise<CheckListingsCandidate[]>`
+### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
 
 _(undocumented)_
 
@@ -746,7 +542,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `refreshListingFields(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+### `recordRealEstatePriceChange(db: DbClient, logger: Logger, listingId: string, prior: PriorPriceRow | undefined, newPrice: number | null, newCurrency: string | null): Promise<void>`
+
+_(undocumented)_
+
+### `refreshListingFields(db: DbClient, imageStore: ImageStore, logger: Logger, storedPhotoIds: string[] | null, listing: Record<string, unknown>, fetchBytes: FetchBytes = defaultFetchBytes, compress: CompressImage = defaultCompressImage): Promise<void>`
 
 _(undocumented)_
 
@@ -871,6 +671,18 @@ _(undocumented)_
 _(undocumented)_
 
 ### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
+
+_(undocumented)_
+
+## src/domains/marketplace/storage/real-estate.ts
+
+**Interactions:** imports `../../../platform/storage`, `../real-estate`
+
+### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
+
+_(undocumented)_
+
+### `upsertRealEstateDetails(db: DbClient, listingId: string, f: RealEstateFields, model: string, sourceHash: string): Promise<void>`
 
 _(undocumented)_
 
