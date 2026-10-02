@@ -26,10 +26,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `buildVerificationPrompt(candidate: DiscountVerificationCandidate, marketContext: string, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): string`
-
-_(undocumented)_
-
 ### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
 
 _(undocumented)_
@@ -71,10 +67,6 @@ _(undocumented)_
 ## src/domains/marketplace/httpProxy.ts
 
 ### `checkHttpProxyAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: HttpConnect } = {}): Promise<boolean>`
-
-_(undocumented)_
-
-### `defaultHttpConnect({ host, port, destination, timeoutMs, username, password }): Promise<{ destroy: () => void; }>`
 
 _(undocumented)_
 
@@ -348,10 +340,6 @@ _(undocumented)_
 
 ## src/domains/marketplace/model-mismatch.ts
 
-### `extractModelCodes(text: string): Map<string, Set<string>>`
-
-_(undocumented)_
-
 ### `findModelCodeMismatches(title: string, productText: string): ModelCodeMismatch[]`
 
 _(undocumented)_
@@ -498,14 +486,6 @@ _(undocumented)_
 
 **Interactions:** imports `../../../platform/images`, `../../../platform/logger`, `../../../platform/storage`, `../negotiable-keywords`, `../price-lookup`, `../price-review`
 
-### `parseListingFields(listing: Record<string, unknown>): ParsedListingFields`
-
-_(undocumented)_
-
-### `extractPhotoIds(listing: Record<string, unknown>): string[] | null`
-
-_(undocumented)_
-
 ### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
 
 _(undocumented)_
@@ -542,10 +522,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `recordRealEstatePriceChange(db: DbClient, logger: Logger, listingId: string, prior: PriorPriceRow | undefined, newPrice: number | null, newCurrency: string | null): Promise<void>`
-
-_(undocumented)_
-
 ### `refreshListingFields(db: DbClient, imageStore: ImageStore, logger: Logger, storedPhotoIds: string[] | null, listing: Record<string, unknown>, fetchBytes: FetchBytes = defaultFetchBytes, compress: CompressImage = defaultCompressImage): Promise<void>`
 
 _(undocumented)_
@@ -571,10 +547,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
-
-_(undocumented)_
-
-### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
 
 _(undocumented)_
 
@@ -689,10 +661,6 @@ _(undocumented)_
 ## src/domains/marketplace/tunnel.ts
 
 ### `checkTunnelAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: SocksConnect } = {}): Promise<boolean>`
-
-_(undocumented)_
-
-### `defaultSocksConnect({ host, port, destination, timeoutMs, userId, password }): Promise<import("net").Socket>`
 
 _(undocumented)_
 
