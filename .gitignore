@@ -1,6 +1,7 @@
 node_modules/
 dist/
-data/
+**/data/*
+!/data/.gitkeep
 *.log
 docs-site/.vitepress/cache/
 docs-site/.vitepress/dist/
@@ -46,3 +47,4 @@ coverage
 
 # playwright MCP tool run artifacts (screenshots/console logs from live testing)
 .playwright-mcp/
+.claude/worktrees/
