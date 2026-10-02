@@ -10,7 +10,7 @@ import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/
 import { loadSettings } from '../../platform/settings'
 import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, normalizeRealEstateItem } from '../../domains/marketplace'
 import type { RealEstateCandidate, RealEstateFields } from '../../domains/marketplace'
-import { getRealEstateCandidates, upsertRealEstateDetails } from '../../domains/marketplace/storage/real-estate'
+import { getRealEstateCandidates, upsertRealEstateDetails } from '../../domains/marketplace'
 
 const MODEL = 'openai/gpt-oss-120b'
 const MAX_ATTEMPTS = 3

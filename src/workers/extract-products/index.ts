@@ -20,15 +20,11 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
-import {
-  findOrCreateProduct,
-  updateListingProductIds,
-  getExtractionCandidates,
-} from '../../domains/marketplace/storage/products'
-import type { DiscountPolicyThresholds } from '../../domains/marketplace/storage/listings'
-import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace/storage/listings'
-import { getProductPricingStatus } from '../../domains/marketplace/storage/pricing'
+import type { ExtractionCandidate } from '../../domains/marketplace'
+import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace'
+import type { DiscountPolicyThresholds } from '../../domains/marketplace'
+import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace'
+import { getProductPricingStatus } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
 import type { PriceLookupClients, ProductPricingResult } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'

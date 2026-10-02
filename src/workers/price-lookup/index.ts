@@ -15,7 +15,7 @@ import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import type { PriceLookupCandidate, PriceLookupClients } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'
-import { getPriceLookupCandidates } from '../../domains/marketplace/storage/pricing'
+import { getPriceLookupCandidates } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
 
 export type { PriceLookupClients } from '../../domains/marketplace'

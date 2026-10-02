@@ -5,7 +5,7 @@ import { createLogger } from '../../platform/logger'
 import { normalizeVariantTier } from '../../domains/marketplace'
 import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { ExtractionCandidate } from '../../domains/marketplace/storage/products'
+import type { ExtractionCandidate } from '../../domains/marketplace'
 
 const LOG_PATH = 'data/tmp-extract.log'
 

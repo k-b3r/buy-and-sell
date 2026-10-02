@@ -3,7 +3,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { createLogger } from '../../platform/logger'
-import { findModelCodeMismatches } from '../../domains/marketplace/model-mismatch'
+import { findModelCodeMismatches } from '../../domains/marketplace'
 
 interface CandidateRow {
   listing_id: string

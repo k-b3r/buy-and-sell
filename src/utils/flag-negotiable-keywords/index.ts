@@ -4,8 +4,8 @@ import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import type { NegotiableKeywordCandidate } from '../../domains/marketplace/storage/listings'
-import { getNegotiableKeywordCandidates, upsertKeywordNegotiable } from '../../domains/marketplace/storage/listings'
+import type { NegotiableKeywordCandidate } from '../../domains/marketplace'
+import { getNegotiableKeywordCandidates, upsertKeywordNegotiable } from '../../domains/marketplace'
 import { matchesNegotiableKeyword } from '../../domains/marketplace'
 
 // One-off/rerunnable sweep over EXISTING listings for the negotiability

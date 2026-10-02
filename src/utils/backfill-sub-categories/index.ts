@@ -7,10 +7,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import {
-  getSubCategoryBackfillCandidates,
-  updateProductSubCategories,
-} from '../../domains/marketplace/storage/products'
+import { getSubCategoryBackfillCandidates, updateProductSubCategories } from '../../domains/marketplace'
 import {
   buildSubCategoryBackfillPrompt,
   SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA,

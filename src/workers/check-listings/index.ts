@@ -2,13 +2,13 @@ import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { PageDriver } from '../../domains/marketplace'
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
+import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { resolveProxy } from '../../domains/marketplace'
-import type { CheckListingsCandidate } from '../../domains/marketplace/storage/listings'
+import type { CheckListingsCandidate } from '../../domains/marketplace'
 import {
   getCheckListingsCandidates,
   markListingAlive,
@@ -16,7 +16,7 @@ import {
   flagListingRemoved,
   deleteListing,
   refreshListingFields,
-} from '../../domains/marketplace/storage/listings'
+} from '../../domains/marketplace'
 import type { ImageStore } from '../../platform/images'
 import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'
