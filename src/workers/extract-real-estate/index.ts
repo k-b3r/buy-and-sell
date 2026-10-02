@@ -138,7 +138,7 @@ export async function runRealEstateExtraction(
 
 async function main() {
   loadEnvFile()
-  const apiKeys = loadGroqApiKeys()
+  const apiKeys = loadGroqApiKeys(process.env)
   if (apiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — real estate extraction requires Postgres')

@@ -155,7 +155,7 @@ async function main() {
   // silently launching direct.
   let proxy: Awaited<ReturnType<typeof resolveProxy>>['proxy']
   if (process.env.WEBSHARE_PROXY || process.env.SOCKS_PROXY) {
-    const resolution = await resolveProxy()
+    const resolution = await resolveProxy(process.env)
     if (!resolution.ok) {
       logger.error(resolution.error!)
       process.exit(1)

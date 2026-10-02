@@ -7,7 +7,7 @@ export interface ExaClient {
 // sequentially until the next index is unset, so the pool can grow/shrink
 // with no code change. Single source of truth for every worker that uses
 // Exa (price-lookup, extract-products, verify-discount-notifications).
-export function loadExaApiKeys(env: NodeJS.ProcessEnv = process.env): string[] {
+export function loadExaApiKeys(env: NodeJS.ProcessEnv): string[] {
   const keys: string[] = []
   for (let i = 0; ; i++) {
     const key = env[`EXA_API_KEY${i}`]

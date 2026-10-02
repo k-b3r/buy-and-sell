@@ -310,11 +310,11 @@ function logProgress(logger: Logger, processedSoFar: number, pendingTotal: numbe
 
 async function main() {
   loadEnvFile()
-  const groqApiKeys = loadGroqApiKeys()
+  const groqApiKeys = loadGroqApiKeys(process.env)
   if (groqApiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
   const geminiApiKey = process.env.FREE_GEMINI_API_KEY
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
-  const exaApiKeys = loadExaApiKeys()
+  const exaApiKeys = loadExaApiKeys(process.env)
   if (exaApiKeys.length === 0) throw new Error('No EXA_API_KEY<n> (EXA_API_KEY0, EXA_API_KEY1, ...) set in .env')
   const tavilyApiKey = process.env.TAVILY_API_KEY
   if (!tavilyApiKey) throw new Error('TAVILY_API_KEY not set in .env')
