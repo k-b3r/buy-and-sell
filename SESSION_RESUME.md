@@ -1,27 +1,44 @@
 # Session Resume
 
-## Done 2026-09-02 (don't redo this)
+Updated 2026-10-03. Read this, then `docs/architecture-cleanup-plan.md` and `CONTEXT.md` > Architecture.
 
-- **Duplicate-product cleanup**: `src/utils/merge-duplicate-products/variant-aliases.ts` (new general tuple-based merge - moves text between `base_model`/`variant_tier` together, unlike the older `CANONICAL_BASE_MODEL` base-only rename) + `variant-alias-rules.ts` (308 rules from a full-catalog scan). Applied live: 8,675 -> 8,383 products, 271 singletons became price-comparable. `--dry-run` flag on the script for reviewing future rule batches before writing.
-- **Bug fix**: `mergeDuplicateProduct` (`src/domains/marketplace/storage/products.ts`) didn't reassign `discount_notifications.product_id` before deleting the loser row - crashed on a real FK violation mid-run. Fixed + tested.
-- **Extraction prompt fix** (`buildExtractionPrompt`, `src/domains/marketplace/products.ts`): worked examples telling the model to split a trim/tier suffix out of `base_model` into `variant` (was the #1 cause of the duplicates above), plus a rule against tagging every listing of a 5G-only model with a redundant "5G" variant (#2 cause).
-- **`getSoldComparablePrice`** (`dashboard/src/lib/queries.ts`): median of a product's actually-sold listings (`sold_at IS NOT NULL`, n>=3). Sold-comps tier for `/deals`.
-- **`getPeerMedianPrice`** (dashboard-side, `dashboard/src/lib/queries.ts`): same clean-median approach, `sold_at IS NULL`, n>=2. Peer-listings tier for `/deals`.
-- **`/deals` page shipped**: `dashboard/src/lib/queries.ts`'s `getDeals` (one SQL pass computing tier/reference-price/profit/discount per active listing - sold_comps -> peer_listings -> llm_estimate fallback chain, magnitude-outlier guard on ask vs reference price, singleton-llm_estimate rows routed to a separate "low confidence" bucket) + `dashboard/src/app/api/deals/route.ts` + `dashboard/src/app/deals/page.tsx`/`DealsClient.tsx` (filters: category, min confidence tier, min profit, max days listed, sold/active toggle; infinite-scroll main list + "load more" low-confidence section; reuses existing `SaveButton`) + nav link in `layout.tsx`. `export const dynamic = 'force-dynamic'` on the page - confirmed live it'd otherwise statically freeze at build time. Est. days-to-sell shipped as an explicit "coming soon" placeholder per user decision (query doesn't exist yet, didn't block launch). 21 new tests in `queries.test.ts`, `pnpm build`/`pnpm test`/`pnpm tsc --noEmit` all clean.
-- **Browser QA on `/deals` (Playwright)**, found + fixed a real bug: the `llm_estimate` tier's `p` CTE wasn't gated on `price_lookup_excluded` (unlike `sold_comp`/`peer_median`) - two unrelated real-estate listings (`price_lookup_excluded=true`) shared the same nonsense trained-price estimate and showed as ~₱200M+ "deals" in the low-confidence bucket. Fixed + regression test added. Save/unsave, category filter, and confidence-tier filter all manually verified working end-to-end against the live DB after the fix; no console errors.
-- Workers are currently **stopped** (paused by user, deliberately, to avoid collecting/categorizing more data mid-cleanup) - restart is the user's call, not automatic. Live DB traffic during this session's manual smoke-testing showed data still shifting slightly (a product's peer-listing count dropped 2->1 mid-session) - some other process may still be touching the DB despite workers being "stopped"; worth double-checking if that matters.
-- Root cause still open, not chased further this session: **breadth-vs-depth** - 8,383 products, ~75% still singleton (one listing ever seen), because collection is spread across many keywords/categories rather than going deep on a few liquid ones. `/deals`'s low-confidence bucket now makes this visible empirically rather than needing to guess upfront.
-- **Wrong-model product mismatch found + fixed (one instance)**: user spotted listing `1000000000000002` ("Samsung S23 ULTRA...") ranking as a top `/deals` "Sold comps" deal (+₱38,001, 63% off) - it had been mis-grouped under product 342 ("Samsung Galaxy S26 Ultra", 8 other genuine S26 listings) despite its own title clearly saying S23, so its peer/sold comps were coming from a completely different (pricier) phone. Reassigned to the correct existing product (1405, "Samsung Galaxy S23"/"Ultra"). Root cause: an isolated extraction-time misread, not caused by this session's dedup-merge rules (checked `variant-alias-rules.ts` - S23/S26 are kept as separate canonical buckets there). **Not audited for other instances** - user chose "fix this one" over a full catalog scan; if more `/deals` rows look suspiciously good, this failure mode (title's model number != matched product's base_model) is worth checking again.
-  - Separately, that same listing's own photos are a mismatched/scammy iPhone carousel under a "Samsung" title - confirmed via `raw_json.listing_photos` that Facebook itself served those photos for this exact listing at scrape time, i.e. **not our bug**, the source listing itself is bad. Nothing to fix here.
+## Start here (fresh session)
 
-## Not yet done / follow-ups
+1. **Create Linear tickets** on the **BUY** board from the Tickets table in `docs/architecture-cleanup-plan.md` (tickets 0-7): title, scope, done-when, and blocked-by links matching the Depends column. Linear MCP is registered user-scope (`claude mcp get linear`); claude.ai connectors are off for this repo on purpose, the direct MCP is separate.
+2. **Ticket 0 (merge CI stack)** needs the user to add the repo secret first:
+   `claude setup-token` then `gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo k-b3r/buy-and-sell-ai`.
+   Then merge in order: #1 (`add-ci` -> main), #3 (`ci-lint-gates`), #4 (`module-boundaries`), #5 (`ci-hygiene-gates`). Each is stacked on the previous; after merging one, retarget the next to `main`.
+3. **Ticket 2 (real-estate module)** is the first refactor once 0 lands.
 
-- **Est. days-to-sell query** - median `sold_at - listed_at` per product, doesn't exist yet. `/deals` currently shows a static "coming soon" placeholder in its place.
-- **`saved_listings` feedback loop** - still 0 rows, no outcome columns (bought/sold/actual profit). Separate follow-up once `/deals` has real usage to check whether flagged deals were actually good.
-- **`/deals` <-> `discount_notifications` linkback** ("already flagged" badge) - nice-to-have, not required for v1, not built.
-- Verification backlog: 85 `discount_notifications`, 3/lap cap being verified by `verify-discount-notifications` - grows faster than it drains. Unrelated to `/deals` but worth knowing the notification pipeline is backlogged.
-- **Catalog-wide audit for wrong-model product mismatches** (title's model number vs matched product's base_model) - deferred, see the single-instance fix above.
+## State
 
-## Settings page
+- **Open PRs (all CI green except agent-review/gate, blocked on the secret):**
+  - #1 `add-ci`: prettier, eslint, typecheck, unit/integration (real Postgres)/e2e (Playwright) jobs, agent PR review. Tests live in `tests/integration/` and `tests/e2e/`.
+  - #3 `ci-lint-gates`: bans `@ts-ignore`/`any`, disable comments need `-- reason`, no `process.env` in `src/domains/**`, no inline sleeps; lint config tested by `tests/lint-config.test.ts` + fixtures.
+  - #4 `module-boundaries`: explicit marketplace `index.ts` (no `export *`), Playwright only via `domains/marketplace/browser.ts`, `.dependency-cruiser.cjs` (8 rules, each mutation-tested), `pnpm depcruise`.
+  - #5 `ci-hygiene-gates`: knip, `pnpm docs:check` (generated arch docs drift), `scripts/repo-checks.ts` (commit subjects, escape-hatch count vs base), lefthook pre-push `pnpm check`.
+- Worktree `.claude/worktrees/add-ci` is on `ci-hygiene-gates`; remove after the stack merges.
+- `pnpm check` = format, lint, depcruise, knip, typecheck, unit tests (~55s). Pre-push hook runs it; `LEFTHOOK=0` bypasses deliberately.
 
-Shipped earlier (commits `2d824ba`, `c79afdb`) - operator-tunable worker/discount-policy knobs at `/admin/settings`, `settings` Postgres table, `src/platform/settings.ts`'s `loadSettings`. Nothing left queued here.
+## Conventions
+
+- GitHub account **k-b3r**. `origin` is HTTPS: run `gh auth switch -u k-b3r` in the same command as any push/gh call (active account flips to kimbermudez). Switching `origin` to SSH is an open item.
+- Every change via PR, merge only when CI green. Merge commit subject: `merge <branch>`.
+- Standards: global `~/.claude/CODING_STANDARDS.md` (k-b3r/agent-config, rules tagged tool/hint/review/process) + this repo's `CODING_STANDARDS.md`. New unclear-shape features use `/spike-and-rebuild`.
+- CodeGraph MCP is installed user-scope; this repo is **not indexed** yet (`codegraph init` + `.codegraph/` in `.gitignore` is the user's call).
+
+## Open items (not in the cleanup plan)
+
+- Switch `origin` to SSH (`git@github.com:k-b3r/buy-and-sell-ai.git`).
+- `AGENT_CONFIG_TOKEN` (read-only PAT) secret so CI agent review can read the global standards.
+- Patterns + DI rules for global standards (prefer functional core / imperative shell, composition root, adapters at boundaries, strategy as plain functions, idempotent ops; avoid inheritance, singletons, one-impl interfaces, event buses, DI containers; "inject only I/O, pure logic takes data"; interfaces only at I/O boundaries).
+- Global standards name `commitlint`; repo uses `scripts/repo-checks.ts` instead (commitlint expects `type:` prefixes). Align the wording.
+- Measure CodeGraph's effect: rerun the 3 baseline agent tasks with the repo indexed and compare tokens (baseline: ~35k fixed startup context, 55-67k peak per task).
+
+## Older product follow-ups (from 2026-09-02, unverified since)
+
+- Est. days-to-sell query (median `sold_at - listed_at` per product); `/deals` shows a placeholder.
+- `saved_listings` outcome columns (bought/sold/actual profit) once `/deals` has usage.
+- `/deals` <-> `discount_notifications` "already flagged" badge.
+- `verify-discount-notifications` backlog grows faster than the 3/lap cap drains.
+- Catalog-wide audit for wrong-model product mismatches (title model number vs product `base_model`).
