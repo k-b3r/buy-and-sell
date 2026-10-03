@@ -4,7 +4,12 @@ import { descriptionPriceDiverges } from '../price-review'
 import { matchesNegotiableKeyword } from '../negotiable-keywords'
 import type { PriceRange } from '../price-lookup'
 import type { ImageStore, FetchBytes, CompressImage } from '../../../platform/images'
-import { storeListingPhotos, deleteListingPhotos, defaultFetchBytes, defaultCompressImage } from '../../../platform/images'
+import {
+  storeListingPhotos,
+  deleteListingPhotos,
+  defaultFetchBytes,
+  defaultCompressImage,
+} from '../../../platform/images'
 import type { Logger } from '../../../platform/logger'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
@@ -50,8 +55,7 @@ export function parseListingFields(listing: Record<string, unknown>): ParsedList
   const categoryId = (listing.marketplace_listing_category_id as string | undefined) ?? null
 
   const location = listing.location as
-    | { latitude?: number; longitude?: number; reverse_geocode?: { city?: string } }
-    | undefined
+    { latitude?: number; longitude?: number; reverse_geocode?: { city?: string } } | undefined
   const locationLat = location?.latitude ?? null
   const locationLng = location?.longitude ?? null
   const locationCity = location?.reverse_geocode?.city ?? null
@@ -89,9 +93,7 @@ export function parseListingFields(listing: Record<string, unknown>): ParsedList
 export function extractPhotoIds(listing: Record<string, unknown>): string[] | null {
   const photos = listing.listing_photos
   if (!Array.isArray(photos)) return null
-  return photos
-    .map((p) => (p as { id?: unknown } | undefined)?.id)
-    .filter((id): id is string => typeof id === 'string')
+  return photos.map((p) => (p as { id?: unknown } | undefined)?.id).filter((id): id is string => typeof id === 'string')
 }
 
 function photoIdsEqual(a: string[], b: string[]): boolean {
@@ -175,24 +177,26 @@ export async function getCheckListingsCandidates(
   // listings checked within that many days are skipped - property listings
   // change slowly, and every recheck costs live browser time. COALESCE keeps
   // never-checked and non-real-estate rows in (NULL AND ... would drop them).
-  const result = (reRecheckMinDays > 0
-    ? await db.query(
-        `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
+  const result = (
+    reRecheckMinDays > 0
+      ? await db.query(
+          `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
          LEFT JOIN products p ON p.id = l.product_id
          LEFT JOIN categories c ON c.id = p.category_id
          WHERE l.sold_at IS NULL
            AND NOT COALESCE(c.name = 'Real Estate' AND l.last_checked_at > now() - make_interval(days => $2), false)
          ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST
          LIMIT $1`,
-        [limit, reRecheckMinDays],
-      )
-    : await db.query(
-        `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+          [limit, reRecheckMinDays],
+        )
+      : await db.query(
+          `SELECT id, flagged_removed_at, source_photo_ids FROM listings
          WHERE sold_at IS NULL
          ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
          LIMIT $1`,
-        [limit],
-      )) as { rows: CheckListingsCandidate[] }
+          [limit],
+        )
+  ) as { rows: CheckListingsCandidate[] }
   return result.rows
 }
 
@@ -279,7 +283,8 @@ export async function recordRealEstatePriceChange(
   newCurrency: string | null,
 ): Promise<void> {
   if (!prior) return
-  const oldPrice = prior.old_price_amount === null || prior.old_price_amount === undefined ? null : Number(prior.old_price_amount)
+  const oldPrice =
+    prior.old_price_amount === null || prior.old_price_amount === undefined ? null : Number(prior.old_price_amount)
   if (oldPrice === newPrice) return
   try {
     const probe = (await db.query(
@@ -304,7 +309,9 @@ export async function recordRealEstatePriceChange(
       newCurrency,
     ])
   } catch (err) {
-    logger.warn(`listing ${listingId} price-history write failed, continuing: ${err instanceof Error ? err.message : String(err)}`)
+    logger.warn(
+      `listing ${listingId} price-history write failed, continuing: ${err instanceof Error ? err.message : String(err)}`,
+    )
   }
 }
 
@@ -354,7 +361,15 @@ export async function refreshListingFields(
     'last_seen_at = now()',
     'updated_at = now()',
   ]
-  const params: unknown[] = [f.id, f.title, f.priceAmount, f.priceCurrency, f.description, f.condition, JSON.stringify(listing)]
+  const params: unknown[] = [
+    f.id,
+    f.title,
+    f.priceAmount,
+    f.priceCurrency,
+    f.description,
+    f.condition,
+    JSON.stringify(listing),
+  ]
 
   if (currentPhotoIds !== null) {
     if (storedPhotoIds === null) {
@@ -395,10 +410,9 @@ export interface BackfillCandidate {
 }
 
 export async function getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]> {
-  const result = (await db.query(
-    `SELECT id, raw_json FROM listings WHERE stored_photo_urls IS NULL`,
-    [],
-  )) as { rows: BackfillCandidate[] }
+  const result = (await db.query(`SELECT id, raw_json FROM listings WHERE stored_photo_urls IS NULL`, [])) as {
+    rows: BackfillCandidate[]
+  }
   return result.rows
 }
 

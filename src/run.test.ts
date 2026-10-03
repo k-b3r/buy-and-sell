@@ -1,7 +1,6 @@
 import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './domains/marketplace'
-import type { GridListing } from './domains/marketplace'
 import type { DbClient } from './platform/storage'
 import { runCollection, resolvePageState } from './run'
 import { createLogger } from './platform/logger'
@@ -17,7 +16,11 @@ function mockInput(...lines: string[]): Readable {
 }
 
 function silentOutput(): Writable {
-  return new Writable({ write(_c, _e, cb) { cb() } })
+  return new Writable({
+    write(_c, _e, cb) {
+      cb()
+    },
+  })
 }
 
 function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
@@ -63,15 +66,31 @@ test('passes daysSinceListed through to the driver, defaulting to 30 when unset'
   })
   const logger = createLogger(LOG_PATH)
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-  }, fakeDb().db)
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-    daysSinceListed: 7,
-  }, fakeDb().db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+    },
+    fakeDb().db,
+  )
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+      daysSinceListed: 7,
+    },
+    fakeDb().db,
+  )
 
   expect(calls).toEqual([
     { query: 'headphones', daysSinceListed: 30 },
@@ -96,10 +115,18 @@ test('approved item gets saved, then loop advances to next item', async () => {
 
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
-  await runCollection(finalDriver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-  }, db)
+  await runCollection(
+    finalDriver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+    },
+    db,
+  )
 
   expect(upsertCalls).toHaveLength(2)
   expect(upsertCalls[0][0]).toBe('1')
@@ -161,10 +188,18 @@ test('"stop" decision ends the run without processing remaining items', async ()
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
 
-  await runCollection(driver, logger, async () => 'stop', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'stop',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+    },
+    db,
+  )
 
   expect(upsertCalls).toHaveLength(0)
 })
@@ -182,10 +217,18 @@ test('hard-block page state fails closed and stops the run', async () => {
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+    },
+    db,
+  )
 
   expect(upsertCalls).toHaveLength(0)
   const logText = readFileSync(LOG_PATH, 'utf-8')
@@ -236,10 +279,18 @@ test('soft-wall on detail page recovers via refresh and extracts post-refresh co
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 10,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 10,
+    },
+    db,
+  )
 
   expect(refreshCalled).toBe(true)
   expect(detailCallIndex).toBe(2)
@@ -280,11 +331,19 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-    maxItems: 2,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+      maxItems: 2,
+    },
+    db,
+  )
 
   expect(upsertCalls.map((c) => c[0])).toEqual(['1', '2'])
 })
@@ -299,7 +358,8 @@ test('clamps to the hard 1000-item limit even when maxItems requests more', asyn
     gotoSearch: async () => {},
     getGridHtml: async () => gridHtml,
     openListing: async () => {},
-    getDetailHtml: async () => `<script type="application/json">{"id":"grid-1","marketplace_listing_title":"Mic"}</script>`,
+    getDetailHtml: async () =>
+      `<script type="application/json">{"id":"grid-1","marketplace_listing_title":"Mic"}</script>`,
     refresh: async () => {},
     waitRandom: async () => {},
     fetchNextPage: async () => {
@@ -322,11 +382,19 @@ test('clamps to the hard 1000-item limit even when maxItems requests more', asyn
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-    maxItems: 2000,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+      maxItems: 2000,
+    },
+    db,
+  )
 
   // The "exceeds hard limit" warning itself isn't checked here - it's
   // logged once up front, then evicted by the log file's own MAX_LOG_LINES
@@ -380,11 +448,19 @@ test('tolerates an empty pagination page and recovers real items from the next o
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-    maxItems: 2,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+      maxItems: 2,
+    },
+    db,
+  )
 
   expect(paginationCallIndex).toBe(2)
   expect(upsertCalls.map((c) => c[0])).toEqual(['1', '2'])
@@ -415,10 +491,18 @@ test('skips listings Postgres already has from a prior run', async () => {
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb(['1'])
 
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+    },
+    db,
+  )
 
   expect(openedIds).toEqual(['2'])
   expect(upsertCalls.map((c) => c[0])).toEqual(['2'])
@@ -456,11 +540,19 @@ test('resuming after a crash processes a fresh maxItems budget of new items, on 
   // maxItems is a per-run budget of NEW items, not a lifetime total: 1 and 2 are
   // already saved and get skipped via dedup regardless, then 3 more new ones
   // (3, 4, 5) get processed to fill the budget.
-  await runCollection(driver, logger, async () => 'approve', mockInput(), silentOutput(), {
-    query: 'headphones',
-    softWallTimeoutMs: 100,
-    maxItems: 3,
-  }, db)
+  await runCollection(
+    driver,
+    logger,
+    async () => 'approve',
+    mockInput(),
+    silentOutput(),
+    {
+      query: 'headphones',
+      softWallTimeoutMs: 100,
+      maxItems: 3,
+    },
+    db,
+  )
 
   expect(openedIds).toEqual(['3', '4', '5'])
   expect(upsertCalls.map((c) => c[0])).toEqual(['3', '4', '5'])

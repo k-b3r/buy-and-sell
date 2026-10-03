@@ -57,7 +57,20 @@ test('upsertRealEstateDetails writes every field in a stable parameter order and
   expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
   expect(calls[0].sql).toContain('extracted_at = now()')
   expect(calls[0].params).toEqual([
-    '1', 'sale', 'condo', 4500000, 'total', null, 35, 1, 1, 'Sheridan Tower', 'Mandaluyong',
-    JSON.stringify(['rfo']), 'high', 'abc', 'openai/gpt-oss-120b',
+    '1',
+    'sale',
+    'condo',
+    4500000,
+    'total',
+    null,
+    35,
+    1,
+    1,
+    'Sheridan Tower',
+    'Mandaluyong',
+    JSON.stringify(['rfo']),
+    'high',
+    'abc',
+    'openai/gpt-oss-120b',
   ])
 })

@@ -121,7 +121,18 @@ test('a product judged generic with high confidence is still upserted with is_sp
 
   await runProductEnrichment(groq, db, logger, candidates)
 
-  expect(upserts[0]).toEqual([5, 'Movable furnishings.', 'n/a', false, null, null, null, 'openai/gpt-oss-120b', false, 'high'])
+  expect(upserts[0]).toEqual([
+    5,
+    'Movable furnishings.',
+    'n/a',
+    false,
+    null,
+    null,
+    null,
+    'openai/gpt-oss-120b',
+    false,
+    'high',
+  ])
 })
 
 test('an item with a missing is_specific_product or invalid confidence is logged and skipped as malformed', async () => {

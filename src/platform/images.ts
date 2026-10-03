@@ -23,9 +23,7 @@ export function createR2ImageStore(config: R2Config): ImageStore {
   })
   return {
     async put(key, body, contentType) {
-      await client.send(
-        new PutObjectCommand({ Bucket: config.bucket, Key: key, Body: body, ContentType: contentType }),
-      )
+      await client.send(new PutObjectCommand({ Bucket: config.bucket, Key: key, Body: body, ContentType: contentType }))
       return `${config.publicBaseUrl}/${key}`
     },
     async deleteAll(prefix) {
@@ -67,10 +65,7 @@ export type CompressImage = (
 // from re-encoding at a lower JPEG quality rather than downscaling further.
 // 800px cap is a no-op for these but guards against the rare oversized photo.
 export const defaultCompressImage: CompressImage = async (body) => {
-  const output = await sharp(body)
-    .resize({ width: 800, withoutEnlargement: true })
-    .jpeg({ quality: 70 })
-    .toBuffer()
+  const output = await sharp(body).resize({ width: 800, withoutEnlargement: true }).jpeg({ quality: 70 }).toBuffer()
   return { body: new Uint8Array(output), contentType: 'image/jpeg' }
 }
 

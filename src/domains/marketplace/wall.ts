@@ -15,12 +15,7 @@ const HARD_BLOCK_MARKERS = [
   /enter the characters you see/i,
   /complete this captcha/i,
 ]
-const LOGIN_WALL_MARKERS = [
-  /login_form/i,
-  /log in to continue/i,
-  /you must log in/i,
-  /log in to facebook/i,
-]
+const LOGIN_WALL_MARKERS = [/login_form/i, /log in to continue/i, /you must log in/i, /log in to facebook/i]
 
 export function detectPageState(html: string): PageState {
   if (HARD_BLOCK_MARKERS.some((re) => re.test(html))) {

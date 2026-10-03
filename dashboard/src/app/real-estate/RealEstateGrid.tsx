@@ -51,7 +51,7 @@ export default function RealEstateGrid({
     if (!sentinel || nextPage === null || failed) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) loadMore()
+        if (entries[0].isIntersecting) void loadMore()
       },
       { rootMargin: '200px' },
     )
@@ -64,12 +64,24 @@ export default function RealEstateGrid({
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-        {listings.map((l) => <RealEstateCard key={l.id} l={l} />)}
+        {listings.map((l) => (
+          <RealEstateCard key={l.id} l={l} />
+        ))}
       </div>
-      <div ref={sentinelRef} style={{ padding: '20px 0', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85em' }}>
+      <div
+        ref={sentinelRef}
+        style={{ padding: '20px 0', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85em' }}
+      >
         {loading ? 'Loading more…' : null}
         {failed ? (
-          <button type="button" onClick={() => { setFailed(false); loadMore() }} style={{ cursor: 'pointer' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setFailed(false)
+              void loadMore()
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             Couldn&apos;t load more. Retry
           </button>
         ) : null}

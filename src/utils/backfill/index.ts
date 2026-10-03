@@ -2,7 +2,11 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
 import { createLogger } from '../../platform/logger'
-import { upsertListing, getBackfillCandidates, markListingPhotosUnavailable } from '../../domains/marketplace/storage/listings'
+import {
+  upsertListing,
+  getBackfillCandidates,
+  markListingPhotosUnavailable,
+} from '../../domains/marketplace/storage/listings'
 import { createR2ImageStore, storeListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'
 import { resolvePageState } from '../../run'
@@ -112,7 +116,9 @@ async function main() {
     await pool.end()
   }
 
-  logger.info(`backfill complete (${softWallSkipCount} listings skipped as likely unavailable, marked for later validation)`)
+  logger.info(
+    `backfill complete (${softWallSkipCount} listings skipped as likely unavailable, marked for later validation)`,
+  )
   if (headed) {
     logger.info('--headed: leaving browser window open for inspection, Ctrl+C when done')
     await new Promise(() => {})

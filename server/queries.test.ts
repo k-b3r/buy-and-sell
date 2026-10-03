@@ -847,7 +847,7 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
   })
 })
 
-test('getProductDetail prefers a listing\'s stored_photo_urls over its primary_photo_url for the card thumbnail', async () => {
+test("getProductDetail prefers a listing's stored_photo_urls over its primary_photo_url for the card thumbnail", async () => {
   let call = 0
   const db: QueryClient = {
     query: async () => {
@@ -935,8 +935,22 @@ test('getProductDetail surfaces the verification reasoning for a listing with a 
       listingsSql = sql
       return {
         rows: [
-          { id: '123', title: 'flagged one', price_amount: '12000', condition: null, sold_at: null, verification_reasoning: 'Genuinely underpriced vs fresh market data.' },
-          { id: '456', title: 'never flagged', price_amount: '13000', condition: null, sold_at: null, verification_reasoning: null },
+          {
+            id: '123',
+            title: 'flagged one',
+            price_amount: '12000',
+            condition: null,
+            sold_at: null,
+            verification_reasoning: 'Genuinely underpriced vs fresh market data.',
+          },
+          {
+            id: '456',
+            title: 'never flagged',
+            price_amount: '13000',
+            condition: null,
+            sold_at: null,
+            verification_reasoning: null,
+          },
         ],
       }
     },
@@ -946,11 +960,13 @@ test('getProductDetail surfaces the verification reasoning for a listing with a 
 
   expect(listingsSql).toContain('dn.verification_reasoning')
   expect(listingsSql).toContain('dn.verified_at IS NOT NULL')
-  expect(result?.listings.find((l) => l.id === '123')?.verification_reasoning).toBe('Genuinely underpriced vs fresh market data.')
+  expect(result?.listings.find((l) => l.id === '123')?.verification_reasoning).toBe(
+    'Genuinely underpriced vs fresh market data.',
+  )
   expect(result?.listings.find((l) => l.id === '456')?.verification_reasoning).toBeNull()
 })
 
-test('getProductDetail computes each listing\'s discount against the outlier-excluded median of its siblings', async () => {
+test("getProductDetail computes each listing's discount against the outlier-excluded median of its siblings", async () => {
   let call = 0
   const db: QueryClient = {
     query: async () => {
@@ -983,11 +999,61 @@ test('getProductDetail computes each listing\'s discount against the outlier-exc
       // pulled way up by the placeholder; the real market median is 15000.
       return {
         rows: [
-          { id: 'a', title: 'A', price_amount: '12000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
-          { id: 'b', title: 'B', price_amount: '15000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
-          { id: 'c', title: 'C', price_amount: '18000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
-          { id: 'd', title: 'D (swap only placeholder)', price_amount: '999999999', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
-          { id: 'e', title: 'E (fake attention price)', price_amount: '123456', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          {
+            id: 'a',
+            title: 'A',
+            price_amount: '12000',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+          {
+            id: 'b',
+            title: 'B',
+            price_amount: '15000',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+          {
+            id: 'c',
+            title: 'C',
+            price_amount: '18000',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+          {
+            id: 'd',
+            title: 'D (swap only placeholder)',
+            price_amount: '999999999',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+          {
+            id: 'e',
+            title: 'E (fake attention price)',
+            price_amount: '123456',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
         ],
       }
     },
@@ -1050,8 +1116,28 @@ test('getProductDetail suppresses discount computation entirely for a price_look
       // since these are unrelated real items) discounts against each other.
       return {
         rows: [
-          { id: 'a', title: 'Sale', price_amount: '1000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
-          { id: 'b', title: 'Rush Sale', price_amount: '5000', primary_photo_url: null, condition: null, sold_at: null, price_review_is_negotiable: null, price_review_low: null, price_review_high: null },
+          {
+            id: 'a',
+            title: 'Sale',
+            price_amount: '1000',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
+          {
+            id: 'b',
+            title: 'Rush Sale',
+            price_amount: '5000',
+            primary_photo_url: null,
+            condition: null,
+            sold_at: null,
+            price_review_is_negotiable: null,
+            price_review_low: null,
+            price_review_high: null,
+          },
         ],
       }
     },
@@ -1376,7 +1462,7 @@ test('getListingDetail maps a full row, preferring stored_photo_urls over primar
   })
 })
 
-test('getListingDetail computes discount against its siblings\' outlier-excluded median', async () => {
+test("getListingDetail computes discount against its siblings' outlier-excluded median", async () => {
   let call = 0
   const db: QueryClient = {
     query: async () => {
@@ -1422,7 +1508,8 @@ test('getListingDetail still runs the sibling-median query (in parallel, keyed o
   const db: QueryClient = {
     query: async (sql: string) => {
       queryCount += 1
-      if (sql.includes('product_prices')) return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
+      if (sql.includes('product_prices'))
+        return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       return {
         rows: [
           {
@@ -1513,7 +1600,13 @@ test('getListingDetail populates recent_sales/similar_listings only for tiers th
   const result = await getListingDetail(db, '123')
 
   expect(result?.recent_sales).toEqual([
-    { listing_id: 'l2', title: 'Sold iPhone 13', price_amount: 11500, photo_url: 'https://x/s.jpg', date: '2026-08-20T00:00:00.000Z' },
+    {
+      listing_id: 'l2',
+      title: 'Sold iPhone 13',
+      price_amount: 11500,
+      photo_url: 'https://x/s.jpg',
+      date: '2026-08-20T00:00:00.000Z',
+    },
   ])
   expect(result?.similar_listings).toEqual([])
 })
@@ -1756,7 +1849,7 @@ test('getDiscountNotifications maps joined rows into DiscountNotification shape,
             reference_price: '15000',
             created_at: '2026-08-30T00:00:00.000Z',
             read_at: null,
-            verification_reasoning: 'Fresh secondhand market ~₱15k vs ₱8.7k ask; minor scuffs don\'t explain the gap.',
+            verification_reasoning: "Fresh secondhand market ~₱15k vs ₱8.7k ask; minor scuffs don't explain the gap.",
           },
         ],
       }
@@ -1781,7 +1874,7 @@ test('getDiscountNotifications maps joined rows into DiscountNotification shape,
       reference_price: 15000,
       created_at: '2026-08-30T00:00:00.000Z',
       read_at: null,
-      verification_reasoning: 'Fresh secondhand market ~₱15k vs ₱8.7k ask; minor scuffs don\'t explain the gap.',
+      verification_reasoning: "Fresh secondhand market ~₱15k vs ₱8.7k ask; minor scuffs don't explain the gap.",
     },
   ])
 })
@@ -1876,7 +1969,7 @@ test('getSoldCountsBySubCategory queries only sold listings, zero-filling weeks 
   expect(capturedSql).toContain('CROSS JOIN weeks')
 })
 
-test('getSoldCountsBySubCategory groups rows under their category+subCategory, most-sold first, carrying each week\'s avg price', async () => {
+test("getSoldCountsBySubCategory groups rows under their category+subCategory, most-sold first, carrying each week's avg price", async () => {
   // Simulates rows already ordered by the SQL (highest total_sold first at
   // both levels, weeks ascending within a group) - grouping is a
   // consecutive-run collapse, not a re-sort.
@@ -2531,7 +2624,9 @@ test('getDeals dedupes same-product listings sharing an identical title (repost 
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
 
   expect(capturedSql).toContain('DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id))')
-  expect(capturedSql).toContain('ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id')
+  expect(capturedSql).toContain(
+    'ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id',
+  )
 })
 
 test('getDeals sorts by tier rank first, profit only breaks ties within a tier', async () => {
@@ -2665,7 +2760,9 @@ test('getDeals filters by minimum confidence tier rank', async () => {
 
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { minConfidenceTier: 'peer_listings' })
 
-  expect(capturedSql).toContain("CASE tier WHEN 'sold_comps' THEN 3 WHEN 'peer_listings' THEN 2 WHEN 'llm_estimate' THEN 1 ELSE 0 END >=")
+  expect(capturedSql).toContain(
+    "CASE tier WHEN 'sold_comps' THEN 3 WHEN 'peer_listings' THEN 2 WHEN 'llm_estimate' THEN 1 ELSE 0 END >=",
+  )
   expect(capturedParams).toContain(2)
 })
 
@@ -2763,7 +2860,12 @@ test('getDeals caps each category at 10 rows via a per-category ROW_NUMBER, appl
 
 test('getCollectKeywords and replaceCollectKeywords only touch general keywords', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
-  const db: QueryClient = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [] } } }
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await getCollectKeywords(db)
   await replaceCollectKeywords(db, [{ keyword: 'rush sale', enabled: true }])
@@ -2772,24 +2874,60 @@ test('getCollectKeywords and replaceCollectKeywords only touch general keywords'
   expect(calls[1].sql).toContain("DELETE FROM collect_keywords WHERE kind = 'general'")
 })
 
-function recordingReDb(rows: Record<string, unknown>[] = []): { db: QueryClient; calls: { sql: string; params: unknown[] }[] } {
+function recordingReDb(rows: Record<string, unknown>[] = []): {
+  db: QueryClient
+  calls: { sql: string; params: unknown[] }[]
+} {
   const calls: { sql: string; params: unknown[] }[] = []
-  return { calls, db: { query: async (sql, params) => { calls.push({ sql, params }); return { rows } } } }
+  return {
+    calls,
+    db: {
+      query: async (sql, params) => {
+        calls.push({ sql, params })
+        return { rows }
+      },
+    },
+  }
 }
 
 const reRow = {
-  id: '1', title: 'Condo', primary_photo_url: null, stored_photo_urls: null, listed_at: null,
-  first_seen_at: '2026-09-01T00:00:00.000Z', listed_price: '13', listing_type: 'sale', property_type: 'condo',
-  price_php: '13000000', price_basis: 'total', lot_sqm: null, floor_sqm: '35', bedrooms: 1, bathrooms: 1,
-  project_name: 'Portico', area_text: 'Pasig', tags: ['rfo'], confidence: 'high', price_per_sqm: '371428.5714', needs_review: false,
+  id: '1',
+  title: 'Condo',
+  primary_photo_url: null,
+  stored_photo_urls: null,
+  listed_at: null,
+  first_seen_at: '2026-09-01T00:00:00.000Z',
+  listed_price: '13',
+  listing_type: 'sale',
+  property_type: 'condo',
+  price_php: '13000000',
+  price_basis: 'total',
+  lot_sqm: null,
+  floor_sqm: '35',
+  bedrooms: 1,
+  bathrooms: 1,
+  project_name: 'Portico',
+  area_text: 'Pasig',
+  tags: ['rfo'],
+  confidence: 'high',
+  price_per_sqm: '371428.5714',
+  needs_review: false,
 }
 
 test('getRealEstateListings maps rows, coerces numerics and returns price per sqm', async () => {
   const { db } = recordingReDb([reRow])
   const [row] = await getRealEstateListings(db)
   expect(row).toMatchObject({
-    id: '1', listed_price: 13, price_php: 13000000, floor_sqm: 35, lot_sqm: null, tags: ['rfo'],
-    price_per_sqm: 371428.5714, area_text: 'Pasig', confidence: 'high', needs_review: false,
+    id: '1',
+    listed_price: 13,
+    price_php: 13000000,
+    floor_sqm: 35,
+    lot_sqm: null,
+    tags: ['rfo'],
+    price_per_sqm: 371428.5714,
+    area_text: 'Pasig',
+    confidence: 'high',
+    needs_review: false,
   })
 })
 
@@ -2805,7 +2943,16 @@ test('getRealEstateListings shows only active real estate and computes price per
 
 test('getRealEstateListings binds filters as parameters in order and defaults paging', async () => {
   const { db, calls } = recordingReDb()
-  await getRealEstateListings(db, { listingType: 'rent', propertyType: 'condo', area: 'Makati', minPrice: 1000, maxPrice: 50000, minSqm: 30, limit: 10, offset: 20 })
+  await getRealEstateListings(db, {
+    listingType: 'rent',
+    propertyType: 'condo',
+    area: 'Makati',
+    minPrice: 1000,
+    maxPrice: 50000,
+    minSqm: 30,
+    limit: 10,
+    offset: 20,
+  })
   expect(calls[0].sql).not.toContain('Makati')
   expect(calls[0].params).toEqual(['rent', 'condo', '%Makati%', 1000, 50000, 30, 10, 20])
 })
@@ -2825,7 +2972,9 @@ test('getRealEstateListings excludes listings needing review by default and retu
   const review = recordingReDb()
   await getRealEstateListings(review.db, { view: 'review' })
   expect(review.calls[0].sql).toContain('x.needs_review = true')
-  expect(review.calls[0].sql).toContain("d.price_basis = 'unresolved' OR d.confidence = 'low' OR d.listing_type IS NULL")
+  expect(review.calls[0].sql).toContain(
+    "d.price_basis = 'unresolved' OR d.confidence = 'low' OR d.listing_type IS NULL",
+  )
 })
 
 test('getRealEstateListings keeps room shares out of the main list unless asked for', async () => {

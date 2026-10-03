@@ -106,7 +106,9 @@ async function main() {
       const products = pending.slice(0, limit)
       logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
       if (isTestRun()) {
-        logger.info(`TEST_RUN: marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`)
+        logger.info(
+          `TEST_RUN: marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
+        )
       } else {
         await runPriceLookup(clients, pool, logger, products, realDelay, settings['price_lookup.pacing_delay_ms'])
       }

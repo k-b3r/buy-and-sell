@@ -23,7 +23,10 @@ export const DEFAULT_COLLECT_KEYWORDS = [
 // but skipped here; the dashboard API refuses to save a list with none
 // enabled, so the empty fallback below is only reachable via a manual DB edit.
 export async function loadCollectKeywords(db: DbClient): Promise<string[]> {
-  const result = (await db.query("SELECT keyword FROM collect_keywords WHERE enabled AND kind = 'general' ORDER BY keyword", [])) as {
+  const result = (await db.query(
+    "SELECT keyword FROM collect_keywords WHERE enabled AND kind = 'general' ORDER BY keyword",
+    [],
+  )) as {
     rows: { keyword: string }[]
   }
   if (result.rows.length === 0) return DEFAULT_COLLECT_KEYWORDS
@@ -61,7 +64,8 @@ export interface LapPlanInput {
 // this returns exactly today's list.
 export function planLapQueries(input: LapPlanInput): LapQuery[] {
   const plan: LapQuery[] = input.general.map((query) => ({ query, maxItems: input.defaultMaxItems }))
-  const due = input.reEnabled >= 1 && input.realEstate.length > 0 && (input.lap - 1) % Math.max(1, input.reEveryNLaps) === 0
+  const due =
+    input.reEnabled >= 1 && input.realEstate.length > 0 && (input.lap - 1) % Math.max(1, input.reEveryNLaps) === 0
   if (due) plan.push(...input.realEstate.map((query) => ({ query, maxItems: input.reMaxItems })))
   return plan
 }

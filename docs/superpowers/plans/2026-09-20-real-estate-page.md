@@ -29,21 +29,21 @@
 
 ## File Structure
 
-| File | Responsibility | Phase |
-|---|---|---|
-| `db/schema.sql` | New table `listing_price_history`, `collect_keywords.kind`, 4 settings seeds, later `real_estate_details` + 2 settings | 1, 2 |
-| `src/domains/marketplace/storage/listings.ts` | `recordRealEstatePriceChange`, gated call in `refreshListingFields`, `getCheckListingsCandidates(reRecheckMinDays)` | 1 |
-| `src/platform/collect-keywords.ts` | `kind` scoping, `loadRealEstateKeywords`, `planLapQueries` | 1 |
-| `src/workers/collect/index.ts` | Use `planLapQueries` | 1 |
-| `src/workers/check-listings/index.ts` | Pass the recheck setting | 1 |
-| `src/platform/settings.ts` | New defaults | 1, 2 |
-| `server/queries.ts` | Scope keyword queries to `kind='general'`; later `getRealEstateListings` | 1, 3 |
-| `dashboard/src/app/api/settings/route.ts`, `admin/settings/page.tsx` | Floors and UI fields for new settings | 1, 2 |
-| `src/domains/marketplace/real-estate.ts` | Pure domain: types, price hints, clamps, NCR normalization, prompt, schema | 2 |
-| `src/domains/marketplace/storage/real-estate.ts` | Candidates query and upsert | 2 |
-| `src/workers/extract-real-estate/index.ts` | Batch extraction worker | 2 |
-| `dashboard/src/lib/realEstate.ts` | Filter parsing, price/area formatting | 3 |
-| `dashboard/src/app/real-estate/page.tsx`, `RealEstateCard.tsx` | The page | 3 |
+| File                                                                 | Responsibility                                                                                                         | Phase |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- |
+| `db/schema.sql`                                                      | New table `listing_price_history`, `collect_keywords.kind`, 4 settings seeds, later `real_estate_details` + 2 settings | 1, 2  |
+| `src/domains/marketplace/storage/listings.ts`                        | `recordRealEstatePriceChange`, gated call in `refreshListingFields`, `getCheckListingsCandidates(reRecheckMinDays)`    | 1     |
+| `src/platform/collect-keywords.ts`                                   | `kind` scoping, `loadRealEstateKeywords`, `planLapQueries`                                                             | 1     |
+| `src/workers/collect/index.ts`                                       | Use `planLapQueries`                                                                                                   | 1     |
+| `src/workers/check-listings/index.ts`                                | Pass the recheck setting                                                                                               | 1     |
+| `src/platform/settings.ts`                                           | New defaults                                                                                                           | 1, 2  |
+| `server/queries.ts`                                                  | Scope keyword queries to `kind='general'`; later `getRealEstateListings`                                               | 1, 3  |
+| `dashboard/src/app/api/settings/route.ts`, `admin/settings/page.tsx` | Floors and UI fields for new settings                                                                                  | 1, 2  |
+| `src/domains/marketplace/real-estate.ts`                             | Pure domain: types, price hints, clamps, NCR normalization, prompt, schema                                             | 2     |
+| `src/domains/marketplace/storage/real-estate.ts`                     | Candidates query and upsert                                                                                            | 2     |
+| `src/workers/extract-real-estate/index.ts`                           | Batch extraction worker                                                                                                | 2     |
+| `dashboard/src/lib/realEstate.ts`                                    | Filter parsing, price/area formatting                                                                                  | 3     |
+| `dashboard/src/app/real-estate/page.tsx`, `RealEstateCard.tsx`       | The page                                                                                                               | 3     |
 
 Spec deviations recorded here: (a) the setting is named `check_listings.re_recheck_min_days` to match the existing `check_listings.` prefix; (b) extraction candidates include sold listings (only removed ones are excluded), so later comps can use them; (c) unit conversion (sqft, hectares) is done by the LLM and validated by clamps, since only 1 of 453 listings uses sqft.
 
@@ -97,11 +97,13 @@ Record the daily counts, the 24h recheck count, and the last lap timestamps. The
 ### Task 1.2: Real estate price history
 
 **Files:**
+
 - Modify: `db/schema.sql` (append at end of file, before nothing else depends on order)
 - Modify: `src/domains/marketplace/storage/listings.ts` (the `refreshListingFields` function and a new exported function above it)
 - Test: `src/domains/marketplace/storage/listings.test.ts`
 
 **Interfaces:**
+
 - Produces: `PriorPriceRow`, `recordRealEstatePriceChange(db, logger, listingId, prior, newPrice, newCurrency): Promise<void>`
 
 - [ ] **Step 1: Write the failing tests** (append to `listings.test.ts`)
@@ -185,7 +187,12 @@ test('refreshListingFields does not even probe when the price is unchanged', asy
 })
 
 test('refreshListingFields still completes when the price-history write fails, and logs a warning', async () => {
-  const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: false, failProbe: true })
+  const { db, calls } = historyDb({
+    prior: priorRow('5000000.00'),
+    realEstate: true,
+    hasHistory: false,
+    failProbe: true,
+  })
   const logger = fakeLogger()
 
   await refreshListingFields(db, fakeImageStore(), logger, null, condoListing('4500000.00'))
@@ -238,7 +245,8 @@ export async function recordRealEstatePriceChange(
   newCurrency: string | null,
 ): Promise<void> {
   if (!prior) return
-  const oldPrice = prior.old_price_amount === null || prior.old_price_amount === undefined ? null : Number(prior.old_price_amount)
+  const oldPrice =
+    prior.old_price_amount === null || prior.old_price_amount === undefined ? null : Number(prior.old_price_amount)
   if (oldPrice === newPrice) return
   try {
     const probe = (await db.query(
@@ -263,7 +271,9 @@ export async function recordRealEstatePriceChange(
       newCurrency,
     ])
   } catch (err) {
-    logger.warn(`listing ${listingId} price-history write failed, continuing: ${err instanceof Error ? err.message : String(err)}`)
+    logger.warn(
+      `listing ${listingId} price-history write failed, continuing: ${err instanceof Error ? err.message : String(err)}`,
+    )
   }
 }
 ```
@@ -271,23 +281,23 @@ export async function recordRealEstatePriceChange(
 Then replace the final two lines of `refreshListingFields`:
 
 ```ts
-  await db.query(`UPDATE listings SET ${setClauses.join(', ')} WHERE id = $1`, params)
-  await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
+await db.query(`UPDATE listings SET ${setClauses.join(', ')} WHERE id = $1`, params)
+await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 ```
 
 with:
 
 ```ts
-  const updated = (await db.query(
-    `UPDATE listings SET ${setClauses.join(', ')}
+const updated = (await db.query(
+  `UPDATE listings SET ${setClauses.join(', ')}
      FROM (SELECT price_amount AS old_price_amount, price_currency AS old_price_currency, first_seen_at AS old_first_seen_at
            FROM listings WHERE id = $1) prev
      WHERE listings.id = $1
      RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
-    params,
-  )) as { rows?: PriorPriceRow[] } | undefined
-  await recordRealEstatePriceChange(db, logger, f.id, updated?.rows?.[0], f.priceAmount, f.priceCurrency)
-  await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
+  params,
+)) as { rows?: PriorPriceRow[] } | undefined
+await recordRealEstatePriceChange(db, logger, f.id, updated?.rows?.[0], f.priceAmount, f.priceCurrency)
+await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 ```
 
 - [ ] **Step 5: Run the whole file**
@@ -306,11 +316,13 @@ git commit -m "record price history for real estate listings" -m "Co-Authored-By
 ### Task 1.3: Real estate recheck cadence
 
 **Files:**
+
 - Modify: `src/domains/marketplace/storage/listings.ts` (`getCheckListingsCandidates`)
 - Modify: `src/workers/check-listings/index.ts` (settings keys + call)
 - Test: `src/domains/marketplace/storage/listings.test.ts`
 
 **Interfaces:**
+
 - Produces: `getCheckListingsCandidates(db, limit, reRecheckMinDays = 0)`
 
 - [ ] **Step 1: Write the failing test** (append; the existing test at line 351 must stay untouched)
@@ -318,7 +330,12 @@ git commit -m "record price history for real estate listings" -m "Co-Authored-By
 ```ts
 test('getCheckListingsCandidates keeps the original query when reRecheckMinDays is 0', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
-  const db = { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows: [] } } }
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await getCheckListingsCandidates(db, 50, 0)
 
@@ -328,7 +345,12 @@ test('getCheckListingsCandidates keeps the original query when reRecheckMinDays 
 
 test('getCheckListingsCandidates skips recently checked real estate listings only when reRecheckMinDays > 0', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
-  const db = { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows: [] } } }
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await getCheckListingsCandidates(db, 50, 7)
 
@@ -357,24 +379,26 @@ export async function getCheckListingsCandidates(
   // listings checked within that many days are skipped - property listings
   // change slowly, and every recheck costs live browser time. COALESCE keeps
   // never-checked and non-real-estate rows in (NULL AND ... would drop them).
-  const result = (reRecheckMinDays > 0
-    ? await db.query(
-        `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
+  const result = (
+    reRecheckMinDays > 0
+      ? await db.query(
+          `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
          LEFT JOIN products p ON p.id = l.product_id
          LEFT JOIN categories c ON c.id = p.category_id
          WHERE l.sold_at IS NULL
            AND NOT COALESCE(c.name = 'Real Estate' AND l.last_checked_at > now() - make_interval(days => $2), false)
          ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST
          LIMIT $1`,
-        [limit, reRecheckMinDays],
-      )
-    : await db.query(
-        `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+          [limit, reRecheckMinDays],
+        )
+      : await db.query(
+          `SELECT id, flagged_removed_at, source_photo_ids FROM listings
          WHERE sold_at IS NULL
          ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
          LIMIT $1`,
-        [limit],
-      )) as { rows: CheckListingsCandidate[] }
+          [limit],
+        )
+  ) as { rows: CheckListingsCandidate[] }
   return result.rows
 }
 ```
@@ -382,7 +406,7 @@ export async function getCheckListingsCandidates(
 - [ ] **Step 4: Wire the worker.** In `src/workers/check-listings/index.ts` add `'check_listings.re_recheck_min_days'` to the `loadSettings` key array and change the candidates call:
 
 ```ts
-      const candidates = await getCheckListingsCandidates(pool, limit, settings['check_listings.re_recheck_min_days'])
+const candidates = await getCheckListingsCandidates(pool, limit, settings['check_listings.re_recheck_min_days'])
 ```
 
 - [ ] **Step 5: Run and commit**
@@ -399,13 +423,14 @@ Expected: PASS (the `settings[...]` key exists after Task 1.4; `tsc` passes beca
 ### Task 1.4: Settings for phase 1
 
 **Files:**
+
 - Modify: `db/schema.sql`, `src/platform/settings.ts`, `dashboard/src/app/api/settings/route.ts`, `dashboard/src/app/admin/settings/page.tsx`
 - Test: `src/platform/settings.test.ts`
 
 - [ ] **Step 1: Write the failing test** (append to `src/platform/settings.test.ts`)
 
 ```ts
-test('real estate settings default to today\'s behavior (collection off, no recheck skipping)', () => {
+test("real estate settings default to today's behavior (collection off, no recheck skipping)", () => {
   expect(SETTING_DEFAULTS['collect.re_keywords_enabled']).toBe(0)
   expect(SETTING_DEFAULTS['check_listings.re_recheck_min_days']).toBe(0)
   expect(SETTING_DEFAULTS['collect.re_every_n_laps']).toBe(3)
@@ -504,10 +529,12 @@ Expected: PASS, dashboard typechecks (a field with an unknown `unit` would fail 
 ### Task 1.5: Keyword `kind` and the gated real estate pass
 
 **Files:**
+
 - Modify: `db/schema.sql`, `src/platform/collect-keywords.ts`, `src/workers/collect/index.ts`, `server/queries.ts`
 - Test: `src/platform/collect-keywords.test.ts`, `server/queries.test.ts`
 
 **Interfaces:**
+
 - Produces: `loadRealEstateKeywords(db): Promise<string[]>`, `LapQuery`, `LapPlanInput`, `planLapQueries(input): LapQuery[]`
 
 - [ ] **Step 1: Write the failing tests** (append to `src/platform/collect-keywords.test.ts`; also extend its import to include `loadRealEstateKeywords, planLapQueries`)
@@ -526,7 +553,13 @@ test('loadRealEstateKeywords loads enabled real_estate keywords and never falls 
   expect(calls[0].sql).toContain('enabled')
 })
 
-const base = { general: ['rush sale', 'preloved'], realEstate: ['condo for sale makati'], reEveryNLaps: 3, reMaxItems: 50, defaultMaxItems: 100 }
+const base = {
+  general: ['rush sale', 'preloved'],
+  realEstate: ['condo for sale makati'],
+  reEveryNLaps: 3,
+  reMaxItems: 50,
+  defaultMaxItems: 100,
+}
 
 test('planLapQueries returns only general keywords, unchanged, while the real estate flag is off', () => {
   const plan = planLapQueries({ ...base, lap: 1, reEnabled: 0 })
@@ -537,7 +570,10 @@ test('planLapQueries returns only general keywords, unchanged, while the real es
 })
 
 test('planLapQueries appends the real estate pass on lap 1 and every Nth lap, capped by reMaxItems', () => {
-  expect(planLapQueries({ ...base, lap: 1, reEnabled: 1 }).at(-1)).toEqual({ query: 'condo for sale makati', maxItems: 50 })
+  expect(planLapQueries({ ...base, lap: 1, reEnabled: 1 }).at(-1)).toEqual({
+    query: 'condo for sale makati',
+    maxItems: 50,
+  })
   expect(planLapQueries({ ...base, lap: 2, reEnabled: 1 })).toHaveLength(2)
   expect(planLapQueries({ ...base, lap: 3, reEnabled: 1 })).toHaveLength(2)
   expect(planLapQueries({ ...base, lap: 4, reEnabled: 1 })).toHaveLength(3)
@@ -569,12 +605,12 @@ ALTER TABLE collect_keywords ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT
 Replace the query inside `loadCollectKeywords`:
 
 ```ts
-  const result = (await db.query(
-    "SELECT keyword FROM collect_keywords WHERE enabled AND kind = 'general' ORDER BY keyword",
-    [],
-  )) as {
-    rows: { keyword: string }[]
-  }
+const result = (await db.query(
+  "SELECT keyword FROM collect_keywords WHERE enabled AND kind = 'general' ORDER BY keyword",
+  [],
+)) as {
+  rows: { keyword: string }[]
+}
 ```
 
 Append:
@@ -611,7 +647,8 @@ export interface LapPlanInput {
 // this returns exactly today's list.
 export function planLapQueries(input: LapPlanInput): LapQuery[] {
   const plan: LapQuery[] = input.general.map((query) => ({ query, maxItems: input.defaultMaxItems }))
-  const due = input.reEnabled >= 1 && input.realEstate.length > 0 && (input.lap - 1) % Math.max(1, input.reEveryNLaps) === 0
+  const due =
+    input.reEnabled >= 1 && input.realEstate.length > 0 && (input.lap - 1) % Math.max(1, input.reEveryNLaps) === 0
   if (due) plan.push(...input.realEstate.map((query) => ({ query, maxItems: input.reMaxItems })))
   return plan
 }
@@ -631,19 +668,19 @@ Add the three keys to the `loadSettings` array: `'collect.re_keywords_enabled'`,
 Replace `const queries = explicitQuery !== undefined ? [explicitQuery] : await loadCollectKeywords(pool)` with:
 
 ```ts
-      const queries: LapQuery[] =
-        explicitQuery !== undefined
-          ? [{ query: explicitQuery, maxItems }]
-          : planLapQueries({
-              general: await loadCollectKeywords(pool),
-              // Only queried when the flag is on, so flag-off laps do no extra DB work.
-              realEstate: settings['collect.re_keywords_enabled'] >= 1 ? await loadRealEstateKeywords(pool) : [],
-              lap,
-              reEnabled: settings['collect.re_keywords_enabled'],
-              reEveryNLaps: settings['collect.re_every_n_laps'],
-              reMaxItems: settings['collect.re_max_items'],
-              defaultMaxItems: maxItems,
-            })
+const queries: LapQuery[] =
+  explicitQuery !== undefined
+    ? [{ query: explicitQuery, maxItems }]
+    : planLapQueries({
+        general: await loadCollectKeywords(pool),
+        // Only queried when the flag is on, so flag-off laps do no extra DB work.
+        realEstate: settings['collect.re_keywords_enabled'] >= 1 ? await loadRealEstateKeywords(pool) : [],
+        lap,
+        reEnabled: settings['collect.re_keywords_enabled'],
+        reEveryNLaps: settings['collect.re_every_n_laps'],
+        reMaxItems: settings['collect.re_max_items'],
+        defaultMaxItems: maxItems,
+      })
 ```
 
 In both `for (const query of queries)` loops change to `for (const { query, maxItems: queryMaxItems } of queries)` and, in the `runCollection(...)` options object, replace `maxItems,` with `maxItems: queryMaxItems,`.
@@ -652,7 +689,10 @@ In both `for (const query of queries)` loops change to `for (const { query, maxI
 
 ```ts
 export async function getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]> {
-  const result = await db.query(`SELECT keyword, enabled FROM collect_keywords WHERE kind = 'general' ORDER BY keyword`, [])
+  const result = await db.query(
+    `SELECT keyword, enabled FROM collect_keywords WHERE kind = 'general' ORDER BY keyword`,
+    [],
+  )
   return (result.rows as CollectKeyword[]).map((r) => ({ keyword: r.keyword, enabled: r.enabled }))
 }
 ```
@@ -664,7 +704,12 @@ Append to `server/queries.test.ts`:
 ```ts
 test('getCollectKeywords and replaceCollectKeywords only touch general keywords', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
-  const db: QueryClient = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [] } } }
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await getCollectKeywords(db)
   await replaceCollectKeywords(db, [{ keyword: 'rush sale', enabled: true }])
@@ -729,6 +774,7 @@ Branch: `git checkout -b re-phase-2 re-phase-1` (or from `real-estate-page` if p
 ### Task 2.1: Schema and settings
 
 **Files:**
+
 - Modify: `db/schema.sql`, `src/platform/settings.ts`, `dashboard/src/app/api/settings/route.ts`, `dashboard/src/app/admin/settings/page.tsx`
 - Test: `src/platform/settings.test.ts`
 
@@ -824,11 +870,13 @@ git commit -m "add real estate details table and extractor settings" -m "Co-Auth
 ### Task 2.2: Domain module
 
 **Files:**
+
 - Create: `src/domains/marketplace/real-estate.ts`
 - Test: `src/domains/marketplace/real-estate.test.ts`
 - Modify: `src/domains/marketplace/index.ts` (add `export * from './real-estate'`)
 
 **Interfaces:**
+
 - Produces (exact): constants `PROPERTY_TYPES`, `LISTING_TYPES`, `PRICE_BASES`, `RE_CONFIDENCES`, `RE_TAGS`, `NCR_LGUS`; types `RealEstateCandidate`, `RealEstateFields`; functions `parsePriceShorthand(text: string): number[]`, `normalizeNcrArea(text: string | null): string | null`, `normalizeRealEstateItem(raw: unknown, candidate: RealEstateCandidate): RealEstateFields | null`, `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`, `REAL_ESTATE_RESPONSE_SCHEMA`.
 
 - [ ] **Step 1: Write the failing tests** (`src/domains/marketplace/real-estate.test.ts`)
@@ -894,7 +942,17 @@ test('normalizeNcrArea maps aliases and keeps unknown text as is', () => {
 
 test('normalizeRealEstateItem keeps a valid item as is', () => {
   const f = normalizeRealEstateItem(raw(), candidate())!
-  expect(f).toMatchObject({ listing_type: 'sale', property_type: 'condo', price_php: 4500000, price_basis: 'total', floor_sqm: 35, bedrooms: 1, area_text: 'Mandaluyong', confidence: 'high', tags: ['rfo'] })
+  expect(f).toMatchObject({
+    listing_type: 'sale',
+    property_type: 'condo',
+    price_php: 4500000,
+    price_basis: 'total',
+    floor_sqm: 35,
+    bedrooms: 1,
+    area_text: 'Mandaluyong',
+    confidence: 'high',
+    tags: ['rfo'],
+  })
 })
 
 test('normalizeRealEstateItem treats unknown listing_type as null and unknown property_type as other', () => {
@@ -911,20 +969,29 @@ test('normalizeRealEstateItem nulls an implausible price and falls back to a pla
 })
 
 test('normalizeRealEstateItem marks price unresolved and confidence low when nothing is plausible', () => {
-  const f = normalizeRealEstateItem(raw({ price_php: null, price_basis: 'unresolved' }), candidate({ price_amount: 13 }))!
+  const f = normalizeRealEstateItem(
+    raw({ price_php: null, price_basis: 'unresolved' }),
+    candidate({ price_amount: 13 }),
+  )!
   expect(f.price_php).toBeNull()
   expect(f.price_basis).toBe('unresolved')
   expect(f.confidence).toBe('low')
 })
 
 test('normalizeRealEstateItem uses monthly as the raw-price fallback basis for rentals', () => {
-  const f = normalizeRealEstateItem(raw({ listing_type: 'rent', price_php: null, price_basis: 'unresolved' }), candidate({ price_amount: 25000 }))!
+  const f = normalizeRealEstateItem(
+    raw({ listing_type: 'rent', price_php: null, price_basis: 'unresolved' }),
+    candidate({ price_amount: 25000 }),
+  )!
   expect(f.price_php).toBe(25000)
   expect(f.price_basis).toBe('monthly')
 })
 
 test('normalizeRealEstateItem nulls implausible areas and bedroom counts', () => {
-  const f = normalizeRealEstateItem(raw({ lot_sqm: 99999999, floor_sqm: 0, bedrooms: 400, bathrooms: -2 }), candidate())!
+  const f = normalizeRealEstateItem(
+    raw({ lot_sqm: 99999999, floor_sqm: 0, bedrooms: 400, bathrooms: -2 }),
+    candidate(),
+  )!
   expect(f.lot_sqm).toBeNull()
   expect(f.floor_sqm).toBeNull()
   expect(f.bedrooms).toBeNull()
@@ -964,8 +1031,23 @@ export const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title
 
 // The 16 cities plus the one municipality (Pateros) of Metro Manila.
 export const NCR_LGUS = [
-  'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong', 'Manila', 'Marikina', 'Muntinlupa', 'Navotas',
-  'Parañaque', 'Pasay', 'Pasig', 'Pateros', 'Quezon City', 'San Juan', 'Taguig', 'Valenzuela',
+  'Caloocan',
+  'Las Piñas',
+  'Makati',
+  'Malabon',
+  'Mandaluyong',
+  'Manila',
+  'Marikina',
+  'Muntinlupa',
+  'Navotas',
+  'Parañaque',
+  'Pasay',
+  'Pasig',
+  'Pateros',
+  'Quezon City',
+  'San Juan',
+  'Taguig',
+  'Valenzuela',
 ] as const
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number]
@@ -1181,8 +1263,19 @@ export const REAL_ESTATE_RESPONSE_SCHEMA = {
           confidence: { type: 'string', enum: [...RE_CONFIDENCES] },
         },
         required: [
-          'id', 'listing_type', 'property_type', 'price_php', 'price_basis', 'lot_sqm', 'floor_sqm',
-          'bedrooms', 'bathrooms', 'project_name', 'area_text', 'tags', 'confidence',
+          'id',
+          'listing_type',
+          'property_type',
+          'price_php',
+          'price_basis',
+          'lot_sqm',
+          'floor_sqm',
+          'bedrooms',
+          'bathrooms',
+          'project_name',
+          'area_text',
+          'tags',
+          'confidence',
         ],
         additionalProperties: false,
       },
@@ -1208,11 +1301,13 @@ git commit -m "add real estate extraction domain module" -m "Co-Authored-By: Cla
 ### Task 2.3: Storage
 
 **Files:**
+
 - Create: `src/domains/marketplace/storage/real-estate.ts`
 - Test: `src/domains/marketplace/storage/real-estate.test.ts`
 - Modify: `src/domains/marketplace/storage/index.ts` (add `export * from './real-estate'`)
 
 **Interfaces:**
+
 - Consumes: `RealEstateCandidate`, `RealEstateFields` from `../real-estate`
 - Produces: `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`, `upsertRealEstateDetails(db: DbClient, listingId: string, fields: RealEstateFields, model: string, sourceHash: string): Promise<void>`
 
@@ -1225,7 +1320,15 @@ import type { RealEstateFields } from '../real-estate'
 
 function recordingDb(rows: unknown[] = []): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
-  return { calls, db: { query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return { rows } } } }
+  return {
+    calls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        return { rows }
+      },
+    },
+  }
 }
 
 test('getRealEstateCandidates selects unextracted or changed real estate listings, excluding removed ones', async () => {
@@ -1250,9 +1353,18 @@ test('getRealEstateCandidates selects unextracted or changed real estate listing
 test('upsertRealEstateDetails writes every field in a stable parameter order and re-stamps extracted_at', async () => {
   const { db, calls } = recordingDb()
   const fields: RealEstateFields = {
-    listing_type: 'sale', property_type: 'condo', price_php: 4500000, price_basis: 'total',
-    lot_sqm: null, floor_sqm: 35, bedrooms: 1, bathrooms: 1, project_name: 'Sheridan Tower',
-    area_text: 'Mandaluyong', tags: ['rfo'], confidence: 'high',
+    listing_type: 'sale',
+    property_type: 'condo',
+    price_php: 4500000,
+    price_basis: 'total',
+    lot_sqm: null,
+    floor_sqm: 35,
+    bedrooms: 1,
+    bathrooms: 1,
+    project_name: 'Sheridan Tower',
+    area_text: 'Mandaluyong',
+    tags: ['rfo'],
+    confidence: 'high',
   }
 
   await upsertRealEstateDetails(db, '1', fields, 'openai/gpt-oss-120b', 'abc')
@@ -1261,8 +1373,21 @@ test('upsertRealEstateDetails writes every field in a stable parameter order and
   expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
   expect(calls[0].sql).toContain('extracted_at = now()')
   expect(calls[0].params).toEqual([
-    '1', 'sale', 'condo', 4500000, 'total', null, 35, 1, 1, 'Sheridan Tower', 'Mandaluyong',
-    JSON.stringify(['rfo']), 'high', 'abc', 'openai/gpt-oss-120b',
+    '1',
+    'sale',
+    'condo',
+    4500000,
+    'total',
+    null,
+    35,
+    1,
+    1,
+    'Sheridan Tower',
+    'Mandaluyong',
+    JSON.stringify(['rfo']),
+    'high',
+    'abc',
+    'openai/gpt-oss-120b',
   ])
 })
 ```
@@ -1325,8 +1450,21 @@ export async function upsertRealEstateDetails(
        tags = EXCLUDED.tags, confidence = EXCLUDED.confidence,
        source_hash = EXCLUDED.source_hash, model = EXCLUDED.model, extracted_at = now()`,
     [
-      listingId, f.listing_type, f.property_type, f.price_php, f.price_basis, f.lot_sqm, f.floor_sqm,
-      f.bedrooms, f.bathrooms, f.project_name, f.area_text, JSON.stringify(f.tags), f.confidence, sourceHash, model,
+      listingId,
+      f.listing_type,
+      f.property_type,
+      f.price_php,
+      f.price_basis,
+      f.lot_sqm,
+      f.floor_sqm,
+      f.bedrooms,
+      f.bathrooms,
+      f.project_name,
+      f.area_text,
+      JSON.stringify(f.tags),
+      f.confidence,
+      sourceHash,
+      model,
     ],
   )
 }
@@ -1346,11 +1484,13 @@ git commit -m "add real estate candidates query and upsert" -m "Co-Authored-By: 
 ### Task 2.4: Extraction worker
 
 **Files:**
+
 - Create: `src/workers/extract-real-estate/index.ts`
 - Test: `src/workers/extract-real-estate/index.test.ts`
 - Modify: `package.json`, `server/routes/workerControl.ts`, `server/routes/logs.ts`, `dashboard/src/app/admin/logs/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `buildRealEstatePrompt`, `REAL_ESTATE_RESPONSE_SCHEMA`, `normalizeRealEstateItem`, `RealEstateCandidate`, `RealEstateFields` (from `../../domains/marketplace`); `getRealEstateCandidates`, `upsertRealEstateDetails`
 - Produces: `extractRealEstateBatch(groq: GroqClient, logger: Logger, delay: DelayFn, batch: RealEstateCandidate[]): Promise<Map<string, RealEstateFields>>` (throws `QuotaExhaustedError`), `runRealEstateExtraction(groq, db, logger, candidates, batchSize?, delay?): Promise<void>`, `QuotaExhaustedError`
 
@@ -1365,16 +1505,34 @@ import type { DbClient } from '../../platform/storage'
 import type { RealEstateCandidate } from '../../domains/marketplace'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
-afterEach(() => { if (existsSync(LOG_PATH)) rmSync(LOG_PATH) })
+afterEach(() => {
+  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+})
 
 const noDelay = async () => {}
 const cand = (id: string, over: Partial<RealEstateCandidate> = {}): RealEstateCandidate => ({
-  id, title: 'Condo for sale Makati', description: null, price_amount: 4500000, source_hash: `hash-${id}`, ...over,
+  id,
+  title: 'Condo for sale Makati',
+  description: null,
+  price_amount: 4500000,
+  source_hash: `hash-${id}`,
+  ...over,
 })
 const item = (id: string, over: Record<string, unknown> = {}) => ({
-  id, listing_type: 'sale', property_type: 'condo', price_php: 4500000, price_basis: 'total',
-  lot_sqm: null, floor_sqm: 35, bedrooms: 1, bathrooms: 1, project_name: null, area_text: 'Makati',
-  tags: [], confidence: 'high', ...over,
+  id,
+  listing_type: 'sale',
+  property_type: 'condo',
+  price_php: 4500000,
+  price_basis: 'total',
+  lot_sqm: null,
+  floor_sqm: 35,
+  bedrooms: 1,
+  bathrooms: 1,
+  project_name: null,
+  area_text: 'Makati',
+  tags: [],
+  confidence: 'high',
+  ...over,
 })
 
 test('extractRealEstateBatch returns normalized fields keyed by listing id and skips unknown ids', async () => {
@@ -1400,13 +1558,22 @@ test('extractRealEstateBatch splits the batch and retries when a request keeps f
 })
 
 test('extractRealEstateBatch stops the run on a 429 quota error', async () => {
-  const groq: GroqClient = { generateJson: async () => { throw Object.assign(new Error('quota'), { status: 429 }) } }
+  const groq: GroqClient = {
+    generateJson: async () => {
+      throw Object.assign(new Error('quota'), { status: 429 })
+    },
+  }
   await expect(extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1')])).rejects.toThrow()
 })
 
 test('runRealEstateExtraction upserts each extracted listing with its source hash', async () => {
   const params: unknown[][] = []
-  const db: DbClient = { query: async (_sql: string, p: unknown[]) => { params.push(p); return { rows: [] } } }
+  const db: DbClient = {
+    query: async (_sql: string, p: unknown[]) => {
+      params.push(p)
+      return { rows: [] }
+    },
+  }
   const groq: GroqClient = { generateJson: async () => ({ results: [item('1')] }) }
 
   await runRealEstateExtraction(groq, db, createLogger(LOG_PATH), [cand('1')], 20, noDelay)
@@ -1433,11 +1600,7 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import { loadSettings } from '../../platform/settings'
-import {
-  buildRealEstatePrompt,
-  REAL_ESTATE_RESPONSE_SCHEMA,
-  normalizeRealEstateItem,
-} from '../../domains/marketplace'
+import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, normalizeRealEstateItem } from '../../domains/marketplace'
 import type { RealEstateCandidate, RealEstateFields } from '../../domains/marketplace'
 import { getRealEstateCandidates, upsertRealEstateDetails } from '../../domains/marketplace/storage/real-estate'
 
@@ -1473,11 +1636,15 @@ export async function extractRealEstateBatch(
       }
       if (attempt === MAX_ATTEMPTS) {
         if (batch.length === 1) {
-          logger.error(`listing ${batch[0].id}: Groq failed after ${MAX_ATTEMPTS} attempts at batch size 1 (${message}), skipping`)
+          logger.error(
+            `listing ${batch[0].id}: Groq failed after ${MAX_ATTEMPTS} attempts at batch size 1 (${message}), skipping`,
+          )
           return new Map()
         }
         const mid = Math.ceil(batch.length / 2)
-        logger.error(`Groq failed after ${MAX_ATTEMPTS} attempts at batch size ${batch.length} (${message}), splitting ${mid} + ${batch.length - mid}`)
+        logger.error(
+          `Groq failed after ${MAX_ATTEMPTS} attempts at batch size ${batch.length} (${message}), splitting ${mid} + ${batch.length - mid}`,
+        )
         const first = await extractRealEstateBatch(groq, logger, delay, batch.slice(0, mid))
         const second = await extractRealEstateBatch(groq, logger, delay, batch.slice(mid))
         return new Map([...first, ...second])
@@ -1531,7 +1698,9 @@ export async function runRealEstateExtraction(
       const fields = extracted.get(candidate.id)
       if (!fields) continue
       await upsertRealEstateDetails(db, candidate.id, fields, MODEL, candidate.source_hash)
-      logger.info(`listing ${candidate.id} extracted (${fields.property_type}, price basis ${fields.price_basis}, ${fields.confidence})`)
+      logger.info(
+        `listing ${candidate.id} extracted (${fields.property_type}, price basis ${fields.price_basis}, ${fields.confidence})`,
+      )
     }
   }
 }
@@ -1545,7 +1714,9 @@ async function main() {
 
   const logger = createLogger('data/extract-real-estate.log')
   writePidFile('data/extract-real-estate.pid')
-  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
+    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+  )
   logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 
@@ -1651,33 +1822,70 @@ Branch: `git checkout -b re-phase-3 re-phase-2`
 ### Task 3.1: Server query
 
 **Files:**
+
 - Modify: `server/queries.ts`, `server/routes/query.ts`
 - Test: `server/queries.test.ts`, `server/routes/query.test.ts`
 
 **Interfaces:**
+
 - Produces: `RealEstateFilters`, `RealEstateListing`, `getRealEstateListings(db: QueryClient, filters?: RealEstateFilters): Promise<RealEstateListing[]>`
 
 - [ ] **Step 1: Write the failing tests** (append to `server/queries.test.ts`; add `getRealEstateListings` to its import list)
 
 ```ts
-function recordingDb(rows: Record<string, unknown>[] = []): { db: QueryClient; calls: { sql: string; params: unknown[] }[] } {
+function recordingDb(rows: Record<string, unknown>[] = []): {
+  db: QueryClient
+  calls: { sql: string; params: unknown[] }[]
+} {
   const calls: { sql: string; params: unknown[] }[] = []
-  return { calls, db: { query: async (sql, params) => { calls.push({ sql, params }); return { rows } } } }
+  return {
+    calls,
+    db: {
+      query: async (sql, params) => {
+        calls.push({ sql, params })
+        return { rows }
+      },
+    },
+  }
 }
 
 const reRow = {
-  id: '1', title: 'Condo', primary_photo_url: null, stored_photo_urls: null, listed_at: null,
-  first_seen_at: '2026-09-01T00:00:00.000Z', listed_price: '13', listing_type: 'sale', property_type: 'condo',
-  price_php: '13000000', price_basis: 'total', lot_sqm: null, floor_sqm: '35', bedrooms: 1, bathrooms: 1,
-  project_name: 'Portico', area_text: 'Pasig', tags: ['rfo'], confidence: 'high', price_per_sqm: '371428.5714', needs_review: false,
+  id: '1',
+  title: 'Condo',
+  primary_photo_url: null,
+  stored_photo_urls: null,
+  listed_at: null,
+  first_seen_at: '2026-09-01T00:00:00.000Z',
+  listed_price: '13',
+  listing_type: 'sale',
+  property_type: 'condo',
+  price_php: '13000000',
+  price_basis: 'total',
+  lot_sqm: null,
+  floor_sqm: '35',
+  bedrooms: 1,
+  bathrooms: 1,
+  project_name: 'Portico',
+  area_text: 'Pasig',
+  tags: ['rfo'],
+  confidence: 'high',
+  price_per_sqm: '371428.5714',
+  needs_review: false,
 }
 
 test('getRealEstateListings maps rows, coerces numerics and returns price per sqm', async () => {
   const { db } = recordingDb([reRow])
   const [row] = await getRealEstateListings(db)
   expect(row).toMatchObject({
-    id: '1', listed_price: 13, price_php: 13000000, floor_sqm: 35, lot_sqm: null, tags: ['rfo'],
-    price_per_sqm: 371428.5714, area_text: 'Pasig', confidence: 'high',
+    id: '1',
+    listed_price: 13,
+    price_php: 13000000,
+    floor_sqm: 35,
+    lot_sqm: null,
+    tags: ['rfo'],
+    price_per_sqm: 371428.5714,
+    area_text: 'Pasig',
+    confidence: 'high',
   })
 })
 
@@ -1693,7 +1901,16 @@ test('getRealEstateListings shows only active real estate and computes price per
 
 test('getRealEstateListings binds filters as parameters in order and defaults paging', async () => {
   const { db, calls } = recordingDb()
-  await getRealEstateListings(db, { listingType: 'rent', propertyType: 'condo', area: 'Makati', minPrice: 1000, maxPrice: 50000, minSqm: 30, limit: 10, offset: 20 })
+  await getRealEstateListings(db, {
+    listingType: 'rent',
+    propertyType: 'condo',
+    area: 'Makati',
+    minPrice: 1000,
+    maxPrice: 50000,
+    minSqm: 30,
+    limit: 10,
+    offset: 20,
+  })
   expect(calls[0].sql).not.toContain('Makati')
   expect(calls[0].params).toEqual(['rent', 'condo', '%Makati%', 1000, 50000, 30, 10, 20])
 })
@@ -1713,7 +1930,9 @@ test('getRealEstateListings excludes listings needing review by default and retu
   const review = recordingDb()
   await getRealEstateListings(review.db, { view: 'review' })
   expect(review.calls[0].sql).toContain('x.needs_review = true')
-  expect(review.calls[0].sql).toContain("d.price_basis = 'unresolved' OR d.confidence = 'low' OR d.listing_type IS NULL")
+  expect(review.calls[0].sql).toContain(
+    "d.price_basis = 'unresolved' OR d.confidence = 'low' OR d.listing_type IS NULL",
+  )
 })
 ```
 
@@ -1781,7 +2000,10 @@ const REAL_ESTATE_MAX_LIMIT = 100
 // changes the price. Only sale listings priced as a total get one - it is
 // meaningless for rent, per-sqm or equity prices. Filters are always bound
 // parameters; the sort is a whitelist lookup, never interpolated user input.
-export async function getRealEstateListings(db: QueryClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]> {
+export async function getRealEstateListings(
+  db: QueryClient,
+  filters: RealEstateFilters = {},
+): Promise<RealEstateListing[]> {
   const where: string[] = []
   const params: unknown[] = []
   const add = (clause: string, value: unknown) => {
@@ -1866,11 +2088,13 @@ Expected: PASS. The first test's `price_per_sqm` string `'371428.5714'` becomes 
 ### Task 3.2: Dashboard helpers and query client
 
 **Files:**
+
 - Create: `dashboard/src/lib/realEstate.ts`
 - Test: `dashboard/src/lib/realEstate.test.ts`
 - Modify: `dashboard/src/lib/queries.ts`
 
 **Interfaces:**
+
 - Produces: `NCR_AREAS`, `parseRealEstateFilters(params: Record<string, string | undefined>): { filters: RealEstateFilters; page: number }`, `formatPrice(l): string`, `formatAreaLine(l): string`; types `RealEstateFilters`, `RealEstateListing` (in `queries.ts`); `getRealEstateListings(filters?)`.
 
 - [ ] **Step 1: Write the failing tests** (`dashboard/src/lib/realEstate.test.ts`)
@@ -1880,10 +2104,27 @@ import { parseRealEstateFilters, formatPrice, formatAreaLine, formatReviewReason
 import type { RealEstateListing } from './queries'
 
 const listing = (over: Partial<RealEstateListing> = {}): RealEstateListing => ({
-  id: '1', title: 'Condo', primary_photo_url: null, listed_at: null, first_seen_at: '2026-09-01T00:00:00.000Z',
-  listed_price: 13, listing_type: 'sale', property_type: 'condo', price_php: 13000000, price_basis: 'total',
-  lot_sqm: null, floor_sqm: 35, bedrooms: 1, bathrooms: 1, project_name: 'Portico', area_text: 'Pasig',
-  tags: [], confidence: 'high', price_per_sqm: 371428, needs_review: false, ...over,
+  id: '1',
+  title: 'Condo',
+  primary_photo_url: null,
+  listed_at: null,
+  first_seen_at: '2026-09-01T00:00:00.000Z',
+  listed_price: 13,
+  listing_type: 'sale',
+  property_type: 'condo',
+  price_php: 13000000,
+  price_basis: 'total',
+  lot_sqm: null,
+  floor_sqm: 35,
+  bedrooms: 1,
+  bathrooms: 1,
+  project_name: 'Portico',
+  area_text: 'Pasig',
+  tags: [],
+  confidence: 'high',
+  price_per_sqm: 371428,
+  needs_review: false,
+  ...over,
 })
 
 test('NCR_AREAS lists the 17 Metro Manila LGUs', () => {
@@ -1891,8 +2132,27 @@ test('NCR_AREAS lists the 17 Metro Manila LGUs', () => {
 })
 
 test('parseRealEstateFilters reads only valid values and computes the page offset', () => {
-  const { filters, page } = parseRealEstateFilters({ kind: 'rent', type: 'condo', area: 'Makati', min: '1000', max: '50000', sqm: '30', sort: 'price_asc', page: '3' })
-  expect(filters).toMatchObject({ listingType: 'rent', propertyType: 'condo', area: 'Makati', minPrice: 1000, maxPrice: 50000, minSqm: 30, sort: 'price_asc', limit: 30, offset: 60 })
+  const { filters, page } = parseRealEstateFilters({
+    kind: 'rent',
+    type: 'condo',
+    area: 'Makati',
+    min: '1000',
+    max: '50000',
+    sqm: '30',
+    sort: 'price_asc',
+    page: '3',
+  })
+  expect(filters).toMatchObject({
+    listingType: 'rent',
+    propertyType: 'condo',
+    area: 'Makati',
+    minPrice: 1000,
+    maxPrice: 50000,
+    minSqm: 30,
+    sort: 'price_asc',
+    limit: 30,
+    offset: 60,
+  })
   expect(page).toBe(3)
 })
 
@@ -1908,26 +2168,34 @@ test('parseRealEstateFilters ignores garbage and defaults to page 1', () => {
 
 test('formatPrice shows each price basis in its own terms', () => {
   expect(formatPrice(listing())).toBe('₱13,000,000')
-  expect(formatPrice(listing({ listing_type: 'rent', price_basis: 'monthly', price_php: 25000 }))).toBe('₱25,000 / month')
+  expect(formatPrice(listing({ listing_type: 'rent', price_basis: 'monthly', price_php: 25000 }))).toBe(
+    '₱25,000 / month',
+  )
   expect(formatPrice(listing({ price_basis: 'per_sqm', price_php: 90000 }))).toBe('₱90,000 / sqm')
   expect(formatPrice(listing({ price_basis: 'equity', price_php: 500000 }))).toBe('₱500,000 equity')
 })
 
 test('formatPrice shows the raw listed price when the price is unresolved', () => {
-  expect(formatPrice(listing({ price_basis: 'unresolved', price_php: null, listed_price: 13 }))).toBe('Price unclear (listed as ₱13)')
-  expect(formatPrice(listing({ price_basis: 'unresolved', price_php: null, listed_price: null }))).toBe('Price not stated')
+  expect(formatPrice(listing({ price_basis: 'unresolved', price_php: null, listed_price: 13 }))).toBe(
+    'Price unclear (listed as ₱13)',
+  )
+  expect(formatPrice(listing({ price_basis: 'unresolved', price_php: null, listed_price: null }))).toBe(
+    'Price not stated',
+  )
 })
 
 test('formatAreaLine joins only the facts that exist', () => {
   expect(formatAreaLine(listing())).toBe('35 sqm floor · 1 BR · 1 BA')
-  expect(formatAreaLine(listing({ lot_sqm: 120, floor_sqm: 60, bedrooms: null, bathrooms: null }))).toBe('120 sqm lot · 60 sqm floor')
+  expect(formatAreaLine(listing({ lot_sqm: 120, floor_sqm: 60, bedrooms: null, bathrooms: null }))).toBe(
+    '120 sqm lot · 60 sqm floor',
+  )
   expect(formatAreaLine(listing({ floor_sqm: null, bedrooms: null, bathrooms: null }))).toBe('')
 })
 
 test('formatReviewReason lists why a listing needs review, and is empty for a clear one', () => {
-  expect(formatReviewReason(listing({ price_basis: 'unresolved', price_php: null, listing_type: null, confidence: 'low' }))).toBe(
-    'price not stated, sale or rent unclear, low confidence',
-  )
+  expect(
+    formatReviewReason(listing({ price_basis: 'unresolved', price_php: null, listing_type: null, confidence: 'low' })),
+  ).toBe('price not stated, sale or rent unclear, low confidence')
   expect(formatReviewReason(listing())).toBe('')
 })
 
@@ -1990,8 +2258,23 @@ Create `dashboard/src/lib/realEstate.ts` (no server-only imports; only types com
 import type { RealEstateFilters, RealEstateListing } from './queries'
 
 export const NCR_AREAS = [
-  'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong', 'Manila', 'Marikina', 'Muntinlupa', 'Navotas',
-  'Parañaque', 'Pasay', 'Pasig', 'Pateros', 'Quezon City', 'San Juan', 'Taguig', 'Valenzuela',
+  'Caloocan',
+  'Las Piñas',
+  'Makati',
+  'Malabon',
+  'Mandaluyong',
+  'Manila',
+  'Marikina',
+  'Muntinlupa',
+  'Navotas',
+  'Parañaque',
+  'Pasay',
+  'Pasig',
+  'Pateros',
+  'Quezon City',
+  'San Juan',
+  'Taguig',
+  'Valenzuela',
 ] as const
 
 export const PROPERTY_TYPE_LABELS: Record<string, string> = {
@@ -2012,7 +2295,10 @@ function positiveNumber(value: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
-export function parseRealEstateFilters(params: Record<string, string | undefined>): { filters: RealEstateFilters; page: number } {
+export function parseRealEstateFilters(params: Record<string, string | undefined>): {
+  filters: RealEstateFilters
+  page: number
+} {
   const pageNumber = Number(params.page)
   const page = Number.isInteger(pageNumber) && pageNumber >= 1 ? pageNumber : 1
   const filters: RealEstateFilters = {
@@ -2029,7 +2315,8 @@ export function parseRealEstateFilters(params: Record<string, string | undefined
   if (min !== undefined) filters.minPrice = min
   if (max !== undefined) filters.maxPrice = max
   if (sqm !== undefined) filters.minSqm = sqm
-  if (params.sort && (SORTS as readonly string[]).includes(params.sort)) filters.sort = params.sort as RealEstateFilters['sort']
+  if (params.sort && (SORTS as readonly string[]).includes(params.sort))
+    filters.sort = params.sort as RealEstateFilters['sort']
   if (params.view === 'review') filters.view = 'review'
   return { filters, page }
 }
@@ -2079,6 +2366,7 @@ Expected: PASS.
 ### Task 3.3: The page and nav entry
 
 **Files:**
+
 - Create: `dashboard/src/app/real-estate/page.tsx`, `dashboard/src/app/real-estate/RealEstateCard.tsx`
 - Modify: `dashboard/src/app/NavLinks.tsx`
 
@@ -2095,12 +2383,23 @@ export default function RealEstateCard({ l }: { l: RealEstateListing }) {
   const area = formatAreaLine(l)
   const where = [l.project_name, l.area_text].filter(Boolean).join(' · ')
   return (
-    <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden' }}>
+    <div
+      style={{
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 8,
+        overflow: 'hidden',
+      }}
+    >
       <Link href={`/listings/${l.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
         <div style={{ width: '100%', aspectRatio: '4 / 3', background: 'var(--color-bg)' }}>
           {l.primary_photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={l.primary_photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img
+              src={l.primary_photo_url}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
           ) : null}
         </div>
         <div style={{ padding: 10 }}>
@@ -2109,18 +2408,38 @@ export default function RealEstateCard({ l }: { l: RealEstateListing }) {
             {PROPERTY_TYPE_LABELS[l.property_type] ?? l.property_type}
             {l.listing_type ? ` · ${l.listing_type === 'rent' ? 'For rent' : 'For sale'}` : ''}
           </div>
-          {where ? <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 2 }}>{where}</div> : null}
-          <div className="mono" style={{ marginTop: 6 }}>{formatPrice(l)}</div>
+          {where ? (
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 2 }}>{where}</div>
+          ) : null}
+          <div className="mono" style={{ marginTop: 6 }}>
+            {formatPrice(l)}
+          </div>
           {l.needs_review ? (
-            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 4 }}>Under review: {formatReviewReason(l)}</div>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 4 }}>
+              Under review: {formatReviewReason(l)}
+            </div>
           ) : null}
           {l.price_per_sqm !== null ? (
-            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em' }}>₱{Math.round(l.price_per_sqm).toLocaleString('en-US')} / sqm</div>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8em' }}>
+              ₱{Math.round(l.price_per_sqm).toLocaleString('en-US')} / sqm
+            </div>
           ) : null}
-          {area ? <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>{area}</div> : null}
+          {area ? (
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>{area}</div>
+          ) : null}
           <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {l.tags.map((t) => (
-              <span key={t} style={{ fontSize: '0.75em', border: '1px solid var(--color-border)', borderRadius: 10, padding: '1px 8px' }}>{t.replace('_', ' ')}</span>
+              <span
+                key={t}
+                style={{
+                  fontSize: '0.75em',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 10,
+                  padding: '1px 8px',
+                }}
+              >
+                {t.replace('_', ' ')}
+              </span>
             ))}
             {l.confidence !== 'high' ? (
               <span style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>{l.confidence} confidence</span>
@@ -2145,9 +2464,26 @@ import RealEstateCard from './RealEstateCard'
 // build time and make every build depend on the VPS server being reachable.
 export const dynamic = 'force-dynamic'
 
-type Params = { kind?: string; type?: string; area?: string; project?: string; min?: string; max?: string; sqm?: string; sort?: string; view?: string; page?: string }
+type Params = {
+  kind?: string
+  type?: string
+  area?: string
+  project?: string
+  min?: string
+  max?: string
+  sqm?: string
+  sort?: string
+  view?: string
+  page?: string
+}
 
-const field = { padding: '6px 8px', background: 'var(--color-surface)', color: 'inherit', border: '1px solid var(--color-border)', borderRadius: 6 } as const
+const field = {
+  padding: '6px 8px',
+  background: 'var(--color-surface)',
+  color: 'inherit',
+  border: '1px solid var(--color-border)',
+  borderRadius: 6,
+} as const
 
 export default async function RealEstatePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams
@@ -2165,8 +2501,12 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
     <div>
       <h1>Real estate</h1>
       <div style={{ display: 'flex', gap: 16, margin: '12px 0' }}>
-        <Link href="/real-estate" style={{ fontWeight: filters.view === 'review' ? 400 : 700 }}>Listings</Link>
-        <Link href="/real-estate?view=review" style={{ fontWeight: filters.view === 'review' ? 700 : 400 }}>Under review</Link>
+        <Link href="/real-estate" style={{ fontWeight: filters.view === 'review' ? 400 : 700 }}>
+          Listings
+        </Link>
+        <Link href="/real-estate?view=review" style={{ fontWeight: filters.view === 'review' ? 700 : 400 }}>
+          Under review
+        </Link>
       </div>
       <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 20px' }}>
         {filters.view === 'review' ? <input type="hidden" name="view" value="review" /> : null}
@@ -2177,30 +2517,63 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
         </select>
         <select name="type" defaultValue={params.type ?? ''} style={field}>
           <option value="">Any type</option>
-          {Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
         <select name="area" defaultValue={params.area ?? ''} style={field}>
           <option value="">Any NCR city</option>
-          {NCR_AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+          {NCR_AREAS.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
         </select>
         <input name="project" placeholder="Project / building" defaultValue={params.project ?? ''} style={field} />
-        <input name="min" type="number" min="0" placeholder="Min ₱" defaultValue={params.min ?? ''} style={{ ...field, width: 110 }} />
-        <input name="max" type="number" min="0" placeholder="Max ₱" defaultValue={params.max ?? ''} style={{ ...field, width: 110 }} />
-        <input name="sqm" type="number" min="0" placeholder="Min sqm" defaultValue={params.sqm ?? ''} style={{ ...field, width: 100 }} />
+        <input
+          name="min"
+          type="number"
+          min="0"
+          placeholder="Min ₱"
+          defaultValue={params.min ?? ''}
+          style={{ ...field, width: 110 }}
+        />
+        <input
+          name="max"
+          type="number"
+          min="0"
+          placeholder="Max ₱"
+          defaultValue={params.max ?? ''}
+          style={{ ...field, width: 110 }}
+        />
+        <input
+          name="sqm"
+          type="number"
+          min="0"
+          placeholder="Min sqm"
+          defaultValue={params.sqm ?? ''}
+          style={{ ...field, width: 100 }}
+        />
         <select name="sort" defaultValue={params.sort ?? ''} style={field}>
           <option value="">Newest</option>
           <option value="price_asc">Price, low to high</option>
           <option value="price_desc">Price, high to low</option>
           <option value="ppsqm_asc">₱/sqm, low to high</option>
         </select>
-        <button type="submit" style={{ ...field, cursor: 'pointer' }}>Filter</button>
+        <button type="submit" style={{ ...field, cursor: 'pointer' }}>
+          Filter
+        </button>
       </form>
 
       {listings.length === 0 ? (
         <p style={{ color: 'var(--color-text-muted)' }}>No real estate listings match.</p>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-          {listings.map((l) => <RealEstateCard key={l.id} l={l} />)}
+          {listings.map((l) => (
+            <RealEstateCard key={l.id} l={l} />
+          ))}
         </div>
       )}
 

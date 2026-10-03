@@ -29,25 +29,26 @@ Root `src/*.ts` (non-test) library files today:
 
 Per-worker/util `storage.ts` exports (everything that must land in `domains/marketplace/storage/*`):
 
-| File | Exports |
-|---|---|
-| `workers/collect/storage.ts` | `parseListingFields`, `upsertListing`, `getCollectedListingIds` |
-| `workers/check-listings/storage.ts` | `CheckListingsCandidate`, `getCheckListingsCandidates`, `getListingCheckCandidatesForProduct`, `getListingCheckCandidate`, `markListingAlive`, `markListingSold`, `flagListingRemoved`, `deleteListing`, `refreshListingFields` |
-| `utils/backfill/storage.ts` | `BackfillCandidate`, `getBackfillCandidates`, `markListingPhotosUnavailable` |
-| `utils/flag-negotiable-keywords/storage.ts` | `NegotiableKeywordCandidate`, `getNegotiableKeywordCandidates` |
-| `workers/enrich-listing-prices/storage.ts` | `getPriceReviewCandidates`, `upsertListingPriceReview`, `upsertKeywordNegotiable`, `flagNegotiableFromKeywords` |
-| `workers/extract-products/storage.ts` | `findOrCreateProduct`, `updateListingProductIds`, `ExtractionCandidate`, `getExtractionCandidates` |
-| `workers/enrich-products/storage.ts` | `getEnrichmentCandidates`, `EnrichmentData`, `upsertProductEnrichment`, `applyEligibilityFromEnrichment` |
-| `utils/backfill-categories/storage.ts` | `getCategoryBackfillCandidates`, `updateProductCategories` |
-| `utils/merge-duplicate-products/storage.ts` | `mergeDuplicateProduct` |
-| `utils/flag-price-ineligible/storage.ts` | `flagPriceLookupExcluded` |
-| `workers/secondhand-price-lookup/storage.ts` | `getPriceLookupCandidates`, `PriceCheckSource`, `insertPriceCheck` |
-| `workers/retail-price-lookup/storage.ts` | `getNewPriceCandidates`, `flagProductPriceLookupExcluded` |
-| `utils/price-from-listings/storage.ts` | `ListingPricesForProductCondition`, `getListingPricesByProduct` |
+| File                                         | Exports                                                                                                                                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workers/collect/storage.ts`                 | `parseListingFields`, `upsertListing`, `getCollectedListingIds`                                                                                                                                                                 |
+| `workers/check-listings/storage.ts`          | `CheckListingsCandidate`, `getCheckListingsCandidates`, `getListingCheckCandidatesForProduct`, `getListingCheckCandidate`, `markListingAlive`, `markListingSold`, `flagListingRemoved`, `deleteListing`, `refreshListingFields` |
+| `utils/backfill/storage.ts`                  | `BackfillCandidate`, `getBackfillCandidates`, `markListingPhotosUnavailable`                                                                                                                                                    |
+| `utils/flag-negotiable-keywords/storage.ts`  | `NegotiableKeywordCandidate`, `getNegotiableKeywordCandidates`                                                                                                                                                                  |
+| `workers/enrich-listing-prices/storage.ts`   | `getPriceReviewCandidates`, `upsertListingPriceReview`, `upsertKeywordNegotiable`, `flagNegotiableFromKeywords`                                                                                                                 |
+| `workers/extract-products/storage.ts`        | `findOrCreateProduct`, `updateListingProductIds`, `ExtractionCandidate`, `getExtractionCandidates`                                                                                                                              |
+| `workers/enrich-products/storage.ts`         | `getEnrichmentCandidates`, `EnrichmentData`, `upsertProductEnrichment`, `applyEligibilityFromEnrichment`                                                                                                                        |
+| `utils/backfill-categories/storage.ts`       | `getCategoryBackfillCandidates`, `updateProductCategories`                                                                                                                                                                      |
+| `utils/merge-duplicate-products/storage.ts`  | `mergeDuplicateProduct`                                                                                                                                                                                                         |
+| `utils/flag-price-ineligible/storage.ts`     | `flagPriceLookupExcluded`                                                                                                                                                                                                       |
+| `workers/secondhand-price-lookup/storage.ts` | `getPriceLookupCandidates`, `PriceCheckSource`, `insertPriceCheck`                                                                                                                                                              |
+| `workers/retail-price-lookup/storage.ts`     | `getNewPriceCandidates`, `flagProductPriceLookupExcluded`                                                                                                                                                                       |
+| `utils/price-from-listings/storage.ts`       | `ListingPricesForProductCondition`, `getListingPricesByProduct`                                                                                                                                                                 |
 
 Plus one business constant currently mislaid in a util: `CANONICAL_BASE_MODEL` (`utils/merge-duplicate-products/index.ts`), used by `workers/extract-products/index.ts` — moves into `domains/marketplace/products.ts`.
 
 Target consolidation:
+
 - `domains/marketplace/storage/listings.ts` ← collect, check-listings, backfill(util), flag-negotiable-keywords(util), enrich-listing-prices
 - `domains/marketplace/storage/products.ts` ← extract-products, enrich-products, backfill-categories(util), merge-duplicate-products(util), flag-price-ineligible(util)
 - `domains/marketplace/storage/pricing.ts` ← secondhand-price-lookup, retail-price-lookup, price-from-listings(util)
@@ -58,6 +59,7 @@ Target consolidation:
 ### Task 1: Scaffold `src/platform/`
 
 **Files:**
+
 - Move: `src/storage.ts` → `src/platform/storage.ts`
 - Move: `src/images.ts` → `src/platform/images.ts`
 - Move: `src/logger.ts` → `src/platform/logger.ts`
@@ -83,6 +85,7 @@ Target consolidation:
 ### Task 2: Scaffold `domains/llm-clients`
 
 **Files:**
+
 - Move: `src/gemini.ts`, `src/gemini.test.ts`, `src/exa.ts`, `src/exa.test.ts`, `src/groq.ts` (+ test if present) → `src/domains/llm-clients/`
 - Create: `src/domains/llm-clients/index.ts` — barrel re-exporting every public export of the three files
 - Modify: every importer of `../gemini`, `../exa`, `../groq` (or deeper relative equivalents) to import from `../../domains/llm-clients` instead
@@ -106,6 +109,7 @@ Target consolidation:
 ### Task 3: Scaffold `domains/marketplace` (business logic, no storage yet)
 
 **Files:**
+
 - Move: `src/browser.ts`, `src/driver.ts`, `src/paginate.ts`, `src/wall.ts`, `src/tunnel.ts` (+ tests) → `src/domains/marketplace/`
 - Move: `src/extract/grid.ts`, `src/extract/detail.ts` (+ tests) → `src/domains/marketplace/extract/`
 - Move: `src/pricing.ts`, `src/new-price.ts`, `src/price-review.ts` (+ tests) → `src/domains/marketplace/`
@@ -127,7 +131,8 @@ Target consolidation:
 ### Task 4: Move `CANONICAL_BASE_MODEL` out of utils
 
 **Files:**
-- Modify: `src/utils/merge-duplicate-products/index.ts` — remove `CANONICAL_BASE_MODEL` export, keep the rest (the merge-run script logic that *uses* it)
+
+- Modify: `src/utils/merge-duplicate-products/index.ts` — remove `CANONICAL_BASE_MODEL` export, keep the rest (the merge-run script logic that _uses_ it)
 - Modify: `src/domains/marketplace/products.ts` — add `CANONICAL_BASE_MODEL` export
 - Modify: `src/workers/extract-products/index.ts` — import `CANONICAL_BASE_MODEL` from `../../domains/marketplace` instead of `../../utils/merge-duplicate-products`
 - Modify: `src/utils/merge-duplicate-products/index.ts` — import `CANONICAL_BASE_MODEL` from `../../domains/marketplace` for its own use
@@ -145,6 +150,7 @@ Target consolidation:
 ### Task 5: Consolidate listings storage (collect, check-listings, backfill util)
 
 **Files:**
+
 - Create: `src/domains/marketplace/storage/listings.ts`
 - Move into it, verbatim (adjust relative import depth only): all exports of `workers/collect/storage.ts`, `workers/check-listings/storage.ts`, `utils/backfill/storage.ts`
 - Move: their `*.test.ts` content into `src/domains/marketplace/storage/listings.test.ts` (merge three test files into one, keep every test case, dedupe shared fixture setup)
@@ -165,6 +171,7 @@ Target consolidation:
 ### Task 6: Fold negotiable-keywords + enrich-listing-prices into listings storage
 
 **Files:**
+
 - Modify: `src/domains/marketplace/storage/listings.ts` — append exports from `utils/flag-negotiable-keywords/storage.ts` and `workers/enrich-listing-prices/storage.ts`
 - Modify: `src/domains/marketplace/storage/listings.test.ts` — append their test cases
 - Delete: `utils/flag-negotiable-keywords/storage.ts(.test.ts)`, `workers/enrich-listing-prices/storage.ts(.test.ts)`
@@ -184,6 +191,7 @@ Target consolidation:
 ### Task 7: Consolidate products storage (extract-products, enrich-products)
 
 **Files:**
+
 - Create: `src/domains/marketplace/storage/products.ts`
 - Move into it: all exports of `workers/extract-products/storage.ts`, `workers/enrich-products/storage.ts`
 - Create: `src/domains/marketplace/storage/products.test.ts` merging both `.test.ts` files
@@ -199,6 +207,7 @@ Target consolidation:
 ### Task 8: Fold backfill-categories, merge-duplicate-products, flag-price-ineligible into products storage
 
 **Files:**
+
 - Modify: `src/domains/marketplace/storage/products.ts` — append exports of `utils/backfill-categories/storage.ts`, `utils/merge-duplicate-products/storage.ts`, `utils/flag-price-ineligible/storage.ts`
 - Modify: `src/domains/marketplace/storage/products.test.ts` — append their tests
 - Delete: the 6 old files
@@ -213,6 +222,7 @@ Target consolidation:
 ### Task 9: Consolidate pricing storage
 
 **Files:**
+
 - Create: `src/domains/marketplace/storage/pricing.ts`
 - Move into it: all exports of `workers/secondhand-price-lookup/storage.ts`, `workers/retail-price-lookup/storage.ts`, `utils/price-from-listings/storage.ts`
 - Create: `src/domains/marketplace/storage/pricing.test.ts` merging the 3 test files
@@ -228,6 +238,7 @@ Target consolidation:
 ### Task 10: Finalize storage barrel, sweep, delete empty dirs
 
 **Files:**
+
 - Create: `src/domains/marketplace/storage/index.ts` — `export * from './listings'`, `export * from './products'`, `export * from './pricing'` (check for cross-file name collisions first)
 - Modify: `src/domains/marketplace/index.ts` — add `export * from './storage'`
 - Sweep: `grep -rln "workers/[a-z-]*/storage'\|utils/[a-z-]*/storage'" --include=*.ts .` (excluding domains/marketplace) — should return nothing; fix any straggler
@@ -245,6 +256,7 @@ Target consolidation:
 ### Task 11: Update README project layout
 
 **Files:**
+
 - Modify: `README.md` — replace the "Project layout" `src/` tree to describe `domains/marketplace/`, `domains/llm-clients/`, `platform/`, `workers/` (7), `utils/` (6)
 
 - [ ] **Step 1:** Rewrite the layout block with accurate paths (verify against actual `find src -maxdepth 2 -type d` output at this point, don't guess).

@@ -37,8 +37,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }
 
   useEffect(() => {
-    refresh()
-    const interval = setInterval(refresh, POLL_INTERVAL_MS)
+    void refresh()
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [])
 

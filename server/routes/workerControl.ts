@@ -40,7 +40,11 @@ export interface WorkerControlDeps {
     command: string,
     args: string[],
     options: { cwd: string; detached: boolean; stdio: ['ignore', 'ignore', number] },
-  ) => { pid?: number; on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => void }
+  ) => {
+    pid?: number
+    unref?: () => void
+    on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => void
+  }
 }
 
 const defaultDeps: WorkerControlDeps = {
@@ -116,7 +120,10 @@ export function createWorkerControlHandler(
     const currentPid = readAlivePid(pidFile, deps.isAlive)
 
     if (action === 'status') {
-      return { statusCode: 200, body: { running: currentPid !== null, lastRunErrored: lastRunErrored.get(worker) ?? false } }
+      return {
+        statusCode: 200,
+        body: { running: currentPid !== null, lastRunErrored: lastRunErrored.get(worker) ?? false },
+      }
     }
 
     if (action === 'stop') {
@@ -160,7 +167,11 @@ export function createWorkerControlHandler(
     // itself, same as a hand-started `pnpm run <worker>` would. No env
     // override - the worker's own loadEnvFile() picks up repoRoot's .env same
     // as always, since cwd is set to repoRoot below.
-    const child = deps.spawn('npx', ['tsx', scriptPathFor(worker), ...extraArgsFor(worker)], { cwd: repoRoot, detached: true, stdio: ['ignore', 'ignore', logFd] })
+    const child = deps.spawn('npx', ['tsx', scriptPathFor(worker), ...extraArgsFor(worker)], {
+      cwd: repoRoot,
+      detached: true,
+      stdio: ['ignore', 'ignore', logFd],
+    })
     // The child has its own duped copy of the fd once spawned - this
     // process's own reference must be closed or it leaks for the server's
     // entire (long) lifetime, one per worker start.
@@ -176,9 +187,7 @@ export function createWorkerControlHandler(
     // overwrites this moments later with its more precise leaf pid; until
     // then this wrapper pid is a correct enough "something is running" fact.
     if (child.pid !== undefined) writeFileSync(pidFile, String(child.pid))
-    if (typeof (child as { unref?: () => void }).unref === 'function') {
-      ;(child as { unref: () => void }).unref()
-    }
+    child.unref?.()
     // A stop for THIS worker requested before this new run's own exit fires
     // is treated as intentional regardless of what (code, signal) shape the
     // wrapper reports - see stoppedIntentionally's comment. Otherwise, a

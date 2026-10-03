@@ -16,7 +16,7 @@
 - Structured JSON output via the SDK's schema/response-format mechanism — never free-text-parse a Gemini response. If a batch's response doesn't match the expected shape, log and skip that batch/product rather than crashing the whole run (same "fail closed on the unit that's broken, keep going" philosophy as `backfill.ts`'s soft-wall handling).
 - Resumable: both scripts must be safe to re-run — already-assigned listings (`product_id` already set) are skipped, not re-processed.
 - Dual-write: every `product_id` assignment/reassignment updates both `data/listings.jsonl` and the `listings` table in Postgres, same as the rest of this codebase.
-- `variant_enums` rows are written externally (by the dashboard, a separate plan) — this pipeline only *reads* them. Do not build any enum-curation UI here.
+- `variant_enums` rows are written externally (by the dashboard, a separate plan) — this pipeline only _reads_ them. Do not build any enum-curation UI here.
 - TDD throughout — write the failing test before the implementation for every step below.
 
 ---
@@ -24,11 +24,13 @@
 ### Task 1: Extract shared JSONL helpers, refactor `backfill.ts` to use them
 
 **Files:**
+
 - Create: `src/jsonl.ts`
 - Create: `test/jsonl.test.ts`
 - Modify: `src/backfill.ts` (remove the local `loadListings`/`saveListings`, import from `./jsonl` instead)
 
 **Interfaces:**
+
 - Produces: `loadListings(path: string): Record<string, unknown>[]`, `saveListings(path: string, listings: Record<string, unknown>[]): void` — both new scripts in this plan depend on these.
 
 - [ ] **Step 1: Write the failing test**
@@ -122,10 +124,12 @@ git commit -m "extract shared JSONL load/save helpers from backfill.ts"
 ### Task 2: Pass 1 prompt/schema builders (`src/products.ts`)
 
 **Files:**
+
 - Create: `src/products.ts`
 - Create: `test/products.test.ts`
 
 **Interfaces:**
+
 - Produces: `normalizeBaseModel(raw: string): string`, `ExtractionInput` type (`{id: string, title: string, description: string}`), `buildExtractionPrompt(listings: ExtractionInput[]): string`, `EXTRACTION_RESPONSE_SCHEMA` (const). Task 3 (`findOrCreateProduct`) and Task 5 (`extract-products.ts`) both consume these.
 
 - [ ] **Step 1: Write the failing test**
@@ -228,11 +232,13 @@ git commit -m "add product extraction prompt/schema builders"
 ### Task 3: `products`/`variant_enums` schema + `findOrCreateProduct`
 
 **Files:**
+
 - Modify: `db/schema.sql` (append new tables + `listings.product_id` column, idempotent)
 - Modify: `src/db.ts` (add `findOrCreateProduct`)
 - Modify: `test/db.test.ts` (add tests for `findOrCreateProduct`)
 
 **Interfaces:**
+
 - Consumes: `normalizeBaseModel` from `src/products.ts` (Task 2), `DbClient` (already in `src/db.ts`).
 - Produces: `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null): Promise<number>` — Task 5 and Task 6 both call this.
 
@@ -351,11 +357,13 @@ git commit -m "add products/variant_enums schema and findOrCreateProduct"
 ### Task 4: Gemini client wrapper (`src/gemini.ts`)
 
 **Files:**
+
 - Create: `src/gemini.ts`
 - Create: `test/gemini.test.ts`
 - Modify: `package.json` (add `@google/genai` dependency)
 
 **Interfaces:**
+
 - Produces: `GeminiClient` interface (`{generateJson(prompt: string, schema: object): Promise<unknown>}`), `createGeminiClient(apiKey: string, model?: string): GeminiClient`. Task 5 and Task 6 depend on the `GeminiClient` type (tests inject a fake; only the CLI `main()` functions use the real `createGeminiClient`).
 
 - [ ] **Step 1: Install the dependency**
@@ -447,11 +455,13 @@ git commit -m "add Gemini structured-output client wrapper"
 ### Task 5: Pass 1 extraction script (`src/extract-products.ts`)
 
 **Files:**
+
 - Create: `src/extract-products.ts`
 - Create: `test/extract-products.test.ts`
 - Modify: `package.json` (add `"extract-products": "tsx src/extract-products.ts"` script)
 
 **Interfaces:**
+
 - Consumes: `loadListings`/`saveListings` (Task 1), `buildExtractionPrompt`/`EXTRACTION_RESPONSE_SCHEMA` (Task 2), `findOrCreateProduct` (Task 3), `GeminiClient`/`createGeminiClient` (Task 4), `DbClient`/`createDbPool` (existing), `Logger`/`createLogger` (existing).
 - Produces: `runProductExtraction(gemini: GeminiClient, db: DbClient, logger: Logger, listings: Record<string, unknown>[], options: {batchSize: number, outputPath: string}): Promise<Record<string, unknown>[]>`.
 
@@ -684,6 +694,7 @@ git commit -m "add Pass 1 product extraction script"
 ### Task 6: Pass 2 variant classification script (`src/variant-classify.ts`)
 
 **Files:**
+
 - Modify: `src/products.ts` (add `buildVariantSchema`, `buildVariantPrompt`)
 - Modify: `test/products.test.ts` (add tests for the above)
 - Create: `src/variant-classify.ts`
@@ -691,6 +702,7 @@ git commit -m "add Pass 1 product extraction script"
 - Modify: `package.json` (add `"variant-classify": "tsx src/variant-classify.ts"` script)
 
 **Interfaces:**
+
 - Consumes: everything Task 5 consumes, plus reads the `variant_enums` table (Task 3's schema).
 - Produces: `runVariantClassification(gemini: GeminiClient, db: DbClient, logger: Logger, listings: Record<string, unknown>[], baseModel: string, enumValues: string[], productId: number, options: {outputPath: string}): Promise<Record<string, unknown>[]>`.
 
@@ -702,18 +714,16 @@ import { buildVariantSchema, buildVariantPrompt } from '../src/products'
 
 test('buildVariantSchema constrains variant_tier to exactly the given enum values', () => {
   const schema = buildVariantSchema(['Reference/Founders Edition', 'Custom AIB/OC', 'Unknown'])
-  expect(schema.items.properties.variant_tier.enum).toEqual([
-    'Reference/Founders Edition',
-    'Custom AIB/OC',
-    'Unknown',
-  ])
+  expect(schema.items.properties.variant_tier.enum).toEqual(['Reference/Founders Edition', 'Custom AIB/OC', 'Unknown'])
   expect(schema.items.required).toEqual(['id', 'variant_tier'])
 })
 
 test('buildVariantPrompt names the base model, lists the enum values, and lists each listing', () => {
-  const prompt = buildVariantPrompt('RTX 3060', ['Reference/Founders Edition', 'Custom AIB/OC'], [
-    { id: '1', title: 'RTX 3060 OC Asus', description: 'Factory overclocked' },
-  ])
+  const prompt = buildVariantPrompt(
+    'RTX 3060',
+    ['Reference/Founders Edition', 'Custom AIB/OC'],
+    [{ id: '1', title: 'RTX 3060 OC Asus', description: 'Factory overclocked' }],
+  )
 
   expect(prompt).toContain('RTX 3060')
   expect(prompt).toContain('"Reference/Founders Edition"')
@@ -948,12 +958,23 @@ async function main() {
     for (const enumRow of enumsResult.rows) {
       const product = productsResult.rows.find((p) => p.base_model_normalized === enumRow.base_model_normalized)
       if (!product) {
-        logger.warn(`variant_enums row for "${enumRow.base_model_normalized}" has no matching un-split product, skipping`)
+        logger.warn(
+          `variant_enums row for "${enumRow.base_model_normalized}" has no matching un-split product, skipping`,
+        )
         continue
       }
-      await runVariantClassification(gemini, pool, logger, listings, product.base_model, enumRow.enum_values, product.id, {
-        outputPath: 'data/listings.jsonl',
-      })
+      await runVariantClassification(
+        gemini,
+        pool,
+        logger,
+        listings,
+        product.base_model,
+        enumRow.enum_values,
+        product.id,
+        {
+          outputPath: 'data/listings.jsonl',
+        },
+      )
     }
   } finally {
     await pool.end()

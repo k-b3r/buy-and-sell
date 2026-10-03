@@ -169,7 +169,9 @@ test('a missing or non-string category falls back to null rather than skipping t
 })
 
 test('passes sub_category through to findOrCreateProduct on the INSERT', async () => {
-  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060', category: 'PC Components', sub_category: 'Graphics Cards' }])
+  const clients = fakeClients([
+    { id: '1', base_model: 'RTX 3060', category: 'PC Components', sub_category: 'Graphics Cards' },
+  ])
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060 for sale' })]
   const { db, calls } = fakeDbWithCalls()
@@ -203,7 +205,9 @@ test('candidate list passed in is already the pending set — getExtractionCandi
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [candidate({ id: '2', title: 'iPhone 13 rush' })]
 
-  await runProductExtraction(withPricingDefaults({ groq, gemini: unusedGemini() }), fakeDb(), logger, candidates, { batchSize: 25 })
+  await runProductExtraction(withPricingDefaults({ groq, gemini: unusedGemini() }), fakeDb(), logger, candidates, {
+    batchSize: 25,
+  })
 
   expect(promptedIds).toEqual(['2'])
 })
@@ -295,7 +299,10 @@ test('an empty string variant is treated as no variant at all', async () => {
     { id: '2', base_model: 'RTX 3060' },
   ])
   const logger = createLogger(LOG_PATH)
-  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' }), candidate({ id: '2', title: 'RTX 3060' })]
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'RTX 3060' }),
+    candidate({ id: '2', title: 'RTX 3060' }),
+  ]
   const { db, calls } = fakeDbWithCalls()
 
   await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
@@ -305,7 +312,7 @@ test('an empty string variant is treated as no variant at all', async () => {
   expect(params[1]).toBe(params[3])
 })
 
-test('OC / Founders edition / Founder\'s edition: OC stays separate, the two spellings of the same edition collapse', async () => {
+test("OC / Founders edition / Founder's edition: OC stays separate, the two spellings of the same edition collapse", async () => {
   const clients = fakeClients([
     { id: '1', base_model: 'RTX 3060', variant: 'OC' },
     { id: '2', base_model: 'RTX 3060', variant: 'Founders edition' },
@@ -371,7 +378,10 @@ test('logs a per-batch summary with assigned and skipped counts', async () => {
     { id: 'not-a-real-listing', base_model: 'Ghost' }, // no matching candidate -> skipped
   ])
   const logger = createLogger(LOG_PATH)
-  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' }), candidate({ id: '2', title: 'Unknown thing' })]
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'RTX 3060' }),
+    candidate({ id: '2', title: 'Unknown thing' }),
+  ]
 
   await runProductExtraction(clients, fakeDb(), logger, candidates, { batchSize: 25 })
 
@@ -407,9 +417,16 @@ test('a transient (non-quota) Groq error is retried with exponential backoff and
   const { db, calls } = fakeDbWithCalls()
   const delays: number[] = []
 
-  await runProductExtraction(withPricingDefaults({ groq, gemini: unusedGemini() }), db, logger, candidates, { batchSize: 25 }, async (ms) => {
-    delays.push(ms)
-  })
+  await runProductExtraction(
+    withPricingDefaults({ groq, gemini: unusedGemini() }),
+    db,
+    logger,
+    candidates,
+    { batchSize: 25 },
+    async (ms) => {
+      delays.push(ms)
+    },
+  )
 
   expect(callCount).toBe(3)
   expect(delays).toEqual([30000, 60000])
@@ -438,7 +455,14 @@ test('Groq quota exhaustion falls through to Gemini, which succeeds', async () =
   const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(withPricingDefaults({ groq, gemini }), db, logger, candidates, { batchSize: 25 }, async () => {})
+  await runProductExtraction(
+    withPricingDefaults({ groq, gemini }),
+    db,
+    logger,
+    candidates,
+    { batchSize: 25 },
+    async () => {},
+  )
 
   expect(geminiCalled).toBe(true)
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(true)
@@ -465,7 +489,14 @@ test('Groq retries exhausted (non-quota) falls through to Gemini, which succeeds
   const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(withPricingDefaults({ groq, gemini }), db, logger, candidates, { batchSize: 25 }, async () => {})
+  await runProductExtraction(
+    withPricingDefaults({ groq, gemini }),
+    db,
+    logger,
+    candidates,
+    { batchSize: 25 },
+    async () => {},
+  )
 
   expect(groqCallCount).toBe(5)
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(true)
@@ -493,7 +524,14 @@ test('both Groq and Gemini exhausted stops the run cleanly', async () => {
   const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
   const { db, calls } = fakeDbWithCalls()
 
-  await runProductExtraction(withPricingDefaults({ groq, gemini }), db, logger, candidates, { batchSize: 25 }, async () => {})
+  await runProductExtraction(
+    withPricingDefaults({ groq, gemini }),
+    db,
+    logger,
+    candidates,
+    { batchSize: 25 },
+    async () => {},
+  )
 
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
   const log = readFileSync(LOG_PATH, 'utf-8')
@@ -512,7 +550,9 @@ test('a null description is sent to Groq as an empty string, not "null"', async 
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
 
-  await runProductExtraction(withPricingDefaults({ groq, gemini: unusedGemini() }), fakeDb(), logger, candidates, { batchSize: 25 })
+  await runProductExtraction(withPricingDefaults({ groq, gemini: unusedGemini() }), fakeDb(), logger, candidates, {
+    batchSize: 25,
+  })
 
   expect(capturedPrompt).toContain('desc: ""')
 })
@@ -535,19 +575,34 @@ test('a brand-new product gets priced inline (via Exa) right after getting its p
   await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
 
   const insert = calls.find((c) => c.sql.startsWith('INSERT INTO product_price_history'))
-  expect(insert?.params).toEqual([1, 14000, 17000, 'PHP', expect.any(String), 'exa_new_retail', 'New', null, null, null])
+  expect(insert?.params).toEqual([
+    1,
+    14000,
+    17000,
+    'PHP',
+    expect.any(String),
+    'exa_new_retail',
+    'New',
+    null,
+    null,
+    null,
+  ])
 })
 
 test('a listing whose product clears the discount bar gets a discount_notifications row inserted inline', async () => {
   const groq = fakeGroq([{ id: '1', base_model: 'Sony WH-1000XM4' }])
-  const exa: ExaClient = { searchStructured: async () => ({ output: { content: { found: true, price_low: 10000, price_high: 12000 } } }) }
+  const exa: ExaClient = {
+    searchStructured: async () => ({ output: { content: { found: true, price_low: 10000, price_high: 12000 } } }),
+  }
   const clients: ExtractionClients = { groq, gemini: unusedGemini(), exa, tavily: fakeTavily() }
   const logger = createLogger(LOG_PATH)
   // Used condition, no secondhand available -> falls back to peer-median,
   // but there's no sibling data either (fakeDbWithCalls' default), so this
   // exercises the retail-not-applicable + no-secondhand + no-peers case:
   // nothing should qualify. Use "New" instead to get a real reference.
-  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'Sony WH-1000XM4', condition: 'New', price_amount: 7000 })]
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'Sony WH-1000XM4', condition: 'New', price_amount: 7000 }),
+  ]
   const { db, calls } = fakeDbWithCalls()
 
   await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
@@ -561,7 +616,9 @@ test('a listing under a product that ends up excluded gets no discount check at 
   const groq = fakeGroq([{ id: '1', base_model: 'Refrigerator' }])
   const clients = fakeClients([{ id: '1', base_model: 'Refrigerator' }])
   const logger = createLogger(LOG_PATH)
-  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'Refrigerator', condition: 'New', price_amount: 100 })]
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'Refrigerator', condition: 'New', price_amount: 100 }),
+  ]
   const { db, calls } = fakeDbWithCalls()
 
   await runProductExtraction({ ...clients, groq }, db, logger, candidates, { batchSize: 25 })
@@ -583,7 +640,10 @@ test('two listings sharing a brand-new product only trigger one pricing lookup, 
   }
   const clients: ExtractionClients = { groq, gemini: unusedGemini(), exa, tavily: fakeTavily() }
   const logger = createLogger(LOG_PATH)
-  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' }), candidate({ id: '2', title: 'RTX 3060 OC' })]
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'RTX 3060' }),
+    candidate({ id: '2', title: 'RTX 3060 OC' }),
+  ]
   const { db } = fakeDbWithCalls()
 
   await runProductExtraction(clients, db, logger, candidates, { batchSize: 25 })
@@ -605,7 +665,9 @@ test('a product that already has pricing is not re-priced - existing prices are 
   }
   const clients: ExtractionClients = { groq, gemini: unusedGemini(), exa, tavily: fakeTavily() }
   const logger = createLogger(LOG_PATH)
-  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060', condition: 'New', price_amount: 7000 })]
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'RTX 3060', condition: 'New', price_amount: 7000 }),
+  ]
 
   const calls: { sql: string; params: unknown[] }[] = []
   const db: DbClient = {

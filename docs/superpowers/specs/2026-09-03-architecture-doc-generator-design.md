@@ -56,28 +56,32 @@ scripts/gen-arch-doc.ts (ts-morph, run via tsx)
 ```ts
 interface ExtractedFunction {
   name: string
-  signature: string        // e.g. "(db: DbClient, id: number): Promise<void>"
+  signature: string // e.g. "(db: DbClient, id: number): Promise<void>"
   description: string | null
   isClass: boolean
 }
 
 interface ExtractedModule {
-  path: string              // e.g. "src/workers/enrich-products/index.ts"
+  path: string // e.g. "src/workers/enrich-products/index.ts"
   functions: ExtractedFunction[]
-  imports: string[]         // in-repo module specifiers this file imports
+  imports: string[] // in-repo module specifiers this file imports
 }
 
 interface ExtractedDomain {
-  name: string               // e.g. "workers", "domains/marketplace"
+  name: string // e.g. "workers", "domains/marketplace"
   modules: ExtractedModule[]
 }
 
 interface ExtractedProject {
-  name: string                // "src" | "server" | "dashboard"
+  name: string // "src" | "server" | "dashboard"
   domains: ExtractedDomain[]
 }
 
-function extractArchitecture(project: Project, rootDir: string, domainOf: (relPath: string) => string): ExtractedDomain[]
+function extractArchitecture(
+  project: Project,
+  rootDir: string,
+  domainOf: (relPath: string) => string,
+): ExtractedDomain[]
 function renderMarkdown(projects: ExtractedProject[]): string
 ```
 
@@ -243,7 +247,7 @@ codebase's existing carve-out for thin entry-point/wiring code (e.g.
   unreadably.
 - Domain grouping by folder convention breaks silently if someone adds a new
   top-level folder under `src/` that doesn't fit the `workers/utils/platform/
-  domains/<sub>` pattern — it'll just become its own domain bucket, not an
+domains/<sub>` pattern — it'll just become its own domain bucket, not an
   error, so no immediate risk.
 - Pre-commit hook adds latency to every commit touching `src/` (full project
   parse via ts-morph) — unmeasured; revisit if it becomes annoyingly slow.

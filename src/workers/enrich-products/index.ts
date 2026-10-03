@@ -95,7 +95,9 @@ export async function runProductEnrichment(
           break
         }
         if (attempt === maxAttempts) {
-          logger.error(`batch starting at ${i}: Groq request failed after ${maxAttempts} attempts (${message}), stopping run`)
+          logger.error(
+            `batch starting at ${i}: Groq request failed after ${maxAttempts} attempts (${message}), stopping run`,
+          )
           fatal = true
           break
         }
@@ -181,7 +183,9 @@ async function main() {
   writePidFile('data/enrich-products.pid')
   // Per-key model fallback (best model first) round-robined across keys -
   // see createGroqPool. Logs every hop so a stuck key/model is visible.
-  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
+    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+  )
   logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 

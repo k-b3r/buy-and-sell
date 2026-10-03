@@ -53,7 +53,11 @@ async function readTail(filePath: string, size: number): Promise<{ lines: string
 // size) - a stale/zero offset against a huge file now takes several polls to
 // catch up instead of one unbounded read, and the dashboard's existing poll
 // loop already handles nextOffset < size by just asking again.
-async function readFrom(filePath: string, offset: number, size: number): Promise<{ lines: string[]; nextOffset: number }> {
+async function readFrom(
+  filePath: string,
+  offset: number,
+  size: number,
+): Promise<{ lines: string[]; nextOffset: number }> {
   const length = Math.min(size - offset, MAX_READ_BYTES)
   const handle = await open(filePath, 'r')
   try {

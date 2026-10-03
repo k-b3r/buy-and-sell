@@ -48,7 +48,8 @@ function initialPriceFields(product: ProductNeedingReview) {
 // per direct instruction (2026-08-29), no llm/api/computed relabeling, just
 // keep it recognizable that manual entries say "manual".
 function PriceHistoryList({ entries }: { entries: ProductPriceHistoryEntry[] }) {
-  if (entries.length === 0) return <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>No history yet</div>
+  if (entries.length === 0)
+    return <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>No history yet</div>
 
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: '0.75em', color: 'var(--color-text-muted)' }}>
@@ -115,13 +116,22 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
       requests.push({ kind: 'new', priceLow: Number(prices.retailMin), priceHigh: Number(prices.retailMax) })
     }
     if (prices.secondhandMin.trim() && prices.secondhandMax.trim()) {
-      requests.push({ kind: 'secondhand', priceLow: Number(prices.secondhandMin), priceHigh: Number(prices.secondhandMax) })
+      requests.push({
+        kind: 'secondhand',
+        priceLow: Number(prices.secondhandMin),
+        priceHigh: Number(prices.secondhandMax),
+      })
     }
     if (requests.length === 0) {
       setError('Enter at least one min and max')
       return
     }
-    if (requests.some((r) => !Number.isFinite(r.priceLow) || !Number.isFinite(r.priceHigh) || r.priceLow <= 0 || r.priceLow > r.priceHigh)) {
+    if (
+      requests.some(
+        (r) =>
+          !Number.isFinite(r.priceLow) || !Number.isFinite(r.priceHigh) || r.priceLow <= 0 || r.priceLow > r.priceHigh,
+      )
+    ) {
       setError('Min/max must be positive numbers with min ≤ max')
       return
     }
@@ -217,7 +227,9 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
             <div>{product.enrichment.description}</div>
             <div style={{ color: 'var(--color-text-muted)', marginTop: 2 }}>{product.enrichment.value_drivers}</div>
             {trainedPrice && (
-              <div style={{ color: 'var(--color-text-muted)', marginTop: 2 }}>Trained price knowledge: {trainedPrice}</div>
+              <div style={{ color: 'var(--color-text-muted)', marginTop: 2 }}>
+                Trained price knowledge: {trainedPrice}
+              </div>
             )}
           </div>
         ) : (
@@ -274,10 +286,23 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
           {confirming === 'prices' ? (
             <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85em' }}>
               Save these prices?
-              <button onClick={savePrices} disabled={loading !== null} style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}>
+              <button
+                onClick={savePrices}
+                disabled={loading !== null}
+                style={{
+                  ...buttonStyle,
+                  background: 'var(--color-accent)',
+                  color: 'var(--color-bg)',
+                  borderColor: 'var(--color-accent)',
+                }}
+              >
                 {loading === 'prices' ? 'Saving...' : 'Yes'}
               </button>
-              <button onClick={() => setConfirming(null)} disabled={loading !== null} style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}>
+              <button
+                onClick={() => setConfirming(null)}
+                disabled={loading !== null}
+                style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
+              >
                 No
               </button>
             </span>
@@ -296,10 +321,23 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
           {confirming === 'reviewed' ? (
             <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85em' }}>
               Mark reviewed?
-              <button onClick={() => resolve('mark-reviewed', 'reviewed')} disabled={loading !== null} style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}>
+              <button
+                onClick={() => resolve('mark-reviewed', 'reviewed')}
+                disabled={loading !== null}
+                style={{
+                  ...buttonStyle,
+                  background: 'var(--color-accent)',
+                  color: 'var(--color-bg)',
+                  borderColor: 'var(--color-accent)',
+                }}
+              >
                 {loading === 'reviewed' ? 'Marking...' : 'Yes'}
               </button>
-              <button onClick={() => setConfirming(null)} disabled={loading !== null} style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}>
+              <button
+                onClick={() => setConfirming(null)}
+                disabled={loading !== null}
+                style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
+              >
                 No
               </button>
             </span>
@@ -307,7 +345,12 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
             <button
               onClick={() => setConfirming('reviewed')}
               disabled={loading !== null || confirming !== null}
-              style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}
+              style={{
+                ...buttonStyle,
+                background: 'var(--color-accent)',
+                color: 'var(--color-bg)',
+                borderColor: 'var(--color-accent)',
+              }}
             >
               Mark reviewed
             </button>
@@ -315,10 +358,23 @@ function ReviewRow({ product, onResolved }: { product: ProductNeedingReview; onR
           {confirming === 'excluded' ? (
             <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85em' }}>
               Exclude from price lookup?
-              <button onClick={() => resolve('exclude', 'excluded')} disabled={loading !== null} style={{ ...buttonStyle, background: 'var(--color-accent)', color: 'var(--color-bg)', borderColor: 'var(--color-accent)' }}>
+              <button
+                onClick={() => resolve('exclude', 'excluded')}
+                disabled={loading !== null}
+                style={{
+                  ...buttonStyle,
+                  background: 'var(--color-accent)',
+                  color: 'var(--color-bg)',
+                  borderColor: 'var(--color-accent)',
+                }}
+              >
                 {loading === 'excluded' ? 'Excluding...' : 'Yes'}
               </button>
-              <button onClick={() => setConfirming(null)} disabled={loading !== null} style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}>
+              <button
+                onClick={() => setConfirming(null)}
+                disabled={loading !== null}
+                style={{ ...buttonStyle, background: 'transparent', color: 'var(--color-text)' }}
+              >
                 No
               </button>
             </span>

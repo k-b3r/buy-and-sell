@@ -2,7 +2,15 @@ import type { CSSProperties } from 'react'
 
 // Placeholder bar for a line of text (title, price, etc). Percentage widths
 // so it scales with its container instead of a fixed px guess.
-export function SkeletonLine({ width = '100%', height = 14, style }: { width?: string | number; height?: number; style?: CSSProperties }) {
+export function SkeletonLine({
+  width = '100%',
+  height = 14,
+  style,
+}: {
+  width?: string | number
+  height?: number
+  style?: CSSProperties
+}) {
   return <div className="skeleton" style={{ width, height, ...style }} />
 }
 

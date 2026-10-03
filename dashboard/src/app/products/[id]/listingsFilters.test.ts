@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest'
-import { paginateListings, DEFAULT_HIDE_SOLD, DEFAULT_NEGOTIABLE_ONLY, DEFAULT_LISTED_WITHIN_DAYS, DEFAULT_SELECTED_BAND, DEFAULT_SORT_KEY, type ListingsFilters } from './listingsFilters'
+import {
+  paginateListings,
+  DEFAULT_HIDE_SOLD,
+  DEFAULT_NEGOTIABLE_ONLY,
+  DEFAULT_LISTED_WITHIN_DAYS,
+  DEFAULT_SELECTED_BAND,
+  DEFAULT_SORT_KEY,
+  type ListingsFilters,
+} from './listingsFilters'
 import type { ProductListingSummary } from '../../../lib/queries'
 
 const DEFAULT_FILTERS: ListingsFilters = {

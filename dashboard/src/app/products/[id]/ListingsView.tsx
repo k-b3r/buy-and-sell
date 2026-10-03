@@ -175,7 +175,9 @@ export default function ListingsView({
 }) {
   const [view, setView] = useState<View>(initialFilters?.view ?? DEFAULT_VIEW)
   const [sortKey, setSortKey] = useState<SortKey>(initialFilters?.sortKey ?? DEFAULT_SORT_KEY)
-  const [listedWithinDays, setListedWithinDays] = useState(initialFilters?.listedWithinDays ?? DEFAULT_LISTED_WITHIN_DAYS)
+  const [listedWithinDays, setListedWithinDays] = useState(
+    initialFilters?.listedWithinDays ?? DEFAULT_LISTED_WITHIN_DAYS,
+  )
   const [hideSold, setHideSold] = useState(initialFilters?.hideSold ?? DEFAULT_HIDE_SOLD)
   const [negotiableOnly, setNegotiableOnly] = useState(initialFilters?.negotiableOnly ?? DEFAULT_NEGOTIABLE_ONLY)
   const [selectedBand, setSelectedBand] = useState<number | null>(initialFilters?.selectedBand ?? DEFAULT_SELECTED_BAND)
@@ -233,7 +235,7 @@ export default function ListingsView({
       return
     const timeout = setTimeout(() => {
       appliedFiltersRef.current = { sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }
-      fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, 0, true)
+      void fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, 0, true)
     }, 300)
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,7 +247,7 @@ export default function ListingsView({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !loading)
-          fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, nextOffset, false)
+          void fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, nextOffset, false)
       },
       { rootMargin: '200px' },
     )
@@ -257,8 +259,16 @@ export default function ListingsView({
   // Carried on every listing link as `?back=` so that link's "Back to
   // {product}" button (ListingDetailContent) returns here with these same
   // filters applied, instead of the product page resetting to its defaults.
-  const backQueryString = buildListingsQueryString({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand })
-  const listingHref = (listingId: string) => (backQueryString ? `/listings/${listingId}?back=${encodeURIComponent(backQueryString)}` : `/listings/${listingId}`)
+  const backQueryString = buildListingsQueryString({
+    view,
+    sortKey,
+    listedWithinDays,
+    hideSold,
+    negotiableOnly,
+    selectedBand,
+  })
+  const listingHref = (listingId: string) =>
+    backQueryString ? `/listings/${listingId}?back=${encodeURIComponent(backQueryString)}` : `/listings/${listingId}`
 
   const filtersActive =
     listedWithinDays !== DEFAULT_LISTED_WITHIN_DAYS ||
@@ -388,7 +398,14 @@ export default function ListingsView({
                   <td style={{ maxWidth: 260 }}>
                     <Link
                       href={listingHref(l.id)}
-                      style={{ display: 'inline-block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}
+                      style={{
+                        display: 'inline-block',
+                        maxWidth: 220,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        verticalAlign: 'middle',
+                      }}
                     >
                       {l.title}
                     </Link>
@@ -400,7 +417,9 @@ export default function ListingsView({
                   <td>{l.condition ?? '—'}</td>
                   <td className="mono">
                     {formatListingPrice(l)}
-                    {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && <NegotiableBadge />}
+                    {isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent) && (
+                      <NegotiableBadge />
+                    )}
                     {l.is_repost && <RepostBadge />}
                     <DiscountBadge percent={l.discount_percent} reasoning={l.verification_reasoning} />
                   </td>

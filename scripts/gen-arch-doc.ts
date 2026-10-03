@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 import { Node, Project } from 'ts-morph'
+import type { JSDocableNode } from 'ts-morph'
 
 export interface ExtractedFunction {
   name: string
@@ -73,8 +74,7 @@ function extractFunctions(sourceFile: ReturnType<Project['getSourceFiles']>[numb
     for (const decl of declarations) {
       const isClass = Node.isClassDeclaration(decl)
       const isFunctionLike =
-        Node.isFunctionDeclaration(decl) ||
-        (Node.isVariableDeclaration(decl) && isFunctionInitializer(decl))
+        Node.isFunctionDeclaration(decl) || (Node.isVariableDeclaration(decl) && isFunctionInitializer(decl))
 
       if (!isClass && !isFunctionLike) continue
 
@@ -106,7 +106,10 @@ function buildSignature(name: string, decl: Node): string {
   }
   if (!fn || !Node.isFunctionLikeDeclaration(fn)) return name
 
-  const params = fn.getParameters().map((p) => p.getText()).join(', ')
+  const params = fn
+    .getParameters()
+    .map((p) => p.getText())
+    .join(', ')
   const returnTypeNode = fn.getReturnTypeNode()
   const returnType = returnTypeNode ? returnTypeNode.getText() : fn.getReturnType().getText()
   return oneLine(`${name}(${params}): ${returnType}`)
@@ -117,7 +120,7 @@ function oneLine(text: string): string {
 }
 
 function getJsDocDescription(decl: Node): string | null {
-  let jsDocs: ReturnType<import('ts-morph').JSDocableNode['getJsDocs']> = []
+  let jsDocs: ReturnType<JSDocableNode['getJsDocs']> = []
   if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
     jsDocs = decl.getJsDocs()
   } else if (Node.isVariableDeclaration(decl)) {
@@ -238,5 +241,5 @@ async function main() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main()
+  void main()
 }

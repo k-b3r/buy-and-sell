@@ -32,15 +32,10 @@ test('purgeFarListings deletes photos then the row for every far candidate', asy
     },
   }
 
-  const count = await purgeFarListings(
-    db,
-    silentLogger(),
-    imageStore,
-    [
-      { id: 'far-1', lat: 10.3157, lng: 123.8854 },
-      { id: 'far-2', lat: 16.4, lng: 120.6 },
-    ],
-  )
+  const count = await purgeFarListings(db, silentLogger(), imageStore, [
+    { id: 'far-1', lat: 10.3157, lng: 123.8854 },
+    { id: 'far-2', lat: 16.4, lng: 120.6 },
+  ])
 
   expect(count).toBe(2)
   expect(deletedPhotoIds).toEqual(['listings/far-1/', 'listings/far-2/'])

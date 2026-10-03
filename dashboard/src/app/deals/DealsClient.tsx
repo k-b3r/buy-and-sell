@@ -21,7 +21,14 @@ interface Filters {
   soldOnly: boolean
 }
 
-const EMPTY_FILTERS: Filters = { search: '', category: null, minProfit: '', minTier: '', maxDaysListed: '', soldOnly: false }
+const EMPTY_FILTERS: Filters = {
+  search: '',
+  category: null,
+  minProfit: '',
+  minTier: '',
+  maxDaysListed: '',
+  soldOnly: false,
+}
 
 // Plain-language labels for the reference-price fallback chain (highest
 // confidence first) - "sold_comps"/"peer_listings"/"llm_estimate" are the
@@ -36,9 +43,10 @@ const TIER_LABELS: Record<DealsConfidenceTier, string> = {
 // Longer explanation for each tier, shown as a native tooltip on the badge -
 // the short label alone doesn't say *why* one tier beats another.
 const TIER_DESCRIPTIONS: Record<DealsConfidenceTier, string> = {
-  sold_comps: 'Median asking price of this product\'s listings that have actually sold - the strongest signal, though Facebook doesn\'t show the final agreed price.',
+  sold_comps:
+    "Median asking price of this product's listings that have actually sold - the strongest signal, though Facebook doesn't show the final agreed price.",
   peer_listings: 'Median asking price of other active listings for this product - nobody has paid this yet.',
-  llm_estimate: 'AI-researched price estimate - used when there aren\'t enough real listings to compare against.',
+  llm_estimate: "AI-researched price estimate - used when there aren't enough real listings to compare against.",
 }
 
 const TIER_COLORS: Record<DealsConfidenceTier, string> = {
@@ -73,12 +81,18 @@ function DealRow({ deal }: { deal: DealListing }) {
         <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', background: 'var(--color-bg)' }}>
           {deal.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={deal.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img
+              src={deal.photo_url}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
           ) : null}
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deal.title}</div>
+        <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {deal.title}
+        </div>
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: 2 }}>
           {deal.base_model}
           {deal.variant_tier ? ` — ${deal.variant_tier}` : ''}
@@ -87,7 +101,9 @@ function DealRow({ deal }: { deal: DealListing }) {
         <div className="mono" style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span>₱{deal.ask_price.toLocaleString()}</span>
           {deal.reference_price !== null && (
-            <span style={{ color: 'var(--color-text-muted)' }}>vs ₱{Math.round(deal.reference_price).toLocaleString()}</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>
+              vs ₱{Math.round(deal.reference_price).toLocaleString()}
+            </span>
           )}
           {deal.tier && (
             <span
@@ -113,10 +129,14 @@ function DealRow({ deal }: { deal: DealListing }) {
             +₱{Math.round(deal.profit_pesos).toLocaleString()}
           </div>
         ) : (
-          <div className="mono" style={{ color: 'var(--color-text-muted)' }}>No estimate</div>
+          <div className="mono" style={{ color: 'var(--color-text-muted)' }}>
+            No estimate
+          </div>
         )}
         {deal.discount_percent !== null && (
-          <div className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>{deal.discount_percent}% off</div>
+          <div className="mono" style={{ fontSize: '0.85em', color: 'var(--color-text-muted)' }}>
+            {deal.discount_percent}% off
+          </div>
         )}
         {deal.days_listed !== null && (
           <div className="mono" style={{ fontSize: '0.8em', color: 'var(--color-text-muted)' }}>
@@ -130,7 +150,12 @@ function DealRow({ deal }: { deal: DealListing }) {
           Days-to-sell: coming soon
         </div>
         <div style={{ marginTop: 6 }}>
-          <SaveButton listingId={deal.listing_id} productId={deal.product_id} initialSaved={deal.is_saved} variant="icon" />
+          <SaveButton
+            listingId={deal.listing_id}
+            productId={deal.product_id}
+            initialSaved={deal.is_saved}
+            variant="icon"
+          />
         </div>
       </div>
     </Link>
@@ -196,7 +221,9 @@ export default function DealsClient({
       appliedFiltersRef.current = filters
       setLowConfidenceDeals([])
       setFiltersLoading(true)
-      Promise.all([fetchPage(filters, 0, true), fetchLowConfidencePage(filters, 0)]).finally(() => setFiltersLoading(false))
+      void Promise.all([fetchPage(filters, 0, true), fetchLowConfidencePage(filters, 0)]).finally(() =>
+        setFiltersLoading(false),
+      )
     }, 300)
     return () => clearTimeout(timeout)
   }, [filters, fetchPage, fetchLowConfidencePage])
@@ -206,7 +233,7 @@ export default function DealsClient({
     if (!sentinel || nextOffset === null) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) fetchPage(filters, nextOffset, false)
+        if (entries[0].isIntersecting && !loading) void fetchPage(filters, nextOffset, false)
       },
       { rootMargin: '200px' },
     )
@@ -306,8 +333,8 @@ export default function DealsClient({
         <div style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: '1.1em' }}>Rougher estimates</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: -8 }}>
-            Products we've only ever seen listed once, or with no price estimate at all. There could be real deals
-            in here, but the numbers are shakier - take with a grain of salt. Not sorted by profit.
+            Products we've only ever seen listed once, or with no price estimate at all. There could be real deals in
+            here, but the numbers are shakier - take with a grain of salt. Not sorted by profit.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {lowConfidenceDeals.map((d) => (

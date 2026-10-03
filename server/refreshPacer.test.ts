@@ -3,7 +3,11 @@ import { createRefreshLock } from './refreshLock'
 
 test('acquires immediately when the lock is free and there is no prior action', async () => {
   const lock = createRefreshLock()
-  const pacer = createRefreshPacer(lock, () => 0, async () => {})
+  const pacer = createRefreshPacer(
+    lock,
+    () => 0,
+    async () => {},
+  )
 
   const got = await pacer.waitForTurn()
 
@@ -90,7 +94,11 @@ test('does not pace-delay when the gap since the last action already exceeds the
 
 test('release() releases the underlying lock', async () => {
   const lock = createRefreshLock()
-  const pacer = createRefreshPacer(lock, () => 0, async () => {})
+  const pacer = createRefreshPacer(
+    lock,
+    () => 0,
+    async () => {},
+  )
 
   await pacer.waitForTurn()
   expect(lock.isBusy()).toBe(true)
@@ -102,9 +110,13 @@ test('release() releases the underlying lock', async () => {
 test('first-ever call has no prior action to pace against', async () => {
   const lock = createRefreshLock()
   const delays: number[] = []
-  const pacer = createRefreshPacer(lock, () => 0, async (ms) => {
-    delays.push(ms)
-  })
+  const pacer = createRefreshPacer(
+    lock,
+    () => 0,
+    async (ms) => {
+      delays.push(ms)
+    },
+  )
 
   await pacer.waitForTurn()
 

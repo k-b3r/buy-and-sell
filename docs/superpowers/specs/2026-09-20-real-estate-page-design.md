@@ -56,20 +56,20 @@ gated to real estate, and defaults to today's behavior. Concretely:
 
 ## Decisions
 
-| # | Decision | Value |
-|---|---|---|
-| 1 | Storage | Side table `real_estate_details`, 1:1 with `listings`, cascade delete. Product pipeline untouched. |
-| 2 | Extractor | New worker `extract-real-estate`, Groq pool, same batching pattern as existing Groq workers. |
-| 3 | Scope | Sale and rent on one page with a toggle. |
-| 4 | Collection | Property phrases in `collect_keywords` with a new `kind` column so they run in their own capped pass. Plain rows would lengthen every lap and slow other categories, which the non-disruption rule forbids. |
-| 5 | Price per sqm | Computed at query time, never stored. |
-| 6 | Sale vs rent | From text only. Sub-category `Rentals` is at most a weak hint. |
-| 7 | Location | `area_text` and `project_name` extracted from text. lat/lng treated as coarse. No barangay matching. |
-| D1 | Geography v1 | **NCR only** (user, 2026-09-20). Service area stays 80 km from Manila, which already covers NCR. Region 4-A and beyond are deferred. |
-| D2 | Price history | **Real estate listings only** in v1, to leave other categories untouched. Extending to all categories is a separate, later change. |
-| D3 | No golden set (user, 2026-09-20) | A listing can only offer so much. What the LLM cannot resolve goes to **Under review** instead of being guessed. Quality check is a ~20-listing spot check by the user at the end of phase 2. |
-| D4 | Under review rule | A listing needs review when its price basis is `unresolved`, its confidence is `low`, or sale/rent is unclear. It is excluded from the main list and shown on an Under review tab, read-only in v1. |
-| D5 | `/products` | Unchanged. Real Estate stays visible there. |
+| #   | Decision                         | Value                                                                                                                                                                                                       |
+| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Storage                          | Side table `real_estate_details`, 1:1 with `listings`, cascade delete. Product pipeline untouched.                                                                                                          |
+| 2   | Extractor                        | New worker `extract-real-estate`, Groq pool, same batching pattern as existing Groq workers.                                                                                                                |
+| 3   | Scope                            | Sale and rent on one page with a toggle.                                                                                                                                                                    |
+| 4   | Collection                       | Property phrases in `collect_keywords` with a new `kind` column so they run in their own capped pass. Plain rows would lengthen every lap and slow other categories, which the non-disruption rule forbids. |
+| 5   | Price per sqm                    | Computed at query time, never stored.                                                                                                                                                                       |
+| 6   | Sale vs rent                     | From text only. Sub-category `Rentals` is at most a weak hint.                                                                                                                                              |
+| 7   | Location                         | `area_text` and `project_name` extracted from text. lat/lng treated as coarse. No barangay matching.                                                                                                        |
+| D1  | Geography v1                     | **NCR only** (user, 2026-09-20). Service area stays 80 km from Manila, which already covers NCR. Region 4-A and beyond are deferred.                                                                        |
+| D2  | Price history                    | **Real estate listings only** in v1, to leave other categories untouched. Extending to all categories is a separate, later change.                                                                          |
+| D3  | No golden set (user, 2026-09-20) | A listing can only offer so much. What the LLM cannot resolve goes to **Under review** instead of being guessed. Quality check is a ~20-listing spot check by the user at the end of phase 2.               |
+| D4  | Under review rule                | A listing needs review when its price basis is `unresolved`, its confidence is `low`, or sale/rent is unclear. It is excluded from the main list and shown on an Under review tab, read-only in v1.         |
+| D5  | `/products`                      | Unchanged. Real Estate stays visible there.                                                                                                                                                                 |
 
 ## Design
 
@@ -188,13 +188,13 @@ stated price, so roughly half the listings are expected to sit under review. Tha
 Each phase ends with a stop for user review before the next one starts. One branch per phase, tests first,
 root, server and dashboard suites green before any commit. No commits without the user asking.
 
-| Phase | Contents | Exit criteria |
-|---|---|---|
-| 0 | Confirm the first keyword set (`house and lot`) | Keyword agreed |
-| 1 | Price history (real estate only), recheck cadence setting, `collect_keywords.kind` and the gated real estate pass, first 3-4 NCR keywords | Non-real-estate throughput unchanged versus baseline, price rows appear for real estate rechecks, real estate pass verified with the flag on |
-| 2 | Schema, domain module, storage, worker, backfill of existing real estate listings, spot check | User's ~20-listing spot check looks right, unresolved share reported |
-| 3 | Query, registry entry, page, nav entry | Page renders real prod rows, low-confidence rows marked, other pages unchanged |
-| 4 | More NCR keywords, category-search spike | Volume grows, pacing holds |
+| Phase | Contents                                                                                                                                  | Exit criteria                                                                                                                                |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Confirm the first keyword set (`house and lot`)                                                                                           | Keyword agreed                                                                                                                               |
+| 1     | Price history (real estate only), recheck cadence setting, `collect_keywords.kind` and the gated real estate pass, first 3-4 NCR keywords | Non-real-estate throughput unchanged versus baseline, price rows appear for real estate rechecks, real estate pass verified with the flag on |
+| 2     | Schema, domain module, storage, worker, backfill of existing real estate listings, spot check                                             | User's ~20-listing spot check looks right, unresolved share reported                                                                         |
+| 3     | Query, registry entry, page, nav entry                                                                                                    | Page renders real prod rows, low-confidence rows marked, other pages unchanged                                                               |
+| 4     | More NCR keywords, category-search spike                                                                                                  | Volume grows, pacing holds                                                                                                                   |
 
 ## Deploy
 

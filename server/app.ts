@@ -62,7 +62,14 @@ export async function handleRequest(
   } catch {
     return { statusCode: 400, body: { error: 'invalid JSON body' } }
   }
-  return handler(body)
+  // createApp's request listener can't await safely, so a rejection here
+  // would be unhandled and take down the whole server process.
+  try {
+    return await handler(body)
+  } catch (err) {
+    console.error(`${method} ${url} handler failed:`, err)
+    return { statusCode: 500, body: { error: 'internal error' } }
+  }
 }
 
 // x-forwarded-for is only trustworthy once this sits behind a proxy/tunnel
@@ -85,11 +92,22 @@ export function createApp(apiKey: string, routes: RouteTable): Server {
     req.on('data', (chunk) => {
       raw += chunk
     })
-    req.on('end', async () => {
+    req.on('end', () => void respond())
+
+    async function respond() {
       const clientIp = clientIpFrom(req)
-      const result = await handleRequest(routes, apiKey, req.method, req.url, req.headers.authorization, raw, clientIp, rateLimiter)
+      const result = await handleRequest(
+        routes,
+        apiKey,
+        req.method,
+        req.url,
+        req.headers.authorization,
+        raw,
+        clientIp,
+        rateLimiter,
+      )
       res.writeHead(result.statusCode, { 'content-type': 'application/json' })
       res.end(JSON.stringify(result.body))
-    })
+    }
   })
 }

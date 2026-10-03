@@ -34,7 +34,12 @@ function fakeDb(): DbClient {
   return {
     query: async (sql: string) => {
       if (sql.includes('WHERE product_id = $1')) {
-        return { rows: [{ id: 'a', flagged_removed_at: null }, { id: 'b', flagged_removed_at: null }] }
+        return {
+          rows: [
+            { id: 'a', flagged_removed_at: null },
+            { id: 'b', flagged_removed_at: null },
+          ],
+        }
       }
       return { rows: [] }
     },
@@ -48,7 +53,8 @@ function fakeImageStore(): ImageStore {
   }
 }
 
-const aliveHtml = (id: string) => `<script type="application/json">{"id":"${id}","marketplace_listing_title":"x"}</script>`
+const aliveHtml = (id: string) =>
+  `<script type="application/json">{"id":"${id}","marketplace_listing_title":"x"}</script>`
 
 // close() is the last thing the detached loop does (see refreshProduct.ts's
 // finally block) - awaiting this promise is a deterministic way to know the
@@ -84,8 +90,14 @@ test('rejects a missing or non-integer productId', async () => {
   )
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "productId"' } })
-  expect(await handle({ productId: '42' })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "productId"' } })
-  expect(await handle({ productId: 1.5 })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "productId"' } })
+  expect(await handle({ productId: '42' })).toEqual({
+    statusCode: 400,
+    body: { error: 'missing or invalid "productId"' },
+  })
+  expect(await handle({ productId: 1.5 })).toEqual({
+    statusCode: 400,
+    body: { error: 'missing or invalid "productId"' },
+  })
 })
 
 test('429s when the shared lock is already held', async () => {
@@ -141,7 +153,16 @@ test('a product with no eligible listings completes immediately without acquirin
   const db: DbClient = { query: async () => ({ rows: [] }) } // no candidates
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(db, fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), driverFactory(makeDriver()).factory, okTunnel)
+  const handle = createRefreshProductHandler(
+    db,
+    fakeImageStore(),
+    logger,
+    lock,
+    jobs,
+    createRefreshPacer(lock),
+    driverFactory(makeDriver()).factory,
+    okTunnel,
+  )
 
   const result = await handle({ productId: 42 })
 
@@ -162,7 +183,16 @@ test('starts the job and returns immediately, then the background loop checks ev
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory, okTunnel)
+  const handle = createRefreshProductHandler(
+    fakeDb(),
+    fakeImageStore(),
+    logger,
+    lock,
+    jobs,
+    createRefreshPacer(lock),
+    factory,
+    okTunnel,
+  )
 
   const result = await handle({ productId: 42 })
 
@@ -193,7 +223,16 @@ test('cancellation requested after the first candidate stops the loop before the
   })
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory, okTunnel)
+  const handle = createRefreshProductHandler(
+    fakeDb(),
+    fakeImageStore(),
+    logger,
+    lock,
+    jobs,
+    createRefreshPacer(lock),
+    factory,
+    okTunnel,
+  )
 
   await handle({ productId: 42 })
   await closed
@@ -218,7 +257,16 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(fakeDb(), fakeImageStore(), logger, lock, jobs, createRefreshPacer(lock), factory, okTunnel)
+  const handle = createRefreshProductHandler(
+    fakeDb(),
+    fakeImageStore(),
+    logger,
+    lock,
+    jobs,
+    createRefreshPacer(lock),
+    factory,
+    okTunnel,
+  )
 
   await handle({ productId: 42 })
   await closed

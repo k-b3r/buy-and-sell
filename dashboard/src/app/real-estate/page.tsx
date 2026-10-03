@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import { getRealEstateListings } from '@/lib/queries'
-import { NCR_AREAS, PROPERTY_TYPE_LABELS, REAL_ESTATE_PAGE_SIZE, parseRealEstateFilters, realEstatePageQuery } from '@/lib/realEstate'
+import {
+  NCR_AREAS,
+  PROPERTY_TYPE_LABELS,
+  REAL_ESTATE_PAGE_SIZE,
+  parseRealEstateFilters,
+  realEstatePageQuery,
+} from '@/lib/realEstate'
 import RealEstateGrid from './RealEstateGrid'
 
 // Live data, same reasoning as deals/page.tsx: prerendering would pin it to
@@ -9,7 +15,13 @@ export const dynamic = 'force-dynamic'
 
 type RawParams = { [key: string]: string | string[] | undefined }
 
-const field = { padding: '6px 8px', background: 'var(--color-surface)', color: 'inherit', border: '1px solid var(--color-border)', borderRadius: 6 } as const
+const field = {
+  padding: '6px 8px',
+  background: 'var(--color-surface)',
+  color: 'inherit',
+  border: '1px solid var(--color-border)',
+  borderRadius: 6,
+} as const
 
 // Real estate gets its own page rather than living under /products: listings are
 // grouped by extracted property fields (real_estate_details), not by product.
@@ -30,10 +42,17 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
     <div>
       <h1>Real estate</h1>
       <div style={{ display: 'flex', gap: 16, margin: '12px 0' }}>
-        <Link href="/real-estate" style={{ fontWeight: review ? 400 : 700 }}>Listings</Link>
-        <Link href="/real-estate?view=review" style={{ fontWeight: review ? 700 : 400 }}>Under review</Link>
+        <Link href="/real-estate" style={{ fontWeight: review ? 400 : 700 }}>
+          Listings
+        </Link>
+        <Link href="/real-estate?view=review" style={{ fontWeight: review ? 700 : 400 }}>
+          Under review
+        </Link>
       </div>
-      <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 20px', alignItems: 'center' }}>
+      <form
+        method="get"
+        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 20px', alignItems: 'center' }}
+      >
         {review ? <input type="hidden" name="view" value="review" /> : null}
         <select name="kind" defaultValue={params.kind ?? ''} style={field}>
           <option value="">Sale &amp; rent</option>
@@ -42,16 +61,45 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
         </select>
         <select name="type" defaultValue={params.type ?? ''} style={field}>
           <option value="">Any type</option>
-          {Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
         <select name="area" defaultValue={params.area ?? ''} style={field}>
           <option value="">Any city</option>
-          {NCR_AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+          {NCR_AREAS.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
         </select>
         <input name="project" placeholder="Project / building" defaultValue={params.project ?? ''} style={field} />
-        <input name="min" type="number" min="0" placeholder="Min ₱" defaultValue={params.min ?? ''} style={{ ...field, width: 110 }} />
-        <input name="max" type="number" min="0" placeholder="Max ₱" defaultValue={params.max ?? ''} style={{ ...field, width: 110 }} />
-        <input name="sqm" type="number" min="0" placeholder="Min sqm" defaultValue={params.sqm ?? ''} style={{ ...field, width: 100 }} />
+        <input
+          name="min"
+          type="number"
+          min="0"
+          placeholder="Min ₱"
+          defaultValue={params.min ?? ''}
+          style={{ ...field, width: 110 }}
+        />
+        <input
+          name="max"
+          type="number"
+          min="0"
+          placeholder="Max ₱"
+          defaultValue={params.max ?? ''}
+          style={{ ...field, width: 110 }}
+        />
+        <input
+          name="sqm"
+          type="number"
+          min="0"
+          placeholder="Min sqm"
+          defaultValue={params.sqm ?? ''}
+          style={{ ...field, width: 100 }}
+        />
         <select name="sort" defaultValue={params.sort ?? ''} style={field}>
           <option value="">Newest</option>
           <option value="price_asc">Price, low to high</option>
@@ -61,7 +109,9 @@ export default async function RealEstatePage({ searchParams }: { searchParams: P
         <label style={{ fontSize: '0.85em', display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="checkbox" name="rooms" value="1" defaultChecked={params.rooms === '1'} /> Include room shares
         </label>
-        <button type="submit" style={{ ...field, cursor: 'pointer' }}>Filter</button>
+        <button type="submit" style={{ ...field, cursor: 'pointer' }}>
+          Filter
+        </button>
       </form>
 
       <RealEstateGrid

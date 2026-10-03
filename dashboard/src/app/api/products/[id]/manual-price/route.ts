@@ -16,7 +16,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (kind !== 'new' && kind !== 'secondhand') {
     return NextResponse.json({ error: 'kind must be "new" or "secondhand"' }, { status: 400 })
   }
-  if (typeof priceLow !== 'number' || typeof priceHigh !== 'number' || !Number.isFinite(priceLow) || !Number.isFinite(priceHigh)) {
+  if (
+    typeof priceLow !== 'number' ||
+    typeof priceHigh !== 'number' ||
+    !Number.isFinite(priceLow) ||
+    !Number.isFinite(priceHigh)
+  ) {
     return NextResponse.json({ error: 'priceLow/priceHigh must be numbers' }, { status: 400 })
   }
   if (priceLow <= 0 || priceHigh <= 0 || priceLow > priceHigh) {

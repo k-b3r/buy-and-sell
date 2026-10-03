@@ -54,7 +54,7 @@ export async function resolveProxy(checker: ProxyChecker = defaultProxyChecker):
       ok: false,
       error: webshareProxy
         ? `WEBSHARE_PROXY (${webshareProxy}) is unreachable and SOCKS_PROXY fallback is not configured`
-        : 'SOCKS_PROXY is not configured (and WEBSHARE_PROXY isn\'t set either) - refusing to hit Facebook directly from this box',
+        : "SOCKS_PROXY is not configured (and WEBSHARE_PROXY isn't set either) - refusing to hit Facebook directly from this box",
     }
   }
 

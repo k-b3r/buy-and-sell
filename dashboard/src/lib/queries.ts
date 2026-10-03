@@ -334,10 +334,16 @@ export function getComparableListings(
   sold: boolean,
   limit?: number,
 ): Promise<ComparableListing[]> {
-  return rpc('getComparableListings', limit === undefined ? [productId, excludeListingId, sold] : [productId, excludeListingId, sold, limit])
+  return rpc(
+    'getComparableListings',
+    limit === undefined ? [productId, excludeListingId, sold] : [productId, excludeListingId, sold, limit],
+  )
 }
 
-export function getDeals(discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]> {
+export function getDeals(
+  discountPolicy: DealsDiscountPolicyFloors,
+  filters: DealsFilters = {},
+): Promise<DealListing[]> {
   return rpc('getDeals', [discountPolicy, filters])
 }
 

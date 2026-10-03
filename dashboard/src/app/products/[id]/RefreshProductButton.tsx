@@ -48,7 +48,7 @@ export default function RefreshProductButton({ productId }: { productId: number 
   // followed; this codebase has no websocket/SSE infra anywhere else.
   useEffect(() => {
     if (job?.status !== 'running') return
-    const interval = setInterval(async () => {
+    const poll = async () => {
       try {
         const res = await fetch('/api/refresh-job')
         const body = await res.json()
@@ -56,7 +56,8 @@ export default function RefreshProductButton({ productId }: { productId: number 
       } catch {
         // transient network hiccup - next tick tries again
       }
-    }, 2500)
+    }
+    const interval = setInterval(() => void poll(), 2500)
     return () => clearInterval(interval)
   }, [job?.status, productId])
 
@@ -112,9 +113,7 @@ export default function RefreshProductButton({ productId }: { productId: number 
       <button onClick={handleStart} disabled={starting} style={buttonStyle}>
         {starting ? 'Starting…' : '↻ Refresh all listings'}
       </button>
-      {error && (
-        <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{error}</span>
-      )}
+      {error && <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>{error}</span>}
     </span>
   )
 }

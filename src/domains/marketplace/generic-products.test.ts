@@ -16,7 +16,7 @@ test('does not flag a specific named product/style even when it ends in a generi
   // it matched on the trailing word ("bag"/"wallet"/"keyboard") regardless of
   // how specific the preceding style name was. Exact-match-after-brand-strip
   // doesn't have this problem since the stripped remainder isn't a bare noun.
-  expect(detectGenericBaseModel("A.P.C. Diane Rue Madame Tote Bag")).toBeNull()
+  expect(detectGenericBaseModel('A.P.C. Diane Rue Madame Tote Bag')).toBeNull()
   expect(detectGenericBaseModel('Coach Mila Wallet')).toBeNull()
   expect(detectGenericBaseModel('Apple Magic Keyboard')).toBeNull()
   expect(detectGenericBaseModel('Bose QuietComfort Wireless Headphones')).toBeNull()

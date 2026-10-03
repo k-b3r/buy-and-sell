@@ -35,8 +35,8 @@ export default async function AnalyticsPage() {
     <div>
       <h1>Sold listings by category</h1>
       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9em', maxWidth: 640 }}>
-        Weekly sold count per category. &quot;Sold&quot; reflects when the scraper detected Facebook reporting a
-        listing as sold, not necessarily the actual sale time.
+        Weekly sold count per category. &quot;Sold&quot; reflects when the scraper detected Facebook reporting a listing
+        as sold, not necessarily the actual sale time.
       </p>
 
       {categories.length === 0 ? (

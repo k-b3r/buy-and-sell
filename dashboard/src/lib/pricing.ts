@@ -44,9 +44,7 @@ export function summarizeDiscounts(discountPercents: (number | null)[]): Discoun
     const bandFloor = Math.floor(d / 10) * 10
     counts.set(bandFloor, (counts.get(bandFloor) ?? 0) + 1)
   }
-  const bands = [...counts.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .map(([bandFloor, count]) => ({ bandFloor, count }))
+  const bands = [...counts.entries()].sort((a, b) => b[0] - a[0]).map(([bandFloor, count]) => ({ bandFloor, count }))
 
   return { bestDiscountPercent: Math.max(...qualifying), discountedListingCount: qualifying.length, bands }
 }

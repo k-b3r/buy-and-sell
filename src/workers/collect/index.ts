@@ -106,7 +106,7 @@ async function main() {
   }
 
   const dbUrl = process.env.DATABASE_URL
-  if (!dbUrl) throw new Error('DATABASE_URL not set in .env — Postgres is the collector\'s only persistence now')
+  if (!dbUrl) throw new Error("DATABASE_URL not set in .env — Postgres is the collector's only persistence now")
   const pool = createDbPool(dbUrl)
 
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
@@ -161,7 +161,7 @@ async function main() {
       if (cycle) logger.info(`--cycle: lap ${lap} starting, ${queries.length} motivated-seller keywords`)
 
       if (isTestRun()) {
-        for (const { query, maxItems: queryMaxItems } of queries) {
+        for (const { query } of queries) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
         }
       } else {
@@ -206,14 +206,16 @@ async function main() {
               } catch (err) {
                 consecutiveFailures += 1
                 logger.error(
-                  `query "${query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
+                  `query "${query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
                 )
                 if (isBrowserUnusableError(err)) {
                   logger.warn('browser is unusable, relaunching before continuing')
                   try {
                     await close()
                   } catch (closeErr) {
-                    logger.warn(`error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`)
+                    logger.warn(
+                      `error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`,
+                    )
                   }
                   const relaunch = await launchBrowser({ proxy })
                   page = relaunch.page
@@ -221,7 +223,9 @@ async function main() {
                   driver = createBrowserDriver(page)
                 }
                 if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-                  logger.error(`${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`)
+                  logger.error(
+                    `${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`,
+                  )
                   return
                 }
                 await realDelay(Math.min(FAILURE_BACKOFF_MS * consecutiveFailures, MAX_FAILURE_BACKOFF_MS))
@@ -239,7 +243,9 @@ async function main() {
         if (isTestRun()) {
           await realDelay(TEST_RUN_LOOP_DELAY_MS)
         } else {
-          logger.info(`--cycle: lap ${lap} complete, sleeping ${settings['collect.loop_delay_ms']}ms with the browser closed`)
+          logger.info(
+            `--cycle: lap ${lap} complete, sleeping ${settings['collect.loop_delay_ms']}ms with the browser closed`,
+          )
           await realDelay(settings['collect.loop_delay_ms'])
         }
       }

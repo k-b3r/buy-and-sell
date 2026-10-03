@@ -6,7 +6,6 @@ import ProductListClient from './ProductListClient'
 // analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
 export const dynamic = 'force-dynamic'
 
-
 const PAGE_SIZE = 30
 
 export default async function HomePage({

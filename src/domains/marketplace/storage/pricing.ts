@@ -38,7 +38,18 @@ export async function insertPriceCheck(
   await db.query(
     `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition, confidence, release_year, is_discontinued)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [productId, price.low, price.high, price.currency, rawResponse, source, condition, confidence, releaseYear, isDiscontinued],
+    [
+      productId,
+      price.low,
+      price.high,
+      price.currency,
+      rawResponse,
+      source,
+      condition,
+      confidence,
+      releaseYear,
+      isDiscontinued,
+    ],
   )
 }
 
@@ -79,7 +90,10 @@ export async function getPriceLookupCandidates(db: DbClient): Promise<PriceLooku
 // real "no result" is a strong enough signal not to keep paying for the same
 // search again on every future run.
 export async function flagProductPriceLookupExcluded(db: DbClient, productId: number, reason: string): Promise<void> {
-  await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2`, [reason, productId])
+  await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2`, [
+    reason,
+    productId,
+  ])
 }
 
 export interface ProductPricingStatus {
@@ -104,7 +118,14 @@ export async function getProductPricingStatus(db: DbClient, productId: number): 
      WHERE p.id = $1
      ORDER BY h.checked_at DESC`,
     [productId],
-  )) as { rows: { price_lookup_excluded: boolean; price_low: string | null; price_high: string | null; condition: string | null }[] }
+  )) as {
+    rows: {
+      price_lookup_excluded: boolean
+      price_low: string | null
+      price_high: string | null
+      condition: string | null
+    }[]
+  }
 
   const excluded = result.rows[0]?.price_lookup_excluded ?? false
   const retailRow = result.rows.find((r) => r.condition === 'New')
@@ -112,8 +133,12 @@ export async function getProductPricingStatus(db: DbClient, productId: number): 
 
   return {
     excluded,
-    retail: retailRow ? { low: Number(retailRow.price_low), high: Number(retailRow.price_high), currency: 'PHP' } : null,
-    secondhand: secondhandRow ? { low: Number(secondhandRow.price_low), high: Number(secondhandRow.price_high), currency: 'PHP' } : null,
+    retail: retailRow
+      ? { low: Number(retailRow.price_low), high: Number(retailRow.price_high), currency: 'PHP' }
+      : null,
+    secondhand: secondhandRow
+      ? { low: Number(secondhandRow.price_low), high: Number(secondhandRow.price_high), currency: 'PHP' }
+      : null,
   }
 }
 

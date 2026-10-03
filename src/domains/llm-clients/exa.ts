@@ -79,6 +79,7 @@ export function createFallbackExaClient(clients: ExaClient[]): ExaClient {
   }
 
   return {
-    searchStructured: (query, systemPrompt, schema) => withFallback((client) => client.searchStructured(query, systemPrompt, schema)),
+    searchStructured: (query, systemPrompt, schema) =>
+      withFallback((client) => client.searchStructured(query, systemPrompt, schema)),
   }
 }

@@ -1,4 +1,5 @@
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 export interface Logger {
   info(msg: string): void
@@ -39,6 +40,8 @@ function writeLine(logFilePath: string, level: 'INFO' | 'WARN' | 'ERROR', msg: s
 }
 
 export function createLogger(logFilePath: string): Logger {
+  // data/ is gitignored, so a fresh clone or new host doesn't have it yet.
+  mkdirSync(dirname(logFilePath), { recursive: true })
   return {
     info: (msg) => writeLine(logFilePath, 'INFO', msg),
     warn: (msg) => writeLine(logFilePath, 'WARN', msg),

@@ -75,7 +75,7 @@ test('runRealEstateExtraction upserts each extracted listing with its source has
       return { rows: [] }
     },
   }
-  const groq: GroqClient = { generateJson: async () => ({ results: [item('1')]}) }
+  const groq: GroqClient = { generateJson: async () => ({ results: [item('1')] }) }
 
   await runRealEstateExtraction(groq, db, createLogger(LOG_PATH), [cand('1')], 20, noDelay)
 

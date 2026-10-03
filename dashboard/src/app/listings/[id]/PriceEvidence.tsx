@@ -27,11 +27,17 @@ function EvidenceRow({ listing, dateLabel }: { listing: ComparableListing; dateL
       >
         {listing.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={listing.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img
+            src={listing.photo_url}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
         ) : null}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{listing.title}</div>
+        <div style={{ fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {listing.title}
+        </div>
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75em' }}>
           {dateLabel} {listing.date ? new Date(listing.date).toLocaleDateString() : ''}
         </div>
@@ -43,7 +49,15 @@ function EvidenceRow({ listing, dateLabel }: { listing: ComparableListing; dateL
   )
 }
 
-function EvidenceSection({ title, listings, dateLabel }: { title: string; listings: ComparableListing[]; dateLabel: string }) {
+function EvidenceSection({
+  title,
+  listings,
+  dateLabel,
+}: {
+  title: string
+  listings: ComparableListing[]
+  dateLabel: string
+}) {
   if (listings.length === 0) return null
 
   return (

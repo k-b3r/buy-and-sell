@@ -56,11 +56,15 @@ export async function extractRealEstateBatch(
       }
       if (attempt === MAX_ATTEMPTS) {
         if (batch.length === 1) {
-          logger.error(`listing ${batch[0].id}: Groq failed after ${MAX_ATTEMPTS} attempts at batch size 1 (${message}), skipping`)
+          logger.error(
+            `listing ${batch[0].id}: Groq failed after ${MAX_ATTEMPTS} attempts at batch size 1 (${message}), skipping`,
+          )
           return new Map()
         }
         const mid = Math.ceil(batch.length / 2)
-        logger.error(`Groq failed after ${MAX_ATTEMPTS} attempts at batch size ${batch.length} (${message}), splitting ${mid} + ${batch.length - mid}`)
+        logger.error(
+          `Groq failed after ${MAX_ATTEMPTS} attempts at batch size ${batch.length} (${message}), splitting ${mid} + ${batch.length - mid}`,
+        )
         const first = await extractRealEstateBatch(groq, logger, delay, batch.slice(0, mid))
         const second = await extractRealEstateBatch(groq, logger, delay, batch.slice(mid))
         return new Map([...first, ...second])
@@ -125,7 +129,9 @@ export async function runRealEstateExtraction(
       const fields = extracted.get(candidate.id)
       if (!fields) continue
       await upsertRealEstateDetails(db, candidate.id, fields, MODEL, candidate.source_hash)
-      logger.info(`listing ${candidate.id} extracted (${fields.property_type}, price basis ${fields.price_basis}, ${fields.confidence})`)
+      logger.info(
+        `listing ${candidate.id} extracted (${fields.property_type}, price basis ${fields.price_basis}, ${fields.confidence})`,
+      )
     }
   }
 }

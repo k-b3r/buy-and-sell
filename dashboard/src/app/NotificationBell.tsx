@@ -111,36 +111,74 @@ export default function NotificationBell() {
       </button>
       {open && (
         <div style={dropdownStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--color-border)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '8px 12px',
+              borderBottom: '1px solid var(--color-border)',
+            }}
+          >
             <strong style={{ fontSize: '0.85em' }}>Deal notifications</strong>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                style={{ background: 'transparent', border: 'none', color: 'var(--color-accent)', fontSize: '0.8em', cursor: 'pointer' }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--color-accent)',
+                  fontSize: '0.8em',
+                  cursor: 'pointer',
+                }}
               >
                 Mark all read
               </button>
             )}
           </div>
           {notifications.length === 0 && (
-            <div style={{ padding: 16, fontSize: '0.85em', color: 'var(--color-text-muted)' }}>No deals flagged yet.</div>
+            <div style={{ padding: 16, fontSize: '0.85em', color: 'var(--color-text-muted)' }}>
+              No deals flagged yet.
+            </div>
           )}
           {notifications.map((n) => (
             <Link key={n.id} href={`/listings/${n.listing_id}`} style={itemStyle} onClick={() => markRead(n.id)}>
               <img src={n.primary_photo_url ?? ''} alt="" style={thumbStyle} />
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: n.read_at ? 400 : 600, fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div
+                  style={{
+                    fontWeight: n.read_at ? 400 : 600,
+                    fontSize: '0.85em',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {n.title ?? 'Listing'}
                 </div>
                 <div style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>
                   {n.discount_percent}% below market
                   {n.verification_reasoning && (
-                    <InfoTooltip text={n.verification_reasoning} style={{ marginLeft: 4, color: 'var(--color-text-muted)' }} />
+                    <InfoTooltip
+                      text={n.verification_reasoning}
+                      style={{ marginLeft: 4, color: 'var(--color-text-muted)' }}
+                    />
                   )}
                 </div>
                 <div style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>{relativeTime(n.created_at)}</div>
               </div>
-              {!n.read_at && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0, marginTop: 4 }} />}
+              {!n.read_at && (
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--color-accent)',
+                    flexShrink: 0,
+                    marginTop: 4,
+                  }}
+                />
+              )}
             </Link>
           ))}
         </div>

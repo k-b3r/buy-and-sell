@@ -21,7 +21,7 @@ price would all pass that filter today. Per direct discussion, four gates
 now sit between "statistically flagged" and "actually notified":
 
 1. Is the product a real, specific, priceable thing (not generic)?
-2. Is it still meaningfully cheaper *right now*, against a fresh market
+2. Is it still meaningfully cheaper _right now_, against a fresh market
    check, not the stale median?
 3. Does the listing's own stated condition/defects still justify that price
    gap, or does it explain the gap away?
@@ -170,6 +170,7 @@ export async function verifyDiscountCandidate(
 ```
 
 Steps:
+
 1. `is_specific_product === false` → `rejected`. `null`/missing → `pending`
    (enrichment hasn't caught up). `true` → continue.
 2. Fetch fresh market text: `tavily.search(query)` where `query` is
@@ -182,7 +183,7 @@ Steps:
    object-wrapping-array shape) with: listing title/description/condition/
    price, the fresh web text, and `MIN_PROFIT_PESOS`. Asks for
    `{ still_discounted: boolean, fresh_price_low, fresh_price_high,
-   condition_justifies_discount: boolean, meets_profit_bar: boolean, reasoning }`.
+condition_justifies_discount: boolean, meets_profit_bar: boolean, reasoning }`.
 4. All three booleans true → `verified` (discount % re-derived from
    `fresh_price_low`/`price_amount`). Any false → `rejected`. Malformed/
    errored Groq response → `pending` (same fail-closed-and-retry philosophy

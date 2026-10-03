@@ -80,7 +80,8 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
           {
             key: 'collect.loop_delay_ms',
             label: 'Loop delay',
-            description: 'Pause between laps (a full pass through the keyword list) in --cycle mode. Also how long the browser stays closed between laps, freeing it for check-listings to use.',
+            description:
+              'Pause between laps (a full pass through the keyword list) in --cycle mode. Also how long the browser stays closed between laps, freeing it for check-listings to use.',
             unit: 'ms',
             min: 10000,
             defaultValue: 300000,
@@ -159,7 +160,8 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
           {
             key: 'check_listings.re_recheck_min_days',
             label: 'Real estate recheck spacing',
-            description: 'Skip real estate listings checked within this many days. 0 = no skipping (default). Other categories are unaffected.',
+            description:
+              'Skip real estate listings checked within this many days. 0 = no skipping (default). Other categories are unaffected.',
             unit: 'count',
             min: 0,
             defaultValue: 0,
@@ -400,7 +402,8 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
           {
             key: 'discount_policy.gemini_daily_grounding_cap',
             label: 'Gemini grounding daily cap',
-            description: 'Client-side cap on Gemini Search-grounded calls per day, to stay under Google’s free allowance.',
+            description:
+              'Client-side cap on Gemini Search-grounded calls per day, to stay under Google’s free allowance.',
             unit: 'count',
             min: 1,
             defaultValue: 1000,
@@ -509,7 +512,7 @@ export default function SettingsPage() {
         if (!cancelled) setLoadError('Could not reach the settings API')
       }
     }
-    load()
+    void load()
     return () => {
       cancelled = true
     }
@@ -529,7 +532,7 @@ export default function SettingsPage() {
         // best-effort - the collect tab just won't show the keyword editor if this fails
       }
     }
-    loadKeywords()
+    void loadKeywords()
     return () => {
       cancelled = true
     }
@@ -596,7 +599,10 @@ export default function SettingsPage() {
         return
       }
       setSaveState((prev) => ({ ...prev, [subgroup.id]: 'saved' }))
-      setTimeout(() => setSaveState((prev) => (prev[subgroup.id] === 'saved' ? { ...prev, [subgroup.id]: 'idle' } : prev)), 2000)
+      setTimeout(
+        () => setSaveState((prev) => (prev[subgroup.id] === 'saved' ? { ...prev, [subgroup.id]: 'idle' } : prev)),
+        2000,
+      )
     } catch {
       setSaveState((prev) => ({ ...prev, [subgroup.id]: 'error' }))
       setSaveError((prev) => ({ ...prev, [subgroup.id]: 'Could not reach the settings API' }))
@@ -627,8 +633,8 @@ export default function SettingsPage() {
     <div>
       <h1>Settings</h1>
       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginBottom: 20 }}>
-        Worker cadence/batch/pacing/retry knobs and discount-policy thresholds. Workers pick up a change on their next lap
-        — no restart needed.
+        Worker cadence/batch/pacing/retry knobs and discount-policy thresholds. Workers pick up a change on their next
+        lap — no restart needed.
       </p>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -663,7 +669,10 @@ export default function SettingsPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {activeSubgroup.fields.map((field) => (
-            <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.85em' }}>
+            <label
+              key={field.key}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.85em' }}
+            >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 220 }}>
                 {field.label}
                 <InfoTooltip text={field.description} style={{ color: 'var(--color-text-muted)' }} />
@@ -705,7 +714,9 @@ export default function SettingsPage() {
             {state === 'saving' ? 'Saving…' : 'Save'}
           </button>
           {state === 'saved' && <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>Saved</span>}
-          {state === 'error' && <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{saveError[activeSubgroup.id]}</span>}
+          {state === 'error' && (
+            <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{saveError[activeSubgroup.id]}</span>
+          )}
         </div>
       </div>
 
@@ -719,7 +730,10 @@ export default function SettingsPage() {
             marginTop: 16,
           }}
         >
-          <h2 className="mono" style={{ fontSize: '1em', marginTop: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h2
+            className="mono"
+            style={{ fontSize: '1em', marginTop: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
             Search keywords
             <InfoTooltip
               text="Motivated-seller phrases the collector searches on --cycle laps (e.g. 'rush sale', 'moving out'). Add or remove as many as you like — collect loops through every enabled one, every lap. Untick to skip a keyword without deleting it."
@@ -767,7 +781,9 @@ export default function SettingsPage() {
                     </button>
                   </span>
                 ))}
-                {keywords.length === 0 && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>No keywords yet.</span>}
+                {keywords.length === 0 && (
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }}>No keywords yet.</span>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
@@ -822,8 +838,12 @@ export default function SettingsPage() {
                 >
                   {keywordsSaveState === 'saving' ? 'Saving…' : 'Save'}
                 </button>
-                {keywordsSaveState === 'saved' && <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>Saved</span>}
-                {keywordsSaveState === 'error' && <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{keywordsSaveError}</span>}
+                {keywordsSaveState === 'saved' && (
+                  <span style={{ fontSize: '0.8em', color: 'var(--color-signal)' }}>Saved</span>
+                )}
+                {keywordsSaveState === 'error' && (
+                  <span style={{ fontSize: '0.8em', color: 'var(--color-danger)' }}>{keywordsSaveError}</span>
+                )}
               </div>
             </>
           )}

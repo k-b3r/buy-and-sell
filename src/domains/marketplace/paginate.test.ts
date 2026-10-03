@@ -72,7 +72,9 @@ test('parsePaginationResponse unwraps the real Facebook node.listing shape (capt
   expect(page!.nodes.length).toBeGreaterThan(0)
   for (const node of page!.nodes) {
     expect(typeof node.id).toBe('string')
-    expect(node.marketplace_listing_title === undefined || typeof node.marketplace_listing_title === 'string').toBe(true)
+    expect(node.marketplace_listing_title === undefined || typeof node.marketplace_listing_title === 'string').toBe(
+      true,
+    )
   }
 })
 

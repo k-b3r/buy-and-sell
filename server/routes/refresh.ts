@@ -72,7 +72,14 @@ export function createRefreshHandler(
         logger.info(`on-demand refresh: listing ${id}`)
         await driver.openListing({ id })
         const settings = await loadSettings(db, ['check_listings.soft_wall_timeout_ms'])
-        const result = await checkOneListing(driver, db, imageStore, logger, candidate, settings['check_listings.soft_wall_timeout_ms'])
+        const result = await checkOneListing(
+          driver,
+          db,
+          imageStore,
+          logger,
+          candidate,
+          settings['check_listings.soft_wall_timeout_ms'],
+        )
         return { statusCode: 200, body: { status: result.status } }
       } finally {
         await close()

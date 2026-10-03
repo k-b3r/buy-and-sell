@@ -30,7 +30,7 @@ test('matches "open to offers"', () => {
 })
 
 test('matches "make an offer" and the shorter "make offer"', () => {
-  expect(matchesNegotiableKeyword('Make an offer and let\'s talk')).toBe('make an offer')
+  expect(matchesNegotiableKeyword("Make an offer and let's talk")).toBe('make an offer')
   expect(matchesNegotiableKeyword('make offer below')).toBe('make an offer')
 })
 

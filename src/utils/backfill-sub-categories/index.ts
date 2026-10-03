@@ -7,8 +7,15 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile } from '../../platform/utils'
-import { getSubCategoryBackfillCandidates, updateProductSubCategories } from '../../domains/marketplace/storage/products'
-import { buildSubCategoryBackfillPrompt, SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA, SUB_CATEGORIES } from '../../domains/marketplace'
+import {
+  getSubCategoryBackfillCandidates,
+  updateProductSubCategories,
+} from '../../domains/marketplace/storage/products'
+import {
+  buildSubCategoryBackfillPrompt,
+  SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA,
+  SUB_CATEGORIES,
+} from '../../domains/marketplace'
 import type { SubCategoryBackfillCandidate } from '../../domains/marketplace'
 
 // Mirrors backfill-categories/index.ts exactly - same output shape class
@@ -42,7 +49,11 @@ function parseAssignments(
   }
   const assignments: { id: number; subCategory: string }[] = []
   for (const item of raw.results as RawSubCategoryItem[]) {
-    if (typeof item.id !== 'string' || typeof item.sub_category !== 'string' || !VALID_SUB_CATEGORIES.has(item.sub_category)) {
+    if (
+      typeof item.id !== 'string' ||
+      typeof item.sub_category !== 'string' ||
+      !VALID_SUB_CATEGORIES.has(item.sub_category)
+    ) {
       const idHint = typeof item.id === 'string' ? item.id : '(missing/invalid id)'
       logger.warn(`item ${idHint}: malformed fields in Groq response, skipping`)
       continue
@@ -90,7 +101,9 @@ async function attemptBatch(
       }
       if (attempt === MAX_ATTEMPTS) {
         if (batch.length === 1) {
-          logger.error(`item ${batch[0].id}: Groq request failed after ${MAX_ATTEMPTS} attempts even at batch size 1 (${message}), skipping`)
+          logger.error(
+            `item ${batch[0].id}: Groq request failed after ${MAX_ATTEMPTS} attempts even at batch size 1 (${message}), skipping`,
+          )
           return []
         }
         const mid = Math.ceil(batch.length / 2)
@@ -144,7 +157,9 @@ async function main() {
   const logger = createLogger('data/backfill-sub-categories.log')
   // See createGroqPool - per-key model fallback round-robined across keys,
   // logging every hop.
-  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`))
+  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
+    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+  )
   logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
   const pool = createDbPool(dbUrl)
 

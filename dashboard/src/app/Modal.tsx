@@ -97,12 +97,20 @@ export default function Modal({ children, currentId }: { children: React.ReactNo
       >
         <div style={{ position: 'relative', flexShrink: 0, height: 56 }}>
           {prevId && (
-            <button onClick={() => router.replace(`/listings/${prevId}`)} aria-label="Previous listing" style={navButtonStyle('left')}>
+            <button
+              onClick={() => router.replace(`/listings/${prevId}`)}
+              aria-label="Previous listing"
+              style={navButtonStyle('left')}
+            >
               ‹
             </button>
           )}
           {nextId && (
-            <button onClick={() => router.replace(`/listings/${nextId}`)} aria-label="Next listing" style={navButtonStyle('right')}>
+            <button
+              onClick={() => router.replace(`/listings/${nextId}`)}
+              aria-label="Next listing"
+              style={navButtonStyle('right')}
+            >
               ›
             </button>
           )}

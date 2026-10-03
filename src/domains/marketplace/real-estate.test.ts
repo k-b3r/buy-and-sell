@@ -85,7 +85,10 @@ test('normalizeRealEstateItem nulls an implausible price and falls back to a pla
 })
 
 test('normalizeRealEstateItem marks price unresolved and confidence low when nothing is plausible', () => {
-  const f = normalizeRealEstateItem(raw({ price_php: null, price_basis: 'unresolved' }), candidate({ price_amount: 13 }))!
+  const f = normalizeRealEstateItem(
+    raw({ price_php: null, price_basis: 'unresolved' }),
+    candidate({ price_amount: 13 }),
+  )!
   expect(f.price_php).toBeNull()
   expect(f.price_basis).toBe('unresolved')
   expect(f.confidence).toBe('low')
@@ -101,7 +104,10 @@ test('normalizeRealEstateItem uses monthly as the raw-price fallback basis for r
 })
 
 test('normalizeRealEstateItem nulls implausible areas and bedroom counts', () => {
-  const f = normalizeRealEstateItem(raw({ lot_sqm: 99999999, floor_sqm: 0, bedrooms: 400, bathrooms: -2 }), candidate())!
+  const f = normalizeRealEstateItem(
+    raw({ lot_sqm: 99999999, floor_sqm: 0, bedrooms: 400, bathrooms: -2 }),
+    candidate(),
+  )!
   expect(f.lot_sqm).toBeNull()
   expect(f.floor_sqm).toBeNull()
   expect(f.bedrooms).toBeNull()
@@ -128,7 +134,9 @@ test('buildRealEstatePrompt lists each listing with its raw price and text amoun
 })
 
 test('normalizeRealEstateItem keeps 0 bedrooms only for a condo (studio) and nulls zero bathrooms', () => {
-  expect(normalizeRealEstateItem(raw({ property_type: 'condo', bedrooms: 0, bathrooms: 1 }), candidate())!.bedrooms).toBe(0)
+  expect(
+    normalizeRealEstateItem(raw({ property_type: 'condo', bedrooms: 0, bathrooms: 1 }), candidate())!.bedrooms,
+  ).toBe(0)
   expect(normalizeRealEstateItem(raw({ property_type: 'land', bedrooms: 0 }), candidate())!.bedrooms).toBeNull()
   expect(normalizeRealEstateItem(raw({ property_type: 'commercial', bedrooms: 0 }), candidate())!.bedrooms).toBeNull()
   expect(normalizeRealEstateItem(raw({ bathrooms: 0 }), candidate())!.bathrooms).toBeNull()
@@ -140,7 +148,16 @@ test('normalizeRealEstateItem treats a pasalo cash-out read as a total as equity
     description: 'Lot area: 35.97sqm Floor area: 42sqm Remaining balance: 820k Asking cash out: 1.6M Negotiable',
     price_amount: 16,
   })
-  const f = normalizeRealEstateItem(raw({ property_type: 'house_and_lot', price_php: 1600000, price_basis: 'total', tags: ['pasalo'], confidence: 'high' }), pasalo)!
+  const f = normalizeRealEstateItem(
+    raw({
+      property_type: 'house_and_lot',
+      price_php: 1600000,
+      price_basis: 'total',
+      tags: ['pasalo'],
+      confidence: 'high',
+    }),
+    pasalo,
+  )!
   expect(f.price_basis).toBe('equity')
   expect(f.confidence).toBe('medium')
 })
@@ -157,11 +174,21 @@ test('normalizeRealEstateItem keeps a pasalo total when the text states the sell
 })
 
 test('normalizeRealEstateItem tags room, bedspace and roommate listings as room_share', () => {
-  for (const title of ['Male Condo Roommate | Beside LRT Gil Puyat', 'Condo Sharing - Room for Rent at EDSA Boni', 'Bedspace for rent near UST']) {
-    const f = normalizeRealEstateItem(raw({ listing_type: 'rent', price_php: 9000, price_basis: 'monthly', tags: [] }), candidate({ title }))!
+  for (const title of [
+    'Male Condo Roommate | Beside LRT Gil Puyat',
+    'Condo Sharing - Room for Rent at EDSA Boni',
+    'Bedspace for rent near UST',
+  ]) {
+    const f = normalizeRealEstateItem(
+      raw({ listing_type: 'rent', price_php: 9000, price_basis: 'monthly', tags: [] }),
+      candidate({ title }),
+    )!
     expect(f.tags).toContain('room_share')
   }
-  const whole = normalizeRealEstateItem(raw({ listing_type: 'rent', price_php: 15000, price_basis: 'monthly' }), candidate({ title: '2BR condo for rent, 3 rooms total' }))!
+  const whole = normalizeRealEstateItem(
+    raw({ listing_type: 'rent', price_php: 15000, price_basis: 'monthly' }),
+    candidate({ title: '2BR condo for rent, 3 rooms total' }),
+  )!
   expect(whole.tags).not.toContain('room_share')
 })
 

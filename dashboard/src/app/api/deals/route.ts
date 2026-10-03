@@ -30,7 +30,9 @@ export async function GET(request: Request) {
   const offset = Number(url.searchParams.get('offset') ?? '0')
 
   const minConfidenceTier =
-    minTierParam && (CONFIDENCE_TIERS as string[]).includes(minTierParam) ? (minTierParam as DealsConfidenceTier) : undefined
+    minTierParam && (CONFIDENCE_TIERS as string[]).includes(minTierParam)
+      ? (minTierParam as DealsConfidenceTier)
+      : undefined
 
   const discountPolicy = await getDiscountPolicyFloors()
   const deals = await getDeals(discountPolicy, {

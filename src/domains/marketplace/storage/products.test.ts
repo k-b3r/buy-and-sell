@@ -165,19 +165,27 @@ test('getExtractionCandidates returns pending listings with condition/price_amou
   const db = {
     query: async (sql: string, params: unknown[]) => {
       calls.push({ sql, params })
-      return { rows: [{ id: '1', title: 'RTX 3060', description: 'for sale', condition: 'Used - Good', price_amount: '15000' }] }
+      return {
+        rows: [
+          { id: '1', title: 'RTX 3060', description: 'for sale', condition: 'Used - Good', price_amount: '15000' },
+        ],
+      }
     },
   }
 
   const result = await getExtractionCandidates(db)
 
   expect(calls[0].sql).toContain('WHERE product_id IS NULL')
-  expect(result).toEqual([{ id: '1', title: 'RTX 3060', description: 'for sale', condition: 'Used - Good', price_amount: 15000 }])
+  expect(result).toEqual([
+    { id: '1', title: 'RTX 3060', description: 'for sale', condition: 'Used - Good', price_amount: 15000 },
+  ])
 })
 
 test('getExtractionCandidates coerces a null price_amount to null, not NaN', async () => {
   const db = {
-    query: async () => ({ rows: [{ id: '1', title: 'RTX 3060', description: null, condition: null, price_amount: null }] }),
+    query: async () => ({
+      rows: [{ id: '1', title: 'RTX 3060', description: null, condition: null, price_amount: null }],
+    }),
   }
 
   const result = await getExtractionCandidates(db)
@@ -242,7 +250,18 @@ test('upsertProductEnrichment inserts with PHP currency derived when a trained p
 
   expect(calls[0].sql).toMatch(/^INSERT INTO product_enrichment/)
   expect(calls[0].sql).toContain('ON CONFLICT (product_id) DO UPDATE')
-  expect(calls[0].params).toEqual([363, 'desc', 'drivers', true, 9000, 13000, 'PHP', 'openai/gpt-oss-120b', true, 'high'])
+  expect(calls[0].params).toEqual([
+    363,
+    'desc',
+    'drivers',
+    true,
+    9000,
+    13000,
+    'PHP',
+    'openai/gpt-oss-120b',
+    true,
+    'high',
+  ])
 })
 
 test('upsertProductEnrichment stores null currency when no trained price is known', async () => {

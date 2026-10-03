@@ -151,7 +151,7 @@ test('createDailyGroundingCap does not limit generateJson (a different, unmetere
   expect(jsonCalls).toBe(2)
 })
 
-test('createDailyGroundingCap defaults to a 1000/day limit, a buffer under Google\'s real 1500/day ceiling', async () => {
+test("createDailyGroundingCap defaults to a 1000/day limit, a buffer under Google's real 1500/day ceiling", async () => {
   let calls = 0
   const inner = fakeGeminiClient({
     generateGroundedText: async () => {

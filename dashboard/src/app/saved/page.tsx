@@ -6,7 +6,6 @@ import SavedListingsClient from './SavedListingsClient'
 // analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
 export const dynamic = 'force-dynamic'
 
-
 export default async function SavedPage() {
   const listings = await getSavedListingsCached()
 

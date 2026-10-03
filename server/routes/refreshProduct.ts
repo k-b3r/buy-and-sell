@@ -90,7 +90,14 @@ export function createRefreshProductHandler(
           await driver.waitRandom(settings['check_listings.pacing_min_ms'], settings['check_listings.pacing_max_ms'])
           logger.info(`bulk refresh: product ${productId}, listing ${candidate.id}`)
           await driver.openListing({ id: candidate.id })
-          const result = await checkOneListing(driver, db, imageStore, logger, candidate, settings['check_listings.soft_wall_timeout_ms'])
+          const result = await checkOneListing(
+            driver,
+            db,
+            imageStore,
+            logger,
+            candidate,
+            settings['check_listings.soft_wall_timeout_ms'],
+          )
           jobs.recordCompletion()
           if (result.status === 'hard-block') {
             logger.error(`bulk refresh for product ${productId} stopped early on hard-block`)

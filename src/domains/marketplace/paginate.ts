@@ -26,6 +26,14 @@ export interface PaginationPage {
   hasNextPage: boolean
 }
 
+interface SearchResponse {
+  data?: { marketplace_search?: { feed_units?: { edges?: unknown; page_info?: unknown } } }
+}
+
+interface FeedEdge {
+  node?: { listing?: unknown }
+}
+
 export function parsePaginationResponse(json: string): PaginationPage | null {
   let parsed: unknown
   try {
@@ -33,15 +41,15 @@ export function parsePaginationResponse(json: string): PaginationPage | null {
   } catch {
     return null
   }
-  const feedUnits = (parsed as any)?.data?.marketplace_search?.feed_units
+  const feedUnits = (parsed as SearchResponse | null)?.data?.marketplace_search?.feed_units
   if (!feedUnits || !Array.isArray(feedUnits.edges) || !feedUnits.page_info) {
     return null
   }
-  const nodes = feedUnits.edges
-    .filter((edge: any) => edge?.node?.listing && typeof edge.node.listing === 'object')
-    .map((edge: any) => edge.node.listing as Record<string, unknown>)
+  const nodes = (feedUnits.edges as FeedEdge[])
+    .filter((edge) => edge?.node?.listing && typeof edge.node.listing === 'object')
+    .map((edge) => edge.node?.listing as Record<string, unknown>)
   const pageInfo = feedUnits.page_info as { end_cursor: string; has_next_page: boolean }
-  let nextCursor: PageCursor | null = null
+  let nextCursor: PageCursor | null
   try {
     nextCursor = { raw: pageInfo.end_cursor, pg: JSON.parse(pageInfo.end_cursor).pg }
   } catch {

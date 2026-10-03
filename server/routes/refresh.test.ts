@@ -52,7 +52,12 @@ const realListingDetailHtml = `<script type="application/json">{"id":"1","market
 function driverFactory(driver: PageDriver) {
   let closed = false
   return {
-    factory: async () => ({ driver, close: async () => { closed = true } }),
+    factory: async () => ({
+      driver,
+      close: async () => {
+        closed = true
+      },
+    }),
     wasClosed: () => closed,
   }
 }
@@ -213,7 +218,14 @@ test('gives up with 429 if the lock never frees within the max queue wait', asyn
 test('a later request succeeds after an earlier one completes and releases', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, fastPacer(), driverFactory(driver).factory, okTunnel)
+  const handle = createRefreshHandler(
+    fakeDb(),
+    fakeImageStore(),
+    logger,
+    fastPacer(),
+    driverFactory(driver).factory,
+    okTunnel,
+  )
 
   const first = await handle({ id: '1' })
   const second = await handle({ id: '1' })

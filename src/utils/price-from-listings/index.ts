@@ -45,7 +45,9 @@ export async function runPriceFromListings(
 
     if (!range) {
       skipped += 1
-      logger.warn(`product ${group.id} (${label}, ${group.condition}): fewer than 2 valid prices after filtering junk, skipping`)
+      logger.warn(
+        `product ${group.id} (${label}, ${group.condition}): fewer than 2 valid prices after filtering junk, skipping`,
+      )
       continue
     }
 

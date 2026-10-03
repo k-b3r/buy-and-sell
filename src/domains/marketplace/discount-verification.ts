@@ -43,7 +43,10 @@ const SPEC_HINT_MAX_LENGTH = 200
 
 export function buildPriceQuery(candidate: DiscountVerificationCandidate): string {
   const kind = isNewCondition(candidate.condition) ? 'current retail price' : 'current secondhand/resale price'
-  const specHint = [candidate.title, candidate.description].filter((s): s is string => Boolean(s)).join(' ').slice(0, SPEC_HINT_MAX_LENGTH)
+  const specHint = [candidate.title, candidate.description]
+    .filter((s): s is string => Boolean(s))
+    .join(' ')
+    .slice(0, SPEC_HINT_MAX_LENGTH)
   const label = specHint ? `${candidate.base_model} (${specHint})` : candidate.base_model
   return `${kind} of ${label} in the Philippines`
 }
@@ -75,7 +78,11 @@ async function fetchFreshMarketContext(
   const query = buildPriceQuery(candidate)
 
   try {
-    const exaResult = (await clients.exa.searchStructured(query, 'Summarize the current market price context.', EXA_SUMMARY_SCHEMA)) as {
+    const exaResult = (await clients.exa.searchStructured(
+      query,
+      'Summarize the current market price context.',
+      EXA_SUMMARY_SCHEMA,
+    )) as {
       output?: { content?: { summary?: string } }
     }
     const summary = exaResult.output?.content?.summary
@@ -138,7 +145,14 @@ export const VERIFICATION_RESPONSE_SCHEMA = {
     meets_profit_bar: { type: 'boolean' },
     reasoning: { type: 'string' },
   },
-  required: ['still_discounted', 'fresh_price_low', 'fresh_price_high', 'condition_explains_low_price', 'meets_profit_bar', 'reasoning'],
+  required: [
+    'still_discounted',
+    'fresh_price_low',
+    'fresh_price_high',
+    'condition_explains_low_price',
+    'meets_profit_bar',
+    'reasoning',
+  ],
   additionalProperties: false,
 } as const
 
@@ -232,7 +246,10 @@ export async function verifyDiscountCandidate(
 
   let raw: unknown
   try {
-    raw = await clients.openrouter.generateJson(buildVerificationPrompt(candidate, context.text, thresholds), VERIFICATION_RESPONSE_SCHEMA)
+    raw = await clients.openrouter.generateJson(
+      buildVerificationPrompt(candidate, context.text, thresholds),
+      VERIFICATION_RESPONSE_SCHEMA,
+    )
   } catch {
     return { outcome: 'pending', reasoning: 'Verification judgement call failed.' }
   }
