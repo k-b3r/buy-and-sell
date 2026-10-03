@@ -50,11 +50,13 @@ function git(...args: string[]): string {
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 }
 
+// -z: without it git C-quotes non-ASCII paths, which then fail the .ts filter and go uncounted.
+export function sourcePaths(lsTreeZ: string): string[] {
+  return lsTreeZ.split('\0').filter((p) => isSource(p) && !isExempt(p))
+}
+
 function filesAt(ref: string): string[] {
-  const paths = git('ls-tree', '-r', '--name-only', ref)
-    .split('\n')
-    .filter((p) => isSource(p) && !isExempt(p))
-  return paths.map((p) => git('show', `${ref}:${p}`))
+  return sourcePaths(git('ls-tree', '-r', '-z', '--name-only', ref)).map((p) => git('show', `${ref}:${p}`))
 }
 
 function main([command, base]: string[]): number {

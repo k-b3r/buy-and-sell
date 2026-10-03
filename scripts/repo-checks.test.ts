@@ -1,4 +1,4 @@
-import { checkCommitMessage, countEscapeHatches, escapeHatchGrowth } from './repo-checks'
+import { checkCommitMessage, countEscapeHatches, escapeHatchGrowth, sourcePaths } from './repo-checks'
 
 test('checkCommitMessage accepts an imperative lowercase subject', () => {
   expect(checkCommitMessage('add real estate page')).toEqual([])
@@ -52,4 +52,16 @@ test('escapeHatchGrowth reports only kinds that grew versus base', () => {
   const base = { 'eslint-disable': 14, 'as any': 0, '@ts-expect-error': 1 }
   const head = { 'eslint-disable': 15, 'as any': 0, '@ts-expect-error': 0 }
   expect(escapeHatchGrowth(base, head)).toEqual(['eslint-disable: 14 -> 15'])
+})
+
+test('sourcePaths keeps non-ASCII paths from NUL-separated ls-tree output and drops exempt files', () => {
+  const listing = [
+    'src/café.ts',
+    'src/a.tsx',
+    'README.md',
+    'tests/lint-fixtures/x.ts',
+    'scripts/repo-checks.ts',
+    '',
+  ].join('\0')
+  expect(sourcePaths(listing)).toEqual(['src/café.ts', 'src/a.tsx'])
 })
