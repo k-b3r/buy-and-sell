@@ -15,6 +15,8 @@ async function ruleIdsFor(relPath: string): Promise<string[]> {
 
 const cases: [string, string][] = [
   ['ts-ignore.ts', '@typescript-eslint/ban-ts-comment'],
+  ['export-all.ts', 'no-restricted-syntax'],
+  ['src/domains/fixture/export-all.ts', 'no-restricted-syntax'],
   ['explicit-any.ts', '@typescript-eslint/no-explicit-any'],
   ['undescribed-disable.ts', '@eslint-community/eslint-comments/require-description'],
   ['unlimited-disable.ts', '@eslint-community/eslint-comments/no-unlimited-disable'],

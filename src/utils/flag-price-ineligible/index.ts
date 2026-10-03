@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import { flagPriceLookupExcluded } from '../../domains/marketplace/storage/products'
+import { flagPriceLookupExcluded } from '../../domains/marketplace'
 import { createLogger } from '../../platform/logger'
 
 // NOT a continuously-running worker, deliberately - unlike the automatic

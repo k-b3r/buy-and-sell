@@ -14,7 +14,7 @@ import {
   upsertProductEnrichment,
   applyEligibilityFromEnrichment,
   updateProductCategories,
-} from '../../domains/marketplace/storage/products'
+} from '../../domains/marketplace'
 import { PRODUCT_CATEGORIES } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
 

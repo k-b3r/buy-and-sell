@@ -6,7 +6,7 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { createR2ImageStore, deleteListingPhotos, type ImageStore } from '../../platform/images'
 import { isWithinServiceArea } from '../../domains/marketplace'
-import { deleteListing } from '../../domains/marketplace/storage/listings'
+import { deleteListing } from '../../domains/marketplace'
 
 export interface FarListingCandidate {
   id: string

@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { VerificationClients } from '../../domains/marketplace/discount-verification'
-import { verifyDiscountCandidate, precheckDiscountCandidate } from '../../domains/marketplace/discount-verification'
+import type { VerificationClients } from '../../domains/marketplace'
+import { verifyDiscountCandidate, precheckDiscountCandidate } from '../../domains/marketplace'
 import {
   createTavilyClient,
   createExaClient,
@@ -16,17 +16,14 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/utils'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import type {
-  DiscountVerificationCandidate,
-  DiscountPolicyThresholds,
-} from '../../domains/marketplace/storage/listings'
+import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace'
 import {
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
   markDiscountNotificationAttempted,
   DEFAULT_DISCOUNT_POLICY,
-} from '../../domains/marketplace/storage/listings'
+} from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
 
 // Each candidate is independent - a failure judging one (network blip,

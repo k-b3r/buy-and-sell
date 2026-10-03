@@ -4,8 +4,8 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
 import { createLogger } from '../../platform/logger'
 import { normalizeBaseModel } from '../../domains/marketplace'
-import { findModelCodeMismatches, deriveTargetBaseModel } from '../../domains/marketplace/model-mismatch'
-import { updateListingProductIds } from '../../domains/marketplace/storage/products'
+import { findModelCodeMismatches, deriveTargetBaseModel } from '../../domains/marketplace'
+import { updateListingProductIds } from '../../domains/marketplace'
 
 interface CandidateRow {
   listing_id: string

@@ -1,4 +1,4 @@
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
+import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
 import { runCollection } from '../../run'
 import { createLogger } from '../../platform/logger'
 import { autoApprove } from '../../platform/review'

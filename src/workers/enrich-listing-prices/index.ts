@@ -8,7 +8,7 @@ import { createDbPool } from '../../platform/storage'
 import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
-import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace/storage/listings'
+import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace'
 import { loadSettings } from '../../platform/settings'
 
 const DEFAULT_BATCH_SIZE = 35

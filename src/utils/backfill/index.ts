@@ -1,12 +1,8 @@
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/utils'
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace'
+import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
 import { createLogger } from '../../platform/logger'
-import {
-  upsertListing,
-  getBackfillCandidates,
-  markListingPhotosUnavailable,
-} from '../../domains/marketplace/storage/listings'
+import { upsertListing, getBackfillCandidates, markListingPhotosUnavailable } from '../../domains/marketplace'
 import { createR2ImageStore, storeListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'
 import { resolvePageState } from '../../run'
