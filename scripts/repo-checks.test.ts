@@ -31,6 +31,15 @@ test('checkCommitMessage flags a Generated with line', () => {
   )
 })
 
+test('checkCommitMessage flags the emoji-prefixed Claude Code footer', () => {
+  const message = 'add page\n\nbody\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)'
+  expect(checkCommitMessage(message)).toContain('no AI attribution (Co-Authored-By / Generated with)')
+})
+
+test('checkCommitMessage allows mentioning generated files in the body', () => {
+  expect(checkCommitMessage('regenerate docs\n\nFiles generated with gen-arch-doc')).toEqual([])
+})
+
 test('countEscapeHatches counts each kind across files', () => {
   const files = [
     'const a = b as any\n// eslint-disable-next-line no-x -- reason\n',

@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const MAX_SUBJECT = 72
-const ATTRIBUTION = /^(co-authored-by:.*\b(claude|anthropic)\b|generated with\b)/im
+// Footer match is unanchored: Claude Code's footer starts with an emoji.
+const ATTRIBUTION = /^co-authored-by:.*\b(claude|anthropic)\b|generated with \[?claude/im
 
 export function checkCommitMessage(message: string): string[] {
   const subject = message.split('\n')[0]
