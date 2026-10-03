@@ -1,0 +1,60 @@
+name: e2e
+
+# Runs only when an input to these tests changes (allowlist; last match wins, so
+# the negations drop docs and unit tests). A skipped workflow never reports a
+# status, so this can't be a required check: move the filter into the job if
+# branch protection is ever turned on.
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'server/**'
+      - 'dashboard/**'
+      - 'db/**'
+      - 'tests/e2e/**'
+      - 'tests/integration/global-setup.ts'
+      - 'playwright.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig.json'
+      - '.github/actions/setup/**'
+      - '.github/workflows/e2e.yml'
+      - '!**/*.md'
+      - '!**/*.test.ts'
+      - '!**/*.test.tsx'
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/bas_test
+
+jobs:
+  e2e:
+    name: e2e tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bas_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
