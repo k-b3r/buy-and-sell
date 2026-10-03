@@ -187,3 +187,13 @@ Also found: **grounding quota is pooled by model generation *family*, not per in
 
 ### First target category
 **Resolved decision (2026-08-17):** Audio equipment — mics, headphones, mixers. Chosen as the first category to build/validate the pipeline against.
+
+## Architecture
+
+**Decision (2026-10-03): modular monolith, modules by feature.** Fit check from the global coding standards, all "no": not under 3 features (items, pricing, real estate, collection), not a library, not mostly a framework app (dashboard is one of several entry points), no part needs independent deploy/scale/runtime, one developer, no event-driven core. Runtime shape is a pipeline (collect -> extract -> enrich -> price -> verify -> notify); workers are thin entry points over feature modules, not the module boundary.
+
+**Real estate stays in this repo as a strict module** (`src/modules/real-estate/`, imports only `platform/` and other modules' `index.ts`; nothing imports its internals). It shares the collector (same browser, proxy, Facebook pacing budget), the `listings` table, check-listings recheck, DB, VPS, Groq pool, settings, and dashboard deploy; a separate repo would duplicate the collector or force a versioned shared package.
+
+Split it into its own repo only when one of these holds: it gains a primary data source the item side doesn't use (e.g. BIR zonal scraping becomes its main input); it needs its own deploy cadence, DB, or runtime; or item-side modules haven't imported it for a sustained period. The module boundary makes that extraction mechanical.
+
+Cleanup plan: `docs/architecture-cleanup-plan.md`.
