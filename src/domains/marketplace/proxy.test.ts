@@ -19,7 +19,7 @@ test('uses webshare when it is configured and reachable, without even checking t
     return url === process.env.WEBSHARE_PROXY
   }
 
-  const result = await resolveProxy(checker)
+  const result = await resolveProxy(process.env, checker)
 
   expect(result).toEqual({
     ok: true,
@@ -38,7 +38,7 @@ test('falls back to the tunnel when webshare is configured but unreachable', asy
   process.env.SOCKS_PROXY = 'socks5://127.0.0.1:1080'
   const checker = async (url: string) => url === process.env.SOCKS_PROXY
 
-  const result = await resolveProxy(checker)
+  const result = await resolveProxy(process.env, checker)
 
   expect(result).toEqual({
     ok: true,
@@ -55,7 +55,7 @@ test('goes straight to the tunnel when webshare is not configured at all', async
     return true
   }
 
-  const result = await resolveProxy(checker)
+  const result = await resolveProxy(process.env, checker)
 
   expect(result.ok).toBe(true)
   expect(result.proxy?.source).toBe('tunnel')
@@ -67,7 +67,7 @@ test('fails closed when neither webshare nor the tunnel is configured', async ()
   delete process.env.SOCKS_PROXY
   const checker = async () => true
 
-  const result = await resolveProxy(checker)
+  const result = await resolveProxy(process.env, checker)
 
   expect(result.ok).toBe(false)
   expect(result.error).toContain('not configured')
@@ -78,7 +78,7 @@ test('fails closed when webshare is unreachable and no tunnel fallback is config
   delete process.env.SOCKS_PROXY
   const checker = async () => false
 
-  const result = await resolveProxy(checker)
+  const result = await resolveProxy(process.env, checker)
 
   expect(result.ok).toBe(false)
   expect(result.error).toContain('WEBSHARE_PROXY')
@@ -113,7 +113,7 @@ test('fails closed when webshare is unreachable and the tunnel fallback is also 
   process.env.SOCKS_PROXY = 'socks5://127.0.0.1:1080'
   const checker = async () => false
 
-  const result = await resolveProxy(checker)
+  const result = await resolveProxy(process.env, checker)
 
   expect(result.ok).toBe(false)
   expect(result.error).toContain("isn't reachable")

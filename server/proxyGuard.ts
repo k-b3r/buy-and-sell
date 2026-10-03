@@ -29,5 +29,5 @@ export async function checkProxyBeforeLaunch(checker: TunnelChecker = defaultPro
     return { ok: true }
   }
 
-  return resolveProxy(checker)
+  return resolveProxy(process.env, checker)
 }

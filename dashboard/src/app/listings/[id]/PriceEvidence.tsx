@@ -26,7 +26,7 @@ function EvidenceRow({ listing, dateLabel }: { listing: ComparableListing; dateL
         }}
       >
         {listing.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
           <img
             src={listing.photo_url}
             alt=""

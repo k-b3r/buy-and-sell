@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import nextPlugin from '@next/eslint-plugin-next'
+import eslintComments from '@eslint-community/eslint-plugin-eslint-comments/configs'
 import prettier from 'eslint-config-prettier'
 import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
@@ -18,10 +19,13 @@ export default tseslint.config(
       '.claude/**',
       'data/**',
       'fixtures/**',
+      // Deliberately violating files; linted only by tests/lint-config.test.ts.
+      'tests/lint-fixtures/**',
     ],
   },
   js.configs.recommended,
   tseslint.configs.recommended,
+  eslintComments.recommended,
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
@@ -45,6 +49,40 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'separate-type-imports' }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': ['error', { 'ts-expect-error': 'allow-with-description' }],
+      // Every disable names its rule and says why (`-- reason`).
+      '@eslint-community/eslint-comments/require-description': ['error', { ignore: [] }],
+    },
+  },
+  {
+    // Domain code gets config injected; reading env here hides a dependency.
+    files: ['**/src/domains/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'env',
+          message: 'Take env values as a parameter; read process.env in the worker entry point.',
+        },
+      ],
+    },
+  },
+  {
+    // Sleeps go through the injectable DelayFn so tests can pass a no-op.
+    files: ['**/src/**/*.ts'],
+    ignores: ['**/*.test.ts', 'src/platform/utils.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "NewExpression[callee.name='Promise'] > ArrowFunctionExpression > CallExpression[callee.name='setTimeout']",
+          message: 'Inject a DelayFn (src/platform/utils.ts realDelay) instead of sleeping inline.',
+        },
+      ],
     },
   },
   {

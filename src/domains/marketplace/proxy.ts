@@ -42,13 +42,21 @@ function toResolvedProxy(proxyUrl: string, source: ResolvedProxy['source']): Res
 // (scripts/tunnel.sh) exactly as before if Webshare is unset or unreachable.
 // Fails closed if neither works, same contract collect/check-listings/the
 // server guard already relied on for SOCKS_PROXY alone.
-export async function resolveProxy(checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution> {
-  const webshareProxy = process.env.WEBSHARE_PROXY
+export interface ProxyEnv {
+  WEBSHARE_PROXY?: string
+  SOCKS_PROXY?: string
+}
+
+export async function resolveProxy(
+  env: ProxyEnv,
+  checker: ProxyChecker = defaultProxyChecker,
+): Promise<ProxyResolution> {
+  const webshareProxy = env.WEBSHARE_PROXY
   if (webshareProxy && (await checker(webshareProxy))) {
     return { ok: true, proxy: toResolvedProxy(webshareProxy, 'webshare') }
   }
 
-  const socksProxy = process.env.SOCKS_PROXY
+  const socksProxy = env.SOCKS_PROXY
   if (!socksProxy) {
     return {
       ok: false,

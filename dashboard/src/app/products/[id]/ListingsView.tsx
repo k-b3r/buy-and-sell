@@ -238,7 +238,7 @@ export default function ListingsView({
       void fetchPage({ view, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand }, 0, true)
     }, 300)
     return () => clearTimeout(timeout)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- view is fixed per mount; refetch only when a filter changes
   }, [sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand, fetchPage])
 
   useEffect(() => {
@@ -253,7 +253,7 @@ export default function ListingsView({
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- view is fixed per mount; reobserve only when paging or filter state changes
   }, [nextOffset, loading, sortKey, listedWithinDays, hideSold, negotiableOnly, selectedBand, fetchPage])
 
   // Carried on every listing link as `?back=` so that link's "Back to
@@ -391,7 +391,7 @@ export default function ListingsView({
                 >
                   <td>
                     {l.primary_photo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                      // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
                       <img src={l.primary_photo_url} alt="" width={48} height={48} style={{ objectFit: 'cover' }} />
                     ) : null}
                   </td>
@@ -446,7 +446,7 @@ export default function ListingsView({
             >
               <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)', position: 'relative' }}>
                 {l.primary_photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                  // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
                   <img
                     src={l.primary_photo_url}
                     alt=""

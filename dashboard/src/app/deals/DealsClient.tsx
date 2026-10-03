@@ -80,7 +80,7 @@ function DealRow({ deal }: { deal: DealListing }) {
       <div style={{ flexShrink: 0 }}>
         <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', background: 'var(--color-bg)' }}>
           {deal.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
             <img
               src={deal.photo_url}
               alt=""

@@ -8,7 +8,7 @@ export interface GroqClient {
 // BACKFILL_FREE_GROQ_API_KEY replaced with numbered GROQ_API_KEY0, GROQ_API_KEY1, ...
 // - same scheme as loadExaApiKeys - reads sequentially until the next index is
 // unset, so the key pool can grow/shrink with no code change.
-export function loadGroqApiKeys(env: NodeJS.ProcessEnv = process.env): string[] {
+export function loadGroqApiKeys(env: NodeJS.ProcessEnv): string[] {
   const keys: string[] = []
   for (let i = 0; ; i++) {
     const key = env[`GROQ_API_KEY${i}`]
