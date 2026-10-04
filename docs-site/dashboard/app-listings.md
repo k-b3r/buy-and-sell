@@ -20,9 +20,25 @@ _(undocumented)_
 
 ## dashboard/src/app/listings/[id]/ListingDetailContent.tsx
 
-**Interactions:** imports `../../BackLink`, `../../FacebookIcon`, `../../InfoTooltip`, `../../SaveButton`, `../../marketplaceButtonStyle`, `./ListingCarousel`, `./PriceEvidence`, `./RefreshButton`, `@/lib/pricing`, `@/lib/queries`
+**Interactions:** imports `../../BackLink`, `../../FacebookIcon`, `../../SaveButton`, `../../marketplaceButtonStyle`, `./ListingCarousel`, `./ListingFacts`, `./ListingPriceSummary`, `./PriceEvidence`, `./RefreshButton`, `@/lib/queries`
 
 ### `default({ listing, showBackLink = true, back, }: { listing: ListingDetail showBackLink?: boolean // Raw querystring ListingsView's listing links carried (sort/hide-sold/ // discount-band/etc. - see parseListingsFilters), so "Back to {product}" // returns to that exact filtered view instead of resetting to defaults. back?: string }): React.JSX.Element`
+
+_(undocumented)_
+
+## dashboard/src/app/listings/[id]/ListingFacts.tsx
+
+**Interactions:** imports `@/lib/queries`
+
+### `default({ listing }: { listing: ListingDetail }): React.JSX.Element`
+
+_(undocumented)_
+
+## dashboard/src/app/listings/[id]/ListingPriceSummary.tsx
+
+**Interactions:** imports `../../InfoTooltip`, `@/lib/listingPrice`, `@/lib/pricing`, `@/lib/queries`
+
+### `default({ listing }: { listing: ListingDetail }): React.JSX.Element`
 
 _(undocumented)_
 

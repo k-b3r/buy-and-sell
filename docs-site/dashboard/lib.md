@@ -44,6 +44,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/lib/listingPrice.ts
+
+**Interactions:** imports `./queries`
+
+### `formatListingPrice(l: Pick<ProductListingSummary, 'price_amount' | 'price_review'>, emptyLabel = '—'): string`
+
+_(undocumented)_
+
 ## dashboard/src/lib/notificationToasts.ts
 
 **Interactions:** imports `./queries`
