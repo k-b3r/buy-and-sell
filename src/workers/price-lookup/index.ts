@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import {
   createGeminiClient,
   createQuotaAwareGeminiClient,
@@ -10,15 +9,13 @@ import {
   createTavilyClient,
 } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
-import { writePidFile } from '../../platform/worker'
+import { runWorker } from '../../platform/worker'
 import type { PriceLookupCandidate, PriceLookupClients } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'
 import { getPriceLookupCandidates } from '../../domains/marketplace'
-import { loadSettings } from '../../platform/settings'
 
 export type { PriceLookupClients } from '../../domains/marketplace'
 
@@ -69,58 +66,44 @@ async function main() {
     explicitLimit = parsed
   }
 
-  const logger = createLogger('data/price-lookup.log')
-  writePidFile('data/price-lookup.pid')
+  await runWorker({
+    name: 'price-lookup',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: ['price_lookup.lap_limit_default', 'price_lookup.loop_delay_ms', 'price_lookup.pacing_delay_ms'],
+    loopDelayKey: 'price_lookup.loop_delay_ms',
+    setup: ({ logger, db }) => {
+      // Exa is fallback 1 for both retail and secondhand (Gemini's primary, see
+      // price-lookup.ts's buildGeminiPrompt comment) - its credits ran out
+      // mid-investigation once already (2026-08-31, real 402), so multiple keys
+      // are worth having on hand (see loadExaApiKeys).
+      logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
 
-  // Exa is fallback 1 for both retail and secondhand (Gemini's primary, see
-  // price-lookup.ts's buildGeminiPrompt comment) - its credits ran out
-  // mid-investigation once already (2026-08-31, real 402), so multiple keys
-  // are worth having on hand (see loadExaApiKeys).
-  logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
-
-  const clients: PriceLookupClients = {
-    // Free tier only (per direct instruction: no paid Gemini in the app).
-    // Its real wall is a flat 20/day for the whole model (confirmed live
-    // 2026-09-02 by reproducing the actual 429 - see gemini.ts's comment),
-    // Google's own enforcement, not a client-side guess. Wrapped in
-    // createQuotaAwareGeminiClient so once that 429 is seen, every later
-    // call this same day skips straight to Exa instead of spending a
-    // round-trip on a call already known to fail.
-    gemini: createQuotaAwareGeminiClient(createGeminiClient(geminiApiKey)),
-    exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
-    tavily: createTavilyClient(tavilyApiKey),
-  }
-
-  const pool = createDbPool(dbUrl)
-
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const settings = await loadSettings(pool, [
-        'price_lookup.lap_limit_default',
-        'price_lookup.loop_delay_ms',
-        'price_lookup.pacing_delay_ms',
-      ])
-      const limit = explicitLimit ?? settings['price_lookup.lap_limit_default']
-      const pending = await getPriceLookupCandidates(pool)
-      const products = pending.slice(0, limit)
-      logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
-      if (isTestRun(process.env)) {
-        logger.info(
-          `TEST_RUN: marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
-        )
-      } else {
-        await runPriceLookup(clients, pool, logger, products, realDelay, settings['price_lookup.pacing_delay_ms'])
+      const clients: PriceLookupClients = {
+        // Free tier only (per direct instruction: no paid Gemini in the app).
+        // Its real wall is a flat 20/day for the whole model (confirmed live
+        // 2026-09-02 by reproducing the actual 429 - see gemini.ts's comment),
+        // Google's own enforcement, not a client-side guess. Wrapped in
+        // createQuotaAwareGeminiClient so once that 429 is seen, every later
+        // call this same day skips straight to Exa instead of spending a
+        // round-trip on a call already known to fail.
+        gemini: createQuotaAwareGeminiClient(createGeminiClient(geminiApiKey)),
+        exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
+        tavily: createTavilyClient(tavilyApiKey),
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['price_lookup.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['price_lookup.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+
+      return async ({ settings }) => {
+        const limit = explicitLimit ?? settings['price_lookup.lap_limit_default']
+        const pending = await getPriceLookupCandidates(db)
+        const products = pending.slice(0, limit)
+        logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
+        return {
+          dryRun: `marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
+          run: () => runPriceLookup(clients, db, logger, products, realDelay, settings['price_lookup.pacing_delay_ms']),
+        }
+      }
+    },
+  })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

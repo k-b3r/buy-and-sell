@@ -1,14 +1,12 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
-import { writePidFile } from '../../platform/worker'
+import { runWorker } from '../../platform/worker'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { EnrichmentCandidate } from '../../domains/marketplace'
 import {
@@ -18,7 +16,6 @@ import {
   updateProductCategories,
 } from '../../domains/marketplace'
 import { PRODUCT_CATEGORIES } from '../../domains/marketplace'
-import { loadSettings } from '../../platform/settings'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before
@@ -181,56 +178,51 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
-  const logger = createLogger('data/enrich-products.log')
-  writePidFile('data/enrich-products.pid')
-  // Per-key model fallback (best model first) round-robined across keys -
-  // see createGroqPool. Logs every hop so a stuck key/model is visible.
-  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
-    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
-  )
-  logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
-  const pool = createDbPool(dbUrl)
-
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const candidates = await getEnrichmentCandidates(pool)
-      const settings = await loadSettings(pool, [
-        'enrich_products.batch_size',
-        'enrich_products.loop_delay_ms',
-        'enrich_products.max_attempts',
-        'enrich_products.retry_delay_ms',
-      ])
-      if (isTestRun(process.env)) {
-        logger.info(`TEST_RUN: marketplace will call Groq for enrichment on ${candidates.length} products this lap`)
-      } else {
-        await runProductEnrichment(
-          groq,
-          pool,
-          logger,
-          candidates,
-          realDelay,
-          settings['enrich_products.batch_size'],
-          settings['enrich_products.max_attempts'],
-          settings['enrich_products.retry_delay_ms'],
-        )
-        // Applies this lap's freshly-produced is_specific_product/confidence
-        // judgments to price_lookup_excluded/price_lookup_review_status - lives
-        // here rather than in flag-price-ineligible.ts (which only handles the
-        // human-curated list, run manually) because this needs to react to new
-        // enrichment rows on the same cadence they're produced, not on a
-        // human's edit schedule.
-        await applyEligibilityFromEnrichment(pool)
+  await runWorker({
+    name: 'enrich-products',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: [
+      'enrich_products.batch_size',
+      'enrich_products.loop_delay_ms',
+      'enrich_products.max_attempts',
+      'enrich_products.retry_delay_ms',
+    ],
+    loopDelayKey: 'enrich_products.loop_delay_ms',
+    setup: ({ logger, db }) => {
+      // Per-key model fallback (best model first) round-robined across keys -
+      // see createGroqPool. Logs every hop so a stuck key/model is visible.
+      const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
+        logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+      )
+      logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
+      return async ({ settings }) => {
+        const candidates = await getEnrichmentCandidates(db)
+        return {
+          dryRun: `marketplace will call Groq for enrichment on ${candidates.length} products this lap`,
+          run: async () => {
+            await runProductEnrichment(
+              groq,
+              db,
+              logger,
+              candidates,
+              realDelay,
+              settings['enrich_products.batch_size'],
+              settings['enrich_products.max_attempts'],
+              settings['enrich_products.retry_delay_ms'],
+            )
+            // Applies this lap's freshly-produced is_specific_product/confidence
+            // judgments to price_lookup_excluded/price_lookup_review_status - lives
+            // here rather than in flag-price-ineligible.ts (which only handles the
+            // human-curated list, run manually) because this needs to react to new
+            // enrichment rows on the same cadence they're produced, not on a
+            // human's edit schedule.
+            await applyEligibilityFromEnrichment(db)
+          },
+        }
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['enrich_products.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['enrich_products.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+    },
+  })
 }
 
 // Guard so importing this module (e.g. from tests) doesn't also run main() —
