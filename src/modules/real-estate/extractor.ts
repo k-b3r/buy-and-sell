@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { GroqClient, GroqRequestOptions } from '../../domains/llm-clients'
-import { summarizeGroqError } from '../../domains/llm-clients'
+import { summarizeError } from '../../platform/errors'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
@@ -44,7 +44,7 @@ export async function extractRealEstateBatch(
       raw = (await groq.generateJson(prompt, REAL_ESTATE_RESPONSE_SCHEMA)) as { results?: unknown }
       break
     } catch (err) {
-      const message = summarizeGroqError(err)
+      const message = summarizeError(err)
       if ((err as { status?: unknown }).status === 429) {
         logger.error(`Groq quota exhausted (${message}), stopping run`)
         throw new QuotaExhaustedError(message)
