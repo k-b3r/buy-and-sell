@@ -7,9 +7,14 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
-import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, normalizeRealEstateItem } from '../../domains/marketplace'
-import type { RealEstateCandidate, RealEstateFields } from '../../domains/marketplace'
-import { getRealEstateCandidates, upsertRealEstateDetails } from '../../domains/marketplace'
+import {
+  buildRealEstatePrompt,
+  REAL_ESTATE_RESPONSE_SCHEMA,
+  normalizeRealEstateItem,
+  getRealEstateCandidates,
+  upsertRealEstateDetails,
+} from '../../modules/real-estate'
+import type { RealEstateCandidate, RealEstateFields } from '../../modules/real-estate'
 
 const MODEL = 'openai/gpt-oss-120b'
 const MAX_ATTEMPTS = 3

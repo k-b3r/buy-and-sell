@@ -4,8 +4,8 @@ import {
   normalizeRealEstateItem,
   buildRealEstatePrompt,
   NCR_LGUS,
-} from './real-estate'
-import type { RealEstateCandidate } from './real-estate'
+} from './extraction'
+import type { RealEstateCandidate } from './extraction'
 
 const candidate = (over: Partial<RealEstateCandidate> = {}): RealEstateCandidate => ({
   id: '1',

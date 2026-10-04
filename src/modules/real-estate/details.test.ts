@@ -1,6 +1,6 @@
-import type { DbClient } from '../../../platform/storage'
-import { getRealEstateCandidates, upsertRealEstateDetails } from './real-estate'
-import type { RealEstateFields } from '../real-estate'
+import type { DbClient } from '../../platform/storage'
+import { getRealEstateCandidates, upsertRealEstateDetails } from './details'
+import type { RealEstateFields } from './extraction'
 
 function recordingDb(rows: unknown[] = []): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

@@ -3,7 +3,7 @@ import { extractRealEstateBatch, runRealEstateExtraction, EXTRACTOR_MODELS, EXTR
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { RealEstateCandidate } from '../../domains/marketplace'
+import type { RealEstateCandidate } from '../../modules/real-estate'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
 afterEach(() => {
