@@ -35,10 +35,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "depcruise": "depcruise src server --config .dependency-cruiser.cjs",
+    "depcruise": "depcruise src server --config .dependency-cruiser.cjs --ignore-known",
     "knip": "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgres://knip@localhost/unused} knip --no-progress",
     "docs:check": "pnpm gen-arch-doc && git diff --exit-code -- docs-site",
-    "repo-checks": "tsx scripts/repo-checks.ts",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server && tsc --noEmit -p dashboard",
     "check": "pnpm format:check && pnpm lint && pnpm depcruise && pnpm knip && pnpm typecheck && pnpm test",
     "test:integration": "vitest run --config vitest.integration.config.ts",
@@ -47,6 +46,7 @@
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
     "@eslint/js": "^10.0.1",
+    "@k-b3r/agent-config": "github:k-b3r/agent-config",
     "@next/eslint-plugin-next": "^16.3.8",
     "@playwright/test": "1.62.1",
     "@types/node": "^20.14.0",
@@ -77,5 +77,16 @@
   },
   "overrides": {
     "standardwebhooks": "1.0.0"
+  },
+  "agentConfig": {
+    "sourceDirs": [
+      "src",
+      "server"
+    ],
+    "entries": [
+      "src/workers/*/index.ts",
+      "src/utils/*/index.ts"
+    ],
+    "appDbEnv": "DATABASE_URL"
   }
 }

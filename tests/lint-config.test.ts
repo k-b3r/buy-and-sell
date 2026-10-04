@@ -2,36 +2,51 @@ import { ESLint } from 'eslint'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Proves each guardrail rule actually fires: a mis-scoped glob or a dropped
-// rule would otherwise silently check nothing.
-const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'lint-fixtures')
-const repoRoot = path.resolve(fixtures, '../..')
+// The shared rules have their own violating fixtures in @k-b3r/agent-config.
+// This guards the repo's scoping: a too-wide entryPoints or defaultExportAllowed
+// glob would silently switch a rule off for domain code.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const eslint = new ESLint({ cwd: repoRoot })
 
-async function ruleIdsFor(relPath: string): Promise<string[]> {
-  const eslint = new ESLint({ cwd: repoRoot, ignore: false })
-  const [result] = await eslint.lintFiles([path.join(fixtures, relPath)])
-  return result.messages.map((m) => m.ruleId ?? 'parse-error')
+type RuleEntry = [string | number, ...unknown[]]
+
+async function rule(file: string, name: string): Promise<RuleEntry | undefined> {
+  const config = (await eslint.calculateConfigForFile(path.join(repoRoot, file))) as {
+    rules: Record<string, RuleEntry>
+  }
+  return config.rules[name]
 }
 
-const cases: [string, string][] = [
-  ['ts-ignore.ts', '@typescript-eslint/ban-ts-comment'],
-  ['export-all.ts', 'no-restricted-syntax'],
-  ['src/domains/fixture/export-all.ts', 'no-restricted-syntax'],
-  ['explicit-any.ts', '@typescript-eslint/no-explicit-any'],
-  ['undescribed-disable.ts', '@eslint-community/eslint-comments/require-description'],
-  ['unlimited-disable.ts', '@eslint-community/eslint-comments/no-unlimited-disable'],
-  ['src/domains/fixture/ambient-env.ts', 'no-restricted-properties'],
-  ['src/domains/fixture/raw-sleep.ts', 'no-restricted-syntax'],
-]
+const severity = (entry: RuleEntry | undefined) => (entry ? entry[0] : 'off')
+const selectors = (entry: RuleEntry | undefined) =>
+  (entry?.slice(1) as { selector: string }[] | undefined)?.map((option) => option.selector) ?? []
 
-test.each(cases)(
-  'lint config flags %s with %s',
-  async (file, rule) => {
-    expect(await ruleIdsFor(file)).toContain(rule)
-  },
-  60_000,
-)
+test('lint config bans process.env in domain, platform and server modules', async () => {
+  for (const file of ['src/domains/marketplace/products.ts', 'src/platform/storage.ts', 'server/queries.ts']) {
+    expect([file, severity(await rule(file, 'no-restricted-properties'))]).toEqual([file, 2])
+  }
+}, 60_000)
 
-test('lint config passes the clean control fixture', async () => {
-  expect(await ruleIdsFor('clean.ts')).toEqual([])
+test('lint config lets entry points read process.env', async () => {
+  for (const file of ['src/workers/collect/index.ts', 'src/utils/backfill/index.ts', 'server/index.ts']) {
+    expect([file, severity(await rule(file, 'no-restricted-properties'))]).toEqual([file, 0])
+  }
+}, 60_000)
+
+test('lint config bans inline sleeps, export * and default exports in domain code', async () => {
+  const found = selectors(await rule('src/domains/marketplace/products.ts', 'no-restricted-syntax'))
+  expect(found).toEqual(
+    expect.arrayContaining([
+      'ExportAllDeclaration',
+      'ExportDefaultDeclaration',
+      expect.stringContaining("callee.name='setTimeout'"),
+    ]),
+  )
+}, 60_000)
+
+test('lint config allows default exports only in framework files', async () => {
+  expect(selectors(await rule('dashboard/src/app/page.tsx', 'no-restricted-syntax'))).not.toContain(
+    'ExportDefaultDeclaration',
+  )
+  expect(selectors(await rule('server/app.ts', 'no-restricted-syntax'))).toContain('ExportDefaultDeclaration')
 }, 60_000)

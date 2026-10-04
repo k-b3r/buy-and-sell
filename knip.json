@@ -4,14 +4,8 @@
   "ignoreBinaries": ["pg_dump"],
   "workspaces": {
     ".": {
-      "entry": [
-        "src/**/index.ts",
-        "src/**/*.test.ts",
-        "scripts/*.{ts,mjs}",
-        "tests/**/*.ts",
-        "!tests/lint-fixtures/**"
-      ],
-      "project": ["src/**/*.ts", "scripts/**/*.{ts,mjs}", "tests/**/*.ts", "!tests/lint-fixtures/**"]
+      "entry": ["src/**/index.ts", "src/**/*.test.ts", "scripts/*.{ts,mjs}", "tests/**/*.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.{ts,mjs}", "tests/**/*.ts"]
     },
     "server": {
       "entry": ["**/*.test.ts"],

@@ -172,7 +172,7 @@ _(undocumented)_
 
 ## server/refreshPacer.ts
 
-**Interactions:** imports `./refreshLock`
+**Interactions:** imports `../src/platform/utils`, `./refreshLock`
 
 ### `createRefreshPacer(lock: RefreshLock, now: () => number = Date.now, delay: DelayFn = realDelay): RefreshPacer`
 
