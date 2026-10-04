@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { formatListingPrice } from './listingPrice'
-import type { ListingPriceReview } from '../../../lib/pricing'
+import type { ListingPriceReview } from './pricing'
 
 function priced(price_amount: number | null, price_review: ListingPriceReview | null = null) {
   return { price_amount, price_review }
@@ -12,6 +12,13 @@ test('formatListingPrice shows the recorded price when there is no price review'
 
 test('formatListingPrice shows a dash when there is no recorded price and no review', () => {
   expect(formatListingPrice(priced(null))).toBe('—')
+})
+
+test('formatListingPrice shows the given empty label when there is no price to show', () => {
+  expect(formatListingPrice(priced(null), 'Price not listed')).toBe('Price not listed')
+  expect(
+    formatListingPrice(priced(15000, { is_negotiable: false, price_low: null, price_high: null }), 'Price not listed'),
+  ).toBe(`₱${(15000).toLocaleString()}`)
 })
 
 test('formatListingPrice shows a single reviewed price when low and high match', () => {

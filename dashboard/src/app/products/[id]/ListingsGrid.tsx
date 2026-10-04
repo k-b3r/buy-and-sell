@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { isListingPriceNegotiable } from '@/lib/pricing'
 import SaveButton from '../../SaveButton'
 import { DiscountBadge, NegotiableBadge, RepostBadge, SoldBadge } from './ListingBadges'
-import { formatListingPrice } from './listingPrice'
+import { formatListingPrice } from '@/lib/listingPrice'
 import type { PaginatedListingSummary } from './listingsFilters'
 
 export default function ListingsGrid({
