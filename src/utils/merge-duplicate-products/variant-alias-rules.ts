@@ -1,7 +1,7 @@
 import type { ProductAliasRule } from './variant-aliases'
 
 // High-confidence duplicate-product merges found by a full-catalog scan
-// (2026-09-02, see SESSION_RESUME.md / conversation log for the analysis
+// (2026-09-02, see git history of SESSION_RESUME.md for the analysis
 // prompt and methodology - Opus judged all 8,695 product rows against the
 // existing CANONICAL_BASE_MODEL map in ../../domains/marketplace/products.ts
 // and flagged rows that split the same real product purely from

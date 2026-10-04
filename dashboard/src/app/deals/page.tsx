@@ -20,7 +20,7 @@ async function getDiscountPolicyFloors() {
   }
 }
 
-// Ranked-by-profit view of active listings (see SESSION_RESUME.md's spec) -
+// Ranked-by-profit view of active listings -
 // not cached (unlike getProductSummariesCached etc.): this page's whole
 // point is to surface the current best opportunities, a stale copy of
 // "current" is actively misleading in a way a stale product catalog isn't.

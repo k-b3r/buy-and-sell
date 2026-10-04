@@ -2830,7 +2830,7 @@ test('getDeals returns the low-confidence bucket instead of the main list when l
 
 // Regression: confirmed live 2026-09-03 that phones (dedupe cleanly across
 // sellers into one product, so they reach sold_comps/peer_listings far more
-// often than one-off items - see SESSION_RESUME.md's ~75%-singleton figure -
+// often than one-off items (~75% of products are singleton-listing)
 // and produce bigger absolute profit_pesos at their price point) crowded out
 // every other category on the ranked list, since nothing capped how many of
 // one category could appear.
