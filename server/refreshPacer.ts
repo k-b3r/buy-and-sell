@@ -1,7 +1,6 @@
+import type { DelayFn } from '../src/platform/utils'
+import { realDelay } from '../src/platform/utils'
 import type { RefreshLock } from './refreshLock'
-
-export type DelayFn = (ms: number) => Promise<void>
-const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Same human-paced gap as the CLI's batch loop and the bulk product-refresh
 // handler - a single-listing refresh hitting live Facebook gets no less
