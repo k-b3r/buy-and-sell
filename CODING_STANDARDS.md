@@ -13,6 +13,7 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 ```
 src/platform/   shared infra (db, logger, settings, utils)
 src/domains/    pure-ish domain logic + external clients (marketplace, llm-clients)
+src/modules/    feature modules, index.ts is the only public API (real-estate)
 src/workers/    long-running loops, one folder each, entry = index.ts
 src/utils/      one-off / backfill scripts, one folder each
 server/         VPS HTTP server (named-query whitelist, worker control)
