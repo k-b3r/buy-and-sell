@@ -38,13 +38,13 @@ _(undocumented)_
 
 ## src/modules/real-estate/extractor.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/errors`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
+**Interactions:** imports `../../platform/delay`, `../../platform/errors`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
 
-### `extractRealEstateBatch(groq: GroqClient, logger: Logger, delay: DelayFn, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
+### `extractRealEstateBatch(groq: JsonModelClient, logger: Logger, delay: DelayFn, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
 _(undocumented)_
 
-### `runRealEstateExtraction(groq: GroqClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
+### `runRealEstateExtraction(groq: JsonModelClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
 
 _(undocumented)_
 
@@ -54,7 +54,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runRealEstateExtraction(groq: GroqClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
+### `runRealEstateExtraction(groq: JsonModelClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
 
 _(undocumented)_
 
