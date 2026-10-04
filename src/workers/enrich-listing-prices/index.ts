@@ -104,7 +104,7 @@ async function main() {
         'enrich_listing_prices.batch_size',
         'enrich_listing_prices.loop_delay_ms',
       ])
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         logger.info(`TEST_RUN: marketplace will call Groq for price review on ${candidates.length} listings this lap`)
       } else {
         await runPriceReview(groq, pool, logger, candidates, settings['enrich_listing_prices.batch_size'])

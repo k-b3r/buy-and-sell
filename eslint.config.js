@@ -20,8 +20,6 @@ export default [
       'scripts/*.ts',
       // Framework app: follows Next.js conventions (server components read env).
       'dashboard/**',
-      // Known debt, not an entry point: BUY-25 (isTestRun).
-      'src/platform/utils.ts',
     ],
     delayModules: ['src/platform/utils.ts'],
     // Next.js pages, layouts and components default-export by convention; vitepress

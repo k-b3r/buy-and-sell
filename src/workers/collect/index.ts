@@ -160,7 +160,7 @@ async function main() {
             })
       if (cycle) logger.info(`--cycle: lap ${lap} starting, ${queries.length} motivated-seller keywords`)
 
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         for (const { query } of queries) {
           logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
         }
@@ -240,7 +240,7 @@ async function main() {
       }
 
       if (cycle) {
-        if (isTestRun()) {
+        if (isTestRun(process.env)) {
           await realDelay(TEST_RUN_LOOP_DELAY_MS)
         } else {
           logger.info(

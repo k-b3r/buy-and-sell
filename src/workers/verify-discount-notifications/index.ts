@@ -181,7 +181,7 @@ async function main() {
         thresholds.minPricePesos,
       )
       logger.info(`${pending.length} pending this lap`)
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         logger.info(`TEST_RUN: would verify ${pending.length} discount notifications this lap`)
       } else {
         await runVerifyDiscountNotifications(

@@ -25,6 +25,7 @@ test('lint config bans process.env in domain, platform and server modules', asyn
   for (const file of [
     'src/domains/marketplace/products.ts',
     'src/platform/storage.ts',
+    'src/platform/utils.ts',
     'server/queries.ts',
     'server/proxyGuard.ts',
   ]) {

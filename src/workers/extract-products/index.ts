@@ -377,7 +377,7 @@ async function main() {
         'discount_policy.min_profit_pesos',
         'discount_policy.min_price_pesos',
       ])
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         logger.info(`TEST_RUN: marketplace will call Groq for extraction on ${candidates.length} listings this lap`)
       } else {
         await runProductExtraction(clients, pool, logger, candidates, {

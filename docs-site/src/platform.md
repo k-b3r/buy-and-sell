@@ -94,7 +94,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `isTestRun(): boolean`
+### `isTestRun(env: { TEST_RUN?: string }): boolean`
 
 _(undocumented)_
 
