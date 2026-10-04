@@ -11,6 +11,8 @@ import {
   defaultCompressImage,
 } from '../../../platform/images'
 import type { Logger } from '../../../platform/logger'
+import type { PriorPriceRow } from '../../../modules/real-estate'
+import { recordRealEstatePriceChange } from '../../../modules/real-estate'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {
@@ -262,57 +264,6 @@ export async function flagListingRemoved(db: DbClient, id: string): Promise<void
 // cascade-deleted here, even if this was their last remaining listing.
 export async function deleteListing(db: DbClient, id: string): Promise<void> {
   await db.query(`DELETE FROM listings WHERE id = $1`, [id])
-}
-
-interface PriorPriceRow {
-  old_price_amount: string | number | null
-  old_price_currency: string | null
-  old_first_seen_at: string | Date
-}
-
-// Real estate only: every other category returns early at the probe, so the
-// non-real-estate path pays nothing unless its price actually changed (and
-// then one indexed SELECT). Best-effort by design - a failure here must never
-// fail the listing refresh, so it is logged and swallowed.
-async function recordRealEstatePriceChange(
-  db: DbClient,
-  logger: Logger,
-  listingId: string,
-  prior: PriorPriceRow | undefined,
-  newPrice: number | null,
-  newCurrency: string | null,
-): Promise<void> {
-  if (!prior) return
-  const oldPrice =
-    prior.old_price_amount === null || prior.old_price_amount === undefined ? null : Number(prior.old_price_amount)
-  if (oldPrice === newPrice) return
-  try {
-    const probe = (await db.query(
-      `SELECT EXISTS (SELECT 1 FROM listing_price_history h WHERE h.listing_id = l.id) AS has_history
-       FROM listings l
-       JOIN products p ON p.id = l.product_id
-       JOIN categories c ON c.id = p.category_id
-       WHERE l.id = $1 AND c.name = 'Real Estate'`,
-      [listingId],
-    )) as { rows?: { has_history: boolean }[] } | undefined
-    const row = probe?.rows?.[0]
-    if (!row) return
-    if (!row.has_history) {
-      await db.query(
-        `INSERT INTO listing_price_history (listing_id, price_amount, price_currency, recorded_at) VALUES ($1, $2, $3, $4)`,
-        [listingId, oldPrice, prior.old_price_currency, prior.old_first_seen_at],
-      )
-    }
-    await db.query(`INSERT INTO listing_price_history (listing_id, price_amount, price_currency) VALUES ($1, $2, $3)`, [
-      listingId,
-      newPrice,
-      newCurrency,
-    ])
-  } catch (err) {
-    logger.warn(
-      `listing ${listingId} price-history write failed, continuing: ${err instanceof Error ? err.message : String(err)}`,
-    )
-  }
 }
 
 // check-listings calls this when a re-checked listing is confirmed still
