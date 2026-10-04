@@ -37,6 +37,9 @@ export interface WorkerConfig {
   // data/<name>.log and data/<name>.pid
   name: string
   databaseUrl: string
+  // Known secret values the logger masks; entry points pass
+  // secretsFromEnv(process.env) (redact.ts). Required so no worker can forget.
+  secrets: readonly string[]
   // See isTestRun (env.ts).
   testRun: boolean
   // Reloaded every lap so a dashboard edit takes effect without a restart.
@@ -50,7 +53,7 @@ interface WorkerPool extends DbClient {
 }
 
 export interface WorkerDeps {
-  createLogger: (path: string) => Logger
+  createLogger: (path: string, secrets: readonly string[]) => Logger
   writePidFile: (path: string) => void
   createDbPool: (connectionString: string) => WorkerPool
   delay: DelayFn
@@ -73,10 +76,11 @@ const realDeps: WorkerDeps = { createLogger, writePidFile, createDbPool, delay: 
 export async function runWorkerProcess(
   name: string,
   databaseUrl: string,
+  secrets: readonly string[],
   body: (io: WorkerIo) => Promise<void>,
   deps: WorkerDeps = realDeps,
 ): Promise<void> {
-  const logger = deps.createLogger(`data/${name}.log`)
+  const logger = deps.createLogger(`data/${name}.log`, secrets)
   deps.writePidFile(`data/${name}.pid`)
   const pool = deps.createDbPool(databaseUrl)
   try {
@@ -95,6 +99,7 @@ export async function runWorker(config: WorkerConfig, deps: WorkerDeps = realDep
   await runWorkerProcess(
     config.name,
     config.databaseUrl,
+    config.secrets,
     async ({ logger, db }) => {
       const runLap = await config.setup({ logger, db })
       logger.info('looping indefinitely — Ctrl+C to stop')

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/platform/logger'
+import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
 import { createR2ImageStore } from '../src/platform/images'
 import { createApp } from './app'
@@ -38,7 +39,7 @@ async function main() {
 
   const port = Number(process.env.SERVER_PORT ?? 8787)
 
-  const logger = createLogger('server.log')
+  const logger = createLogger('server.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   const imageStore = createR2ImageStore({
     accountId: R2_ACCOUNT_ID,

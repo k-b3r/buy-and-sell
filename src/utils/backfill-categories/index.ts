@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -104,7 +105,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — category backfill requires Postgres')
 
-  const logger = createLogger('data/backfill-categories.log')
+  const logger = createLogger('data/backfill-categories.log', secretsFromEnv(process.env))
   const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
     logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
   )

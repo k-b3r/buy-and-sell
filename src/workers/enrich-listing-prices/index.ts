@@ -5,6 +5,7 @@ import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domai
 import type { DbClient } from '../../platform/storage'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
 import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace'
@@ -87,6 +88,7 @@ async function main() {
   await runWorker({
     name: 'enrich-listing-prices',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: ['enrich_listing_prices.batch_size', 'enrich_listing_prices.loop_delay_ms'],
     loopDelayKey: 'enrich_listing_prices.loop_delay_ms',

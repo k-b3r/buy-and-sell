@@ -13,6 +13,7 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import type { PriceLookupCandidate, PriceLookupClients } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'
 import { getPriceLookupCandidates } from '../../domains/marketplace'
@@ -69,6 +70,7 @@ async function main() {
   await runWorker({
     name: 'price-lookup',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: ['price_lookup.lap_limit_default', 'price_lookup.loop_delay_ms', 'price_lookup.pacing_delay_ms'],
     loopDelayKey: 'price_lookup.loop_delay_ms',
