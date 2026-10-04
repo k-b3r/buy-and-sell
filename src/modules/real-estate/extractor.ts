@@ -4,7 +4,7 @@ import { summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, normalizeRealEstateItem } from './extraction'
+import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from './extraction'
 import type { RealEstateCandidate, RealEstateFields } from './extraction'
 import { upsertRealEstateDetails } from './details'
 
@@ -69,25 +69,13 @@ export async function extractRealEstateBatch(
     }
   }
 
-  const out = new Map<string, RealEstateFields>()
-  if (!raw || !Array.isArray(raw.results)) {
+  const parsed = parseRealEstateResponse(raw, batch)
+  if (!parsed) {
     logger.error('unexpected response shape (no results array), skipping batch')
-    return out
+    return new Map()
   }
-  for (const item of raw.results as { id?: unknown }[]) {
-    const id = typeof item?.id === 'string' ? item.id : null
-    const candidate = id === null ? undefined : batch.find((c) => c.id === id)
-    if (!candidate) {
-      logger.warn(`item ${id ?? '(missing id)'}: no matching candidate in this batch, skipping`)
-      continue
-    }
-    const fields = normalizeRealEstateItem(item, candidate)
-    if (!fields) {
-      logger.warn(`item ${candidate.id}: malformed fields in Groq response, skipping`)
-      continue
-    }
-    out.set(candidate.id, fields)
-  }
+  for (const line of parsed.skipped) logger.warn(line)
+  const out = parsed.fields
 
   // Confirmed on a real run: the model sometimes returns fewer results than it
   // was sent (17 of 25). Ask once more for just the missing ones; anything still
