@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { realDelay, type DelayFn } from './utils'
+import { realDelay } from './delay'
+import type { DelayFn } from './delay'
 
 // Shared by collect and check-listings (the only two workers that launch a
 // browser) - same data/ directory their pid/log files already live in.

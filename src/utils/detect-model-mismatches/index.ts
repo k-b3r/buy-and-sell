@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile } from '../../platform/utils'
+import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
 import { findModelCodeMismatches } from '../../domains/marketplace'
 

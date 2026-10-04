@@ -1,5 +1,5 @@
-import type { DelayFn } from '../src/platform/utils'
-import { realDelay } from '../src/platform/utils'
+import type { DelayFn } from '../src/platform/delay'
+import { realDelay } from '../src/platform/delay'
 import type { RefreshLock } from './refreshLock'
 
 // Same human-paced gap as the CLI's batch loop and the bulk product-refresh

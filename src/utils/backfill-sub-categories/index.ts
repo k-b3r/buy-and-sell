@@ -5,8 +5,9 @@ import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
-import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile } from '../../platform/utils'
+import type { DelayFn } from '../../platform/delay'
+import { realDelay } from '../../platform/delay'
+import { loadEnvFile } from '../../platform/env'
 import { getSubCategoryBackfillCandidates, updateProductSubCategories } from '../../domains/marketplace'
 import {
   buildSubCategoryBackfillPrompt,
