@@ -148,13 +148,19 @@ _(undocumented)_
 
 ## dashboard/src/app/api/settings/route.ts
 
-**Interactions:** imports `@/lib/queries`
+**Interactions:** imports `./validateSettingsUpdates`, `@/lib/queries`
 
 ### `GET(): Promise<NextResponse<{ settings: SettingRow[]; }>>`
 
 _(undocumented)_
 
 ### `PATCH(request: Request): Promise<NextResponse<{ error: string; }> | NextResponse<{ ok: boolean; }>>`
+
+_(undocumented)_
+
+## dashboard/src/app/api/settings/validateSettingsUpdates.ts
+
+### `validateSettingsUpdates(updates: unknown): SettingsUpdatesValidation`
 
 _(undocumented)_
 

@@ -1,29 +1,13 @@
-import { isListingPriceNegotiable } from '@/lib/pricing'
 import type { ListingDetail } from '@/lib/queries'
 import ListingCarousel from './ListingCarousel'
 import RefreshButton from './RefreshButton'
 import BackLink from '../../BackLink'
-import InfoTooltip from '../../InfoTooltip'
 import { marketplaceButtonStyle } from '../../marketplaceButtonStyle'
 import FacebookIcon from '../../FacebookIcon'
 import SaveButton from '../../SaveButton'
 import PriceEvidence from './PriceEvidence'
-
-// price_review's range replaces the recorded price when it has a real read on
-// it; a review row with no determinable price (both null) falls back to the
-// recorded price, same as no review row at all.
-function formatListingPrice(listing: ListingDetail): string {
-  const review = listing.price_review
-  if (review && (review.price_low !== null || review.price_high !== null)) {
-    if (review.price_low === review.price_high) {
-      return review.price_low !== null ? `₱${review.price_low.toLocaleString()}` : 'Price not listed'
-    }
-    if (review.price_low !== null && review.price_high !== null) {
-      return `₱${review.price_low.toLocaleString()}–₱${review.price_high.toLocaleString()}`
-    }
-  }
-  return listing.price_amount !== null ? `₱${listing.price_amount.toLocaleString()}` : 'Price not listed'
-}
+import ListingFacts from './ListingFacts'
+import ListingPriceSummary from './ListingPriceSummary'
 
 // showBackLink is off in the modal variant - closing the modal already
 // returns to the product page it was opened from, so a link doing the same
@@ -82,100 +66,14 @@ export default function ListingDetailContent({
             )}
           </h1>
 
-          <p className="mono" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-            {formatListingPrice(listing)}
-            {isListingPriceNegotiable(listing.price_amount, listing.price_review, listing.discount_percent) && (
-              <span
-                style={{
-                  display: 'inline-block',
-                  marginLeft: 12,
-                  padding: '2px 10px',
-                  borderRadius: 12,
-                  fontSize: '0.5em',
-                  verticalAlign: 'middle',
-                  border: '1px solid var(--color-accent)',
-                  color: 'var(--color-accent)',
-                }}
-              >
-                Negotiable
-              </span>
-            )}
-            {listing.discount_percent !== null && listing.discount_percent !== 0 && (
-              <span
-                style={{
-                  display: 'inline-block',
-                  marginLeft: 12,
-                  padding: '2px 10px',
-                  borderRadius: 12,
-                  fontSize: '0.5em',
-                  verticalAlign: 'middle',
-                  background: listing.discount_percent > 0 ? 'var(--color-signal)' : 'var(--color-text-muted)',
-                  color: 'var(--color-bg)',
-                }}
-              >
-                {listing.discount_percent > 0
-                  ? `${listing.discount_percent}% below avg`
-                  : `${Math.abs(listing.discount_percent)}% above avg`}
-              </span>
-            )}
-            {listing.verification_reasoning && (
-              <InfoTooltip
-                text={listing.verification_reasoning}
-                style={{ marginLeft: 6, fontSize: '0.6em', verticalAlign: 'middle', color: 'var(--color-text-muted)' }}
-              />
-            )}
-          </p>
-          {listing.reference_price !== null && (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85em', marginTop: -8 }}>
-              vs typical ₱{listing.reference_price.toLocaleString()} for this product (outliers/placeholders excluded)
-            </p>
-          )}
+          <ListingPriceSummary listing={listing} />
 
           <p style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <RefreshButton listingId={listing.id} productId={listing.product_id} />
             <SaveButton listingId={listing.id} productId={listing.product_id} initialSaved={listing.is_saved} />
           </p>
 
-          <table cellPadding={4}>
-            <tbody>
-              {listing.variant_tier && (
-                <tr>
-                  <td style={{ color: 'var(--color-text-muted)' }}>Variant</td>
-                  <td>{listing.variant_tier}</td>
-                </tr>
-              )}
-              {listing.condition && (
-                <tr>
-                  <td style={{ color: 'var(--color-text-muted)' }}>Condition</td>
-                  <td>{listing.condition}</td>
-                </tr>
-              )}
-              {listing.location_city && (
-                <tr>
-                  <td style={{ color: 'var(--color-text-muted)' }}>Location</td>
-                  <td>{listing.location_city}</td>
-                </tr>
-              )}
-              {listing.listed_at && (
-                <tr>
-                  <td style={{ color: 'var(--color-text-muted)' }}>Listed</td>
-                  <td>{new Date(listing.listed_at).toLocaleDateString()}</td>
-                </tr>
-              )}
-              {listing.last_seen_at && (
-                <tr>
-                  <td style={{ color: 'var(--color-text-muted)' }}>Last confirmed live</td>
-                  <td>{new Date(listing.last_seen_at).toLocaleDateString()}</td>
-                </tr>
-              )}
-              {listing.sold_at && (
-                <tr>
-                  <td style={{ color: 'var(--color-text-muted)' }}>Sold</td>
-                  <td>{new Date(listing.sold_at).toLocaleDateString()}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <ListingFacts listing={listing} />
 
           {listing.description && (
             <div className="listing-description">
