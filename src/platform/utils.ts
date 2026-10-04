@@ -20,9 +20,9 @@ export function loadEnvFile(): void {
 // skips the actual paid/live call (Gemini/Groq/Exa/live Facebook) and logs
 // what it WOULD have called instead. Lets every worker's loop/pacing/DB
 // wiring be watched end-to-end before spending real money or hitting live
-// Facebook.
-export function isTestRun(): boolean {
-  return process.env.TEST_RUN === 'true'
+// Facebook. Workers pass process.env from their entry point.
+export function isTestRun(env: { TEST_RUN?: string }): boolean {
+  return env.TEST_RUN === 'true'
 }
 
 // Self-registration for server/routes/workerControl.ts's stop/status checks -

@@ -201,7 +201,7 @@ async function main() {
         'enrich_products.max_attempts',
         'enrich_products.retry_delay_ms',
       ])
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         logger.info(`TEST_RUN: marketplace will call Groq for enrichment on ${candidates.length} products this lap`)
       } else {
         await runProductEnrichment(

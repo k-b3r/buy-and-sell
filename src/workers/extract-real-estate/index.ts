@@ -161,7 +161,7 @@ async function main() {
       logger.info(`lap ${lap} starting`)
       const candidates = await getRealEstateCandidates(pool, LAP_CANDIDATE_LIMIT)
       const settings = await loadSettings(pool, ['extract_real_estate.batch_size', 'extract_real_estate.loop_delay_ms'])
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         logger.info(`TEST_RUN: would call Groq to extract ${candidates.length} real estate listings this lap`)
       } else {
         await runRealEstateExtraction(groq, pool, logger, candidates, settings['extract_real_estate.batch_size'])

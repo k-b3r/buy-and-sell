@@ -179,7 +179,7 @@ async function main() {
       ])
       const limit = explicitLimit ?? settings['check_listings.limit_default']
       const candidates = await getCheckListingsCandidates(pool, limit, settings['check_listings.re_recheck_min_days'])
-      if (isTestRun()) {
+      if (isTestRun(process.env)) {
         logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
       } else if (candidates.length > 0) {
         // Browser only exists for the lifetime of this lap's batch, not the
