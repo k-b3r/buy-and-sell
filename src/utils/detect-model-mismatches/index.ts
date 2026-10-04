@@ -28,7 +28,7 @@ async function getMatchedListings(db: DbClient): Promise<CandidateRow[]> {
 // is broad/heuristic enough (see model-mismatch.ts) that it belongs in front
 // of a human before any row gets reassigned, not applied live. Each flagged
 // row here is a candidate for the same manual fix already done once for
-// listing 1000000000000002 (see SESSION_RESUME.md), not an auto-fix target.
+// listing 1000000000000002, not an auto-fix target.
 async function main(): Promise<void> {
   loadEnvFile()
   const dbUrl = process.env.DATABASE_URL

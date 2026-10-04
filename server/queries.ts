@@ -1247,7 +1247,7 @@ const DEALS_DEFAULT_LIMIT = 30
 // Confirmed live 2026-09-03: phones dominate the ranked list because they
 // both (a) dedupe cleanly into one product across many sellers, reaching the
 // sold_comps/peer_listings tiers far more often than one-off items (~75% of
-// all products are singleton-listing per SESSION_RESUME.md), and (b) produce
+// all products are singleton-listing), and (b) produce
 // bigger absolute profit_pesos at their price point even at the same
 // discount %, and profit_pesos - not a normalized rate - is the tie-breaker
 // within a tier. No per-category cap meant a strong category could fill
@@ -1272,10 +1272,10 @@ const DEALS_CATEGORY_CAP = 10
 // all operate on the real ranking key instead of an unfiltered page of raw
 // listings that then shrinks unpredictably after JS-side filtering.
 //
-// "Low confidence" bucket (per SESSION_RESUME.md's spec): an llm_estimate-
+// "Low confidence" bucket: an llm_estimate-
 // tier row whose product has at most 1 active priced peer listing (i.e. this
 // listing IS that product's only current listing - a singleton, per the
-// "Done" section's ~75%-singleton finding) is too thin a guess to rank
+// ~75%-singleton finding above) is too thin a guess to rank
 // alongside real comps. lowConfidenceOnly toggles between the main ranked
 // list (excludes these + tier-less rows) and this bucket (only these).
 export async function getDeals(
@@ -1292,8 +1292,8 @@ export async function getDeals(
   const soldClause = filters.soldOnly ? 'l.sold_at IS NOT NULL' : 'l.sold_at IS NULL'
 
   // Policy floor is a hard minimum, not just a default - a filter asking for
-  // less than the floor doesn't get to punch through it (see "Decided" in
-  // SESSION_RESUME.md: min_profit_pesos/min_price_pesos are operator-tunable
+  // less than the floor doesn't get to punch through it (min_profit_pesos/min_price_pesos
+  // are operator-tunable
   // policy, not something this page's UI should be able to undercut).
   const minProfitPesos = Math.max(discountPolicy.minProfitPesos, filters.minProfitPesos ?? 0)
   const minProfitPlaceholder = push(minProfitPesos)

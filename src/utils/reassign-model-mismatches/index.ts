@@ -39,8 +39,8 @@ async function findExistingProductId(
   return result.rows[0]?.id ?? null
 }
 
-// Same fix pattern already applied by hand once (see SESSION_RESUME.md,
-// listing 1000000000000002, S23 mis-grouped under an S26 product): reassign
+// Same fix pattern already applied by hand once
+// (listing 1000000000000002, S23 mis-grouped under an S26 product): reassign
 // listings.product_id to the product whose name actually matches the
 // title's model number, instead of the one detect-model-mismatches.ts
 // flagged them under. Deliberately narrow — only acts when
