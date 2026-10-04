@@ -32,7 +32,7 @@ export {
   normalizeBaseModel,
   normalizeVariantTier,
 } from './products'
-export type { ProxyChecker, ResolvedProxy } from './proxy'
+export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'
 export type { RealEstateCandidate, RealEstateFields } from './real-estate'
 export { REAL_ESTATE_RESPONSE_SCHEMA, buildRealEstatePrompt, normalizeRealEstateItem } from './real-estate'

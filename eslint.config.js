@@ -20,8 +20,7 @@ export default [
       'scripts/*.ts',
       // Framework app: follows Next.js conventions (server components read env).
       'dashboard/**',
-      // Known debt, not entry points: BUY-22 (proxyGuard), BUY-25 (isTestRun).
-      'server/proxyGuard.ts',
+      // Known debt, not an entry point: BUY-25 (isTestRun).
       'src/platform/utils.ts',
     ],
     delayModules: ['src/platform/utils.ts'],

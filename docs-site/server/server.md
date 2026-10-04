@@ -24,7 +24,7 @@ _(undocumented)_
 
 **Interactions:** imports `../src/domains/marketplace`
 
-### `checkProxyBeforeLaunch(checker: TunnelChecker = defaultProxyChecker): Promise<TunnelCheckResult>`
+### `createProxyGuard(env: ProxyGuardEnv, checker: TunnelChecker = defaultProxyChecker): () => Promise<TunnelCheckResult>`
 
 _(undocumented)_
 
@@ -198,7 +198,11 @@ _(undocumented)_
 
 **Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/browser`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../proxyGuard`, `../refreshPacer`
 
-### `createRefreshHandler(db: DbClient, imageStore: ImageStore, logger: Logger, pacer: RefreshPacer, driverFactory: DriverFactory = defaultDriverFactory, tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch): RouteHandler`
+### `createRefreshHandler(db: DbClient, imageStore: ImageStore, logger: Logger, pacer: RefreshPacer, driverFactory: DriverFactory, tunnelCheck: () => Promise<TunnelCheckResult>): RouteHandler`
+
+_(undocumented)_
+
+### `defaultDriverFactory(proxy): Promise<{ driver: PageDriver; close: () => Promise<void>; }>`
 
 _(undocumented)_
 
@@ -222,7 +226,11 @@ _(undocumented)_
 
 **Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/browser`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../jobState`, `../proxyGuard`, `../refreshLock`, `../refreshPacer`, `./refresh`
 
-### `createRefreshProductHandler(db: DbClient, imageStore: ImageStore, logger: Logger, lock: RefreshLock, jobs: JobStore, pacer: RefreshPacer, driverFactory: DriverFactory = defaultDriverFactory, tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch): RouteHandler`
+### `createRefreshProductHandler(db: DbClient, imageStore: ImageStore, logger: Logger, lock: RefreshLock, jobs: JobStore, pacer: RefreshPacer, driverFactory: DriverFactory, tunnelCheck: () => Promise<TunnelCheckResult>): RouteHandler`
+
+_(undocumented)_
+
+### `defaultDriverFactory(proxy): Promise<{ driver: PageDriver; close: () => Promise<void>; }>`
 
 _(undocumented)_
 
