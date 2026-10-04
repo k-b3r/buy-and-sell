@@ -73,10 +73,10 @@ const realDeps: WorkerDeps = { createLogger, writePidFile, createDbPool, delay: 
 
 // The process-lifetime half of runWorker, for a worker whose loop doesn't fit
 // the standard lap shape (collect). The pool is ended however body finishes.
+export type WorkerProcess = Pick<WorkerConfig, 'name' | 'databaseUrl' | 'secrets'>
+
 export async function runWorkerProcess(
-  name: string,
-  databaseUrl: string,
-  secrets: readonly string[],
+  { name, databaseUrl, secrets }: WorkerProcess,
   body: (io: WorkerIo) => Promise<void>,
   deps: WorkerDeps = realDeps,
 ): Promise<void> {
@@ -97,9 +97,7 @@ export async function runWorker(config: WorkerConfig, deps: WorkerDeps = realDep
     : [...config.settingKeys, config.loopDelayKey]
 
   await runWorkerProcess(
-    config.name,
-    config.databaseUrl,
-    config.secrets,
+    config,
     async ({ logger, db }) => {
       const runLap = await config.setup({ logger, db })
       logger.info('looping indefinitely — Ctrl+C to stop')

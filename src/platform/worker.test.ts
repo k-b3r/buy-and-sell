@@ -207,9 +207,7 @@ test('runWorker ends the pool when a lap throws, and rethrows', async () => {
 test('runWorkerProcess gives the body a logger and pool, and ends the pool once the body returns', async () => {
   const h = harness()
   await runWorkerProcess(
-    'collector',
-    'postgres://demo',
-    ['demo-secret-value'],
+    { name: 'collector', databaseUrl: 'postgres://demo', secrets: ['demo-secret-value'] },
     async ({ logger }) => {
       logger.info('body ran')
     },

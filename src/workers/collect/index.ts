@@ -54,7 +54,8 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error("DATABASE_URL not set in .env — Postgres is the collector's only persistence now")
 
-  await runWorkerProcess('collector', dbUrl, secretsFromEnv(process.env), async ({ logger, db }) => {
+  const collector = { name: 'collector', databaseUrl: dbUrl, secrets: secretsFromEnv(process.env) }
+  await runWorkerProcess(collector, async ({ logger, db }) => {
     // Opt-in, same as before: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
     // local run already on a residential IP, no egress check needed. Either
     // one configured means it must actually work - fail closed rather than
