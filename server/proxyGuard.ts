@@ -14,6 +14,10 @@ export interface TunnelCheckResult {
   proxy?: ResolvedProxy
 }
 
+export interface ProxyGuardEnv extends ProxyEnv {
+  SKIP_TUNNEL_CHECK?: string
+}
+
 // Every browser launch on this server must route through a residential IP -
 // Webshare's rotating proxy first, the laptop-relayed SOCKS5 tunnel as
 // fallback (see src/domains/marketplace/proxy.ts) - same as the CLI's
@@ -30,10 +34,6 @@ export interface TunnelCheckResult {
 // set to exactly "true" in server/.env, and only ever locally - the VPS's
 // own .env must never set this, or the guard this whole file exists for is
 // gone there too.
-export interface ProxyGuardEnv extends ProxyEnv {
-  SKIP_TUNNEL_CHECK?: string
-}
-
 // env is read once in server/index.ts and injected here.
 export function createProxyGuard(
   env: ProxyGuardEnv,
