@@ -38,7 +38,7 @@ interface ParsedListingFields {
 // Shared by upsertListing (full insert/refresh, including photos) and
 // refreshListingFields (text/price-only refresh) so the two can't drift on
 // how a raw Facebook listing object gets parsed.
-export function parseListingFields(listing: Record<string, unknown>): ParsedListingFields {
+function parseListingFields(listing: Record<string, unknown>): ParsedListingFields {
   const id = String(listing.id)
   const title = extractField(listing, 'marketplace_listing_title', 'custom_title') as string | null
 
@@ -90,7 +90,7 @@ export function parseListingFields(listing: Record<string, unknown>): ParsedList
 // Returns null when listing_photos isn't present/an array at all (a plain
 // title/price re-scrape can legitimately lack it) - distinct from an empty
 // array, which means Facebook explicitly reported zero photos right now.
-export function extractPhotoIds(listing: Record<string, unknown>): string[] | null {
+function extractPhotoIds(listing: Record<string, unknown>): string[] | null {
   const photos = listing.listing_photos
   if (!Array.isArray(photos)) return null
   return photos.map((p) => (p as { id?: unknown } | undefined)?.id).filter((id): id is string => typeof id === 'string')
@@ -264,7 +264,7 @@ export async function deleteListing(db: DbClient, id: string): Promise<void> {
   await db.query(`DELETE FROM listings WHERE id = $1`, [id])
 }
 
-export interface PriorPriceRow {
+interface PriorPriceRow {
   old_price_amount: string | number | null
   old_price_currency: string | null
   old_first_seen_at: string | Date
@@ -274,7 +274,7 @@ export interface PriorPriceRow {
 // non-real-estate path pays nothing unless its price actually changed (and
 // then one indexed SELECT). Best-effort by design - a failure here must never
 // fail the listing refresh, so it is logged and swallowed.
-export async function recordRealEstatePriceChange(
+async function recordRealEstatePriceChange(
   db: DbClient,
   logger: Logger,
   listingId: string,
@@ -592,7 +592,7 @@ export async function upsertKeywordNegotiable(db: DbClient, listingId: string, m
 // recorded price looks valid, so "nego"/"negotiable" in the text surfaces
 // the badge even on a normally priced listing. No-op (no extra round trip)
 // when nothing matches, which is the common case.
-export async function flagNegotiableFromKeywords(
+async function flagNegotiableFromKeywords(
   db: DbClient,
   listingId: string,
   title: string | null,

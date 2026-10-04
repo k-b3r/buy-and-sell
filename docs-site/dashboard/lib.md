@@ -16,39 +16,31 @@ _(undocumented)_
 
 **Interactions:** imports `./queries`
 
-### `getProductSummariesCached(db: QueryClient, options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
+### `getProductSummariesCached(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
 
 _(undocumented)_
 
-### `getSubCategoryTreeCached(db: QueryClient): Promise<SubCategoryTreeEntry[]>`
+### `getSubCategoryTreeCached(): Promise<SubCategoryTreeEntry[]>`
 
 _(undocumented)_
 
-### `getProductDetailCached(db: QueryClient, productId: number): Promise<ProductDetail | null>`
+### `getProductDetailCached(productId: number): Promise<ProductDetail | null>`
 
 _(undocumented)_
 
-### `getListingDetailCached(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
+### `getListingDetailCached(listingId: string): Promise<ListingDetail | null>`
 
 _(undocumented)_
 
-### `getSavedListingsCached(db: QueryClient): Promise<SavedListingSummary[]>`
+### `getSavedListingsCached(): Promise<SavedListingSummary[]>`
 
 _(undocumented)_
 
-### `getSoldCountsBySubCategoryCached(db: QueryClient): Promise<CategoryWeeklySoldCounts[]>`
+### `getSoldCountsBySubCategoryCached(): Promise<CategoryWeeklySoldCounts[]>`
 
 _(undocumented)_
 
-### `getProductsNeedingReviewCached(db: QueryClient): Promise<ProductNeedingReview[]>`
-
-_(undocumented)_
-
-## dashboard/src/lib/db.ts
-
-**Interactions:** imports `./queries`
-
-### `getPool(): QueryClient`
+### `getProductsNeedingReviewCached(): Promise<ProductNeedingReview[]>`
 
 _(undocumented)_
 
@@ -60,7 +52,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/lib/queries.ts
+## dashboard/src/lib/pricing.ts
 
 ### `summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary`
 
@@ -82,102 +74,138 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getProductSummaries(db: QueryClient, options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
-
-_(undocumented)_
-
-### `getSubCategoryTree(db: QueryClient): Promise<SubCategoryTreeEntry[]>`
-
-_(undocumented)_
-
-### `getProductsNeedingReview(db: QueryClient): Promise<ProductNeedingReview[]>`
-
-_(undocumented)_
-
-### `setManualPrice(db: QueryClient, productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
-
-_(undocumented)_
-
-### `markProductReviewed(db: QueryClient, productId: number): Promise<void>`
-
-_(undocumented)_
-
-### `excludeProductFromReview(db: QueryClient, productId: number, reason: string): Promise<void>`
-
-_(undocumented)_
-
 ### `isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null, discountPercent: number | null): boolean`
 
 _(undocumented)_
 
-### `getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null>`
+## dashboard/src/lib/queries.ts
+
+**Interactions:** imports `./pricing`
+
+### `getProductSummaries(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
 
 _(undocumented)_
 
-### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
+### `getSubCategoryTree(): Promise<SubCategoryTreeEntry[]>`
 
 _(undocumented)_
 
-### `getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null>`
+### `getProductsNeedingReview(): Promise<ProductNeedingReview[]>`
 
 _(undocumented)_
 
-### `getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null>`
+### `setManualPrice(productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
 
 _(undocumented)_
 
-### `getComparableListings(db: QueryClient, productId: number, excludeListingId: string, sold: boolean, limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT): Promise<ComparableListing[]>`
+### `markProductReviewed(productId: number): Promise<void>`
 
 _(undocumented)_
 
-### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
+### `excludeProductFromReview(productId: number, reason: string): Promise<void>`
 
 _(undocumented)_
 
-### `saveListing(db: QueryClient, listingId: string): Promise<void>`
+### `getProductDetail(productId: number): Promise<ProductDetail | null>`
 
 _(undocumented)_
 
-### `unsaveListing(db: QueryClient, listingId: string): Promise<void>`
+### `getListingDetail(listingId: string): Promise<ListingDetail | null>`
 
 _(undocumented)_
 
-### `getSoldCountsBySubCategory(db: QueryClient): Promise<CategoryWeeklySoldCounts[]>`
+### `getSoldComparablePrice(productId: number): Promise<SoldComparablePrice | null>`
 
 _(undocumented)_
 
-### `getSavedListings(db: QueryClient): Promise<SavedListingSummary[]>`
+### `getPeerMedianPrice(productId: number): Promise<PeerMedianPrice | null>`
 
 _(undocumented)_
 
-### `getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]>`
+### `getComparableListings(productId: number, excludeListingId: string, sold: boolean, limit?: number): Promise<ComparableListing[]>`
 
 _(undocumented)_
 
-### `getUnreadDiscountNotificationCount(db: QueryClient): Promise<number>`
+### `getDeals(discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
 
 _(undocumented)_
 
-### `markDiscountNotificationRead(db: QueryClient, id: number): Promise<void>`
+### `saveListing(listingId: string): Promise<void>`
 
 _(undocumented)_
 
-### `markAllDiscountNotificationsRead(db: QueryClient): Promise<void>`
+### `unsaveListing(listingId: string): Promise<void>`
 
 _(undocumented)_
 
-### `getAllSettings(db: QueryClient): Promise<SettingRow[]>`
+### `getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]>`
 
 _(undocumented)_
 
-### `updateSettings(db: QueryClient, updates: { key: string; value: number }[]): Promise<void>`
+### `getSavedListings(): Promise<SavedListingSummary[]>`
 
 _(undocumented)_
 
-### `getCollectKeywords(db: QueryClient): Promise<string[]>`
+### `getDiscountNotifications(limit?: number): Promise<DiscountNotification[]>`
 
 _(undocumented)_
 
-### `replaceCollectKeywords(db: QueryClient, keywords: string[]): Promise<void>`
+### `getUnreadDiscountNotificationCount(): Promise<number>`
+
+_(undocumented)_
+
+### `markDiscountNotificationRead(id: number): Promise<void>`
+
+_(undocumented)_
+
+### `markAllDiscountNotificationsRead(): Promise<void>`
+
+_(undocumented)_
+
+### `getAllSettings(): Promise<SettingRow[]>`
+
+_(undocumented)_
+
+### `updateSettings(updates: { key: string; value: number }[]): Promise<void>`
+
+_(undocumented)_
+
+### `getCollectKeywords(): Promise<CollectKeyword[]>`
+
+_(undocumented)_
+
+### `replaceCollectKeywords(keywords: CollectKeyword[]): Promise<void>`
+
+_(undocumented)_
+
+### `getListingProductId(listingId: string): Promise<number | null>`
+
+_(undocumented)_
+
+### `getRealEstateListings(filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
+
+_(undocumented)_
+
+## dashboard/src/lib/realEstate.ts
+
+**Interactions:** imports `./queries`
+
+### `parseRealEstateFilters(params: Record<string, string | undefined>): { filters: RealEstateFilters page: number }`
+
+_(undocumented)_
+
+### `formatPrice(l: RealEstateListing): string`
+
+_(undocumented)_
+
+### `formatAreaLine(l: RealEstateListing): string`
+
+_(undocumented)_
+
+### `formatReviewReason(l: RealEstateListing): string`
+
+_(undocumented)_
+
+### `realEstatePageQuery(params: Record<string, string | undefined>, page: number): string`
 
 _(undocumented)_

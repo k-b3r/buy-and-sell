@@ -8,7 +8,7 @@ import { WORKER_LOG_FILES } from './logs'
 // Same worker-key allowlist as logs.ts, extended with the pid-file name each
 // worker writes on startup (src/platform/utils.ts's writePidFile) - matches
 // its own log file's base name, just swapping .log for .pid.
-export const WORKER_PID_FILES: Record<string, string> = {
+const WORKER_PID_FILES: Record<string, string> = {
   collect: 'collector.pid',
   'check-listings': 'check-listings.pid',
   'extract-products': 'extract-products.pid',

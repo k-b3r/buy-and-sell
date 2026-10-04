@@ -23,7 +23,7 @@ export interface ProductSummary {
   discount_bands: DiscountBand[]
 }
 
-export interface DiscountBand {
+interface DiscountBand {
   bandFloor: number
   count: number
 }
@@ -57,7 +57,7 @@ const DEFAULT_LIMIT = 30
 // Must match src/products.ts's PRODUCT_CATEGORIES (the root project's extraction
 // enum) - dashboard is a separate package with its own src, no shared import path,
 // so this list is duplicated rather than reaching across the package boundary.
-export const PRODUCT_CATEGORIES = [
+const PRODUCT_CATEGORIES = [
   'Phones & Tablets',
   'Computers & Laptops',
   'PC Components',
@@ -493,7 +493,7 @@ export async function getSubCategoryTree(db: QueryClient): Promise<SubCategoryTr
   }))
 }
 
-export interface ProductReviewEnrichment {
+interface ProductReviewEnrichment {
   description: string
   value_drivers: string
   has_trained_price_knowledge: boolean
@@ -506,7 +506,7 @@ export interface ProductReviewEnrichment {
   is_specific_product: boolean | null
 }
 
-export interface ProductPriceHistoryEntry {
+interface ProductPriceHistoryEntry {
   id: number
   kind: 'new' | 'secondhand'
   price_low: number | null
@@ -670,7 +670,7 @@ export interface ListingPriceReview {
   price_high: number | null
 }
 
-export interface ProductListingSummary {
+interface ProductListingSummary {
   id: string
   title: string
   price_amount: number | null
@@ -730,7 +730,7 @@ function computeMedians(prices: number[]): {
   return { rawMedian, cleanMedian: median(clean), sampleSize: prices.length }
 }
 
-export interface ProductEnrichment {
+interface ProductEnrichment {
   description: string
   value_drivers: string
   has_trained_price_knowledge: boolean
@@ -1191,7 +1191,7 @@ export async function getComparableListings(
   }))
 }
 
-export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
+type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
 
 const CONFIDENCE_TIER_RANK: Record<DealsConfidenceTier, number> = {
   sold_comps: 3,

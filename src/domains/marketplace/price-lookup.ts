@@ -111,7 +111,7 @@ export function buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCand
   return `${base}${disambiguationContext(candidate)} If you cannot find a reliable price, set found to false rather than guessing.`
 }
 
-export const EXA_PRICE_SCHEMA = {
+const EXA_PRICE_SCHEMA = {
   type: 'object',
   required: ['found'],
   additionalProperties: false,

@@ -44,7 +44,7 @@ _(undocumented)_
 
 **Interactions:** imports `./NavLinks`, `./NotificationBell`, `./NotificationToasts`, `./NotificationsProvider`, `./ThemeToggle`, `./globals.css`
 
-### `default({ children, modal, }: { children: React.ReactNode modal: React.ReactNode }): React.JSX.Element`
+### `default({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }): React.JSX.Element`
 
 _(undocumented)_
 
@@ -102,7 +102,7 @@ _(undocumented)_
 
 ## dashboard/src/app/page.tsx
 
-**Interactions:** imports `./ProductListClient`, `@/lib/cachedQueries`, `@/lib/db`
+**Interactions:** imports `./ProductListClient`, `@/lib/cachedQueries`
 
 ### `default({ searchParams, }: { searchParams: Promise<{ q?: string; category?: string | string[]; subCategory?: string | string[] }> }): Promise<React.JSX.Element>`
 
@@ -110,7 +110,7 @@ _(undocumented)_
 
 ## dashboard/src/app/ProductListClient.tsx
 
-**Interactions:** imports `./Skeleton`, `@/lib/queries`
+**Interactions:** imports `./Skeleton`, `@/lib/categories`, `@/lib/queries`
 
 ### `default({ initialProducts, initialNextOffset, initialSearch, initialCategories, initialSubCategories, subCategoryTree, }: Props): React.JSX.Element`
 
@@ -130,7 +130,7 @@ _(undocumented)_
 
 ## dashboard/src/app/Skeleton.tsx
 
-### `SkeletonLine({ width = '100%', height = 14, style }: { width?: string | number; height?: number; style?: CSSProperties }): React.JSX.Element`
+### `SkeletonLine({ width = '100%', height = 14, style, }: { width?: string | number height?: number style?: CSSProperties }): React.JSX.Element`
 
 _(undocumented)_
 

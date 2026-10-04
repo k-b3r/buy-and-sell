@@ -28,6 +28,136 @@ _(undocumented)_
 
 _(undocumented)_
 
+## server/queries.ts
+
+### `summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary`
+
+_(undocumented)_
+
+### `isPlaceholderPrice(price: number): boolean`
+
+_(undocumented)_
+
+### `isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean`
+
+_(undocumented)_
+
+### `isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean`
+
+_(undocumented)_
+
+### `computeListingDiscount(priceAmount: unknown, rawMedianPrice: unknown, cleanMedianPrice: unknown, sampleSize: unknown): { discountPercent: number | null; referencePrice: number | null }`
+
+_(undocumented)_
+
+### `getProductSummaries(db: QueryClient, options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
+
+_(undocumented)_
+
+### `getSubCategoryTree(db: QueryClient): Promise<SubCategoryTreeEntry[]>`
+
+_(undocumented)_
+
+### `getProductsNeedingReview(db: QueryClient): Promise<ProductNeedingReview[]>`
+
+_(undocumented)_
+
+### `setManualPrice(db: QueryClient, productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
+
+_(undocumented)_
+
+### `markProductReviewed(db: QueryClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
+### `excludeProductFromReview(db: QueryClient, productId: number, reason: string): Promise<void>`
+
+_(undocumented)_
+
+### `isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null, discountPercent: number | null): boolean`
+
+_(undocumented)_
+
+### `getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null>`
+
+_(undocumented)_
+
+### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
+
+_(undocumented)_
+
+### `getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null>`
+
+_(undocumented)_
+
+### `getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null>`
+
+_(undocumented)_
+
+### `getComparableListings(db: QueryClient, productId: number, excludeListingId: string, sold: boolean, limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT): Promise<ComparableListing[]>`
+
+_(undocumented)_
+
+### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
+
+_(undocumented)_
+
+### `saveListing(db: QueryClient, listingId: string): Promise<void>`
+
+_(undocumented)_
+
+### `unsaveListing(db: QueryClient, listingId: string): Promise<void>`
+
+_(undocumented)_
+
+### `getSoldCountsBySubCategory(db: QueryClient): Promise<CategoryWeeklySoldCounts[]>`
+
+_(undocumented)_
+
+### `getSavedListings(db: QueryClient): Promise<SavedListingSummary[]>`
+
+_(undocumented)_
+
+### `getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]>`
+
+_(undocumented)_
+
+### `getUnreadDiscountNotificationCount(db: QueryClient): Promise<number>`
+
+_(undocumented)_
+
+### `markDiscountNotificationRead(db: QueryClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+### `markAllDiscountNotificationsRead(db: QueryClient): Promise<void>`
+
+_(undocumented)_
+
+### `getAllSettings(db: QueryClient): Promise<SettingRow[]>`
+
+_(undocumented)_
+
+### `updateSettings(db: QueryClient, updates: { key: string; value: number }[]): Promise<void>`
+
+_(undocumented)_
+
+### `getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]>`
+
+_(undocumented)_
+
+### `replaceCollectKeywords(db: QueryClient, keywords: CollectKeyword[]): Promise<void>`
+
+_(undocumented)_
+
+### `getListingProductId(db: QueryClient, listingId: string): Promise<number | null>`
+
+_(undocumented)_
+
+### `getRealEstateListings(db: QueryClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
+
+_(undocumented)_
+
 ## server/rateLimiter.ts
 
 ### `createRateLimiter(maxFailures: number, windowMs: number, now: () => number = Date.now): RateLimiter`
@@ -56,9 +186,17 @@ _(undocumented)_
 
 _(undocumented)_
 
+## server/routes/query.ts
+
+**Interactions:** imports `../app`, `../queries`
+
+### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
+
+_(undocumented)_
+
 ## server/routes/refresh.ts
 
-**Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/storage/listings`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../proxyGuard`, `../refreshPacer`
+**Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/browser`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../proxyGuard`, `../refreshPacer`
 
 ### `createRefreshHandler(db: DbClient, imageStore: ImageStore, logger: Logger, pacer: RefreshPacer, driverFactory: DriverFactory = defaultDriverFactory, tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch): RouteHandler`
 
@@ -82,7 +220,7 @@ _(undocumented)_
 
 ## server/routes/refreshProduct.ts
 
-**Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/storage/listings`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../jobState`, `../proxyGuard`, `../refreshLock`, `../refreshPacer`, `./refresh`
+**Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/browser`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../jobState`, `../proxyGuard`, `../refreshLock`, `../refreshPacer`, `./refresh`
 
 ### `createRefreshProductHandler(db: DbClient, imageStore: ImageStore, logger: Logger, lock: RefreshLock, jobs: JobStore, pacer: RefreshPacer, driverFactory: DriverFactory = defaultDriverFactory, tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch): RouteHandler`
 

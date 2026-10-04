@@ -64,7 +64,7 @@ export interface PriceReviewData {
 // if it's within the magnitude-outlier band vs the product median. Catches
 // the single-dropped-digit class (₱39,000 keyed as ₱3,900) that a 10x
 // median band lets through - see getPriceReviewCandidates.
-export const DESCRIPTION_PRICE_DIVERGENCE_FACTOR = 5
+const DESCRIPTION_PRICE_DIVERGENCE_FACTOR = 5
 
 // Keyword/currency-prefixed amount: "price 39k", "₱39,000", "asking 39000",
 // "srp 52k". The {0,6} gap absorbs a short connector ("for ", ": ") between

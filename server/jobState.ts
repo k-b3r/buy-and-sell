@@ -1,4 +1,4 @@
-export interface RefreshJob {
+interface RefreshJob {
   productId: number
   total: number
   completed: number

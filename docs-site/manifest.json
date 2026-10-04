@@ -82,6 +82,10 @@
           "slug": "app-products"
         },
         {
+          "name": "app/real-estate",
+          "slug": "app-real-estate"
+        },
+        {
           "name": "app/saved",
           "slug": "app-saved"
         },

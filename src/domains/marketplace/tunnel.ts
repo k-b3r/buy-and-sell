@@ -9,7 +9,7 @@ export type SocksConnect = (opts: {
   password?: string
 }) => Promise<{ destroy: () => void }>
 
-export const defaultSocksConnect: SocksConnect = async ({ host, port, destination, timeoutMs, userId, password }) => {
+const defaultSocksConnect: SocksConnect = async ({ host, port, destination, timeoutMs, userId, password }) => {
   const { socket } = await SocksClient.createConnection({
     proxy: { host, port, type: 5, userId, password },
     command: 'connect',

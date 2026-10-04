@@ -111,8 +111,14 @@ function buildSignature(name: string, decl: Node): string {
     .map((p) => p.getText())
     .join(', ')
   const returnTypeNode = fn.getReturnTypeNode()
-  const returnType = returnTypeNode ? returnTypeNode.getText() : fn.getReturnType().getText()
+  const returnType = returnTypeNode ? returnTypeNode.getText() : withoutImportPaths(fn.getReturnType().getText())
   return oneLine(`${name}(${params}): ${returnType}`)
+}
+
+// Inferred types print as import("/abs/path").Name; the path differs per machine,
+// which would make the committed docs drift between laptop and CI.
+function withoutImportPaths(typeText: string): string {
+  return typeText.replace(/import\("[^"]*"\)\./g, '')
 }
 
 function oneLine(text: string): string {

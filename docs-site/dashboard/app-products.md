@@ -10,7 +10,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/listingsFilters.ts
 
-**Interactions:** imports `../../../lib/queries`, `./discountBand`, `./repostDetection`
+**Interactions:** imports `../../../lib/pricing`, `../../../lib/queries`, `./discountBand`, `./repostDetection`
 
 ### `parseListingsFilters(params: URLSearchParams): ListingsFilters`
 
@@ -34,7 +34,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/ListingsView.tsx
 
-**Interactions:** imports `../../InfoTooltip`, `../../SaveButton`, `../../Skeleton`, `../../listings/[id]/cycle`, `./listingsFilters`, `@/lib/queries`
+**Interactions:** imports `../../InfoTooltip`, `../../SaveButton`, `../../Skeleton`, `../../listings/[id]/cycle`, `./listingsFilters`, `@/lib/pricing`
 
 ### `default({ initialListings, initialNextOffset, initialMatchedCount, initialAllIds, totalListingCount, discountBands, productId, initialFilters, }: { initialListings: PaginatedListingSummary[] initialNextOffset: number | null initialMatchedCount: number initialAllIds: string[] totalListingCount: number discountBands: DiscountBand[] productId: number initialFilters?: ListingsFilters }): React.JSX.Element`
 
@@ -50,7 +50,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/page.tsx
 
-**Interactions:** imports `../../BackLink`, `./ListingsView`, `./RefreshProductButton`, `./listingsFilters`, `@/lib/cachedQueries`, `@/lib/db`
+**Interactions:** imports `../../BackLink`, `./ListingsView`, `./RefreshProductButton`, `./listingsFilters`, `@/lib/cachedQueries`
 
 ### `default({ params, searchParams, }: { params: Promise<{ id: string }> searchParams: Promise<Record<string, string | undefined>> }): Promise<React.JSX.Element>`
 

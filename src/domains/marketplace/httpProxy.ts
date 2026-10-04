@@ -12,7 +12,7 @@ export type HttpConnect = (opts: {
 // Raw HTTP CONNECT tunnel - no proxy-agent dependency needed for a single
 // reachability probe. Mirrors tunnel.ts's SOCKS5 check: relay a real CONNECT
 // through the proxy to Facebook's own edge, not just confirm the port is open.
-export const defaultHttpConnect: HttpConnect = ({ host, port, destination, timeoutMs, username, password }) => {
+const defaultHttpConnect: HttpConnect = ({ host, port, destination, timeoutMs, username, password }) => {
   return new Promise((resolve, reject) => {
     const socket = netConnect({ host, port })
     const timer = setTimeout(() => {

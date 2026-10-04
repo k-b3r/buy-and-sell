@@ -109,7 +109,7 @@ async function fetchFreshMarketContext(
   return null
 }
 
-export function buildVerificationPrompt(
+function buildVerificationPrompt(
   candidate: DiscountVerificationCandidate,
   marketContext: string,
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
@@ -135,7 +135,7 @@ Determine:
 Respond with the structured fields only.`
 }
 
-export const VERIFICATION_RESPONSE_SCHEMA = {
+const VERIFICATION_RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     still_discounted: { type: 'boolean' },

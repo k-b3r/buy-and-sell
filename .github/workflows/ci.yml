@@ -27,6 +27,21 @@ jobs:
       - run: pnpm depcruise
       - run: pnpm typecheck
 
+  hygiene:
+    name: dead code, generated docs, commits, escape hatches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: pnpm knip
+      - run: pnpm docs:check
+      - if: github.event_name == 'pull_request'
+        run: pnpm repo-checks commits origin/${{ github.base_ref }}
+      - if: github.event_name == 'pull_request'
+        run: pnpm repo-checks escape-hatches origin/${{ github.base_ref }}
+
   unit:
     name: unit tests
     runs-on: ubuntu-latest
