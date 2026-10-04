@@ -49,6 +49,26 @@ export interface ListingsFilters {
   selectedBand: number | null
 }
 
+export const DEFAULT_LISTINGS_FILTERS: ListingsFilters = {
+  view: DEFAULT_VIEW,
+  sortKey: DEFAULT_SORT_KEY,
+  listedWithinDays: DEFAULT_LISTED_WITHIN_DAYS,
+  hideSold: DEFAULT_HIDE_SOLD,
+  negotiableOnly: DEFAULT_NEGOTIABLE_ONLY,
+  selectedBand: DEFAULT_SELECTED_BAND,
+}
+
+// Whether ListingsView's "Clear" has anything to reset - view and sort are
+// display preferences, not filters, so they never count.
+export function hasActiveFilters(filters: ListingsFilters): boolean {
+  return (
+    filters.listedWithinDays !== DEFAULT_LISTED_WITHIN_DAYS ||
+    filters.hideSold !== DEFAULT_HIDE_SOLD ||
+    filters.negotiableOnly !== DEFAULT_NEGOTIABLE_ONLY ||
+    filters.selectedBand !== DEFAULT_SELECTED_BAND
+  )
+}
+
 // Parses the `back` querystring a listing link (ListingsView) carried, into
 // the filter state it was built from - lets ProductDetailPage seed
 // ListingsView with whatever was active before the user clicked into a
@@ -85,6 +105,16 @@ export function buildListingsQueryString(filters: ListingsFilters): string {
   if (filters.negotiableOnly !== DEFAULT_NEGOTIABLE_ONLY) params.set('negotiable', '1')
   if (filters.selectedBand !== DEFAULT_SELECTED_BAND) params.set('band', String(filters.selectedBand))
   return params.toString()
+}
+
+// Carries the filters as `?back=` so that listing's "Back to {product}"
+// button (ListingDetailContent) returns to ListingsView with these same
+// filters applied, instead of the product page resetting to its defaults.
+export function listingDetailHref(listingId: string, filters: ListingsFilters): string {
+  const backQueryString = buildListingsQueryString(filters)
+  return backQueryString
+    ? `/listings/${listingId}?back=${encodeURIComponent(backQueryString)}`
+    : `/listings/${listingId}`
 }
 
 // Nulls always sort last, regardless of direction - a listing with no
