@@ -3,6 +3,8 @@ name: pr-review
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  issue_comment:
+    types: [created]
 
 jobs:
   review:
@@ -12,4 +14,5 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+      actions: write
     secrets: inherit
