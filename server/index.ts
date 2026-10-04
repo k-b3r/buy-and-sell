@@ -4,8 +4,12 @@ import { createLogger } from '../src/platform/logger'
 import { createDbPool } from '../src/platform/storage'
 import { createR2ImageStore } from '../src/platform/images'
 import { createApp } from './app'
-import { createRefreshHandler } from './routes/refresh'
-import { createRefreshProductHandler } from './routes/refreshProduct'
+import { createProxyGuard } from './proxyGuard'
+import { createRefreshHandler, defaultDriverFactory as launchRefreshDriver } from './routes/refresh'
+import {
+  createRefreshProductHandler,
+  defaultDriverFactory as launchProductRefreshDriver,
+} from './routes/refreshProduct'
 import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
 import { createLogsHandler } from './routes/logs'
@@ -56,13 +60,24 @@ async function main() {
   const refreshLock = createRefreshLock()
   const refreshPacer = createRefreshPacer(refreshLock)
   const jobs = createJobStore()
+  // Every browser launch goes through a residential proxy (see proxyGuard.ts).
+  const proxyGuard = createProxyGuard(process.env)
 
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const app = createApp(apiKey, {
-    'POST /refresh': createRefreshHandler(pool, imageStore, logger, refreshPacer),
-    'POST /refresh-product': createRefreshProductHandler(pool, imageStore, logger, refreshLock, jobs, refreshPacer),
+    'POST /refresh': createRefreshHandler(pool, imageStore, logger, refreshPacer, launchRefreshDriver, proxyGuard),
+    'POST /refresh-product': createRefreshProductHandler(
+      pool,
+      imageStore,
+      logger,
+      refreshLock,
+      jobs,
+      refreshPacer,
+      launchProductRefreshDriver,
+      proxyGuard,
+    ),
     'GET /refresh-job': createRefreshJobStatusHandler(jobs),
     'POST /refresh-job/cancel': createCancelRefreshJobHandler(jobs),
     'POST /logs': createLogsHandler(),

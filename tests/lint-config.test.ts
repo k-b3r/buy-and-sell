@@ -27,6 +27,7 @@ test('lint config bans process.env in domain, platform and server modules', asyn
     'src/platform/storage.ts',
     'src/platform/utils.ts',
     'server/queries.ts',
+    'server/proxyGuard.ts',
   ]) {
     expect([file, severity(await rule(file, 'no-restricted-properties'))]).toEqual([file, 2])
   }
