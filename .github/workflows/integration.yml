@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'tsconfig.json'
-      - '.github/actions/setup/**'
       - '.github/workflows/integration.yml'
       - '!**/*.md'
       - '!**/*.test.ts'
@@ -25,25 +24,9 @@ concurrency:
   group: integration-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
-env:
-  TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/bas_test
-
 jobs:
   integration:
-    name: integration tests
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: bas_test
-        ports: ['5432:5432']
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - run: pnpm test:integration
+    uses: k-b3r/agent-config/.github/workflows/ci-typescript.yml@main
+    with:
+      jobs: integration
+      install-dirs: . dashboard
