@@ -1,5 +1,4 @@
 import type { Logger } from '../../platform/logger'
-import type { GroqClient, GroqRequestOptions } from '../../domains/llm-clients'
 import { summarizeError } from '../../platform/errors'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
@@ -7,6 +6,11 @@ import { realDelay } from '../../platform/delay'
 import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from './extraction'
 import type { RealEstateCandidate, RealEstateFields } from './extraction'
 import { upsertRealEstateDetails } from './details'
+
+// The I/O port this module needs from an LLM client; a Groq pool satisfies it.
+export interface JsonModelClient {
+  generateJson(prompt: string, schema: object): Promise<unknown>
+}
 
 const MODEL = 'openai/gpt-oss-120b'
 const MAX_ATTEMPTS = 3
@@ -19,9 +23,10 @@ const RETRY_DELAY_MS = 3000
 // candidates, so nothing is lost.
 export const EXTRACTOR_MODELS = ['openai/gpt-oss-120b'] as const
 
-// See GroqRequestOptions: default reasoning truncated 20-listing batches. With a
-// 10-listing batch (~2500 prompt tokens) a 4096 cap stays under the 8000 TPM limit.
-export const EXTRACTOR_REQUEST_OPTIONS: GroqRequestOptions = { reasoningEffort: 'low', maxCompletionTokens: 4096 }
+// Passed to the Groq pool as GroqRequestOptions: default reasoning truncated
+// 20-listing batches. With a 10-listing batch (~2500 prompt tokens) a 4096 cap
+// stays under the 8000 TPM limit.
+export const EXTRACTOR_REQUEST_OPTIONS = { reasoningEffort: 'low', maxCompletionTokens: 4096 } as const
 
 // A 429 means the key itself is dead - retrying smaller does not help, so it
 // unwinds the whole run (same rule as the sub-category backfill).
@@ -30,7 +35,7 @@ class QuotaExhaustedError extends Error {}
 // Same halve-on-persistent-failure recovery the other Groq workers use: a
 // smaller array gives the model less room to lose the response shape.
 export async function extractRealEstateBatch(
-  groq: GroqClient,
+  groq: JsonModelClient,
   logger: Logger,
   delay: DelayFn,
   batch: RealEstateCandidate[],
@@ -91,7 +96,7 @@ export async function extractRealEstateBatch(
 }
 
 export async function runRealEstateExtraction(
-  groq: GroqClient,
+  groq: JsonModelClient,
   db: DbClient,
   logger: Logger,
   candidates: RealEstateCandidate[],
