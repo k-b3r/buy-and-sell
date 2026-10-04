@@ -9,13 +9,13 @@ import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
 import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace/browser'
-import { checkProxyBeforeLaunch, type TunnelCheckResult } from '../proxyGuard'
+import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
 
-// Routes through whichever egress checkProxyBeforeLaunch resolved (Webshare
+// Routes through whichever egress the proxy guard resolved (Webshare
 // or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
 // direct-IP fallback.
-const defaultDriverFactory: DriverFactory = async (proxy) => {
+export const defaultDriverFactory: DriverFactory = async (proxy) => {
   const { page, close } = await launchBrowser({ proxy })
   return { driver: createBrowserDriver(page), close }
 }
@@ -35,8 +35,8 @@ export function createRefreshProductHandler(
   lock: RefreshLock,
   jobs: JobStore,
   pacer: RefreshPacer,
-  driverFactory: DriverFactory = defaultDriverFactory,
-  tunnelCheck: () => Promise<TunnelCheckResult> = checkProxyBeforeLaunch,
+  driverFactory: DriverFactory,
+  tunnelCheck: () => Promise<TunnelCheckResult>,
 ): RouteHandler {
   return async function handleRefreshProduct(body: unknown): Promise<RouteResult> {
     const productId = (body as Record<string, unknown> | null)?.productId

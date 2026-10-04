@@ -1,4 +1,10 @@
-import { defaultProxyChecker, resolveProxy, type ProxyChecker, type ResolvedProxy } from '../src/domains/marketplace'
+import {
+  defaultProxyChecker,
+  resolveProxy,
+  type ProxyChecker,
+  type ProxyEnv,
+  type ResolvedProxy,
+} from '../src/domains/marketplace'
 
 export type TunnelChecker = ProxyChecker
 
@@ -6,6 +12,10 @@ export interface TunnelCheckResult {
   ok: boolean
   error?: string
   proxy?: ResolvedProxy
+}
+
+export interface ProxyGuardEnv extends ProxyEnv {
+  SKIP_TUNNEL_CHECK?: string
 }
 
 // Every browser launch on this server must route through a residential IP -
@@ -24,10 +34,16 @@ export interface TunnelCheckResult {
 // set to exactly "true" in server/.env, and only ever locally - the VPS's
 // own .env must never set this, or the guard this whole file exists for is
 // gone there too.
-export async function checkProxyBeforeLaunch(checker: TunnelChecker = defaultProxyChecker): Promise<TunnelCheckResult> {
-  if (process.env.SKIP_TUNNEL_CHECK === 'true') {
-    return { ok: true }
-  }
+// env is read once in server/index.ts and injected here.
+export function createProxyGuard(
+  env: ProxyGuardEnv,
+  checker: TunnelChecker = defaultProxyChecker,
+): () => Promise<TunnelCheckResult> {
+  return async () => {
+    if (env.SKIP_TUNNEL_CHECK === 'true') {
+      return { ok: true }
+    }
 
-  return resolveProxy(process.env, checker)
+    return resolveProxy(env, checker)
+  }
 }

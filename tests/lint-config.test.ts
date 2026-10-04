@@ -22,7 +22,12 @@ const selectors = (entry: RuleEntry | undefined) =>
   (entry?.slice(1) as { selector: string }[] | undefined)?.map((option) => option.selector) ?? []
 
 test('lint config bans process.env in domain, platform and server modules', async () => {
-  for (const file of ['src/domains/marketplace/products.ts', 'src/platform/storage.ts', 'server/queries.ts']) {
+  for (const file of [
+    'src/domains/marketplace/products.ts',
+    'src/platform/storage.ts',
+    'server/queries.ts',
+    'server/proxyGuard.ts',
+  ]) {
     expect([file, severity(await rule(file, 'no-restricted-properties'))]).toEqual([file, 2])
   }
 }, 60_000)
