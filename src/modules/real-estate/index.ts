@@ -1,5 +1,4 @@
-// Public API of the real-estate module: the only file callers outside this
-// folder import (enforced by dependency-cruiser).
-export type { RealEstateCandidate, RealEstateFields } from './extraction'
-export { REAL_ESTATE_RESPONSE_SCHEMA, buildRealEstatePrompt, normalizeRealEstateItem } from './extraction'
-export { getRealEstateCandidates, upsertRealEstateDetails } from './details'
+// Public API of the real-estate module: only what callers outside this folder
+// use. Everything else is internal (enforced by dependency-cruiser).
+export { getRealEstateCandidates } from './details'
+export { EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS, runRealEstateExtraction } from './extractor'

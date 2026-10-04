@@ -1,9 +1,14 @@
 import { existsSync, rmSync } from 'node:fs'
-import { extractRealEstateBatch, runRealEstateExtraction, EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS } from './index'
+import {
+  extractRealEstateBatch,
+  runRealEstateExtraction,
+  EXTRACTOR_MODELS,
+  EXTRACTOR_REQUEST_OPTIONS,
+} from './extractor'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { RealEstateCandidate } from '../../modules/real-estate'
+import type { RealEstateCandidate } from './extraction'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
 afterEach(() => {
