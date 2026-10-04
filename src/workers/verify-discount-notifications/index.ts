@@ -17,7 +17,7 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
-import { writePidFile } from '../../platform/utils'
+import { writePidFile } from '../../platform/worker'
 import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace'
 import {
   getUnverifiedDiscountCandidates,

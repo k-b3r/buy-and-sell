@@ -6,7 +6,7 @@ import type { RouteHandler, RouteResult } from '../app'
 import { WORKER_LOG_FILES } from './logs'
 
 // Same worker-key allowlist as logs.ts, extended with the pid-file name each
-// worker writes on startup (src/platform/utils.ts's writePidFile) - matches
+// worker writes on startup (src/platform/worker.ts's writePidFile) - matches
 // its own log file's base name, just swapping .log for .pid.
 const WORKER_PID_FILES: Record<string, string> = {
   collect: 'collector.pid',
