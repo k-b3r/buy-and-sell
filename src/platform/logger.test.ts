@@ -51,3 +51,39 @@ test('creates the log directory when it does not exist yet (fresh clone, new hos
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+describe('secret redaction', () => {
+  const secret = 'fake-groq-key-for-tests'
+
+  test.each([
+    ['a known secret value', `Groq 401 for key ${secret}`, secret],
+    ['an api key query param', 'GET https://api.test/v1?key=AIzaSyLeak1&q=x failed', 'AIzaSyLeak1'],
+    ['URL credentials', 'proxy http://user-1:proxyPass77@p.webshare.io:80 down', 'proxyPass77'],
+    ['a Bearer token', 'Authorization: Bearer eyJleakToken.abc', 'eyJleakToken.abc'],
+  ])('masks %s in both the log file and the console line', (_shape, msg, leaked) => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      createLogger(LOG_PATH, [secret]).error(msg)
+
+      const fileLine = readFileSync(LOG_PATH, 'utf-8')
+      const consoleLine = String(consoleLog.mock.calls[0]?.[0])
+      expect(fileLine).not.toContain(leaked)
+      expect(fileLine).toContain('[REDACTED]')
+      expect(consoleLine).not.toContain(leaked)
+      expect(consoleLine).toContain('[REDACTED]')
+    } finally {
+      consoleLog.mockRestore()
+    }
+  })
+
+  test('a logger created without a secrets list still masks secret-shaped text', () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      createLogger(LOG_PATH).warn('retrying https://api.test?apikey=abc123def')
+
+      expect(readFileSync(LOG_PATH, 'utf-8')).toMatch(/\[WARN\] retrying https:\/\/api\.test\?apikey=\[REDACTED\]\n$/)
+    } finally {
+      consoleLog.mockRestore()
+    }
+  })
+})

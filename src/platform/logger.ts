@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { redact } from './redact'
 
 export interface Logger {
   info(msg: string): void
@@ -30,8 +31,13 @@ function trimToMaxLines(logFilePath: string): void {
   writeFileSync(logFilePath, lines.slice(-MAX_LOG_LINES).join('\n') + '\n')
 }
 
-function writeLine(logFilePath: string, level: 'INFO' | 'WARN' | 'ERROR', msg: string): void {
-  const line = `[${new Date().toISOString()}] [${level}] ${msg}`
+function writeLine(
+  logFilePath: string,
+  secrets: readonly string[],
+  level: 'INFO' | 'WARN' | 'ERROR',
+  msg: string,
+): void {
+  const line = `[${new Date().toISOString()}] [${level}] ${redact(msg, secrets)}`
   console.log(line)
   appendFileSync(logFilePath, line + '\n')
   // Trimmed after every single write, not periodically - the file can never
@@ -39,12 +45,14 @@ function writeLine(logFilePath: string, level: 'INFO' | 'WARN' | 'ERROR', msg: s
   trimToMaxLines(logFilePath)
 }
 
-export function createLogger(logFilePath: string): Logger {
+// secrets: known secret values to mask on top of the shape-based rules (see
+// redact.ts). Entry points pass secretsFromEnv(process.env).
+export function createLogger(logFilePath: string, secrets: readonly string[] = []): Logger {
   // data/ is gitignored, so a fresh clone or new host doesn't have it yet.
   mkdirSync(dirname(logFilePath), { recursive: true })
   return {
-    info: (msg) => writeLine(logFilePath, 'INFO', msg),
-    warn: (msg) => writeLine(logFilePath, 'WARN', msg),
-    error: (msg) => writeLine(logFilePath, 'ERROR', msg),
+    info: (msg) => writeLine(logFilePath, secrets, 'INFO', msg),
+    warn: (msg) => writeLine(logFilePath, secrets, 'WARN', msg),
+    error: (msg) => writeLine(logFilePath, secrets, 'ERROR', msg),
   }
 }
