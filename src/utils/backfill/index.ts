@@ -1,5 +1,5 @@
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile } from '../../platform/utils'
+import { loadEnvFile } from '../../platform/env'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
 import { createLogger } from '../../platform/logger'
 import { upsertListing, getBackfillCandidates, markListingPhotosUnavailable } from '../../domains/marketplace'

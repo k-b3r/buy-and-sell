@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import {
   createGeminiClient,
@@ -17,15 +16,15 @@ import {
   createTavilyClient,
 } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
-import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
+import type { DelayFn } from '../../platform/delay'
+import { realDelay } from '../../platform/delay'
+import { loadEnvFile, isTestRun } from '../../platform/env'
+import { runWorker } from '../../platform/worker'
 import type { ExtractionCandidate } from '../../domains/marketplace'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace'
 import type { DiscountPolicyThresholds } from '../../domains/marketplace'
 import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace'
 import { getProductPricingStatus } from '../../domains/marketplace'
-import { loadSettings } from '../../platform/settings'
 import type { PriceLookupClients, ProductPricingResult } from '../../domains/marketplace'
 import { ensureProductPriced } from '../../domains/marketplace'
 import {
@@ -316,95 +315,88 @@ async function main() {
   if (!tavilyApiKey) throw new Error('TAVILY_API_KEY not set in .env')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
-
-  const logger = createLogger('data/extract-products.log')
-  writePidFile('data/extract-products.pid')
-
-  // Same shape as enrich-products.ts - see createGroqPool. Logs every
-  // model/key hop so a stuck one is visible.
-  const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
-    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
-  )
-  logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
-
-  // Free tier is 20 requests/day per project per model — a second key from a
-  // different Google account is a different project, so it has its own
-  // independent quota. Gemini is now the fallback provider (see
-  // DEFAULT_MAX_ATTEMPTS' comment above), tried only once Groq is exhausted.
   const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
-  const geminiForExtraction = altGeminiApiKey
-    ? createFallbackGeminiClient([
-        createGeminiClient(geminiApiKey),
-        createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash'),
-      ])
-    : createGeminiClient(geminiApiKey)
-  if (altGeminiApiKey) {
-    logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')
-  }
-  // This same client also fills PriceLookupClients' gemini role below
-  // (generateGroundedText, now primary for both retail and secondhand - see
-  // domains/marketplace/price-lookup.ts's buildGeminiPrompt comment).
-  // createQuotaAwareGeminiClient only gates generateGroundedText - once
-  // that side hits the real 20/day wall (confirmed live 2026-09-02, see
-  // gemini.ts), price lookups skip straight to Exa for the rest of the day
-  // without a doomed round-trip; generateJson (this worker's own
-  // extraction calls) passes through untouched.
-  const gemini = createQuotaAwareGeminiClient(geminiForExtraction)
-  // Exa is fallback 1 for both retail and secondhand pricing (Gemini's
-  // primary) - its credits ran out mid-investigation once already
-  // (2026-08-31, real 402), so multiple keys are worth having on hand here
-  // too (see loadExaApiKeys).
-  logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
-  const exa = createFallbackExaClient(exaApiKeys.map(createExaClient))
-  const tavily = createTavilyClient(tavilyApiKey)
 
-  const clients: ExtractionClients = { groq, gemini, exa, tavily }
-  const pool = createDbPool(dbUrl)
+  await runWorker({
+    name: 'extract-products',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: [
+      'extract_products.batch_size',
+      'extract_products.inter_batch_delay_ms',
+      'extract_products.max_attempts',
+      'extract_products.retry_base_delay_ms',
+      'extract_products.loop_delay_ms',
+      'discount_policy.high_discount_threshold_percent',
+      'discount_policy.min_profit_pesos',
+      'discount_policy.min_price_pesos',
+    ],
+    loopDelayKey: 'extract_products.loop_delay_ms',
+    setup: ({ logger, db }) => {
+      // Same shape as enrich-products.ts - see createGroqPool. Logs every
+      // model/key hop so a stuck one is visible.
+      const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
+        logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+      )
+      logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
 
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const candidates = await getExtractionCandidates(pool)
-      const settings = await loadSettings(pool, [
-        'extract_products.batch_size',
-        'extract_products.inter_batch_delay_ms',
-        'extract_products.max_attempts',
-        'extract_products.retry_base_delay_ms',
-        'extract_products.loop_delay_ms',
-        'discount_policy.high_discount_threshold_percent',
-        'discount_policy.min_profit_pesos',
-        'discount_policy.min_price_pesos',
-      ])
-      if (isTestRun(process.env)) {
-        logger.info(`TEST_RUN: marketplace will call Groq for extraction on ${candidates.length} listings this lap`)
-      } else {
-        await runProductExtraction(clients, pool, logger, candidates, {
-          // batchSize was tuned around Gemini's 20 req/day cap (confirmed
-          // live 2026-08-20) - unverified whether 100/batch is still the
-          // right size now that Groq (TPM-capped, not daily-request-capped)
-          // is primary. Left as-is pending a live batch-size audit, same
-          // status as enrich-listing-prices.ts's 35 and
-          // backfill-categories.ts's 100 (see pipeline-consolidation plan).
-          batchSize: settings['extract_products.batch_size'],
-          delayMs: settings['extract_products.inter_batch_delay_ms'],
-          maxAttempts: settings['extract_products.max_attempts'],
-          retryBaseDelayMs: settings['extract_products.retry_base_delay_ms'],
-          discountThresholds: {
-            highDiscountThresholdPercent: settings['discount_policy.high_discount_threshold_percent'],
-            minProfitPesos: settings['discount_policy.min_profit_pesos'],
-            minPricePesos: settings['discount_policy.min_price_pesos'],
-          },
-        })
+      // Free tier is 20 requests/day per project per model — a second key from a
+      // different Google account is a different project, so it has its own
+      // independent quota. Gemini is now the fallback provider (see
+      // DEFAULT_MAX_ATTEMPTS' comment above), tried only once Groq is exhausted.
+      const geminiForExtraction = altGeminiApiKey
+        ? createFallbackGeminiClient([
+            createGeminiClient(geminiApiKey),
+            createGeminiClient(altGeminiApiKey, 'gemini-3.6-flash'),
+          ])
+        : createGeminiClient(geminiApiKey)
+      if (altGeminiApiKey) {
+        logger.info('ALT_FREE_GEMINI_API_KEY configured, will fall back to it (gemini-3.6-flash) on quota exhaustion')
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['extract_products.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['extract_products.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+      // This same client also fills PriceLookupClients' gemini role below
+      // (generateGroundedText, now primary for both retail and secondhand - see
+      // domains/marketplace/price-lookup.ts's buildGeminiPrompt comment).
+      // createQuotaAwareGeminiClient only gates generateGroundedText - once
+      // that side hits the real 20/day wall (confirmed live 2026-09-02, see
+      // gemini.ts), price lookups skip straight to Exa for the rest of the day
+      // without a doomed round-trip; generateJson (this worker's own
+      // extraction calls) passes through untouched.
+      const gemini = createQuotaAwareGeminiClient(geminiForExtraction)
+      // Exa is fallback 1 for both retail and secondhand pricing (Gemini's
+      // primary) - its credits ran out mid-investigation once already
+      // (2026-08-31, real 402), so multiple keys are worth having on hand here
+      // too (see loadExaApiKeys).
+      logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
+      const exa = createFallbackExaClient(exaApiKeys.map(createExaClient))
+      const tavily = createTavilyClient(tavilyApiKey)
+
+      const clients: ExtractionClients = { groq, gemini, exa, tavily }
+      return async ({ settings }) => {
+        const candidates = await getExtractionCandidates(db)
+        return {
+          dryRun: `marketplace will call Groq for extraction on ${candidates.length} listings this lap`,
+          run: () =>
+            runProductExtraction(clients, db, logger, candidates, {
+              // batchSize was tuned around Gemini's 20 req/day cap (confirmed
+              // live 2026-08-20) - unverified whether 100/batch is still the
+              // right size now that Groq (TPM-capped, not daily-request-capped)
+              // is primary. Left as-is pending a live batch-size audit, same
+              // status as enrich-listing-prices.ts's 35 and
+              // backfill-categories.ts's 100 (see pipeline-consolidation plan).
+              batchSize: settings['extract_products.batch_size'],
+              delayMs: settings['extract_products.inter_batch_delay_ms'],
+              maxAttempts: settings['extract_products.max_attempts'],
+              retryBaseDelayMs: settings['extract_products.retry_base_delay_ms'],
+              discountThresholds: {
+                highDiscountThresholdPercent: settings['discount_policy.high_discount_threshold_percent'],
+                minProfitPesos: settings['discount_policy.min_profit_pesos'],
+                minPricePesos: settings['discount_policy.min_price_pesos'],
+              },
+            }),
+        }
+      }
+    },
+  })
 }
 
 // Guard so importing this module (e.g. from tests) doesn't also run main() —

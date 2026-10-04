@@ -21,7 +21,7 @@ export default [
       // Framework app: follows Next.js conventions (server components read env).
       'dashboard/**',
     ],
-    delayModules: ['src/platform/utils.ts'],
+    delayModules: ['src/platform/delay.ts'],
     // Next.js pages, layouts and components default-export by convention; vitepress
     // and Playwright's globalSetup require a default export.
     defaultExportAllowed: ['dashboard/**', 'docs-site/.vitepress/config.ts', 'tests/integration/global-setup.ts'],

@@ -1,15 +1,13 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
-import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
+import { loadEnvFile, isTestRun } from '../../platform/env'
+import { runWorker } from '../../platform/worker'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { PriceReviewCandidate } from '../../domains/marketplace'
 import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace'
-import { loadSettings } from '../../platform/settings'
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
@@ -86,36 +84,26 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price review requires Postgres')
 
-  const logger = createLogger('data/enrich-listing-prices.log')
-  writePidFile('data/enrich-listing-prices.pid')
-  const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
-    logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
-  )
-  logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
-  const pool = createDbPool(dbUrl)
-
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const candidates = await getPriceReviewCandidates(pool)
-      const settings = await loadSettings(pool, [
-        'enrich_listing_prices.batch_size',
-        'enrich_listing_prices.loop_delay_ms',
-      ])
-      if (isTestRun(process.env)) {
-        logger.info(`TEST_RUN: marketplace will call Groq for price review on ${candidates.length} listings this lap`)
-      } else {
-        await runPriceReview(groq, pool, logger, candidates, settings['enrich_listing_prices.batch_size'])
+  await runWorker({
+    name: 'enrich-listing-prices',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: ['enrich_listing_prices.batch_size', 'enrich_listing_prices.loop_delay_ms'],
+    loopDelayKey: 'enrich_listing_prices.loop_delay_ms',
+    setup: ({ logger, db }) => {
+      const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>
+        logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+      )
+      logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
+      return async ({ settings }) => {
+        const candidates = await getPriceReviewCandidates(db)
+        return {
+          dryRun: `marketplace will call Groq for price review on ${candidates.length} listings this lap`,
+          run: () => runPriceReview(groq, db, logger, candidates, settings['enrich_listing_prices.batch_size']),
+        }
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['enrich_listing_prices.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['enrich_listing_prices.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+    },
+  })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

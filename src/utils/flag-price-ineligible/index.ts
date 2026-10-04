@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
-import { loadEnvFile } from '../../platform/utils'
+import { loadEnvFile } from '../../platform/env'
 import { flagPriceLookupExcluded } from '../../domains/marketplace'
 import { createLogger } from '../../platform/logger'
 

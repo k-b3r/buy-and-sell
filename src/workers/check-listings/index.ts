@@ -1,11 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import type { PageDriver } from '../../domains/marketplace'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
-import { loadEnvFile, realDelay, isTestRun, writePidFile } from '../../platform/utils'
+import { loadEnvFile, isTestRun } from '../../platform/env'
+import { runWorker } from '../../platform/worker'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { resolveProxy } from '../../domains/marketplace'
 import type { CheckListingsCandidate } from '../../domains/marketplace'
@@ -21,7 +20,6 @@ import type { ImageStore } from '../../platform/images'
 import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'
 import { resolvePageState } from '../../run'
-import { loadSettings } from '../../platform/settings'
 
 export type CheckOneListingResult =
   { status: 'sold' } | { status: 'alive' } | { status: 'flagged' } | { status: 'removed' } | { status: 'hard-block' }
@@ -138,87 +136,85 @@ async function main() {
     explicitLimit = parsed
   }
 
-  const logger = createLogger('data/check-listings.log')
-  writePidFile('data/check-listings.pid')
-  const pool = createDbPool(dbUrl)
-  const imageStore = createR2ImageStore({
-    accountId: R2_ACCOUNT_ID,
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_KEY,
-    bucket: R2_BUCKET_NAME,
-    publicBaseUrl: R2_PUBLIC_BASE_URL,
-  })
+  await runWorker({
+    name: 'check-listings',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: [
+      'check_listings.loop_delay_ms',
+      'check_listings.limit_default',
+      'check_listings.soft_wall_timeout_ms',
+      'check_listings.pacing_min_ms',
+      'check_listings.pacing_max_ms',
+      'check_listings.re_recheck_min_days',
+    ],
+    loopDelayKey: 'check_listings.loop_delay_ms',
+    setup: async ({ logger, db }) => {
+      const imageStore = createR2ImageStore({
+        accountId: R2_ACCOUNT_ID,
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_KEY,
+        bucket: R2_BUCKET_NAME,
+        publicBaseUrl: R2_PUBLIC_BASE_URL,
+      })
 
-  // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
-  // local run already on a residential IP, no egress check needed. Either
-  // one configured means it must actually work - fail closed rather than
-  // silently launching direct.
-  let proxy: Awaited<ReturnType<typeof resolveProxy>>['proxy']
-  if (process.env.WEBSHARE_PROXY || process.env.SOCKS_PROXY) {
-    const resolution = await resolveProxy(process.env)
-    if (!resolution.ok) {
-      logger.error(resolution.error!)
-      process.exit(1)
-    }
-    proxy = resolution.proxy
-    logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
-  }
-
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const settings = await loadSettings(pool, [
-        'check_listings.loop_delay_ms',
-        'check_listings.limit_default',
-        'check_listings.soft_wall_timeout_ms',
-        'check_listings.pacing_min_ms',
-        'check_listings.pacing_max_ms',
-        'check_listings.re_recheck_min_days',
-      ])
-      const limit = explicitLimit ?? settings['check_listings.limit_default']
-      const candidates = await getCheckListingsCandidates(pool, limit, settings['check_listings.re_recheck_min_days'])
-      if (isTestRun(process.env)) {
-        logger.info(`TEST_RUN: marketplace will call Facebook to check ${candidates.length} listings`)
-      } else if (candidates.length > 0) {
-        // Browser only exists for the lifetime of this lap's batch, not the
-        // whole process - collect (the only other browser-launching worker)
-        // shares this same lock, and the VPS can't run both Chromiums at
-        // once without swapping hard (see browserLock.ts). Skipped entirely
-        // when there's nothing to check, same effect a min-batch gate would
-        // have had, for free.
-        await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
-        try {
-          const { page, close } = await launchBrowser({ proxy })
-          const driver = createBrowserDriver(page)
-          try {
-            await runCheckListings(
-              driver,
-              pool,
-              imageStore,
-              logger,
-              candidates,
-              settings['check_listings.soft_wall_timeout_ms'],
-              settings['check_listings.pacing_min_ms'],
-              settings['check_listings.pacing_max_ms'],
-            )
-          } finally {
-            await close()
-          }
-        } finally {
-          releaseBrowserLock(BROWSER_LOCK_PATH)
+      // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
+      // local run already on a residential IP, no egress check needed. Either
+      // one configured means it must actually work - fail closed rather than
+      // silently launching direct.
+      let proxy: Awaited<ReturnType<typeof resolveProxy>>['proxy']
+      if (process.env.WEBSHARE_PROXY || process.env.SOCKS_PROXY) {
+        const resolution = await resolveProxy(process.env)
+        if (!resolution.ok) {
+          logger.error(resolution.error!)
+          process.exit(1)
         }
-      } else {
-        logger.info('lap has no candidates, skipping browser launch')
+        proxy = resolution.proxy
+        logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['check_listings.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['check_listings.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+
+      return async ({ settings }) => {
+        const limit = explicitLimit ?? settings['check_listings.limit_default']
+        const candidates = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
+        return {
+          dryRun: `marketplace will call Facebook to check ${candidates.length} listings`,
+          run: async () => {
+            if (candidates.length === 0) {
+              logger.info('lap has no candidates, skipping browser launch')
+              return
+            }
+            // Browser only exists for the lifetime of this lap's batch, not the
+            // whole process - collect (the only other browser-launching worker)
+            // shares this same lock, and the VPS can't run both Chromiums at
+            // once without swapping hard (see browserLock.ts). Skipped entirely
+            // when there's nothing to check, same effect a min-batch gate would
+            // have had, for free.
+            await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
+            try {
+              const { page, close } = await launchBrowser({ proxy })
+              const driver = createBrowserDriver(page)
+              try {
+                await runCheckListings(
+                  driver,
+                  db,
+                  imageStore,
+                  logger,
+                  candidates,
+                  settings['check_listings.soft_wall_timeout_ms'],
+                  settings['check_listings.pacing_min_ms'],
+                  settings['check_listings.pacing_max_ms'],
+                )
+              } finally {
+                await close()
+              }
+            } finally {
+              releaseBrowserLock(BROWSER_LOCK_PATH)
+            }
+          },
+        }
+      }
+    },
+  })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

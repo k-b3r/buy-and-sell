@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import type { VerificationClients } from '../../domains/marketplace'
 import { verifyDiscountCandidate, precheckDiscountCandidate } from '../../domains/marketplace'
 import {
@@ -13,9 +12,10 @@ import {
   createOpenRouterClient,
 } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
-import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
+import type { DelayFn } from '../../platform/delay'
+import { realDelay } from '../../platform/delay'
+import { loadEnvFile, isTestRun } from '../../platform/env'
+import { runWorker } from '../../platform/worker'
 import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace'
 import {
   getUnverifiedDiscountCandidates,
@@ -126,82 +126,75 @@ async function main() {
     explicitLimit = parsed
   }
 
-  const logger = createLogger('data/verify-discount-notifications.log')
-  writePidFile('data/verify-discount-notifications.pid')
+  await runWorker({
+    name: 'verify-discount-notifications',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: [
+      'verify_discount.lap_limit_default',
+      'verify_discount.fetch_batch_size',
+      'verify_discount.loop_delay_ms',
+      'verify_discount.pacing_delay_ms',
+      'discount_policy.high_discount_threshold_percent',
+      'discount_policy.min_profit_pesos',
+      'discount_policy.min_price_pesos',
+    ],
+    loopDelayKey: 'verify_discount.loop_delay_ms',
+    setup: ({ logger, db }) => {
+      // Exa is now the primary market-context source (see discount-verification.ts's
+      // fetchFreshMarketContext comment) - its credits ran out mid-investigation
+      // (2026-08-31, real 402), so multiple keys are worth having on hand here
+      // (see loadExaApiKeys).
+      logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
 
-  // Exa is now the primary market-context source (see discount-verification.ts's
-  // fetchFreshMarketContext comment) - its credits ran out mid-investigation
-  // (2026-08-31, real 402), so multiple keys are worth having on hand here
-  // (see loadExaApiKeys).
-  logger.info(`${exaApiKeys.length} Exa API key(s) configured`)
-
-  const pool = createDbPool(dbUrl)
-
-  const clients: VerificationClients = {
-    tavily: createTavilyClient(tavilyApiKey),
-    exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
-    // Gemini is the last-resort fallback in the market-context chain here -
-    // low volume already, but its grounded search has no real Google-side
-    // spend guardrail on a paid key (exceeding the free daily allowance just
-    // bills more, silently), so it's client-side capped instead. See
-    // gemini.ts's createDailyGroundingCap comment for the full reasoning.
-    // The cap is a live getter (not a fixed number) so a dashboard edit to
-    // discount_policy.gemini_daily_grounding_cap takes effect on the very
-    // next grounded call, not just the next process restart.
-    gemini: createDailyGroundingCap(createGeminiClient(geminiApiKey), async () => {
-      const settings = await loadSettings(pool, ['discount_policy.gemini_daily_grounding_cap'])
-      return settings['discount_policy.gemini_daily_grounding_cap']
-    }),
-    openrouter: createOpenRouterClient(openRouterApiKey),
-  }
-
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const settings = await loadSettings(pool, [
-        'verify_discount.lap_limit_default',
-        'verify_discount.fetch_batch_size',
-        'verify_discount.loop_delay_ms',
-        'verify_discount.pacing_delay_ms',
-        'discount_policy.high_discount_threshold_percent',
-        'discount_policy.min_profit_pesos',
-        'discount_policy.min_price_pesos',
-      ])
-      const limit = explicitLimit ?? settings['verify_discount.lap_limit_default']
-      const thresholds: DiscountPolicyThresholds = {
-        highDiscountThresholdPercent: settings['discount_policy.high_discount_threshold_percent'],
-        minProfitPesos: settings['discount_policy.min_profit_pesos'],
-        minPricePesos: settings['discount_policy.min_price_pesos'],
+      const clients: VerificationClients = {
+        tavily: createTavilyClient(tavilyApiKey),
+        exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
+        // Gemini is the last-resort fallback in the market-context chain here -
+        // low volume already, but its grounded search has no real Google-side
+        // spend guardrail on a paid key (exceeding the free daily allowance just
+        // bills more, silently), so it's client-side capped instead. See
+        // gemini.ts's createDailyGroundingCap comment for the full reasoning.
+        // The cap is a live getter (not a fixed number) so a dashboard edit to
+        // discount_policy.gemini_daily_grounding_cap takes effect on the very
+        // next grounded call, not just the next process restart.
+        gemini: createDailyGroundingCap(createGeminiClient(geminiApiKey), async () => {
+          const settings = await loadSettings(db, ['discount_policy.gemini_daily_grounding_cap'])
+          return settings['discount_policy.gemini_daily_grounding_cap']
+        }),
+        openrouter: createOpenRouterClient(openRouterApiKey),
       }
-      const pending = await getUnverifiedDiscountCandidates(
-        pool,
-        settings['verify_discount.fetch_batch_size'],
-        thresholds.minPricePesos,
-      )
-      logger.info(`${pending.length} pending this lap`)
-      if (isTestRun(process.env)) {
-        logger.info(`TEST_RUN: would verify ${pending.length} discount notifications this lap`)
-      } else {
-        await runVerifyDiscountNotifications(
-          clients,
-          pool,
-          logger,
-          pending,
-          limit,
-          realDelay,
-          settings['verify_discount.pacing_delay_ms'],
-          thresholds,
+
+      return async ({ settings }) => {
+        const limit = explicitLimit ?? settings['verify_discount.lap_limit_default']
+        const thresholds: DiscountPolicyThresholds = {
+          highDiscountThresholdPercent: settings['discount_policy.high_discount_threshold_percent'],
+          minProfitPesos: settings['discount_policy.min_profit_pesos'],
+          minPricePesos: settings['discount_policy.min_price_pesos'],
+        }
+        const pending = await getUnverifiedDiscountCandidates(
+          db,
+          settings['verify_discount.fetch_batch_size'],
+          thresholds.minPricePesos,
         )
+        logger.info(`${pending.length} pending this lap`)
+        return {
+          dryRun: `would verify ${pending.length} discount notifications this lap`,
+          run: () =>
+            runVerifyDiscountNotifications(
+              clients,
+              db,
+              logger,
+              pending,
+              limit,
+              realDelay,
+              settings['verify_discount.pacing_delay_ms'],
+              thresholds,
+            ),
+        }
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['verify_discount.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['verify_discount.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+    },
+  })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

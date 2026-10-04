@@ -97,7 +97,8 @@ src/
       index.ts                          # barrel
   platform/                             # cross-cutting, not a domain
     storage.ts                          # DbClient/createDbPool — Postgres connection, sole entry point
-    images.ts, logger.ts, review.ts, utils.ts
+    worker.ts                           # runWorker — every worker's lap loop, pid/log files, pool lifecycle
+    images.ts, logger.ts, review.ts, delay.ts, env.ts
   workers/                              # the 7 looping, continuously-running processes
     collect/, check-listings/           # Group B: collection (independent pacing)
     extract-products/, enrich-products/, price-lookup/,
@@ -106,7 +107,7 @@ src/
     backfill/, backfill-categories/     # logic of their own, everything domain-shaped lives in domains/
     flag-negotiable-keywords/, flag-price-ineligible/
     merge-duplicate-products/, price-from-listings/
-  each worker/util dir: index.ts only (entrypoint — calls into domains/marketplace for everything else)
+  each worker/util dir: index.ts entrypoint (wiring; workers loop via runWorker, collect via its own laps.ts)
 *.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
 docs/superpowers/plans/                 # implementation plans this was built from
 ```

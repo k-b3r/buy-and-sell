@@ -1,13 +1,12 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import { createLogger } from '../../platform/logger'
 import type { GroqClient, GroqRequestOptions } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import { createDbPool } from '../../platform/storage'
-import type { DelayFn } from '../../platform/utils'
-import { realDelay, loadEnvFile, isTestRun, writePidFile } from '../../platform/utils'
-import { loadSettings } from '../../platform/settings'
+import type { DelayFn } from '../../platform/delay'
+import { realDelay } from '../../platform/delay'
+import { loadEnvFile, isTestRun } from '../../platform/env'
+import { runWorker } from '../../platform/worker'
 import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, normalizeRealEstateItem } from '../../domains/marketplace'
 import type { RealEstateCandidate, RealEstateFields } from '../../domains/marketplace'
 import { getRealEstateCandidates, upsertRealEstateDetails } from '../../domains/marketplace'
@@ -143,36 +142,29 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — real estate extraction requires Postgres')
 
-  const logger = createLogger('data/extract-real-estate.log')
-  writePidFile('data/extract-real-estate.pid')
-  const groq = createGroqPool(
-    apiKeys,
-    (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
-    EXTRACTOR_MODELS,
-    EXTRACTOR_REQUEST_OPTIONS,
-  )
-  logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
-  const pool = createDbPool(dbUrl)
-
-  logger.info('looping indefinitely — Ctrl+C to stop')
-  try {
-    let lap = 1
-    for (;;) {
-      logger.info(`lap ${lap} starting`)
-      const candidates = await getRealEstateCandidates(pool, LAP_CANDIDATE_LIMIT)
-      const settings = await loadSettings(pool, ['extract_real_estate.batch_size', 'extract_real_estate.loop_delay_ms'])
-      if (isTestRun(process.env)) {
-        logger.info(`TEST_RUN: would call Groq to extract ${candidates.length} real estate listings this lap`)
-      } else {
-        await runRealEstateExtraction(groq, pool, logger, candidates, settings['extract_real_estate.batch_size'])
+  await runWorker({
+    name: 'extract-real-estate',
+    databaseUrl: dbUrl,
+    testRun: isTestRun(process.env),
+    settingKeys: ['extract_real_estate.batch_size', 'extract_real_estate.loop_delay_ms'],
+    loopDelayKey: 'extract_real_estate.loop_delay_ms',
+    setup: ({ logger, db }) => {
+      const groq = createGroqPool(
+        apiKeys,
+        (fromLabel, toLabel) => logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+        EXTRACTOR_MODELS,
+        EXTRACTOR_REQUEST_OPTIONS,
+      )
+      logger.info(`round-robining across ${apiKeys.length} Groq key(s)`)
+      return async ({ settings }) => {
+        const candidates = await getRealEstateCandidates(db, LAP_CANDIDATE_LIMIT)
+        return {
+          dryRun: `would call Groq to extract ${candidates.length} real estate listings this lap`,
+          run: () => runRealEstateExtraction(groq, db, logger, candidates, settings['extract_real_estate.batch_size']),
+        }
       }
-      logger.info(`lap ${lap} complete, sleeping ${settings['extract_real_estate.loop_delay_ms']}ms`)
-      lap++
-      await realDelay(settings['extract_real_estate.loop_delay_ms'])
-    }
-  } finally {
-    await pool.end()
-  }
+    },
+  })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
