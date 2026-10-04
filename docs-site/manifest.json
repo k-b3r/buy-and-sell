@@ -12,6 +12,10 @@
           "slug": "domains-marketplace"
         },
         {
+          "name": "modules",
+          "slug": "modules"
+        },
+        {
           "name": "platform",
           "slug": "platform"
         },

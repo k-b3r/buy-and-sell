@@ -46,22 +46,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/workers/extract-real-estate/index.ts
-
-**Interactions:** imports `../../domains/llm-clients`, `../../domains/marketplace`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/storage`, `../../platform/worker`
-
-### `extractRealEstateBatch(groq: GroqClient, logger: Logger, delay: DelayFn, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
-
-_(undocumented)_
-
-### `runRealEstateExtraction(groq: GroqClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
-
-_(undocumented)_
-
-### `class QuotaExhaustedError`
-
-_(undocumented)_
-
 ## src/workers/price-lookup/index.ts
 
 **Interactions:** imports `../../domains/llm-clients`, `../../domains/marketplace`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/storage`, `../../platform/worker`
