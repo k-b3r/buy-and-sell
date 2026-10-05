@@ -6,9 +6,9 @@ import type { DbClient } from '../../platform/storage'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
-import type { PriceReviewCandidate } from '../../domains/marketplace'
-import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace'
+import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../modules/pricing'
+import type { PriceReviewCandidate } from '../../modules/pricing'
+import { getPriceReviewCandidates, upsertListingPriceReview } from '../../modules/pricing'
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
@@ -66,13 +66,12 @@ export async function runPriceReview(
       const priceLow = typeof item.price_low === 'number' ? item.price_low : null
       const priceHigh = typeof item.price_high === 'number' ? item.price_high : null
 
-      await upsertListingPriceReview(
-        db,
-        candidate.id,
-        { isNegotiable: item.is_negotiable, priceLow, priceHigh, reasoning: item.reasoning },
-        MODEL,
-        candidate.description,
-      )
+      await upsertListingPriceReview(db, {
+        listingId: candidate.id,
+        data: { isNegotiable: item.is_negotiable, priceLow, priceHigh, reasoning: item.reasoning },
+        model: MODEL,
+        reviewedDescription: candidate.description,
+      })
       logger.info(`listing ${candidate.id} price-reviewed (negotiable: ${item.is_negotiable})`)
     }
   }

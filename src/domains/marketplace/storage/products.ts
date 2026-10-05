@@ -126,42 +126,6 @@ export async function upsertProductEnrichment(
   )
 }
 
-// The other half of eligibility gating alongside flag-price-ineligible's
-// curated-list matching (flagPriceLookupExcluded, below) - this is the
-// automatic path, driven by product_enrichment.is_specific_product/confidence
-// instead of a human-maintained list. high-confidence "not a real product"
-// auto-excludes (reusing price_lookup_excluded, not a new column - same flag
-// either writer sets); anything low-confidence goes to
-// price_lookup_review_status instead of guessing. NOT p.price_lookup_excluded
-// in both guards makes this idempotent to re-run every lap without
-// clobbering a curated-list reason that already decided the product.
-// price_lookup_review_dismissed_at guards the second UPDATE specifically -
-// this whole function reruns every enrich-products lap, and confidence='low'
-// never changes (a product is only ever enriched once), so without that
-// guard a human's markProductReviewed resolution gets silently overwritten
-// back to needs_review on the very next lap.
-export async function applyEligibilityFromEnrichment(db: DbClient): Promise<void> {
-  await db.query(
-    `UPDATE products p SET price_lookup_excluded = true, price_lookup_excluded_reason = 'groq_generic'
-     FROM product_enrichment e
-     WHERE e.product_id = p.id
-       AND e.confidence = 'high'
-       AND e.is_specific_product = false
-       AND NOT p.price_lookup_excluded`,
-    [],
-  )
-  await db.query(
-    `UPDATE products p SET price_lookup_review_status = 'needs_review'
-     FROM product_enrichment e
-     WHERE e.product_id = p.id
-       AND e.confidence = 'low'
-       AND NOT p.price_lookup_excluded
-       AND p.price_lookup_review_status IS DISTINCT FROM 'needs_review'
-       AND p.price_lookup_review_dismissed_at IS NULL`,
-    [],
-  )
-}
-
 // category_id IS NULL is both the filter and the resumability marker — no
 // separate results table needed (same pattern as the enrichment candidate
 // query above). Only pre-existing products lack a category; extract-products
@@ -262,14 +226,4 @@ export async function mergeDuplicateProduct(db: DbClient, survivorId: number, lo
   )
   await db.query(`DELETE FROM product_enrichment WHERE product_id = $1`, [loserId])
   await db.query(`DELETE FROM products WHERE id = $1`, [loserId])
-}
-
-// Manually curated categories (real estate, bare placeholders, parts with no
-// single fixed price, services) — see db/schema.sql. Idempotent: matches on
-// base_model text, safe to re-run as more junk categories turn up over time.
-export async function flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void> {
-  await db.query(
-    `UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE base_model = ANY($2)`,
-    [reason, baseModels],
-  )
 }

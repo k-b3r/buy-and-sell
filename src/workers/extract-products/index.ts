@@ -23,11 +23,12 @@ import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import type { ExtractionCandidate } from '../../domains/marketplace'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace'
-import type { DiscountPolicyThresholds } from '../../domains/marketplace'
-import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace'
-import { getProductPricingStatus } from '../../domains/marketplace'
-import type { PriceLookupClients, ProductPricingResult } from '../../domains/marketplace'
-import { ensureProductPriced } from '../../domains/marketplace'
+import type { DiscountPolicyThresholds } from '../../modules/pricing'
+import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../modules/pricing'
+import { getProductPricingStatus } from '../../modules/pricing'
+import type { PriceLookupClients, ProductPricingResult } from '../../modules/pricing'
+import { detectGenericBaseModel } from '../../domains/marketplace'
+import { ensureProductPriced } from '../../modules/pricing'
 import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
@@ -139,10 +140,8 @@ async function ensureProductPricing(
   // it hasn't been through enrich-products.ts yet. The search still works,
   // just with less disambiguating context than a backfilled lookup gets.
   return ensureProductPriced(
-    clients,
-    db,
+    { clients, db, logger, detectGeneric: detectGenericBaseModel },
     { id: productId, base_model: baseModel, variant_tier: variantTier, description: null, sibling_variants: [] },
-    logger,
   )
 }
 
@@ -265,12 +264,8 @@ export async function runProductExtraction(
       if (!pricing.excluded) {
         await checkListingDiscount(
           db,
-          item.id,
-          productId,
-          candidate.condition,
-          candidate.price_amount,
-          pricing.retail,
-          pricing.secondhand,
+          { id: item.id, productId, condition: candidate.condition, priceAmount: candidate.price_amount },
+          { retail: pricing.retail, secondhand: pricing.secondhand },
           discountThresholds,
         )
       }
@@ -345,7 +340,7 @@ async function main() {
       }
       // This same client also fills PriceLookupClients' gemini role below
       // (generateGroundedText, now primary for both retail and secondhand - see
-      // domains/marketplace/price-lookup.ts's buildGeminiPrompt comment).
+      // modules/pricing/price-lookup.ts's buildGeminiPrompt comment).
       // createQuotaAwareGeminiClient only gates generateGroundedText - once
       // that side hits the real 20/day wall (confirmed live 2026-09-02, see
       // gemini.ts), price lookups skip straight to Exa for the rest of the day

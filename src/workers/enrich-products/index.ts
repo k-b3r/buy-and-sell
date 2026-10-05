@@ -16,13 +16,9 @@ import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { EnrichmentCandidate } from '../../domains/marketplace'
-import {
-  getEnrichmentCandidates,
-  upsertProductEnrichment,
-  applyEligibilityFromEnrichment,
-  updateProductCategories,
-} from '../../domains/marketplace'
+import { getEnrichmentCandidates, upsertProductEnrichment, updateProductCategories } from '../../domains/marketplace'
 import { PRODUCT_CATEGORIES } from '../../domains/marketplace'
+import { applyEligibilityFromEnrichment } from '../../modules/pricing'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before

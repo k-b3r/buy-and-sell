@@ -20,7 +20,7 @@ _(undocumented)_
 
 ## src/utils/flag-negotiable-keywords/index.ts
 
-**Interactions:** imports `../../domains/marketplace`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
+**Interactions:** imports `../../modules/pricing`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
 
 ### `runFlagNegotiableKeywords(db: DbClient, logger: Logger, candidates: NegotiableKeywordCandidate[]): Promise<number>`
 
@@ -44,7 +44,7 @@ _(undocumented)_
 
 ## src/utils/price-from-listings/index.ts
 
-**Interactions:** imports `../../domains/marketplace`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
+**Interactions:** imports `../../modules/pricing`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
 
 ### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
 

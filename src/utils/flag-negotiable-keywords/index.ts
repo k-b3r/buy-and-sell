@@ -5,14 +5,14 @@ import { secretsFromEnv } from '../../platform/redact'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import type { NegotiableKeywordCandidate } from '../../domains/marketplace'
-import { getNegotiableKeywordCandidates, upsertKeywordNegotiable } from '../../domains/marketplace'
-import { matchesNegotiableKeyword } from '../../domains/marketplace'
+import type { NegotiableKeywordCandidate } from '../../modules/pricing'
+import { getNegotiableKeywordCandidates, upsertKeywordNegotiable } from '../../modules/pricing'
+import { matchesNegotiableKeyword } from '../../modules/pricing'
 
 // One-off/rerunnable sweep over EXISTING listings for the negotiability
 // keyword scan that modules/collection/listings.ts's upsertListing
 // and refreshListingFields now run automatically going forward (see
-// domains/marketplace/storage/listings.ts's flagNegotiableFromKeywords) - this
+// modules/pricing/listing-price-review.ts's flagNegotiableFromKeywords) - this
 // covers everything collected before that wiring existed. Deterministic
 // pattern match, no LLM call, so safe to run against the whole table in one pass.
 export async function runFlagNegotiableKeywords(

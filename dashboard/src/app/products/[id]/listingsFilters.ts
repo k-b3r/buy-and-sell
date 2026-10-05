@@ -8,7 +8,6 @@
 import type { ProductListingSummary } from '../../../lib/queries'
 import { isListingPriceNegotiable } from '../../../lib/pricing'
 import { isInDiscountBand } from './discountBand'
-import { computeRepostIds } from './repostDetection'
 
 export type View = 'list' | 'cards'
 export type SortKey = 'discount_desc' | 'discount_asc' | 'price_asc' | 'price_desc' | 'listed_newest' | 'listed_oldest'
@@ -179,9 +178,9 @@ export function filterListings<T extends ProductListingSummary>(
 
 export const LISTINGS_PAGE_SIZE = 30
 
-export interface PaginatedListingSummary extends ProductListingSummary {
-  is_repost: boolean
-}
+// is_repost comes from the server (pricing's computeRepostIds over the
+// product's FULL listing set), so filtering/paging here can't change it.
+export type PaginatedListingSummary = ProductListingSummary
 
 export interface ListingsPage {
   listings: PaginatedListingSummary[]
@@ -190,11 +189,7 @@ export interface ListingsPage {
   allIds: string[]
 }
 
-// Repost flagging runs over the FULL listings array (not the filtered/
-// paginated result) for the same reason ListingsView's old useMemo did: a
-// repost's sibling shouldn't stop being "possibly a repost" just because a
-// filter hides the other copy or it landed on a different page. allIds is
-// likewise computed over the full filtered/sorted set (cheap - just ids) so
+// allIds is computed over the full filtered/sorted set (cheap - just ids) so
 // the listing-detail modal's prev/next cycling still spans every matching
 // listing, not just whatever pages happen to be loaded client-side.
 export function paginateListings(
@@ -202,10 +197,8 @@ export function paginateListings(
   filters: ListingsFilters,
   offset: number,
 ): ListingsPage {
-  const repostIds = computeRepostIds(listings)
-  const enriched: PaginatedListingSummary[] = listings.map((l) => ({ ...l, is_repost: repostIds.has(l.id) }))
   const visible = sortListings(
-    filterListings(enriched, filters.listedWithinDays, filters.hideSold, filters.negotiableOnly, filters.selectedBand),
+    filterListings(listings, filters.listedWithinDays, filters.hideSold, filters.negotiableOnly, filters.selectedBand),
     filters.sortKey,
   )
   const page = visible.slice(offset, offset + LISTINGS_PAGE_SIZE)

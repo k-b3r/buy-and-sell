@@ -5,7 +5,7 @@ import { excludeProductFromReview } from '@/lib/queries'
 // A human agrees with Groq's low-confidence hunch that this needs_review
 // product isn't a real priceable product - sets price_lookup_excluded same
 // as the automatic paths in applyEligibilityFromEnrichment
-// (src/domains/marketplace/storage/products.ts), and clears the review flag
+// (src/modules/pricing/exclusion.ts), and clears the review flag
 // since exclusion is itself a resolution.
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

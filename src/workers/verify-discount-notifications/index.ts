@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import type { VerificationClients } from '../../domains/marketplace'
-import { verifyDiscountCandidate, precheckDiscountCandidate } from '../../domains/marketplace'
+import type { VerificationClients } from '../../modules/pricing'
+import { verifyDiscountCandidate, precheckDiscountCandidate } from '../../modules/pricing'
 import {
   createTavilyClient,
   createExaClient,
@@ -17,14 +17,14 @@ import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace'
+import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../modules/pricing'
 import {
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
   markDiscountNotificationAttempted,
   DEFAULT_DISCOUNT_POLICY,
-} from '../../domains/marketplace'
+} from '../../modules/pricing'
 import { loadSettings } from '../../platform/settings'
 
 // Each candidate is independent - a failure judging one (network blip,

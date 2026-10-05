@@ -7,7 +7,7 @@ import {
   getPeerMedianPrice,
   getSoldComparablePrice,
   isPriceInvalidated,
-  notPlaceholderPriceSql,
+  medianCtes,
   toPriceReview,
 } from '../pricing'
 
@@ -40,29 +40,17 @@ export interface ListingDetail {
 // listingId (not product_id) and looks the product up itself via listings'
 // PK - lets this run in parallel with the main row query below instead of
 // waiting on its result. A listing with no product_id (or that doesn't
-// exist) makes `target.product_id` NULL, which the `product_id = NULL`
-// filter never matches - product_prices comes back empty and every column
-// here comes back NULL/0, same "no siblings" shape callers already handle.
+// exist) makes the subquery NULL, which the `product_id = NULL` filter
+// never matches - no row comes back, the "no siblings" case getListingDetail
+// already handles.
+// No price_lookup_excluded gate here, unlike the product page/list (known
+// gap, kept as-is by the pricing-module refactor).
 const SIBLING_MEDIAN_SQL = `
-  WITH target AS (
-    SELECT product_id FROM listings WHERE id = $1
-  ),
-  product_prices AS (
-    SELECT price_amount FROM listings
-    WHERE product_id = (SELECT product_id FROM target) AND price_amount IS NOT NULL AND price_amount > 0
-      AND ${notPlaceholderPriceSql('price_amount')}
-  ),
-  raw AS (
-    SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-    FROM product_prices
-  )
-  SELECT
-    raw.median_price AS raw_median_price,
-    raw.n AS sample_size,
-    (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
-     FROM product_prices pp
-     WHERE pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
-  FROM raw
+  WITH ${medianCtes({
+    name: 'product',
+    pool: 'SELECT product_id, price_amount FROM listings WHERE product_id = (SELECT product_id FROM listings WHERE id = $1)',
+  })}
+  SELECT raw_median_price, sample_size, clean_median_price FROM product
 `
 
 export async function getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null> {

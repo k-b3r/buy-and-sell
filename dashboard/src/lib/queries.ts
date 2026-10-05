@@ -98,6 +98,9 @@ export interface ProductListingSummary {
   discount_percent: number | null
   reference_price: number | null
   is_saved: boolean
+  // Shares its normalized title with another listing of the same product
+  // (pricing's computeRepostIds, run over the full listing set).
+  is_repost: boolean
   // The model's own reasoning for why this exact listing cleared the
   // verification gate (discount-verification.ts's VerificationOutcome,
   // 'verified' case) - null for any listing that never got a verified

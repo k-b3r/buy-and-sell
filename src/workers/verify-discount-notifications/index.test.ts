@@ -2,8 +2,8 @@ import { existsSync, rmSync } from 'node:fs'
 import { runVerifyDiscountNotifications } from './index'
 import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { VerificationClients } from '../../domains/marketplace'
-import type { DiscountVerificationCandidate } from '../../domains/marketplace'
+import type { VerificationClients } from '../../modules/pricing'
+import type { DiscountVerificationCandidate } from '../../modules/pricing'
 
 const LOG_PATH = 'data/tmp-verify-discount-notifications.log'
 

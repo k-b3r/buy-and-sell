@@ -5,9 +5,9 @@ import { secretsFromEnv } from '../../platform/redact'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import type { PriceRange } from '../../domains/marketplace'
-import type { ListingPricesForProductCondition } from '../../domains/marketplace'
-import { insertPriceCheck, getListingPricesByProduct } from '../../domains/marketplace'
+import type { PriceRange } from '../../modules/pricing'
+import type { ListingPricesForProductCondition } from '../../modules/pricing'
+import { insertPriceCheck, getListingPricesByProduct } from '../../modules/pricing'
 
 // No real secondhand electronics listing on this marketplace goes below this
 // — anything under it is a placeholder/joke price ("₱12", "₱20"), not a real
@@ -53,7 +53,13 @@ export async function runPriceFromListings(
     }
 
     const note = `computed from ${range.usedCount} of ${group.prices.length} "${group.condition}" listings (junk prices excluded)`
-    await insertPriceCheck(db, group.id, range, note, 'listing_prices', group.condition)
+    await insertPriceCheck(db, {
+      productId: group.id,
+      price: range,
+      rawResponse: note,
+      source: 'listing_prices',
+      condition: group.condition,
+    })
     inserted += 1
     logger.info(`product ${group.id} (${label}, ${group.condition}): ${range.low}-${range.high} PHP (${note})`)
   }

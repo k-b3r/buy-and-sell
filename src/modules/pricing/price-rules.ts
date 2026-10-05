@@ -1,4 +1,5 @@
 import { toNullableNumber } from '../../platform/rows'
+import { isMagnitudeOutlier, isPlaceholderPrice, medianCtes, notMagnitudeOutlierSql } from './clean-median'
 
 export interface DiscountBand {
   bandFloor: number
@@ -33,7 +34,7 @@ export function summarizeDiscounts(discountPercents: (number | null)[]): Discoun
 // (primary, free - promoted 2026-09-02 since a free Gemini attempt can only
 // ever save a paid Exa/Tavily call, never add cost) -> exa_new_retail
 // (fallback 1, structured, cites sources) -> tavily_new_retail (fallback 2,
-// free, regex-parsed) - see src/domains/marketplace/price-lookup.ts. Only
+// free, regex-parsed) - see price-lookup.ts. Only
 // one of these is ever written per product per lookup (whichever
 // succeeded), so in practice they don't compete against each other here,
 // but the ordering still reflects real trust tier if historical data ever
@@ -108,60 +109,26 @@ export function toDiscountBands(value: unknown): DiscountBand[] {
 // count - a product where everything's priced at/above the median has no
 // deal to advertise.
 
-// SQL equivalent of isPlaceholderPrice below - a single source-of-truth
-// snippet so the three SQL call sites (DISCOUNT_SUMMARY_LATERAL,
-// SIBLING_MEDIAN_SQL, and the price_min/max/avg aggregates) can't drift from
-// each other or from the JS version used by getProductDetail.
-export function notPlaceholderPriceSql(column: string): string {
-  return `NOT (
-    length(trunc(${column})::text) >= 3
-    AND (
-      trunc(${column})::text ~ '^(\\d+)\\1+$'
-      OR trunc(${column})::text ~ '012|123|234|345|456|567|678|789'
-    )
-  )`
-}
-
-// SQL equivalent of isMagnitudeOutlier below - same >10x/<0.1x-of-median
-// heuristic, single source of truth for the price_min/max/avg aggregate
-// (notPlaceholderPriceSql alone requires >=3 digits, so a troll ₱2 or a
-// troll ₱123456789 that doesn't happen to hit a digit-pattern isn't caught
-// by it - confirmed live 2026-09-02: home/product-list page showed price
-// ranges like ₱2-₱123,456,789).
-export function notMagnitudeOutlierSql(column: string, medianColumn: string): string {
-  return `(${medianColumn} IS NULL OR ${medianColumn} <= 0 OR ${column} BETWEEN ${medianColumn} / 10 AND ${medianColumn} * 10)`
-}
-
 export const DISCOUNT_SUMMARY_LATERAL = `
   LEFT JOIN LATERAL (
-    WITH product_prices AS (
-      -- price_lookup_excluded gated here, not just on the final aggregate
-      -- below: the "bands" CTE further down is computed independently of
-      -- that later WHERE (CTEs materialize before it's applied), so an
-      -- excluded product's real discount_bands leaked through even after
-      -- best_discount_percent/discounted_listing_count correctly went null.
-      -- Confirmed live 2026-08-23: "House and Lot"/"Item"/"Desktop PC" all
-      -- still showed real band arrays despite being flagged excluded.
-      SELECT price_amount FROM listings pl
-      WHERE pl.product_id = p.id AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-        AND NOT p.price_lookup_excluded
-        AND ${notPlaceholderPriceSql('pl.price_amount')}
-    ),
-    raw AS (
-      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-      FROM product_prices
-    ),
-    clean AS (
-      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
-      FROM product_prices pp, raw
-      WHERE raw.n >= 2 AND raw.median_price > 0
-        AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
-    ),
+    -- price_lookup_excluded gated in the pool, not just on the final
+    -- aggregate below: the "bands" CTE further down is computed
+    -- independently of that later WHERE (CTEs materialize before it's
+    -- applied), so an excluded product's real discount_bands leaked through
+    -- even after best_discount_percent/discounted_listing_count correctly
+    -- went null. Confirmed live 2026-08-23: "House and Lot"/"Item"/"Desktop
+    -- PC" all still showed real band arrays despite being flagged excluded.
+    WITH ${medianCtes({
+      name: 'product_median',
+      pool: 'SELECT pl.product_id, pl.price_amount FROM listings pl WHERE pl.product_id = p.id AND NOT p.price_lookup_excluded',
+      minSample: 2,
+    })},
     discounts AS (
-      SELECT round(((clean.median_price - pp.price_amount) / clean.median_price) * 100) AS discount_percent
-      FROM product_prices pp, raw, clean
-      WHERE raw.n >= 2 AND raw.median_price > 0 AND clean.median_price > 0
-        AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+      SELECT round(((m.clean_median_price - pp.price_amount) / m.clean_median_price) * 100) AS discount_percent
+      FROM product_median_prices pp
+      JOIN product_median m ON m.product_id = pp.product_id
+      WHERE m.clean_median_price > 0
+        AND ${notMagnitudeOutlierSql('pp.price_amount', 'm.raw_median_price')}
     ),
     -- Single-digit discounts (1-9%) aren't a real deal signal - floor is
     -- 10%, per direct instruction (2026-08-23), mirrored in summarizeDiscounts.
@@ -180,43 +147,6 @@ export const DISCOUNT_SUMMARY_LATERAL = `
     FROM qualifying
   ) ds ON true
 `
-
-// Classic "fake price to get attention" patterns real sellers use as
-// placeholders - ascending-sequential digit runs anywhere in the price (123,
-// 12345, but also embedded runs like the 456 inside 12456 - confirmed live
-// 2026-08-23 against a real ₱12,456 listing that the old start-only-at-1
-// prefix check missed), repeated-digit runs (111, 9999), and repeated
-// multi-digit blocks (6969, 696969 - joke/meme numbers). Distinct from
-// magnitude-outlier detection: found live 2026-08-23 that ₱123,456 fell well
-// within the 10x magnitude threshold of a real ₱150,000 median yet is
-// obviously not a real ask (it produced a nonsensical -626% "discount").
-// Deliberately accepts some false-positive risk on the ascending-run check
-// (e.g. a genuine ₱3,456 gets caught too) in exchange for catching embedded
-// runs like 12456 - a direct tradeoff picked over the narrower whole-price-
-// only version. Minimum length 3 for the same reason as before (₱11, ₱99 are
-// plausible real small-item prices).
-const ASCENDING_RUN_RE = /012|123|234|345|456|567|678|789/
-
-export function isPlaceholderPrice(price: number): boolean {
-  const digits = String(Math.trunc(Math.abs(price)))
-  if (digits.length < 3) return false
-  if (/^(\d+)\1+$/.test(digits)) return true
-  return ASCENDING_RUN_RE.test(digits)
-}
-
-// Same magnitude-outlier heuristic as domains/marketplace/storage/listings.ts's getPriceReviewCandidates
-// (>10x or <0.1x the raw median) - exactly the pre-filter that makes a
-// listing an enrich-listing-prices candidate, independent of whether that
-// worker has actually reviewed it yet. Used two ways: computeListingDiscount
-// below excludes it from discount/reference-price analysis, and callers
-// (getProductDetail/getListingDetail) also null out the listing's own
-// price_amount entirely - a mathematically-outlier price isn't shown, not
-// just unscored, since a >10x-median number is almost always a placeholder/
-// scam/typo, not a real ask worth displaying at all.
-export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
-  if (rawMedianPrice === null || rawMedianPrice <= 0) return false
-  return price < rawMedianPrice / 10 || price > rawMedianPrice * 10
-}
 
 // Matches enrich-listing-prices.ts's full candidate criteria (src/db.ts's
 // getPriceReviewCandidates): magnitude outlier OR a placeholder digit
@@ -258,18 +188,14 @@ export function computeListingDiscount(
 // still the right *kind* of number, unlike gemini_grounding/web_search which
 // simply may not exist yet for a given product.
 export function resolveSecondhandPrice(
-  usedLow: unknown,
-  usedHigh: unknown,
-  usedSource: unknown,
-  hasTrainedPriceKnowledge: unknown,
-  trainedLow: unknown,
-  trainedHigh: unknown,
+  used: { low: unknown; high: unknown; source: unknown },
+  trained: { known: unknown; low: unknown; high: unknown },
 ): { low: number | null; high: number | null; source: string | null } {
-  if (usedLow !== null && usedLow !== undefined) {
-    return { low: toNullableNumber(usedLow), high: toNullableNumber(usedHigh), source: usedSource as string }
+  if (used.low !== null && used.low !== undefined) {
+    return { low: toNullableNumber(used.low), high: toNullableNumber(used.high), source: used.source as string }
   }
-  if (hasTrainedPriceKnowledge === true) {
-    return { low: toNullableNumber(trainedLow), high: toNullableNumber(trainedHigh), source: 'groq_trained' }
+  if (trained.known === true) {
+    return { low: toNullableNumber(trained.low), high: toNullableNumber(trained.high), source: 'groq_trained' }
   }
   return { low: null, high: null, source: null }
 }
@@ -310,25 +236,19 @@ export function isListingPriceNegotiable(
   return discountPercent === null || discountPercent === 0
 }
 
-// percentile_cont(0.5)-equivalent: linear interpolation between the two
-// middle values, matching Postgres's median exactly (used server-side in
-// getListingDetail's SQL; this JS version is for getProductDetail, which
-// already has every sibling listing's price in hand from one query and
-// doesn't need a second round trip to compute the same thing).
-function median(values: number[]): number | null {
-  if (values.length === 0) return null
-  const sorted = [...values].sort((a, b) => a - b)
-  const mid = (sorted.length - 1) / 2
-  return (sorted[Math.floor(mid)] + sorted[Math.ceil(mid)]) / 2
-}
-
-export function computeMedians(prices: number[]): {
-  rawMedian: number | null
-  cleanMedian: number | null
-  sampleSize: number
-} {
-  const rawMedian = median(prices)
-  if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
-  const clean = prices.filter((p) => p >= rawMedian / 10 && p <= rawMedian * 10)
-  return { rawMedian, cleanMedian: median(clean), sampleSize: prices.length }
+// "New" listings need a current retail search; anything else (the vast
+// majority — "Used - Good", "Used - Fair", etc.) needs a secondhand/resale
+// search instead. Facebook's condition labels are free text, not an enum,
+// so this is a loose substring check rather than a fixed set. "used" is
+// checked first and wins outright - "Used - like new" contains "new" but is
+// never actually new-in-box, and used to get misread as New here, comparing
+// a secondhand item against brand-new retail pricing (confirmed live via a
+// Qwen3.5-9B/DeepSeek judgement eval, 2026-08-30: an 84%-battery iPhone XR
+// and a "slightly used" Apple Pencil both got priced against retail instead
+// of secondhand because of this).
+export function isNewCondition(condition: string | null): boolean {
+  if (condition === null) return false
+  const lower = condition.toLowerCase()
+  if (lower.includes('used')) return false
+  return lower.includes('new')
 }

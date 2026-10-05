@@ -4,7 +4,7 @@ import type { PriorPriceRow } from '../real-estate'
 import { recordRealEstatePriceChange } from '../real-estate'
 import type { ListingPhotos } from './photos'
 // Negotiable-keyword flagging is pricing's rule, run on every listing write.
-import { flagNegotiableFromKeywords } from '../../domains/marketplace'
+import { flagNegotiableFromKeywords } from '../pricing'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {

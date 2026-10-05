@@ -4,9 +4,11 @@ import type { DiscountBand, ListingPriceReview } from '../pricing'
 import {
   computeListingDiscount,
   computeMedians,
+  computeRepostIds,
   DISCOUNT_SUMMARY_LATERAL,
   isPlaceholderPrice,
   isPriceInvalidated,
+  medianCtes,
   NEW_PRICE_LATERAL,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
@@ -112,13 +114,11 @@ export async function getProductSummaries(
     // median DISCOUNT_SUMMARY_LATERAL calls "raw" - used here only to gate
     // price_min/max/avg against magnitude-outlier troll prices (see
     // notMagnitudeOutlierSql), not as a displayed value itself.
-    `WITH product_median AS (
-       SELECT l.product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY l.price_amount) AS raw_median_price
-       FROM listings l
-       WHERE l.sold_at IS NULL AND l.price_amount IS NOT NULL AND l.price_amount > 0
-         AND ${notPlaceholderPriceSql('l.price_amount')}
-       GROUP BY l.product_id
-     ),
+    `WITH ${medianCtes({
+      name: 'product_median',
+      pool: 'SELECT l.product_id, l.price_amount FROM listings l WHERE l.sold_at IS NULL',
+      clean: false,
+    })},
      p AS (
        SELECT p.id, p.base_model, p.variant_tier, c.name AS category, sc.name AS sub_category, p.price_lookup_excluded,
               count(l.id) as listing_count,
@@ -159,12 +159,8 @@ export async function getProductSummaries(
 
   return (result.rows as Record<string, unknown>[]).map((r) => {
     const secondhand = resolveSecondhandPrice(
-      r.used_price_low,
-      r.used_price_high,
-      r.used_price_source,
-      r.has_trained_price_knowledge,
-      r.trained_price_low,
-      r.trained_price_high,
+      { low: r.used_price_low, high: r.used_price_high, source: r.used_price_source },
+      { known: r.has_trained_price_knowledge, low: r.trained_price_low, high: r.trained_price_high },
     )
     return {
       id: r.id as number,
@@ -230,6 +226,10 @@ interface ProductListingSummary {
   discount_percent: number | null
   reference_price: number | null
   is_saved: boolean
+  // Shares its normalized title with another listing of this product
+  // (pricing's computeRepostIds over the full set, before any dashboard
+  // filtering or paging).
+  is_repost: boolean
   // The model's own reasoning for why this exact listing cleared the
   // verification gate (discount-verification.ts's VerificationOutcome,
   // 'verified' case) - null for any listing that never got a verified
@@ -343,6 +343,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     : rawListings.map((l) => l.price_amount).filter((p): p is number => p !== null && p > 0 && !isPlaceholderPrice(p))
   const { rawMedian, cleanMedian, sampleSize } = computeMedians(validPrices)
 
+  const repostIds = computeRepostIds(rawListings)
   const listings = rawListings.map((l) => {
     const discount = computeListingDiscount(l.price_amount, rawMedian, cleanMedian, sampleSize)
     const priceAmount = l.price_amount !== null && isPriceInvalidated(l.price_amount, rawMedian) ? null : l.price_amount
@@ -351,18 +352,19 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       price_amount: priceAmount,
       discount_percent: discount.discountPercent,
       reference_price: discount.referencePrice,
+      is_repost: repostIds.has(l.id),
     }
   })
 
   const discountSummary = summarizeDiscounts(listings.map((l) => l.discount_percent))
 
   const secondhand = resolveSecondhandPrice(
-    productRow.used_price_low,
-    productRow.used_price_high,
-    productRow.used_price_source,
-    productRow.enrichment_has_trained_price_knowledge,
-    productRow.enrichment_trained_price_low,
-    productRow.enrichment_trained_price_high,
+    { low: productRow.used_price_low, high: productRow.used_price_high, source: productRow.used_price_source },
+    {
+      known: productRow.enrichment_has_trained_price_knowledge,
+      low: productRow.enrichment_trained_price_low,
+      high: productRow.enrichment_trained_price_high,
+    },
   )
 
   return {

@@ -1,6 +1,8 @@
 import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
-import { notPlaceholderPriceSql, SECONDHAND_PRICE_LATERAL } from './price-rules'
+import { medianCtes, notPlaceholderPriceSql } from './clean-median'
+import { SECONDHAND_PRICE_LATERAL } from './price-rules'
+import { repostKeySql } from './repost'
 import { PEER_MEDIAN_MIN_SAMPLE, SOLD_COMP_MIN_SAMPLE } from './queries'
 
 type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
@@ -140,46 +142,20 @@ export async function getDeals(
   const categoryCapPlaceholder = push(DEALS_CATEGORY_CAP)
 
   const result = await db.query(
-    `WITH sold_product_prices AS (
-       SELECT pl.product_id, pl.price_amount FROM listings pl
-       JOIN products prod ON prod.id = pl.product_id
-       WHERE pl.sold_at IS NOT NULL AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-         AND NOT prod.price_lookup_excluded AND ${notPlaceholderPriceSql('pl.price_amount')}
-     ),
-     sold_raw AS (
-       SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-       FROM sold_product_prices GROUP BY product_id
-     ),
-     sold_comp AS (
-       SELECT sold_raw.product_id, sold_raw.n AS sample_size, clean.median_price AS clean_median_price
-       FROM sold_raw
-       LEFT JOIN LATERAL (
-         SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
-         FROM sold_product_prices pp
-         WHERE pp.product_id = sold_raw.product_id AND sold_raw.n >= ${SOLD_COMP_MIN_SAMPLE} AND sold_raw.median_price > 0
-           AND pp.price_amount BETWEEN sold_raw.median_price / 10 AND sold_raw.median_price * 10
-       ) clean ON true
-     ),
-     peer_product_prices AS (
-       SELECT pl.product_id, pl.price_amount FROM listings pl
-       JOIN products prod ON prod.id = pl.product_id
-       WHERE pl.sold_at IS NULL AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-         AND NOT prod.price_lookup_excluded AND ${notPlaceholderPriceSql('pl.price_amount')}
-     ),
-     peer_raw AS (
-       SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-       FROM peer_product_prices GROUP BY product_id
-     ),
-     peer_median AS (
-       SELECT peer_raw.product_id, peer_raw.n AS sample_size, clean.median_price AS clean_median_price
-       FROM peer_raw
-       LEFT JOIN LATERAL (
-         SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
-         FROM peer_product_prices pp
-         WHERE pp.product_id = peer_raw.product_id AND peer_raw.n >= ${PEER_MEDIAN_MIN_SAMPLE} AND peer_raw.median_price > 0
-           AND pp.price_amount BETWEEN peer_raw.median_price / 10 AND peer_raw.median_price * 10
-       ) clean ON true
-     ),
+    `WITH ${medianCtes({
+      name: 'sold_comp',
+      pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
+             JOIN products prod ON prod.id = pl.product_id
+             WHERE pl.sold_at IS NOT NULL AND NOT prod.price_lookup_excluded`,
+      minSample: SOLD_COMP_MIN_SAMPLE,
+    })},
+     ${medianCtes({
+       name: 'peer_median',
+       pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
+              JOIN products prod ON prod.id = pl.product_id
+              WHERE pl.sold_at IS NULL AND NOT prod.price_lookup_excluded`,
+       minSample: PEER_MEDIAN_MIN_SAMPLE,
+     })},
      -- Deduped to one row per product with at least one active listing (not
      -- one LATERAL invocation per listing) - same "evaluate once per
      -- product" fix getProductSummaries' comment documents learning the
@@ -262,15 +238,13 @@ export async function getDeals(
      -- Collapses same-seller reposts (identical title, same product,
      -- different listing ids - confirmed live 2026-09-02: two "IPHONE 14"
      -- listings posted 64s apart, same price) down to one row, same
-     -- byte-identical-title heuristic computeRepostIds already uses on the
-     -- product page (repostDetection.ts) - without this, /deals ranked the
-     -- same real-world item twice. Keeps the earliest listing (accurate
-     -- days_listed); COALESCE fallback keeps untitled listings (rare) from
-     -- over-merging into one.
+     -- repost key the product page flags reposts with (repost.ts) - without
+     -- this, /deals ranked the same real-world item twice. Keeps the
+     -- earliest listing (accurate days_listed).
      deal_deduped AS (
-       SELECT DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id)) *
+       SELECT DISTINCT ON (product_id, ${repostKeySql('title', 'listing_id')}) *
        FROM deal
-       ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id
+       ORDER BY product_id, ${repostKeySql('title', 'listing_id')}, listed_at ASC NULLS LAST, listing_id
      ),
      filtered AS (
        SELECT
@@ -281,8 +255,8 @@ export async function getDeals(
        FROM deal_deduped
        WHERE ask_price >= ${minPricePlaceholder}
          -- Same magnitude-outlier guard detectAndRecordDiscountNotifications
-         -- applies before ever recording a discount (src/domains/marketplace/
-         -- storage/listings.ts) - a joke/decoy ask (e.g. ₱700 for an iPhone
+         -- applies before ever recording a discount (discount-
+         -- notifications.ts) - a joke/decoy ask (e.g. ₱700 for an iPhone
          -- 16 Pro Max, confirmed live 2026-09-02) is 10x+ below its own
          -- reference price and would otherwise rank as the single best "deal"
          -- on the page. Skipped only when there's no reference_price at all

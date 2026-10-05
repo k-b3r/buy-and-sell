@@ -1,6 +1,6 @@
-import type { QueryClient } from '../../platform/storage'
+import type { DbClient, QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
-import { notPlaceholderPriceSql } from './price-rules'
+import { medianCtes, notMagnitudeOutlierSql } from './clean-median'
 
 // Human-entered price for a needs_review product - outranks every automated
 // source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
@@ -22,10 +22,12 @@ export async function setManualPrice(
   )
 }
 
-export interface SoldComparablePrice {
+export interface ProductCleanMedian {
   medianPrice: number
   sampleSize: number
 }
+
+export type SoldComparablePrice = ProductCleanMedian
 
 // Three or more independent sales before treating the median as a real
 // signal rather than noise - one lucky/unlucky sold listing shouldn't
@@ -34,53 +36,57 @@ export interface SoldComparablePrice {
 // then an LLM estimate, when this returns null - see [deals page] once built).
 export const SOLD_COMP_MIN_SAMPLE = 3
 
-// Same clean-median approach as SIBLING_MEDIAN_SQL/DISCOUNT_SUMMARY_LATERAL
-// (collection queries, price-rules), but scoped to listings Facebook has
-// actually marked sold
-// (sold_at IS NOT NULL) instead of current asking prices - a real
-// transacted-market signal, not just what someone's currently hoping to get.
-// Facebook doesn't expose the actual agreed sale price logged-out, so this
-// is "what it was asking when it sold," not a true transaction price -
-// still materially better than an active listing's ask, which nobody has
-// paid yet.
-const SOLD_COMP_MEDIAN_SQL = `
-  WITH product_prices AS (
-    SELECT pl.price_amount FROM listings pl
-    JOIN products p ON p.id = pl.product_id
-    WHERE pl.product_id = $1 AND pl.sold_at IS NOT NULL
-      AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-      AND NOT p.price_lookup_excluded
-      AND ${notPlaceholderPriceSql('pl.price_amount')}
-  ),
-  raw AS (
-    SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-    FROM product_prices
-  )
-  SELECT
-    raw.n AS sample_size,
-    (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
-     FROM product_prices pp, raw
-     WHERE raw.n >= ${SOLD_COMP_MIN_SAMPLE} AND raw.median_price > 0
-       AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
-  FROM raw
-`
+// Which of a product's listings a clean median is taken over: sold ones
+// (what it was asking when it sold), active ones (what competing sellers ask
+// right now), or both.
+export type ListingScope = 'sold' | 'active' | 'all'
 
-export async function getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null> {
-  const result = await db.query(SOLD_COMP_MEDIAN_SQL, [productId])
-  const row = (result.rows as Record<string, unknown>[])[0]
+const SCOPE_SQL: Record<ListingScope, string> = {
+  sold: 'pl.sold_at IS NOT NULL',
+  active: 'pl.sold_at IS NULL',
+  all: 'true',
+}
+
+// One product's clean median over its listings in scope, excluded products
+// never priced - null below minSample valid prices. Backs the sold-comp and
+// peer reference prices here and discount detection's peer fallback.
+export async function getProductCleanMedian(
+  db: DbClient,
+  productId: number,
+  options: { scope: ListingScope; minSample: number },
+): Promise<ProductCleanMedian | null> {
+  const result = (await db.query(
+    `WITH ${medianCtes({
+      name: 'product',
+      pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
+             JOIN products p ON p.id = pl.product_id
+             WHERE pl.product_id = $1 AND ${SCOPE_SQL[options.scope]} AND NOT p.price_lookup_excluded`,
+      minSample: options.minSample,
+    })}
+    SELECT sample_size, clean_median_price FROM product`,
+    [productId],
+  )) as { rows: Record<string, unknown>[] }
+  const row = result.rows[0]
   if (!row) return null
 
   const sampleSize = Number(row.sample_size)
   const medianPrice = toNullableNumber(row.clean_median_price)
-  if (sampleSize < SOLD_COMP_MIN_SAMPLE || medianPrice === null || medianPrice <= 0) return null
+  if (sampleSize < options.minSample || medianPrice === null || medianPrice <= 0) return null
 
   return { medianPrice, sampleSize }
 }
 
-export interface PeerMedianPrice {
-  medianPrice: number
-  sampleSize: number
+// Listings Facebook has actually marked sold (sold_at IS NOT NULL) instead
+// of current asking prices - a real transacted-market signal, not just what
+// someone's currently hoping to get. Facebook doesn't expose the actual
+// agreed sale price logged-out, so this is "what it was asking when it
+// sold," not a true transaction price - still materially better than an
+// active listing's ask, which nobody has paid yet.
+export async function getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null> {
+  return getProductCleanMedian(db, productId, { scope: 'sold', minSample: SOLD_COMP_MIN_SAMPLE })
 }
+
+export type PeerMedianPrice = ProductCleanMedian
 
 // Deals page's second-tier reference price: median of *active* (still-listed,
 // nobody's paid yet) peer listings of the same product, used when
@@ -90,44 +96,12 @@ export interface PeerMedianPrice {
 // more products down to the even-less-precise LLM-estimate tier.
 export const PEER_MEDIAN_MIN_SAMPLE = 2
 
-// Same clean-median/placeholder-price approach as SOLD_COMP_MEDIAN_SQL, but
-// scoped to active listings (sold_at IS NULL) instead of sold ones - "what
+// Scoped to active listings (sold_at IS NULL) instead of sold ones - "what
 // competing sellers are asking right now" rather than "what last actually
-// sold". Per-product (unlike SIBLING_MEDIAN_SQL, which takes a listing id and
-// looks up its product) so the deals page can call this once per product
+// sold". Per-product so the deals page can call this once per product
 // instead of once per listing.
-const PEER_MEDIAN_SQL = `
-  WITH product_prices AS (
-    SELECT pl.price_amount FROM listings pl
-    JOIN products p ON p.id = pl.product_id
-    WHERE pl.product_id = $1 AND pl.sold_at IS NULL
-      AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-      AND NOT p.price_lookup_excluded
-      AND ${notPlaceholderPriceSql('pl.price_amount')}
-  ),
-  raw AS (
-    SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-    FROM product_prices
-  )
-  SELECT
-    raw.n AS sample_size,
-    (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
-     FROM product_prices pp, raw
-     WHERE raw.n >= ${PEER_MEDIAN_MIN_SAMPLE} AND raw.median_price > 0
-       AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
-  FROM raw
-`
-
 export async function getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null> {
-  const result = await db.query(PEER_MEDIAN_SQL, [productId])
-  const row = (result.rows as Record<string, unknown>[])[0]
-  if (!row) return null
-
-  const sampleSize = Number(row.sample_size)
-  const medianPrice = toNullableNumber(row.clean_median_price)
-  if (sampleSize < PEER_MEDIAN_MIN_SAMPLE || medianPrice === null || medianPrice <= 0) return null
-
-  return { medianPrice, sampleSize }
+  return getProductCleanMedian(db, productId, { scope: 'active', minSample: PEER_MEDIAN_MIN_SAMPLE })
 }
 
 export interface ComparableListing {
@@ -157,22 +131,18 @@ export async function getComparableListings(
   const dateColumn = sold ? 'pl.sold_at' : 'pl.listed_at'
 
   const result = await db.query(
-    `WITH product_prices AS (
-       SELECT pl.id, pl.title, pl.price_amount, pl.primary_photo_url, pl.stored_photo_urls, ${dateColumn} AS date
-       FROM listings pl
-       JOIN products p ON p.id = pl.product_id
-       WHERE pl.product_id = $1 AND pl.id != $2 AND ${soldClause}
-         AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-         AND NOT p.price_lookup_excluded
-         AND ${notPlaceholderPriceSql('pl.price_amount')}
-     ),
-     raw AS (
-       SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price
-       FROM product_prices
-     )
+    `WITH ${medianCtes({
+      name: 'product',
+      pool: `SELECT pl.product_id, pl.id, pl.title, pl.price_amount, pl.primary_photo_url, pl.stored_photo_urls, ${dateColumn} AS date
+             FROM listings pl
+             JOIN products p ON p.id = pl.product_id
+             WHERE pl.product_id = $1 AND pl.id != $2 AND ${soldClause} AND NOT p.price_lookup_excluded`,
+      clean: false,
+    })}
      SELECT pp.id AS listing_id, pp.title, pp.price_amount, pp.primary_photo_url, pp.stored_photo_urls, pp.date
-     FROM product_prices pp, raw
-     WHERE raw.median_price > 0 AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+     FROM product_prices pp
+     JOIN product m ON m.product_id = pp.product_id
+     WHERE ${notMagnitudeOutlierSql('pp.price_amount', 'm.raw_median_price')}
      ORDER BY pp.date DESC NULLS LAST
      LIMIT $3`,
     [productId, excludeListingId, limit],
@@ -201,7 +171,7 @@ export interface DiscountNotification {
 }
 
 // Written by the root pipeline's detectAndRecordDiscountNotifications (see
-// src/domains/marketplace/storage/listings.ts) right after a listing first
+// discount-notifications.ts) right after a listing first
 // gets a product_id - not queried live here, just displayed. No
 // unstable_cache wrapper (unlike most of cachedQueries.ts): a bell badge
 // showing a stale count defeats the point, and this table is small/indexed

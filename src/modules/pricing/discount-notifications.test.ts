@@ -1,15 +1,11 @@
-import type { DbClient } from '../../../platform/storage'
+import type { DbClient } from '../../platform/storage'
 import {
-  getNegotiableKeywordCandidates,
-  getPriceReviewCandidates,
-  upsertListingPriceReview,
-  upsertKeywordNegotiable,
   checkListingDiscount,
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
   markDiscountNotificationAttempted,
-} from './listings'
+} from './discount-notifications'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -23,175 +19,6 @@ function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] }
     },
   }
 }
-
-test('getNegotiableKeywordCandidates returns listings not already flagged negotiable', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return { rows: [{ id: '1', title: 'RTX 3060', description: 'nego pa' }] }
-    },
-  }
-
-  const result = await getNegotiableKeywordCandidates(db)
-
-  expect(calls[0].sql).toContain('NOT EXISTS')
-  expect(calls[0].sql).toContain('is_negotiable = true')
-  expect(result).toEqual([{ id: '1', title: 'RTX 3060', description: 'nego pa' }])
-})
-
-test('getPriceReviewCandidates returns listings the SQL flagged as a magnitude outlier vs their product median', async () => {
-  const { db, calls } = mockDbWithRows([
-    {
-      id: '1000000000000001',
-      title: 'RTX 2060 6GB FOR SWAP ONLY',
-      description: 'FOR SWAP SA RTX 3060, ADD AKO. REBALLED PO BUT WORKING AS INTENDED.',
-      price_amount: '999999999',
-      price_outlier: true,
-      placeholder_price: false,
-    },
-  ])
-
-  const result = await getPriceReviewCandidates(db)
-
-  expect(calls[0].sql).toContain('percentile_cont(0.5)')
-  expect(calls[0].sql).toContain('median_price / 5')
-  expect(calls[0].sql).toContain('median_price * 5')
-  expect(calls[0].sql).toContain('listing_price_review')
-  expect(result).toEqual([
-    {
-      id: '1000000000000001',
-      title: 'RTX 2060 6GB FOR SWAP ONLY',
-      description: 'FOR SWAP SA RTX 3060, ADD AKO. REBALLED PO BUT WORKING AS INTENDED.',
-      price_amount: 999999999,
-    },
-  ])
-})
-
-test('getPriceReviewCandidates re-flags a listing once its description differs from the reviewed one', async () => {
-  const { db, calls } = mockDbWithRows([])
-
-  await getPriceReviewCandidates(db)
-
-  // LEFT JOIN + IS DISTINCT FROM, not NOT EXISTS - a reviewed listing whose
-  // seller later edits the description comes back through.
-  expect(calls[0].sql).toContain('LEFT JOIN listing_price_review r ON r.listing_id = l.id')
-  expect(calls[0].sql).toContain('l.description IS DISTINCT FROM r.reviewed_description')
-  expect(calls[0].sql).not.toContain('NOT EXISTS')
-})
-
-test('getPriceReviewCandidates keeps a description-price divergence the SQL flagged, drops a non-divergent one', async () => {
-  const { db } = mockDbWithRows([
-    // recorded ₱3,900 but description says "39k" - ~10x, kept
-    {
-      id: 'diverges',
-      title: 'I phone 16 used',
-      description: 'iphone 16 128gb\nprice 39k',
-      price_amount: '3900',
-      price_outlier: false,
-      placeholder_price: false,
-    },
-    // description mentions "45k" and the recorded price is ₱44,000 - the loose
-    // SQL branch matched, but there's no real divergence, so it's dropped
-    {
-      id: 'close-enough',
-      title: 'iPhone 15',
-      description: 'selling 45k slight nego',
-      price_amount: '44000',
-      price_outlier: false,
-      placeholder_price: false,
-    },
-  ])
-
-  const result = await getPriceReviewCandidates(db)
-
-  expect(result.map((c) => c.id)).toEqual(['diverges'])
-})
-
-test('getPriceReviewCandidates also flags placeholder digit-pattern prices (123, 999, 12,567) regardless of magnitude', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return { rows: [] }
-    },
-  }
-
-  await getPriceReviewCandidates(db)
-
-  // Same repeated-digit / ascending-run regex as the dashboard's
-  // notPlaceholderPriceSql, applied both to exclude placeholders from the
-  // median input and to flag a listing whose own price matches, independent
-  // of the magnitude-outlier OR branch.
-  expect(calls[0].sql).toContain("~ '^(\\d+)\\1+$'")
-  expect(calls[0].sql).toContain("~ '012|123|234|345|456|567|678|789'")
-  const occurrences = calls[0].sql.split('^(\\d+)\\1+$').length - 1
-  expect(occurrences).toBe(2) // once excluding placeholders from the median, once flagging the listing itself
-})
-
-test('upsertListingPriceReview inserts is_negotiable, price range, reasoning, and model', async () => {
-  const { db, calls } = mockDb()
-
-  await upsertListingPriceReview(
-    db,
-    '1000000000000001',
-    {
-      isNegotiable: true,
-      priceLow: 7500,
-      priceHigh: 9000,
-      reasoning: 'Swap-only listing, real price is negotiable per description.',
-    },
-    'openai/gpt-oss-120b',
-    'FOR SWAP SA RTX 3060, ADD AKO.',
-  )
-
-  expect(calls[0].sql).toMatch(/^INSERT INTO listing_price_review/)
-  expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
-  expect(calls[0].sql).toContain('reviewed_description = EXCLUDED.reviewed_description')
-  expect(calls[0].params).toEqual([
-    '1000000000000001',
-    true,
-    7500,
-    9000,
-    'Swap-only listing, real price is negotiable per description.',
-    'openai/gpt-oss-120b',
-    'FOR SWAP SA RTX 3060, ADD AKO.',
-  ])
-})
-
-test('upsertListingPriceReview stores null price range when no real price could be determined', async () => {
-  const { db, calls } = mockDb()
-
-  await upsertListingPriceReview(
-    db,
-    '123',
-    { isNegotiable: false, priceLow: null, priceHigh: null, reasoning: 'No price mentioned anywhere in the text.' },
-    'openai/gpt-oss-120b',
-    null,
-  )
-
-  expect(calls[0].params).toEqual([
-    '123',
-    false,
-    null,
-    null,
-    'No price mentioned anywhere in the text.',
-    'openai/gpt-oss-120b',
-    null,
-  ])
-})
-
-test('upsertKeywordNegotiable inserts is_negotiable=true with no price estimate, tagged as a keyword-scan match', async () => {
-  const { db, calls } = mockDb()
-
-  await upsertKeywordNegotiable(db, '123', 'nego')
-
-  expect(calls[0].sql).toMatch(/^INSERT INTO listing_price_review/)
-  expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
-  expect(calls[0].sql).not.toContain('price_low = EXCLUDED')
-  expect(calls[0].sql).not.toContain('reasoning = EXCLUDED')
-  expect(calls[0].params).toEqual(['123', 'keyword match: "nego"'])
-})
 
 function mockDbWithRows(rows: unknown[]): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -209,8 +36,16 @@ function mockDbWithRows(rows: unknown[]): { db: DbClient; calls: { sql: string; 
 test('checkListingDiscount does nothing when priceAmount is null or non-positive', async () => {
   const { db, calls } = mockDb()
 
-  await checkListingDiscount(db, '1', 10, 'Used - Good', null, null, { low: 5000, high: 6000, currency: 'PHP' })
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 0, null, { low: 5000, high: 6000, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: null },
+    { retail: null, secondhand: { low: 5000, high: 6000, currency: 'PHP' } },
+  )
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 0 },
+    { retail: null, secondhand: { low: 5000, high: 6000, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(0)
 })
@@ -219,7 +54,11 @@ test('checkListingDiscount uses retail for a "New" condition listing and inserts
   const { db, calls } = mockDb()
 
   // ₱7,000 vs ₱10,000 retail low = 30% off, ₱3,000 profit - clears both bars.
-  await checkListingDiscount(db, '1', 10, 'New', 7000, { low: 10000, high: 12000, currency: 'PHP' }, null)
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'New', priceAmount: 7000 },
+    { retail: { low: 10000, high: 12000, currency: 'PHP' }, secondhand: null },
+  )
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('INSERT INTO discount_notifications')
@@ -233,12 +72,8 @@ test('checkListingDiscount treats "Used - like new" as used, not new - uses seco
   // (below the 30% bar) - if this used retail by mistake, it would wrongly qualify.
   await checkListingDiscount(
     db,
-    '1',
-    10,
-    'Used - like new',
-    7000,
-    { low: 10000, high: 12000, currency: 'PHP' },
-    { low: 8750, high: 9000, currency: 'PHP' },
+    { id: '1', productId: 10, condition: 'Used - like new', priceAmount: 7000 },
+    { retail: { low: 10000, high: 12000, currency: 'PHP' }, secondhand: { low: 8750, high: 9000, currency: 'PHP' } },
   )
 
   expect(calls).toHaveLength(0)
@@ -250,7 +85,11 @@ test('checkListingDiscount prefers secondhand over peer-comparison when secondha
   // Secondhand low 10000 -> 30% off at price 7000. If this fell back to peer
   // median instead, no query would even run to produce a number - the
   // absence of a peer-median SELECT call here proves secondhand won.
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 7000, null, { low: 10000, high: 12000, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 7000 },
+    { retail: null, secondhand: { low: 10000, high: 12000, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('INSERT INTO discount_notifications')
@@ -258,9 +97,13 @@ test('checkListingDiscount prefers secondhand over peer-comparison when secondha
 })
 
 test('checkListingDiscount falls back to peer-comparison median when secondhand is not available', async () => {
-  const { db, calls } = mockDbWithRows([{ clean_median_price: '10000' }])
+  const { db, calls } = mockDbWithRows([{ sample_size: '4', clean_median_price: '10000' }])
 
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 7000, null, null)
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 7000 },
+    { retail: null, secondhand: null },
+  )
 
   const selectCall = calls.find((c) => c.sql.includes('percentile_cont'))
   expect(selectCall).toBeDefined()
@@ -270,9 +113,13 @@ test('checkListingDiscount falls back to peer-comparison median when secondhand 
 })
 
 test('checkListingDiscount does nothing when peer-comparison has no sibling median to compare against', async () => {
-  const { db, calls } = mockDbWithRows([{ clean_median_price: null }])
+  const { db, calls } = mockDbWithRows([{ sample_size: '1', clean_median_price: null }])
 
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 7000, null, null)
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 7000 },
+    { retail: null, secondhand: null },
+  )
 
   expect(calls.some((c) => c.sql.startsWith('INSERT INTO discount_notifications'))).toBe(false)
 })
@@ -281,7 +128,11 @@ test('checkListingDiscount does nothing when the discount is below the 30% bar',
   const { db, calls } = mockDb()
 
   // ₱9,000 vs ₱10,000 = only 10% off.
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 9000, null, { low: 10000, high: 12000, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 9000 },
+    { retail: null, secondhand: { low: 10000, high: 12000, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(0)
 })
@@ -290,7 +141,11 @@ test('checkListingDiscount does nothing when the profit is below the ₱1,000 ba
   const { db, calls } = mockDb()
 
   // ₱140 vs ₱200 = 30% off, but only ₱60 profit.
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 140, null, { low: 200, high: 250, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 140 },
+    { retail: null, secondhand: { low: 200, high: 250, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(0)
 })
@@ -301,7 +156,11 @@ test('checkListingDiscount does nothing when the listing price is below the ₱5
   // ₱300 vs ₱1,400 = 79% off, ₱1,100 profit - both bars clear, but ₱300 is
   // too cheap to be worth chasing (also the regime where generic-category
   // mismatches like "Bikini"/"Apple Pencil" produce noisy reference prices).
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 300, null, { low: 1400, high: 1600, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 300 },
+    { retail: null, secondhand: { low: 1400, high: 1600, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(0)
 })
@@ -309,7 +168,11 @@ test('checkListingDiscount does nothing when the listing price is below the ₱5
 test('checkListingDiscount inserts a ₱500 item reselling for ₱1,500 - a real ₱1,000-profit flip, not excluded just for being cheap', async () => {
   const { db, calls } = mockDb()
 
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 500, null, { low: 1500, high: 1700, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 500 },
+    { retail: null, secondhand: { low: 1500, high: 1700, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(1)
 })
@@ -319,7 +182,11 @@ test('checkListingDiscount does nothing when the listing price is a magnitude ou
 
   // ₱10 vs ₱10,000 reference - looks like a 99.9% discount, but it's an
   // obvious placeholder/typo, not a real deal.
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 10, null, { low: 10000, high: 12000, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 10 },
+    { retail: null, secondhand: { low: 10000, high: 12000, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(0)
 })
@@ -331,7 +198,11 @@ test('checkListingDiscount does nothing when the listing price is a placeholder 
   // band, so it isn't caught there. But 12345 is a classic "for attention
   // only" placeholder price, not a real ask (live case: listing
   // 100000000000003, iPhone 14 "For Sale" at ₱12,345).
-  await checkListingDiscount(db, '1', 10, 'Used - Good', 12345, null, { low: 20400, high: 22000, currency: 'PHP' })
+  await checkListingDiscount(
+    db,
+    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 12345 },
+    { retail: null, secondhand: { low: 20400, high: 22000, currency: 'PHP' } },
+  )
 
   expect(calls).toHaveLength(0)
 })

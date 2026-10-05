@@ -1,9 +1,10 @@
 import type { Logger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../llm-clients'
+import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { PriceCheckSource } from './storage/pricing'
-import { insertPriceCheck, flagProductPriceLookupExcluded } from './storage/pricing'
-import { detectGenericBaseModel } from './generic-products'
+import type { PriceCheckSource } from './price-history'
+import { insertPriceCheck } from './price-history'
+import type { PriceExclusionReason } from './exclusion'
+import { excludeFromPricing } from './exclusion'
 
 export interface PriceRange {
   low: number
@@ -182,124 +183,96 @@ function tavilyText(result: { answer: string | null; results: { content: string 
   return result.answer ?? result.results.map((r) => r.content).join('\n')
 }
 
-// Retail: Gemini (free, grounded) -> Exa (structured, cites sources) ->
-// Tavily (free, regex parsed). Promoted to Gemini-first 2026-09-02 (see
-// buildGeminiPrompt's comment) - same chain shape as lookupSecondhand below.
-export async function lookupRetail(
-  clients: PriceLookupClients,
-  product: PriceLookupCandidate,
-  logger: Logger,
-  label: string,
-): Promise<PriceLookupResult | null> {
-  try {
-    const text = await clients.gemini.generateGroundedText(buildGeminiPrompt('retail', product))
-    const price = parseGeminiPriceResponse(text)
-    if (price) {
-      if (!isWideSpread(price)) return { price, source: 'gemini_new_retail', rawResponse: text }
-      logger.warn(
-        `product ${product.id} (${label}): Gemini retail range too wide (${price.low}-${price.high}), falling back to Exa`,
-      )
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Gemini retail lookup failed (${message}), falling back to Exa`)
-  }
-
-  try {
-    const response = await clients.exa.searchStructured(
-      buildExaQuery('retail', product),
-      buildExaSystemPrompt('retail', product),
-      EXA_PRICE_SCHEMA,
-    )
-    const price = parseExaPriceResponse(response)
-    if (price) {
-      if (!isWideSpread(price)) return { price, source: 'exa_new_retail', rawResponse: JSON.stringify(response) }
-      logger.warn(
-        `product ${product.id} (${label}): Exa retail range too wide (${price.low}-${price.high}), falling back to Tavily`,
-      )
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Exa retail lookup failed (${message}), falling back to Tavily`)
-  }
-
-  try {
-    const result = await clients.tavily.search(buildTavilyQuery('retail', product))
-    const text = tavilyText(result)
-    const price = parseTavilyPriceAnswer(text)
-    if (!price) return null
-    if (isWideSpread(price)) {
-      logger.warn(
-        `product ${product.id} (${label}): Tavily retail range too wide (${price.low}-${price.high}), dropped`,
-      )
-      return null
-    }
-    return { price, source: 'tavily_new_retail', rawResponse: text }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Tavily retail lookup failed (${message})`)
-    return null
-  }
+// Which product_price_history source each provider's answer is recorded
+// under, per kind. The retail names differ from secondhand's for history:
+// gemini_grounding/exa_secondhand predate retail lookups entirely.
+const SOURCES: Record<PriceKind, Record<'gemini' | 'exa' | 'tavily', PriceCheckSource>> = {
+  retail: { gemini: 'gemini_new_retail', exa: 'exa_new_retail', tavily: 'tavily_new_retail' },
+  secondhand: { gemini: 'gemini_grounding', exa: 'exa_secondhand', tavily: 'tavily_secondhand' },
 }
 
-// Secondhand: Gemini (free, grounded) -> Exa (structured, cites sources) ->
-// Tavily (free, regex parsed). Same Gemini-first shape lookupRetail now uses
-// too - see buildGeminiPrompt's comment for why both chains lead with it.
-export async function lookupSecondhand(
-  clients: PriceLookupClients,
+interface ProviderStage {
+  name: string
+  source: PriceCheckSource
+  fetch: () => Promise<{ price: PriceRange | null; rawResponse: string }>
+}
+
+function providerStages(clients: PriceLookupClients, kind: PriceKind, product: PriceLookupCandidate): ProviderStage[] {
+  return [
+    {
+      name: 'Gemini',
+      source: SOURCES[kind].gemini,
+      fetch: async () => {
+        const text = await clients.gemini.generateGroundedText(buildGeminiPrompt(kind, product))
+        return { price: parseGeminiPriceResponse(text), rawResponse: text }
+      },
+    },
+    {
+      name: 'Exa',
+      source: SOURCES[kind].exa,
+      fetch: async () => {
+        const response = await clients.exa.searchStructured(
+          buildExaQuery(kind, product),
+          buildExaSystemPrompt(kind, product),
+          EXA_PRICE_SCHEMA,
+        )
+        return { price: parseExaPriceResponse(response), rawResponse: JSON.stringify(response) }
+      },
+    },
+    {
+      name: 'Tavily',
+      source: SOURCES[kind].tavily,
+      fetch: async () => {
+        const text = tavilyText(await clients.tavily.search(buildTavilyQuery(kind, product)))
+        return { price: parseTavilyPriceAnswer(text), rawResponse: text }
+      },
+    },
+  ]
+}
+
+// Same chain for both kinds: Gemini (free, grounded) -> Exa (structured,
+// cites sources) -> Tavily (free, regex parsed). Retail was promoted to
+// Gemini-first 2026-09-02 (see buildGeminiPrompt's comment). A provider that
+// errors, finds nothing, or answers with a too-wide range falls through to
+// the next; a too-wide range from the last one is dropped, not returned.
+export async function lookupPrice(
+  deps: Pick<PriceLookupDeps, 'clients' | 'logger'>,
+  kind: PriceKind,
   product: PriceLookupCandidate,
-  logger: Logger,
-  label: string,
 ): Promise<PriceLookupResult | null> {
-  try {
-    const text = await clients.gemini.generateGroundedText(buildGeminiPrompt('secondhand', product))
-    const price = parseGeminiPriceResponse(text)
-    if (price) {
-      if (!isWideSpread(price)) return { price, source: 'gemini_grounding', rawResponse: text }
-      logger.warn(
-        `product ${product.id} (${label}): Gemini secondhand range too wide (${price.low}-${price.high}), falling back to Exa`,
-      )
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Gemini secondhand lookup failed (${message}), falling back to Exa`)
-  }
+  const prefix = `product ${product.id} (${productLabel(product.base_model, product.variant_tier)})`
+  const stages = providerStages(deps.clients, kind, product)
 
-  try {
-    const response = await clients.exa.searchStructured(
-      buildExaQuery('secondhand', product),
-      buildExaSystemPrompt('secondhand', product),
-      EXA_PRICE_SCHEMA,
-    )
-    const price = parseExaPriceResponse(response)
-    if (price) {
-      if (!isWideSpread(price)) return { price, source: 'exa_secondhand', rawResponse: JSON.stringify(response) }
-      logger.warn(
-        `product ${product.id} (${label}): Exa secondhand range too wide (${price.low}-${price.high}), falling back to Tavily`,
+  for (const [i, stage] of stages.entries()) {
+    const next = stages[i + 1]?.name
+    try {
+      const { price, rawResponse } = await stage.fetch()
+      if (price && !isWideSpread(price)) return { price, source: stage.source, rawResponse }
+      if (price) {
+        deps.logger.warn(
+          `${prefix}: ${stage.name} ${kind} range too wide (${price.low}-${price.high}), ${next ? `falling back to ${next}` : 'dropped'}`,
+        )
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      deps.logger.warn(
+        `${prefix}: ${stage.name} ${kind} lookup failed (${message})${next ? `, falling back to ${next}` : ''}`,
       )
     }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Exa secondhand lookup failed (${message}), falling back to Tavily`)
   }
+  return null
+}
 
-  try {
-    const result = await clients.tavily.search(buildTavilyQuery('secondhand', product))
-    const text = tavilyText(result)
-    const price = parseTavilyPriceAnswer(text)
-    if (!price) return null
-    if (isWideSpread(price)) {
-      logger.warn(
-        `product ${product.id} (${label}): Tavily secondhand range too wide (${price.low}-${price.high}), dropped`,
-      )
-      return null
-    }
-    return { price, source: 'tavily_secondhand', rawResponse: text }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`product ${product.id} (${label}): Tavily secondhand lookup failed (${message})`)
-    return null
-  }
+// The catalog's text-only generic-product check (detectGenericBaseModel),
+// injected rather than imported: catalog code imports pricing, so a direct
+// import back would close a module cycle.
+export type DetectGeneric = (baseModel: string) => { reason: PriceExclusionReason; matched: string } | null
+
+export interface PriceLookupDeps {
+  clients: PriceLookupClients
+  db: DbClient
+  logger: Logger
+  detectGeneric: DetectGeneric
 }
 
 export interface ProductPricingResult {
@@ -311,31 +284,30 @@ export interface ProductPricingResult {
 // Ensures a product has retail/secondhand pricing, unconditionally attempting
 // both (callers are responsible for skipping this call entirely when a
 // product already has pricing or is already excluded - see
-// getProductPricingStatus in storage/pricing.ts). Shared by price-lookup.ts's
+// getProductPricingStatus in price-history.ts). Shared by price-lookup.ts's
 // own backfill loop and extract-products.ts's inline per-listing trigger, so
 // both go through identical provider chains and exclusion rules.
 export async function ensureProductPriced(
-  clients: PriceLookupClients,
-  db: DbClient,
+  deps: PriceLookupDeps,
   product: PriceLookupCandidate,
-  logger: Logger,
 ): Promise<ProductPricingResult> {
+  const { db, logger } = deps
   const label = productLabel(product.base_model, product.variant_tier)
 
   // Cheap text-only check before spending any paid/quota call - same signal
   // getPriceLookupCandidates can't apply itself (it only knows
   // price_lookup_excluded is already false, not whether it plausibly
   // should be true).
-  const generic = detectGenericBaseModel(product.base_model)
+  const generic = deps.detectGeneric(product.base_model)
   if (generic) {
-    await flagProductPriceLookupExcluded(db, product.id, generic.reason)
+    await excludeFromPricing(db, { productId: product.id }, generic.reason)
     logger.warn(
       `product ${product.id} (${label}): detected generic (${generic.reason}: "${generic.matched}"), flagged and skipping`,
     )
     return { retail: null, secondhand: null, excluded: true }
   }
 
-  const retail = await lookupRetail(clients, product, logger, label)
+  const retail = await lookupPrice(deps, 'retail', product)
   if (!retail) {
     // Retail search failing across BOTH providers (Exa and Tavily) is a much
     // stronger signal than either alone - a real, specific, priceable
@@ -343,20 +315,20 @@ export async function ensureProductPriced(
     // as a generic/unpriceable-item signal, same permanent exclusion as the
     // text-pattern check above, per direct instruction (2026-08-31) - not
     // worth trying secondhand either.
-    await flagProductPriceLookupExcluded(db, product.id, 'retail_not_found')
+    await excludeFromPricing(db, { productId: product.id }, 'retail_not_found')
     logger.warn(
       `product ${product.id} (${label}): retail price not found via any provider, excluding from pricing entirely`,
     )
     return { retail: null, secondhand: null, excluded: true }
   }
-  await insertPriceCheck(db, product.id, retail.price, retail.rawResponse, retail.source, 'New')
+  await insertPriceCheck(db, { productId: product.id, ...retail, condition: 'New' })
   logger.info(
     `product ${product.id} (${label}): retail ${retail.price.low}-${retail.price.high} ${retail.price.currency} (${retail.source})`,
   )
 
-  const secondhand = await lookupSecondhand(clients, product, logger, label)
+  const secondhand = await lookupPrice(deps, 'secondhand', product)
   if (secondhand) {
-    await insertPriceCheck(db, product.id, secondhand.price, secondhand.rawResponse, secondhand.source, 'Used')
+    await insertPriceCheck(db, { productId: product.id, ...secondhand, condition: 'Used' })
     logger.info(
       `product ${product.id} (${label}): secondhand ${secondhand.price.low}-${secondhand.price.high} ${secondhand.price.currency} (${secondhand.source})`,
     )

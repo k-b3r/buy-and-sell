@@ -55,7 +55,7 @@ const DEFAULT_DAILY_GROUNDING_CAP = 1000
 // "generate_content_free_tier_requests... limit: 20, model: gemini-2.5-flash"
 // (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier) - a flat
 // 20/day for the whole model, not grounding-specific, shared across every
-// caller on this key (lookupRetail, lookupSecondhand, extract-products'
+// caller on this key (lookupPrice's retail and secondhand chains, extract-products'
 // generateJson). This 1,000 cap never actually engages on an unbilled key
 // like this one - see createQuotaAwareGeminiClient below, which reacts to
 // the real 429 instead of guessing a number. Kept here for a paid key,
@@ -120,8 +120,8 @@ export function createDailyGroundingCap(
 // is a flat 20/day, confirmed live, not the 1,500 that cap's default was
 // built around). Once a 429 is seen, every subsequent generateGroundedText
 // call this same day short-circuits locally instead of spending a network
-// round-trip on a call already known to fail - lookupRetail/lookupSecondhand
-// (price-lookup.ts) fall through to Exa immediately on any thrown error, so
+// round-trip on a call already known to fail - lookupPrice
+// (price-lookup.ts) falls through to Exa immediately on any thrown error, so
 // this just makes that fallback instant instead of waiting on a doomed
 // request first. Resets at midnight Pacific, same boundary
 // createDailyGroundingCap uses, since that's when Google's own quota resets.

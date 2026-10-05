@@ -1,6 +1,7 @@
-import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../llm-clients'
-import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './storage/listings'
-import { DEFAULT_DISCOUNT_POLICY } from './storage/listings'
+import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './discount-notifications'
+import { DEFAULT_DISCOUNT_POLICY } from './discount-notifications'
+import { isNewCondition } from './price-rules'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
@@ -12,23 +13,6 @@ export interface VerificationClients {
   exa: ExaClient
   gemini: GeminiClient
   openrouter: OpenRouterClient
-}
-
-// "New" listings need a current retail search; anything else (the vast
-// majority — "Used - Good", "Used - Fair", etc.) needs a secondhand/resale
-// search instead. Facebook's condition labels are free text, not an enum,
-// so this is a loose substring check rather than a fixed set. "used" is
-// checked first and wins outright - "Used - like new" contains "new" but is
-// never actually new-in-box, and used to get misread as New here, comparing
-// a secondhand item against brand-new retail pricing (confirmed live via a
-// Qwen3.5-9B/DeepSeek judgement eval, 2026-08-30: an 84%-battery iPhone XR
-// and a "slightly used" Apple Pencil both got priced against retail instead
-// of secondhand because of this).
-function isNewCondition(condition: string | null): boolean {
-  if (condition === null) return false
-  const lower = condition.toLowerCase()
-  if (lower.includes('used')) return false
-  return lower.includes('new')
 }
 
 // base_model alone is often too generic to search accurately - "HP Laptop"/
