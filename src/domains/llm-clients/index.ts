@@ -18,10 +18,10 @@ export {
   createRoundRobinGroqClient,
   createGroqPool,
   loadGroqApiKeys,
-  summarizeGroqError,
   GROQ_MODEL_FALLBACK_CHAIN,
   isQuotaError as isGroqQuotaError,
 } from './groq'
+export { summarizeError as summarizeGroqError } from '../../platform/errors'
 
 export type { TavilyClient, TavilySearchResult } from './tavily'
 export { createTavilyClient } from './tavily'

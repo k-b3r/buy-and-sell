@@ -30,6 +30,8 @@ _(undocumented)_
 
 ## server/queries.ts
 
+**Interactions:** imports `../src/platform/rows`
+
 ### `summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary`
 
 _(undocumented)_
@@ -154,10 +156,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getRealEstateListings(db: QueryClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
-
-_(undocumented)_
-
 ## server/rateLimiter.ts
 
 ### `createRateLimiter(maxFailures: number, windowMs: number, now: () => number = Date.now): RateLimiter`
@@ -188,7 +186,7 @@ _(undocumented)_
 
 ## server/routes/query.ts
 
-**Interactions:** imports `../app`, `../queries`
+**Interactions:** imports `../../src/modules/real-estate`, `../app`, `../queries`
 
 ### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
 

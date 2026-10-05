@@ -50,6 +50,12 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/platform/errors.ts
+
+### `summarizeError(err: unknown, maxLength = 200): string`
+
+_(undocumented)_
+
 ## src/platform/images.ts
 
 **Interactions:** imports `./logger`
@@ -99,6 +105,20 @@ _(undocumented)_
 _(undocumented)_
 
 ### `promptReview(listing: Record<string, unknown>, input: NodeJS.ReadableStream, output: NodeJS.WritableStream): Promise<ReviewDecision>`
+
+_(undocumented)_
+
+## src/platform/rows.ts
+
+### `toNullableNumber(value: unknown): number | null`
+
+_(undocumented)_
+
+### `toIsoOrNull(value: unknown): string | null`
+
+_(undocumented)_
+
+### `resolvePhotoUrls(storedPhotoUrls: unknown, primaryPhotoUrl: unknown): string[]`
 
 _(undocumented)_
 
