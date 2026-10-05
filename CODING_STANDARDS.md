@@ -6,7 +6,7 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 
 - `process` Specs go under `docs/superpowers/specs/`.
 - `tool` Canonical check: `pnpm check` (format, lint, depcruise, knip, typecheck, unit tests), run by the lefthook pre-push hook.
-- `tool` CI: thin callers of `k-b3r/agent-config` `ci-typescript.yml` (`ci.yml` static + unit, `integration.yml`, `e2e.yml` with path filters; static adds `repo-checks all`, gitleaks, `docs:check`) and `pr-review.yml` (agent review, gate, `/approve`). Shared ESLint and depcruise rules come from `@k-b3r/agent-config`; repo-specific blocks live in `eslint.config.js` / `.dependency-cruiser.cjs`. Known boundary violations are baselined in `.dependency-cruiser-known-violations.json` (ratchet; each has a BUY ticket).
+- `tool` CI: thin callers of `k-b3r/agent-config` `ci-typescript.yml` (`ci.yml` static + unit, `integration.yml`, `e2e.yml` with path filters; static adds `repo-checks all`, gitleaks, `docs:check`) and `pr-review.yml` (agent review, gate, `/approve`). Shared ESLint and depcruise rules come from `@k-b3r/agent-config`; repo-specific blocks live in `eslint.config.js` / `.dependency-cruiser.cjs`. Known boundary violations, if any, are baselined in `.dependency-cruiser-known-violations.json` with `--ignore-known` (ratchet; each has a BUY ticket); none today.
 
 ## Architecture
 

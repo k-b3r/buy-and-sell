@@ -14,6 +14,8 @@ import {
   getBackfillCandidates,
   markListingPhotosUnavailable,
 } from './listings'
+import type { ListingPhotos } from './photos'
+import { createListingPhotos } from './photos'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -57,6 +59,10 @@ function fakeImageStore(): ImageStore & { puts: { key: string }[]; deletedPrefix
 const workingFetchBytes: FetchBytes = async () => ({ body: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' })
 const failingFetchBytes: FetchBytes = async () => null
 const identityCompress: CompressImage = async (body, contentType) => ({ body, contentType })
+
+function photosOver(store: ImageStore, fetchBytes: FetchBytes = workingFetchBytes): ListingPhotos {
+  return createListingPhotos({ store, fetchBytes, compress: identityCompress, logger: fakeLogger() })
+}
 
 test('upsertListing extracts known fields and stores the full raw object as json', async () => {
   const { db, calls } = mockDb()
@@ -248,7 +254,7 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
     attribute_data: [{ label: 'Used - Fair', value: 'used_fair', attribute_name: 'Condition' }],
   }
 
-  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, listing)
+  await refreshListingFields(db, photosOver(fakeImageStore()), fakeLogger(), null, listing)
 
   // Two calls: the field update, plus the keyword scan's price-review
   // upsert - the description says "Now negotiable", so it should fire.
@@ -279,7 +285,7 @@ test('refreshListingFields captures photo ids as a baseline on first sighting, w
     listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
   }
 
-  await refreshListingFields(db, store, fakeLogger(), null, listing)
+  await refreshListingFields(db, photosOver(store), fakeLogger(), null, listing)
 
   expect(calls[0].sql).toContain('source_photo_ids = $8')
   expect(calls[0].sql).not.toContain('primary_photo_url')
@@ -298,7 +304,7 @@ test('refreshListingFields leaves photos untouched when the ids match the stored
     listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
   }
 
-  await refreshListingFields(db, store, fakeLogger(), ['photo-a', 'photo-b'], listing)
+  await refreshListingFields(db, photosOver(store), fakeLogger(), ['photo-a', 'photo-b'], listing)
 
   expect(calls[0].sql).not.toContain('primary_photo_url')
   expect(calls[0].sql).not.toContain('stored_photo_urls')
@@ -320,15 +326,7 @@ test('refreshListingFields re-fetches and re-uploads photos when the seller swap
     ],
   }
 
-  await refreshListingFields(
-    db,
-    store,
-    fakeLogger(),
-    ['photo-a', 'photo-b'],
-    listing,
-    workingFetchBytes,
-    identityCompress,
-  )
+  await refreshListingFields(db, photosOver(store), fakeLogger(), ['photo-a', 'photo-b'], listing)
 
   expect(store.deletedPrefixes).toEqual(['listings/12345/'])
   expect(store.puts).toEqual([{ key: 'listings/12345/0.jpg' }, { key: 'listings/12345/1.jpg' }])
@@ -356,7 +354,7 @@ test('refreshListingFields keeps the existing photos when a detected change fail
     listing_photos: [{ id: 'photo-c', image: { uri: 'https://scontent.example/c.jpg' } }],
   }
 
-  await refreshListingFields(db, store, logger, ['photo-a', 'photo-b'], listing, failingFetchBytes, identityCompress)
+  await refreshListingFields(db, photosOver(store, failingFetchBytes), logger, ['photo-a', 'photo-b'], listing)
 
   expect(store.deletedPrefixes).toEqual(['listings/12345/'])
   expect(store.puts).toEqual([])
@@ -509,7 +507,7 @@ const historyInserts = (calls: { sql: string; params: unknown[] }[]) =>
 test('refreshListingFields hands the prior price to real estate price history when the price changed', async () => {
   const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: false })
 
-  await refreshListingFields(db, fakeImageStore(), fakeLogger(), null, condoListing('4500000.00'))
+  await refreshListingFields(db, photosOver(fakeImageStore()), fakeLogger(), null, condoListing('4500000.00'))
 
   const inserts = historyInserts(calls)
   expect(inserts).toHaveLength(2)

@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
-import { createR2ImageStore } from '../src/platform/images'
+import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../src/platform/images'
+import { createListingPhotos } from '../src/modules/collection'
 import { createApp } from './app'
 import { createProxyGuard } from './proxyGuard'
 import { createRefreshHandler, defaultDriverFactory as launchRefreshDriver } from './routes/refresh'
@@ -41,12 +42,17 @@ async function main() {
 
   const logger = createLogger('server.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
-  const imageStore = createR2ImageStore({
-    accountId: R2_ACCOUNT_ID,
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_KEY,
-    bucket: R2_BUCKET_NAME,
-    publicBaseUrl: R2_PUBLIC_BASE_URL,
+  const photos = createListingPhotos({
+    store: createR2ImageStore({
+      accountId: R2_ACCOUNT_ID,
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_KEY,
+      bucket: R2_BUCKET_NAME,
+      publicBaseUrl: R2_PUBLIC_BASE_URL,
+    }),
+    fetchBytes: defaultFetchBytes,
+    compress: defaultCompressImage,
+    logger,
   })
 
   // Shared across the single-listing and bulk product-refresh handlers -
@@ -68,10 +74,10 @@ async function main() {
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const app = createApp(apiKey, {
-    'POST /refresh': createRefreshHandler(pool, imageStore, logger, refreshPacer, launchRefreshDriver, proxyGuard),
+    'POST /refresh': createRefreshHandler(pool, photos, logger, refreshPacer, launchRefreshDriver, proxyGuard),
     'POST /refresh-product': createRefreshProductHandler(
       pool,
-      imageStore,
+      photos,
       logger,
       refreshLock,
       jobs,

@@ -11,8 +11,7 @@ import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { upsertListing, getCollectedListingIds } from './listings'
-import type { ImageStore } from '../../platform/images'
-import { storeListingPhotos } from '../../platform/images'
+import type { ListingPhotos } from './photos'
 
 // Diagnostic-only, never allowed to take down the caller - confirmed live
 // 2026-08-24: refresh-server.ts runs with CWD=server/ (no data/ dir there,
@@ -91,7 +90,7 @@ export async function runCollection(
   output: NodeJS.WritableStream,
   options: RunOptions,
   db: DbClient,
-  imageStore?: ImageStore,
+  photos?: ListingPhotos,
 ): Promise<void> {
   const daysSinceListed = options.daysSinceListed ?? 30
   const pacingMinMs = options.pacingMinMs ?? 4000
@@ -166,8 +165,8 @@ export async function runCollection(
         return 'stop'
       }
       if (decision === 'approve') {
-        if (imageStore) {
-          const photoUrls = await storeListingPhotos(imageStore, logger, String(merged.id), merged.listing_photos)
+        if (photos) {
+          const photoUrls = await photos.save(String(merged.id), merged.listing_photos)
           if (photoUrls.length > 0) {
             merged.stored_photo_urls = photoUrls
           }

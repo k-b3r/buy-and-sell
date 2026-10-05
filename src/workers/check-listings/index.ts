@@ -4,8 +4,13 @@ import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
-import { getCheckListingsCandidates, resolveProxy, runCheckListings } from '../../modules/collection'
-import { createR2ImageStore } from '../../platform/images'
+import {
+  createListingPhotos,
+  getCheckListingsCandidates,
+  resolveProxy,
+  runCheckListings,
+} from '../../modules/collection'
+import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
 
 async function main() {
   loadEnvFile()
@@ -43,12 +48,17 @@ async function main() {
     ],
     loopDelayKey: 'check_listings.loop_delay_ms',
     setup: async ({ logger, db }) => {
-      const imageStore = createR2ImageStore({
-        accountId: R2_ACCOUNT_ID,
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_KEY,
-        bucket: R2_BUCKET_NAME,
-        publicBaseUrl: R2_PUBLIC_BASE_URL,
+      const photos = createListingPhotos({
+        store: createR2ImageStore({
+          accountId: R2_ACCOUNT_ID,
+          accessKeyId: R2_ACCESS_KEY_ID,
+          secretAccessKey: R2_SECRET_KEY,
+          bucket: R2_BUCKET_NAME,
+          publicBaseUrl: R2_PUBLIC_BASE_URL,
+        }),
+        fetchBytes: defaultFetchBytes,
+        compress: defaultCompressImage,
+        logger,
       })
 
       // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
@@ -90,7 +100,7 @@ async function main() {
                 await runCheckListings(
                   driver,
                   db,
-                  imageStore,
+                  photos,
                   logger,
                   candidates,
                   settings['check_listings.soft_wall_timeout_ms'],

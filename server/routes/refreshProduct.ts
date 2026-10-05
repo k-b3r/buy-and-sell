@@ -1,8 +1,8 @@
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
+import type { ListingPhotos } from '../../src/modules/collection'
 import { getListingCheckCandidatesForProduct } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
-import type { ImageStore } from '../../src/platform/images'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshLock } from '../refreshLock'
 import type { RefreshPacer } from '../refreshPacer'
@@ -30,7 +30,7 @@ export const defaultDriverFactory: DriverFactory = async (proxy) => {
 // GET /refresh-job (routes/refreshJob.ts) separately for progress.
 export function createRefreshProductHandler(
   db: DbClient,
-  imageStore: ImageStore,
+  photos: ListingPhotos,
   logger: Logger,
   lock: RefreshLock,
   jobs: JobStore,
@@ -93,7 +93,7 @@ export function createRefreshProductHandler(
           const result = await checkOneListing(
             driver,
             db,
-            imageStore,
+            photos,
             logger,
             candidate,
             settings['check_listings.soft_wall_timeout_ms'],

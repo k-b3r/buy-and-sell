@@ -3,9 +3,8 @@ import { createRefreshHandler } from './refresh'
 import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createLogger } from '../../src/platform/logger'
-import type { PageDriver } from '../../src/modules/collection'
+import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
 import type { DbClient } from '../../src/platform/storage'
-import type { ImageStore } from '../../src/platform/images'
 
 const LOG_PATH = 'data/tmp-refresh.log'
 
@@ -40,9 +39,9 @@ function fakeDb(): DbClient {
   }
 }
 
-function fakeImageStore(): ImageStore {
+function fakePhotos(): ListingPhotos {
   return {
-    put: async (key: string) => `https://images.example.com/${key}`,
+    save: async () => [],
     deleteAll: async () => {},
   }
 }
@@ -93,7 +92,7 @@ test('rejects a missing or non-string id', async () => {
   const logger = createLogger(LOG_PATH)
   const handle = createRefreshHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     instantPacer(),
     driverFactory(makeDriver()).factory,
@@ -110,7 +109,7 @@ test('404s when the listing id does not exist, without ever queueing', async () 
   const logger = createLogger(LOG_PATH)
   const handle = createRefreshHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     instantPacer(),
     driverFactory(makeDriver()).factory,
@@ -127,7 +126,7 @@ test('503s and takes no action when the tunnel is not reachable', async () => {
   const badTunnel = async () => ({ ok: false as const, error: 'SOCKS_PROXY is not configured' })
   const handle = createRefreshHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     instantPacer(),
     async () => {
@@ -153,7 +152,7 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
     },
   })
   const { factory, wasClosed } = driverFactory(driver)
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, instantPacer(), factory, okTunnel)
+  const handle = createRefreshHandler(fakeDb(), fakePhotos(), logger, instantPacer(), factory, okTunnel)
 
   const result = await handle({ id: '1' })
 
@@ -175,7 +174,7 @@ test('a second request while one is in flight queues and succeeds once the first
     return { driver: makeDriver({ getDetailHtml: async () => realListingDetailHtml }), close: async () => {} }
   }
   const pacer = fastPacer()
-  const handle = createRefreshHandler(fakeDb(), fakeImageStore(), logger, pacer, slowFactory, okTunnel)
+  const handle = createRefreshHandler(fakeDb(), fakePhotos(), logger, pacer, slowFactory, okTunnel)
 
   const firstRequest = handle({ id: '1' })
   await Promise.resolve() // let the first request reach the driver factory before firing the second
@@ -203,7 +202,7 @@ test('gives up with 429 if the lock never frees within the max queue wait', asyn
   const pacer = createRefreshPacer(lock, now, delay)
   const handle = createRefreshHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     pacer,
     driverFactory(makeDriver()).factory,
@@ -220,7 +219,7 @@ test('a later request succeeds after an earlier one completes and releases', asy
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
   const handle = createRefreshHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     fastPacer(),
     driverFactory(driver).factory,

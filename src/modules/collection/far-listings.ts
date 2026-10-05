@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import { deleteListingPhotos, type ImageStore } from '../../platform/images'
+import type { ListingPhotos } from './photos'
 import { deleteListing } from './listings'
 import { isWithinServiceArea } from './location'
 
@@ -34,11 +34,11 @@ export async function getFarListingCandidates(db: DbClient): Promise<FarListingC
 export async function purgeFarListings(
   db: DbClient,
   logger: Logger,
-  imageStore: ImageStore,
+  photos: ListingPhotos,
   candidates: FarListingCandidate[],
 ): Promise<number> {
   for (const candidate of candidates) {
-    await deleteListingPhotos(imageStore, logger, candidate.id)
+    await photos.deleteAll(candidate.id)
     await deleteListing(db, candidate.id)
     logger.info(`purged listing ${candidate.id} (${candidate.lat}, ${candidate.lng})`)
   }

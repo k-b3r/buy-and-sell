@@ -4,6 +4,7 @@ import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
 import { runCollection, resolvePageState } from './run'
 import { createLogger } from '../../platform/logger'
+import { createListingPhotos } from './photos'
 
 const LOG_PATH = 'data/tmp-run.log'
 
@@ -595,9 +596,12 @@ test('when an image store is provided, downloads and re-hosts the photo carousel
     },
     deleteAll: async () => {},
   }
-  const originalFetch = global.fetch
-  global.fetch = (async () =>
-    new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } })) as typeof fetch
+  const photos = createListingPhotos({
+    store: imageStore,
+    fetchBytes: async () => ({ body: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' }),
+    compress: async (body, contentType) => ({ body, contentType }),
+    logger,
+  })
 
   const { db, upsertCalls } = fakeDb()
   await runCollection(
@@ -608,9 +612,8 @@ test('when an image store is provided, downloads and re-hosts the photo carousel
     silentOutput(),
     { query: 'headphones', softWallTimeoutMs: 100 },
     db,
-    imageStore,
+    photos,
   )
-  global.fetch = originalFetch
 
   expect(puts).toEqual(['listings/1/0.jpg'])
   const storedPhotoUrls = upsertCalls[0][11] as string

@@ -2,8 +2,7 @@ import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
 import { getListingCheckCandidate } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
-import type { ImageStore } from '../../src/platform/images'
-import type { PageDriver, ResolvedProxy } from '../../src/modules/collection'
+import type { ListingPhotos, PageDriver, ResolvedProxy } from '../../src/modules/collection'
 import { launchBrowser, createBrowserDriver } from '../../src/modules/collection/browser'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshPacer } from '../refreshPacer'
@@ -26,7 +25,7 @@ export const defaultDriverFactory: DriverFactory = async (proxy) => {
 // (see ../app.ts) by the time this runs - it only ever sees a parsed body.
 export function createRefreshHandler(
   db: DbClient,
-  imageStore: ImageStore,
+  photos: ListingPhotos,
   logger: Logger,
   pacer: RefreshPacer,
   driverFactory: DriverFactory,
@@ -75,7 +74,7 @@ export function createRefreshHandler(
         const result = await checkOneListing(
           driver,
           db,
-          imageStore,
+          photos,
           logger,
           candidate,
           settings['check_listings.soft_wall_timeout_ms'],

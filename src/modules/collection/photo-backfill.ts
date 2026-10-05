@@ -1,18 +1,17 @@
 import type { DelayFn } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { ImageStore } from '../../platform/images'
-import { storeListingPhotos } from '../../platform/images'
 import type { PageDriver } from './driver'
 import { extractDetailFields } from './extract/detail'
 import type { BackfillCandidate } from './listings'
 import { markListingPhotosUnavailable, upsertListing } from './listings'
+import type { ListingPhotos } from './photos'
 import { resolvePageState } from './run'
 
 export interface PhotoBackfillIo {
   driver: PageDriver
   db: DbClient
-  imageStore: ImageStore
+  photos: ListingPhotos
   logger: Logger
   delay: DelayFn
 }
@@ -21,7 +20,7 @@ export interface PhotoBackfillIo {
 // the full photo carousel and re-host it. Returns how many listings were
 // skipped as likely unavailable.
 export async function backfillListingPhotos(
-  { driver, db, imageStore, logger, delay }: PhotoBackfillIo,
+  { driver, db, photos, logger, delay }: PhotoBackfillIo,
   candidates: BackfillCandidate[],
 ): Promise<number> {
   // A soft-wall that persists after refresh looks identical, from the HTML
@@ -68,7 +67,7 @@ export async function backfillListingPhotos(
     }
 
     const detail = extractDetailFields(result.html)
-    const photoUrls = await storeListingPhotos(imageStore, logger, id, detail.listing_photos)
+    const photoUrls = await photos.save(id, detail.listing_photos)
 
     const merged = { ...candidate.raw_json, ...detail, stored_photo_urls: photoUrls }
     await upsertListing(db, merged)

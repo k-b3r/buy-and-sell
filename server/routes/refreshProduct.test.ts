@@ -4,9 +4,8 @@ import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createJobStore } from '../jobState'
 import { createLogger } from '../../src/platform/logger'
-import type { PageDriver } from '../../src/modules/collection'
+import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
 import type { DbClient } from '../../src/platform/storage'
-import type { ImageStore } from '../../src/platform/images'
 
 const LOG_PATH = 'data/tmp-refresh-product.log'
 
@@ -46,9 +45,9 @@ function fakeDb(): DbClient {
   }
 }
 
-function fakeImageStore(): ImageStore {
+function fakePhotos(): ListingPhotos {
   return {
-    put: async (key: string) => `https://images.example.com/${key}`,
+    save: async () => [],
     deleteAll: async () => {},
   }
 }
@@ -80,7 +79,7 @@ test('rejects a missing or non-integer productId', async () => {
   const lock = createRefreshLock()
   const handle = createRefreshProductHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     createJobStore(),
@@ -106,7 +105,7 @@ test('429s when the shared lock is already held', async () => {
   lock.acquire()
   const handle = createRefreshProductHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     createJobStore(),
@@ -128,7 +127,7 @@ test('503s and never starts a job when the tunnel is not reachable', async () =>
   let driverFactoryCalled = false
   const handle = createRefreshProductHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     jobs,
@@ -155,7 +154,7 @@ test('a product with no eligible listings completes immediately without acquirin
   const jobs = createJobStore()
   const handle = createRefreshProductHandler(
     db,
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     jobs,
@@ -185,7 +184,7 @@ test('starts the job and returns immediately, then the background loop checks ev
   const jobs = createJobStore()
   const handle = createRefreshProductHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     jobs,
@@ -225,7 +224,7 @@ test('cancellation requested after the first candidate stops the loop before the
   const lock = createRefreshLock()
   const handle = createRefreshProductHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     jobs,
@@ -259,7 +258,7 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
   const jobs = createJobStore()
   const handle = createRefreshProductHandler(
     fakeDb(),
-    fakeImageStore(),
+    fakePhotos(),
     logger,
     lock,
     jobs,

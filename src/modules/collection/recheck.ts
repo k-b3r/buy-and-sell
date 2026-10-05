@@ -1,11 +1,10 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { ImageStore } from '../../platform/images'
-import { deleteListingPhotos } from '../../platform/images'
 import type { PageDriver } from './driver'
 import { extractDetailFields } from './extract/detail'
 import type { CheckListingsCandidate } from './listings'
 import { deleteListing, flagListingRemoved, markListingAlive, markListingSold, refreshListingFields } from './listings'
+import type { ListingPhotos } from './photos'
 import { resolvePageState } from './run'
 
 export type CheckOneListingResult =
@@ -22,7 +21,7 @@ export type CheckOneListingResult =
 export async function checkOneListing(
   driver: PageDriver,
   db: DbClient,
-  imageStore: ImageStore,
+  photos: ListingPhotos,
   logger: Logger,
   candidate: CheckListingsCandidate,
   softWallTimeoutMs = 5000,
@@ -47,7 +46,7 @@ export async function checkOneListing(
       logger.info(
         `listing ${candidate.id} still soft-walled (flagged since ${candidate.flagged_removed_at}) — confirmed removed, deleting`,
       )
-      await deleteListingPhotos(imageStore, logger, candidate.id)
+      await photos.deleteAll(candidate.id)
       await deleteListing(db, candidate.id)
       return { status: 'removed' }
     }
@@ -72,7 +71,7 @@ export async function checkOneListing(
   // seller edited them since we first saw this listing, and re-sync photos
   // too if Facebook's own photo ids show the seller actually swapped them
   // (see refreshListingFields).
-  await refreshListingFields(db, imageStore, logger, candidate.source_photo_ids, detailFields)
+  await refreshListingFields(db, photos, logger, candidate.source_photo_ids, detailFields)
   await markListingAlive(db, candidate.id)
   return { status: 'alive' }
 }
@@ -83,7 +82,7 @@ export async function checkOneListing(
 export async function runCheckListings(
   driver: PageDriver,
   db: DbClient,
-  imageStore: ImageStore,
+  photos: ListingPhotos,
   logger: Logger,
   candidates: CheckListingsCandidate[],
   softWallTimeoutMs = 5000,
@@ -97,7 +96,7 @@ export async function runCheckListings(
     logger.info(`checking listing ${candidate.id}`)
     await driver.openListing({ id: candidate.id })
 
-    const result = await checkOneListing(driver, db, imageStore, logger, candidate, softWallTimeoutMs)
+    const result = await checkOneListing(driver, db, photos, logger, candidate, softWallTimeoutMs)
     if (result.status === 'hard-block') return
   }
 }

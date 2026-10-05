@@ -1,13 +1,12 @@
 import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
-import { runCollection } from '../../modules/collection'
 import { autoApprove } from '../../platform/review'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { realDelay } from '../../platform/delay'
 import { runWorkerProcess } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
-import { createR2ImageStore } from '../../platform/images'
-import { resolveProxy } from '../../modules/collection'
+import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
+import { createListingPhotos, resolveProxy, runCollection } from '../../modules/collection'
 import { runCollectLaps } from './laps'
 
 async function main() {
@@ -73,16 +72,21 @@ async function main() {
 
     const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
     const r2Configured = R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_KEY && R2_BUCKET_NAME && R2_PUBLIC_BASE_URL
-    const imageStore = r2Configured
-      ? createR2ImageStore({
-          accountId: R2_ACCOUNT_ID,
-          accessKeyId: R2_ACCESS_KEY_ID,
-          secretAccessKey: R2_SECRET_KEY,
-          bucket: R2_BUCKET_NAME,
-          publicBaseUrl: R2_PUBLIC_BASE_URL,
+    const photos = r2Configured
+      ? createListingPhotos({
+          store: createR2ImageStore({
+            accountId: R2_ACCOUNT_ID,
+            accessKeyId: R2_ACCESS_KEY_ID,
+            secretAccessKey: R2_SECRET_KEY,
+            bucket: R2_BUCKET_NAME,
+            publicBaseUrl: R2_PUBLIC_BASE_URL,
+          }),
+          fetchBytes: defaultFetchBytes,
+          compress: defaultCompressImage,
+          logger,
         })
       : undefined
-    if (imageStore) {
+    if (photos) {
       logger.info('R2 configured, photo carousels will be downloaded and re-hosted')
     } else {
       logger.warn('R2 not configured, skipping photo download (signed CDN URLs will expire)')
@@ -117,7 +121,7 @@ async function main() {
               daysSinceListed,
             },
             db,
-            imageStore,
+            photos,
           ),
       },
       { cycle, testRun: isTestRun(process.env), explicitQuery, explicitMaxItems },

@@ -3,7 +3,8 @@ import { runCheckListings, checkOneListing } from './recheck'
 import { createLogger } from '../../platform/logger'
 import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
-import type { ImageStore } from '../../platform/images'
+import type { ListingPhotos } from './photos'
+import { createListingPhotos } from './photos'
 
 const LOG_PATH = 'data/tmp-check-listings.log'
 
@@ -37,16 +38,21 @@ function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] }
   }
 }
 
-function fakeImageStore(): { store: ImageStore; deletedPrefixes: string[] } {
+function fakeImageStore(): { store: ListingPhotos; deletedPrefixes: string[] } {
   const deletedPrefixes: string[] = []
   return {
     deletedPrefixes,
-    store: {
-      put: async (key: string) => `https://images.example.com/${key}`,
-      deleteAll: async (prefix: string) => {
-        deletedPrefixes.push(prefix)
+    store: createListingPhotos({
+      store: {
+        put: async (key: string) => `https://images.example.com/${key}`,
+        deleteAll: async (prefix: string) => {
+          deletedPrefixes.push(prefix)
+        },
       },
-    },
+      fetchBytes: async () => null,
+      compress: async (body, contentType) => ({ body, contentType }),
+      logger: createLogger(LOG_PATH),
+    }),
   }
 }
 
