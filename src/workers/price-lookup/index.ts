@@ -100,7 +100,7 @@ async function main() {
         const products = pending.slice(0, limit)
         logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
         return {
-          dryRun: `marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
+          dryRun: `would call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
           run: () => runPriceLookup(clients, db, logger, products, realDelay, settings['price_lookup.pacing_delay_ms']),
         }
       }

@@ -37,7 +37,7 @@ async function main() {
       return async ({ settings }) => {
         const candidates = await getEnrichmentCandidates(db)
         return {
-          dryRun: `marketplace will call Groq for enrichment on ${candidates.length} products this lap`,
+          dryRun: `would call Groq for enrichment on ${candidates.length} products this lap`,
           run: async () => {
             await runProductEnrichment({ groq, db, logger, delay: realDelay }, candidates, {
               batchSize: settings['enrich_products.batch_size'],

@@ -48,9 +48,16 @@ async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<n
   return median?.medianPrice ?? null
 }
 
+export interface DiscountCheckListing {
+  id: string
+  productId: number
+  condition: string | null
+  priceAmount: number | null
+}
+
 // Real-market-price-first discount check for a single listing, called
 // inline right after its product has (or already had) retail/secondhand
-// pricing ensured in extract-products.ts - the "trigger is retail pricing
+// pricing ensured in catalog/run-extraction.ts - the "trigger is retail pricing
 // becoming available" design (2026-08-31), replacing the old
 // batch-of-siblings-only check that could never fire on a product's first
 // listing.
@@ -63,13 +70,6 @@ async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<n
 // behavior - a product with no retail was already excluded before this
 // function would ever be called). ON CONFLICT (listing_id) DO NOTHING
 // enforces "at most one notification per listing ever," same as before.
-export interface DiscountCheckListing {
-  id: string
-  productId: number
-  condition: string | null
-  priceAmount: number | null
-}
-
 export async function checkListingDiscount(
   db: DbClient,
   listing: DiscountCheckListing,

@@ -214,7 +214,7 @@ export async function getListingCheckCandidatesForProduct(
 }
 
 // Single-listing counterpart to getCheckListingsCandidates, for the on-demand
-// refresh path (see refresh-server.ts) - same shape (id + flagged_removed_at)
+// refresh path (see server/routes/refresh.ts) - same shape (id + flagged_removed_at)
 // so checkOneListing's two-phase soft-wall logic works identically whether
 // the candidate came from the batch query or a one-off request. Does NOT
 // filter on sold_at IS NULL - a sold listing can still be manually refreshed
