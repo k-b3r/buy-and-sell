@@ -1,4 +1,4 @@
-import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
+import { launchBrowserDriver } from '../../modules/collection/browser'
 import { autoApprove } from '../../platform/review'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { realDelay } from '../../platform/delay'
@@ -101,10 +101,7 @@ async function main() {
           acquire: () => acquireBrowserLock(BROWSER_LOCK_PATH, logger),
           release: () => releaseBrowserLock(BROWSER_LOCK_PATH),
         },
-        openBrowser: async () => {
-          const { page, close } = await launchBrowser({ proxy })
-          return { driver: createBrowserDriver(page), close }
-        },
+        openBrowser: () => launchBrowserDriver(proxy),
         collectQuery: (driver, { query, maxItems }, settings) =>
           runCollection(
             driver,

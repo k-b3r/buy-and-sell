@@ -10,3 +10,18 @@ export interface PageDriver {
   waitRandom(minMs: number, maxMs: number): Promise<void>
   fetchNextPage(cursor: PageCursor, lsd: string, query: string): Promise<string>
 }
+
+// A launched browser's driver plus the handle that tears the browser down.
+export interface BrowserDriver {
+  driver: PageDriver
+  close: () => Promise<void>
+}
+
+export interface BrowserProxy {
+  server: string
+  username?: string
+  password?: string
+}
+
+// launchBrowserDriver's shape (browser.ts), injected where tests swap in a fake browser.
+export type DriverFactory = (proxy?: BrowserProxy) => Promise<BrowserDriver>

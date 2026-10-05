@@ -1,6 +1,6 @@
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
+import { launchBrowserDriver } from '../../modules/collection/browser'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import { backfillListingPhotos, createListingPhotos, getBackfillCandidates } from '../../modules/collection'
@@ -58,8 +58,7 @@ async function main() {
   const todo = limit !== undefined ? pending.slice(0, limit) : pending
   logger.info(`${pending.length} pending photo backfill, processing ${todo.length} this run`)
 
-  const { page, close } = await launchBrowser({ headless: !headed })
-  const driver = createBrowserDriver(page)
+  const { driver, close } = await launchBrowserDriver(undefined, { headless: !headed })
 
   let softWallSkipCount = 0
   try {

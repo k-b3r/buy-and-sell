@@ -7,11 +7,9 @@ import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../
 import { createListingPhotos } from '../src/modules/collection'
 import { createApp } from './app'
 import { createProxyGuard } from './proxyGuard'
-import { createRefreshHandler, defaultDriverFactory as launchRefreshDriver } from './routes/refresh'
-import {
-  createRefreshProductHandler,
-  defaultDriverFactory as launchProductRefreshDriver,
-} from './routes/refreshProduct'
+import { launchBrowserDriver } from '../src/modules/collection/browser'
+import { createRefreshHandler } from './routes/refresh'
+import { createRefreshProductHandler } from './routes/refreshProduct'
 import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
 import { createLogsHandler } from './routes/logs'
@@ -67,14 +65,16 @@ async function main() {
   const refreshLock = createRefreshLock()
   const refreshPacer = createRefreshPacer(refreshLock)
   const jobs = createJobStore()
-  // Every browser launch goes through a residential proxy (see proxyGuard.ts).
+  // Every browser launch goes through a residential proxy (see proxyGuard.ts):
+  // both refresh handlers pass the guard's resolved proxy to launchBrowserDriver,
+  // with no direct-IP fallback.
   const proxyGuard = createProxyGuard(process.env)
 
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const app = createApp(apiKey, {
-    'POST /refresh': createRefreshHandler(pool, photos, logger, refreshPacer, launchRefreshDriver, proxyGuard),
+    'POST /refresh': createRefreshHandler(pool, photos, logger, refreshPacer, launchBrowserDriver, proxyGuard),
     'POST /refresh-product': createRefreshProductHandler(
       pool,
       photos,
@@ -82,7 +82,7 @@ async function main() {
       refreshLock,
       jobs,
       refreshPacer,
-      launchProductRefreshDriver,
+      launchBrowserDriver,
       proxyGuard,
     ),
     'GET /refresh-job': createRefreshJobStatusHandler(jobs),

@@ -1,5 +1,5 @@
 import { chromium, type Page } from 'playwright'
-import type { PageDriver } from './driver'
+import type { BrowserDriver, BrowserProxy, PageDriver } from './driver'
 import type { GridListing } from './extract/grid'
 import type { PageCursor } from './paginate'
 
@@ -17,15 +17,21 @@ export function shouldBlockResource(resourceType: string): boolean {
   return BLOCKED_RESOURCE_TYPES.has(resourceType)
 }
 
-export interface BrowserProxy {
-  server: string
-  username?: string
-  password?: string
+// Collection's browser entry: the one place a Chromium gets launched. Callers
+// route through whichever residential proxy they resolved (see proxy.ts and
+// server/proxyGuard.ts); headless is only turned off for local inspection.
+export async function launchBrowserDriver(
+  proxy?: BrowserProxy,
+  options: { headless?: boolean } = {},
+): Promise<BrowserDriver> {
+  const { page, close } = await launchBrowser({ headless: options.headless, proxy })
+  return { driver: createBrowserDriver(page), close }
 }
 
-export async function launchBrowser(
-  options: { headless?: boolean; proxy?: BrowserProxy } = {},
-): Promise<{ close: () => Promise<void>; page: Page }> {
+async function launchBrowser(options: {
+  headless?: boolean
+  proxy?: BrowserProxy
+}): Promise<{ close: () => Promise<void>; page: Page }> {
   const browser = await chromium.launch({
     headless: options.headless ?? true,
     proxy: options.proxy,
@@ -59,7 +65,7 @@ export async function launchBrowser(
   return { page, close: () => browser.close() }
 }
 
-export function createBrowserDriver(page: Page): PageDriver {
+function createBrowserDriver(page: Page): PageDriver {
   return {
     async gotoSearch(query: string, daysSinceListed: number) {
       // No location parameter here at all — Facebook has no reliable free-text

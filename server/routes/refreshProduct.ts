@@ -1,24 +1,14 @@
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
-import type { ListingPhotos } from '../../src/modules/collection'
+import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
 import { getListingCheckCandidatesForProduct } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshLock } from '../refreshLock'
 import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
-import type { DriverFactory } from './refresh'
-import { launchBrowser, createBrowserDriver } from '../../src/modules/collection/browser'
 import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
-
-// Routes through whichever egress the proxy guard resolved (Webshare
-// or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
-// direct-IP fallback.
-export const defaultDriverFactory: DriverFactory = async (proxy) => {
-  const { page, close } = await launchBrowser({ proxy })
-  return { driver: createBrowserDriver(page), close }
-}
 
 // Dashboard's "Refresh all listings" button on a product page. Shares
 // RefreshLock with the single-listing handler (routes/refresh.ts) - one

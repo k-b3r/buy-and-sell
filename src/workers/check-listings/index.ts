@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
+import { launchBrowserDriver } from '../../modules/collection/browser'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
@@ -94,8 +94,7 @@ async function main() {
             // have had, for free.
             await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
             try {
-              const { page, close } = await launchBrowser({ proxy })
-              const driver = createBrowserDriver(page)
+              const { driver, close } = await launchBrowserDriver(proxy)
               try {
                 await runCheckListings(
                   driver,

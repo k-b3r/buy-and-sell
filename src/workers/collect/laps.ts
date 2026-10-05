@@ -1,4 +1,4 @@
-import type { PageDriver } from '../../modules/collection'
+import type { BrowserDriver, PageDriver } from '../../modules/collection'
 import type { DelayFn } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
@@ -56,17 +56,12 @@ function isBrowserUnusableError(err: unknown): boolean {
   return err instanceof Error && BROWSER_UNUSABLE_ERROR_SUBSTRINGS.some((s) => err.message.includes(s))
 }
 
-interface CollectBrowser {
-  driver: PageDriver
-  close: () => Promise<void>
-}
-
 export interface CollectLapsDeps {
   db: DbClient
   logger: Logger
   delay: DelayFn
   browserLock: { acquire: () => Promise<void>; release: () => void }
-  openBrowser: () => Promise<CollectBrowser>
+  openBrowser: () => Promise<BrowserDriver>
   // One keyword's collection run (runCollection), with this lap's settings.
   collectQuery: (driver: PageDriver, query: LapQuery, settings: Record<string, number>) => Promise<void>
 }

@@ -3,7 +3,7 @@
 // browser.ts (Playwright) is deliberately absent: it is the module's second
 // entry, imported by path only where a browser is launched, so a light import
 // never loads the browser.
-export type { PageDriver } from './driver'
+export type { BrowserDriver, DriverFactory, PageDriver } from './driver'
 export { getFarListingCandidates, purgeFarListings } from './far-listings'
 export {
   getBackfillCandidates,

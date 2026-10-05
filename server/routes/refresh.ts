@@ -2,22 +2,11 @@ import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
 import { getListingCheckCandidate } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
-import type { ListingPhotos, PageDriver, ResolvedProxy } from '../../src/modules/collection'
-import { launchBrowser, createBrowserDriver } from '../../src/modules/collection/browser'
+import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshPacer } from '../refreshPacer'
 import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
-
-export type DriverFactory = (proxy?: ResolvedProxy) => Promise<{ driver: PageDriver; close: () => Promise<void> }>
-
-// Routes through whichever egress the proxy guard resolved (Webshare
-// or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
-// direct-IP fallback.
-export const defaultDriverFactory: DriverFactory = async (proxy) => {
-  const { page, close } = await launchBrowser({ proxy })
-  return { driver: createBrowserDriver(page), close }
-}
 
 // Dashboard's "Refresh" button (on-demand, one listing at a time) lands here
 // rather than the batch getCheckListingsCandidates backlog - see checkOneListing
