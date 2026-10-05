@@ -1,11 +1,11 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runProductExtraction } from './index'
-import type { ExtractionClients } from './index'
+import { runProductExtraction } from './run-extraction'
+import type { ExtractionClients } from './run-extraction'
 import { createLogger } from '../../platform/logger'
-import { normalizeVariantTier } from '../../modules/catalog'
+import { normalizeVariantTier } from './products'
 import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { ExtractionCandidate } from '../../modules/catalog'
+import type { ExtractionCandidate } from './product-storage'
 
 const LOG_PATH = 'data/tmp-extract.log'
 
