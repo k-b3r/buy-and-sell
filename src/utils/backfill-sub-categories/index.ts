@@ -24,7 +24,7 @@ async function main() {
 
   try {
     const candidates = await getSubCategoryBackfillCandidates(pool)
-    await runSubCategoryBackfill(groq, pool, logger, candidates)
+    await runSubCategoryBackfill({ groq, db: pool, logger }, candidates)
   } finally {
     await pool.end()
   }

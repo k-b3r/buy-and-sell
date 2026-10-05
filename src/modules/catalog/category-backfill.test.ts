@@ -42,7 +42,7 @@ test('updates category for each product in the batch response, in a single call 
     { id: 17, base_model: 'RTX 2060', variant_tier: null },
   ]
 
-  await runCategoryBackfill(groq, db, logger, candidates)
+  await runCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(1)
   expect(updateCalls[0]).toEqual([363, 'Phones & Tablets', 17, 'PC Components'])
@@ -64,7 +64,7 @@ test('batches candidates at 100 per Groq call', async () => {
     variant_tier: null,
   }))
 
-  await runCategoryBackfill(groq, db, logger, candidates)
+  await runCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(callCount).toBe(3)
 })
@@ -75,7 +75,7 @@ test('a malformed batch response (no results array) is logged and skipped, witho
   const logger = createLogger(LOG_PATH)
   const candidates: CategoryBackfillCandidate[] = [{ id: 1, base_model: 'X', variant_tier: null }]
 
-  await runCategoryBackfill(groq, db, logger, candidates)
+  await runCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
@@ -95,7 +95,7 @@ test('an item with a category outside the fixed list is logged and skipped, whil
     { id: 2, base_model: 'B', variant_tier: null },
   ]
 
-  await runCategoryBackfill(groq, db, logger, candidates)
+  await runCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(1)
   expect(updateCalls[0]).toEqual([1, 'Phones & Tablets'])
@@ -108,7 +108,7 @@ test('an item whose id has no matching candidate in the batch is logged and skip
   const logger = createLogger(LOG_PATH)
   const candidates: CategoryBackfillCandidate[] = [{ id: 1, base_model: 'A', variant_tier: null }]
 
-  await runCategoryBackfill(groq, db, logger, candidates)
+  await runCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(0)
   const logContents = readFileSync(LOG_PATH, 'utf-8')
@@ -134,7 +134,7 @@ test('a real 429 quota error is not retried — logged and stops the run cleanly
     variant_tier: null,
   }))
 
-  await expect(runCategoryBackfill(groq, db, logger, candidates)).resolves.toBeUndefined()
+  await expect(runCategoryBackfill({ groq, db, logger }, candidates)).resolves.toBeUndefined()
 
   expect(callCount).toBe(1)
   expect(updateCalls).toHaveLength(0)
@@ -157,9 +157,17 @@ test('a non-quota Groq error (e.g. an occasional structural glitch) is retried a
   const candidates: CategoryBackfillCandidate[] = [{ id: 1, base_model: 'X', variant_tier: null }]
   const delays: number[] = []
 
-  await runCategoryBackfill(groq, db, logger, candidates, async (ms) => {
-    delays.push(ms)
-  })
+  await runCategoryBackfill(
+    {
+      groq,
+      db,
+      logger,
+      delay: async (ms) => {
+        delays.push(ms)
+      },
+    },
+    candidates,
+  )
 
   expect(callCount).toBe(2)
   expect(updateCalls).toHaveLength(1)
@@ -178,7 +186,7 @@ test('a persistent non-quota Groq error gives up after 3 attempts, logged, stops
   const logger = createLogger(LOG_PATH)
   const candidates: CategoryBackfillCandidate[] = [{ id: 1, base_model: 'X', variant_tier: null }]
 
-  await runCategoryBackfill(groq, db, logger, candidates, async () => {})
+  await runCategoryBackfill({ groq, db, logger, delay: async () => {} }, candidates)
 
   expect(callCount).toBe(3)
   expect(updateCalls).toHaveLength(0)

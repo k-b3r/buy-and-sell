@@ -22,12 +22,17 @@ interface RawCategoryItem {
   category?: unknown
 }
 
+// I/O for both category backfills (see sub-category-backfill.ts).
+export interface CategoryBackfillIo {
+  groq: GroqClient
+  db: DbClient
+  logger: Logger
+  delay?: DelayFn
+}
+
 export async function runCategoryBackfill(
-  groq: GroqClient,
-  db: DbClient,
-  logger: Logger,
+  { groq, db, logger, delay = realDelay }: CategoryBackfillIo,
   candidates: CategoryBackfillCandidate[],
-  delay: DelayFn = realDelay,
 ): Promise<void> {
   logger.info(`${candidates.length} products to categorize`)
 

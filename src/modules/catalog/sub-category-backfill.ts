@@ -1,9 +1,7 @@
 import type { Logger } from '../../platform/logger'
-import type { GroqClient } from '../../domains/llm-clients'
 import { QuotaExhaustedError, withRetryAndSplit } from '../../domains/llm-clients'
-import type { DbClient } from '../../platform/storage'
-import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
+import type { CategoryBackfillIo } from './category-backfill'
 import { updateProductSubCategories } from './product-storage'
 import { buildSubCategoryBackfillPrompt, isSubCategory, SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA } from './products'
 import type { SubCategoryBackfillCandidate } from './products'
@@ -52,11 +50,8 @@ function parseAssignments(
 // {results: {items: [...]}}, which Groq's strict-mode validator rejects as a
 // 400. A skipped item stays sub_category_id IS NULL for the next run.
 export async function runSubCategoryBackfill(
-  groq: GroqClient,
-  db: DbClient,
-  logger: Logger,
+  { groq, db, logger, delay = realDelay }: CategoryBackfillIo,
   candidates: SubCategoryBackfillCandidate[],
-  delay: DelayFn = realDelay,
   batchSize: number = BATCH_SIZE,
 ): Promise<void> {
   logger.info(`${candidates.length} products to sub-categorize`)

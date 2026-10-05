@@ -42,7 +42,7 @@ test('updates sub_category for each product in the batch response, in a single c
     { id: 17, base_model: 'RTX 2060', variant_tier: null, category: 'PC Components' },
   ]
 
-  await runSubCategoryBackfill(groq, db, logger, candidates)
+  await runSubCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(1)
   expect(updateCalls[0]).toEqual([363, 'Smartphones', 17, 'Graphics Cards'])
@@ -65,7 +65,7 @@ test('batches candidates at BATCH_SIZE per Groq call', async () => {
     category: 'Other',
   }))
 
-  await runSubCategoryBackfill(groq, db, logger, candidates)
+  await runSubCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(callCount).toBe(5)
 })
@@ -76,7 +76,7 @@ test('a malformed batch response (no results array) is logged and skipped, witho
   const logger = createLogger(LOG_PATH)
   const candidates: SubCategoryBackfillCandidate[] = [{ id: 1, base_model: 'X', variant_tier: null, category: 'Other' }]
 
-  await runSubCategoryBackfill(groq, db, logger, candidates)
+  await runSubCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
@@ -96,7 +96,7 @@ test('an item with a sub-category outside the fixed list is logged and skipped, 
     { id: 2, base_model: 'B', variant_tier: null, category: 'Other' },
   ]
 
-  await runSubCategoryBackfill(groq, db, logger, candidates)
+  await runSubCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(1)
   expect(updateCalls[0]).toEqual([1, 'Smartphones'])
@@ -109,7 +109,7 @@ test('an item whose id has no matching candidate in the batch is logged and skip
   const logger = createLogger(LOG_PATH)
   const candidates: SubCategoryBackfillCandidate[] = [{ id: 1, base_model: 'A', variant_tier: null, category: 'Other' }]
 
-  await runSubCategoryBackfill(groq, db, logger, candidates)
+  await runSubCategoryBackfill({ groq, db, logger }, candidates)
 
   expect(updateCalls).toHaveLength(0)
   const logContents = readFileSync(LOG_PATH, 'utf-8')
@@ -136,7 +136,7 @@ test('a real 429 quota error is not retried — logged and stops the run cleanly
     category: 'Other',
   }))
 
-  await expect(runSubCategoryBackfill(groq, db, logger, candidates)).resolves.toBeUndefined()
+  await expect(runSubCategoryBackfill({ groq, db, logger }, candidates)).resolves.toBeUndefined()
 
   expect(callCount).toBe(1)
   expect(updateCalls).toHaveLength(0)
@@ -159,9 +159,17 @@ test('a non-quota Groq error (e.g. an occasional structural glitch) is retried a
   const candidates: SubCategoryBackfillCandidate[] = [{ id: 1, base_model: 'X', variant_tier: null, category: 'Other' }]
   const delays: number[] = []
 
-  await runSubCategoryBackfill(groq, db, logger, candidates, async (ms) => {
-    delays.push(ms)
-  })
+  await runSubCategoryBackfill(
+    {
+      groq,
+      db,
+      logger,
+      delay: async (ms) => {
+        delays.push(ms)
+      },
+    },
+    candidates,
+  )
 
   expect(callCount).toBe(2)
   expect(updateCalls).toHaveLength(1)
@@ -184,7 +192,7 @@ test('a persistent non-quota Groq error at batch size 1 gives up on that single 
     { id: 2, base_model: 'Y', variant_tier: null, category: 'Other' },
   ]
 
-  await runSubCategoryBackfill(groq, db, logger, candidates, async () => {}, 1)
+  await runSubCategoryBackfill({ groq, db, logger, delay: async () => {} }, candidates, 1)
 
   expect(callCount).toBe(4)
   // updateProductSubCategories no-ops on an empty assignment list, so the
@@ -226,7 +234,7 @@ test('a persistent non-quota Groq error on a multi-item batch splits it in half 
     category: 'Other',
   }))
 
-  await runSubCategoryBackfill(groq, db, logger, candidates, async () => {})
+  await runSubCategoryBackfill({ groq, db, logger, delay: async () => {} }, candidates)
 
   // 3 failed attempts at size 4, then splits into two size-2 halves, each succeeding on its first try.
   expect(calls).toEqual([4, 4, 4, 2, 2])
@@ -253,7 +261,7 @@ test('a real 429 quota error still stops the whole run, not just the current bat
     { id: 2, base_model: 'Y', variant_tier: null, category: 'Other' },
   ]
 
-  await runSubCategoryBackfill(groq, db, logger, candidates, async () => {}, 1)
+  await runSubCategoryBackfill({ groq, db, logger, delay: async () => {} }, candidates, 1)
 
   expect(callCount).toBe(1)
   expect(updateCalls).toHaveLength(0)
