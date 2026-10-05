@@ -1,37 +1,30 @@
+import type { DelayFn } from '../../src/platform/delay'
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
-import { getListingCheckCandidate } from '../../src/domains/marketplace'
-import type { ImageStore } from '../../src/platform/images'
-import type { PageDriver, ResolvedProxy } from '../../src/domains/marketplace'
-import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace/browser'
-import { checkOneListing } from '../../src/workers/check-listings'
+import { getListingCheckCandidate } from '../../src/modules/collection'
+import { checkOneListing } from '../../src/modules/collection'
+import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshPacer } from '../refreshPacer'
 import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
 
-export type DriverFactory = (proxy?: ResolvedProxy) => Promise<{ driver: PageDriver; close: () => Promise<void> }>
-
-// Routes through whichever egress the proxy guard resolved (Webshare
-// or the laptop-relayed tunnel) - see proxyGuard.ts for why there's no
-// direct-IP fallback.
-export const defaultDriverFactory: DriverFactory = async (proxy) => {
-  const { page, close } = await launchBrowser({ proxy })
-  return { driver: createBrowserDriver(page), close }
-}
-
 // Dashboard's "Refresh" button (on-demand, one listing at a time) lands here
 // rather than the batch getCheckListingsCandidates backlog - see checkOneListing
 // for the shared core logic. Auth/JSON-parsing/routing already happened
 // (see ../app.ts) by the time this runs - it only ever sees a parsed body.
-export function createRefreshHandler(
-  db: DbClient,
-  imageStore: ImageStore,
-  logger: Logger,
-  pacer: RefreshPacer,
-  driverFactory: DriverFactory,
-  tunnelCheck: () => Promise<TunnelCheckResult>,
-): RouteHandler {
+export interface RefreshDeps {
+  db: DbClient
+  photos: ListingPhotos
+  logger: Logger
+  delay: DelayFn
+  pacer: RefreshPacer
+  driverFactory: DriverFactory
+  tunnelCheck: () => Promise<TunnelCheckResult>
+}
+
+export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
+  const { db, photos, logger, delay, pacer, driverFactory, tunnelCheck } = deps
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
     const id = (body as Record<string, unknown> | null)?.id
     if (typeof id !== 'string' || id.trim() === '') {
@@ -73,10 +66,7 @@ export function createRefreshHandler(
         await driver.openListing({ id })
         const settings = await loadSettings(db, ['check_listings.soft_wall_timeout_ms'])
         const result = await checkOneListing(
-          driver,
-          db,
-          imageStore,
-          logger,
+          { driver, db, photos, logger, delay },
           candidate,
           settings['check_listings.soft_wall_timeout_ms'],
         )

@@ -35,7 +35,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "depcruise": "depcruise src server --config .dependency-cruiser.cjs --ignore-known",
+    "depcruise": "depcruise src server --config .dependency-cruiser.cjs",
     "knip": "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgres://knip@localhost/unused} knip --no-progress",
     "docs:check": "pnpm gen-arch-doc && git diff --exit-code -- docs-site",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server && tsc --noEmit -p dashboard",

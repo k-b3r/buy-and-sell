@@ -60,7 +60,105 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/collection/browser.ts
+
+**Interactions:** imports `./driver`, `./extract/grid`, `./paginate`
+
+### `shouldBlockResource(resourceType: string): boolean`
+
+_(undocumented)_
+
+### `launchBrowserDriver(proxy?: BrowserProxy, options: { headless?: boolean } = {}): Promise<BrowserDriver>`
+
+_(undocumented)_
+
+## src/modules/collection/driver.ts
+
+**Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./extract/grid`, `./paginate`, `./photos`
+
+### `isBrowserUnusableError(err: unknown): boolean`
+
+_(undocumented)_
+
+## src/modules/collection/extract/detail.ts
+
+### `extractDetailFields(html: string): Record<string, unknown>`
+
+_(undocumented)_
+
+## src/modules/collection/extract/grid.ts
+
+### `looksLikeListing(obj: unknown): obj is Record<string, unknown>`
+
+_(undocumented)_
+
+### `extractGridListings(html: string): GridListing[]`
+
+_(undocumented)_
+
+## src/modules/collection/far-listings.ts
+
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./listings`, `./location`, `./photos`
+
+### `filterFarCandidates(rows: { id: string; location_lat: string | number | null; location_lng: string | number | null }[]): FarListingCandidate[]`
+
+_(undocumented)_
+
+### `getFarListingCandidates(db: DbClient): Promise<FarListingCandidate[]>`
+
+_(undocumented)_
+
+### `purgeFarListings(db: DbClient, logger: Logger, photos: ListingPhotos, candidates: FarListingCandidate[]): Promise<number>`
+
+_(undocumented)_
+
+## src/modules/collection/httpProxy.ts
+
+### `checkHttpProxyAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: HttpConnect } = {}): Promise<boolean>`
+
+_(undocumented)_
+
 ## src/modules/collection/index.ts
+
+### `isBrowserUnusableError(err: unknown): boolean`
+
+_(undocumented)_
+
+### `getFarListingCandidates(db: DbClient): Promise<FarListingCandidate[]>`
+
+_(undocumented)_
+
+### `purgeFarListings(db: DbClient, logger: Logger, photos: ListingPhotos, candidates: FarListingCandidate[]): Promise<number>`
+
+_(undocumented)_
+
+### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
+
+_(undocumented)_
+
+### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
+
+_(undocumented)_
+
+### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number>`
+
+_(undocumented)_
+
+### `createListingPhotos({ store, fetchBytes, compress, logger }: ListingPhotosIo): ListingPhotos`
+
+_(undocumented)_
+
+### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
+
+_(undocumented)_
 
 ### `getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]>`
 
@@ -87,6 +185,122 @@ _(undocumented)_
 _(undocumented)_
 
 ### `unsaveListing(db: QueryClient, listingId: string): Promise<void>`
+
+_(undocumented)_
+
+### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
+
+_(undocumented)_
+
+### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+
+_(undocumented)_
+
+### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/listings.ts
+
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `../pricing`, `../real-estate`, `./photos`
+
+### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+
+_(undocumented)_
+
+### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
+
+_(undocumented)_
+
+### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
+
+_(undocumented)_
+
+### `markListingAlive(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `markListingSold(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `flagListingRemoved(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `deleteListing(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `refreshListingFields({ db, photos, logger }: { db: DbClient; photos: ListingPhotos; logger: Logger }, storedPhotoIds: string[] | null, listing: Record<string, unknown>): Promise<void>`
+
+_(undocumented)_
+
+### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
+
+_(undocumented)_
+
+### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/location.ts
+
+### `distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number`
+
+_(undocumented)_
+
+### `isWithinServiceArea(listing: Record<string, unknown>): boolean`
+
+_(undocumented)_
+
+## src/modules/collection/paginate.ts
+
+### `extractCursor(html: string): PageCursor | null`
+
+_(undocumented)_
+
+### `extractLsd(html: string): string | null`
+
+_(undocumented)_
+
+### `parsePaginationResponse(json: string): PaginationPage | null`
+
+_(undocumented)_
+
+## src/modules/collection/photo-backfill.ts
+
+**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./run`
+
+### `backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number>`
+
+_(undocumented)_
+
+## src/modules/collection/photos.ts
+
+**Interactions:** imports `../../platform/images`, `../../platform/logger`
+
+### `createListingPhotos({ store, fetchBytes, compress, logger }: ListingPhotosIo): ListingPhotos`
+
+_(undocumented)_
+
+## src/modules/collection/proxy.ts
+
+**Interactions:** imports `./httpProxy`, `./tunnel`
+
+### `createDefaultProxyChecker(checkers: { socks5: ProxyChecker; http: ProxyChecker } = { socks5: checkTunnelAlive, http: checkHttpProxyAlive }): ProxyChecker`
+
+_(undocumented)_
+
+### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
 
 _(undocumented)_
 
@@ -119,6 +333,46 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getListingProductId(db: QueryClient, listingId: string): Promise<number | null>`
+
+_(undocumented)_
+
+## src/modules/collection/recheck.ts
+
+**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./run`
+
+### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
+
+_(undocumented)_
+
+### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/run.ts
+
+**Interactions:** imports `../../platform/review`, `../../platform/storage`, `./driver`, `./extract/detail`, `./extract/grid`, `./listings`, `./location`, `./paginate`, `./photos`, `./wall`
+
+### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/tunnel.ts
+
+### `checkTunnelAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: SocksConnect } = {}): Promise<boolean>`
+
+_(undocumented)_
+
+## src/modules/collection/wall.ts
+
+### `detectPageState(html: string): PageState`
 
 _(undocumented)_
 

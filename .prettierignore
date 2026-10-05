@@ -15,4 +15,3 @@ REPO_MAP.md
 dashboard/next-env.d.ts
 test-results
 playwright-report
-.dependency-cruiser-known-violations.json

@@ -4,11 +4,12 @@ import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createJobStore } from '../jobState'
 import { createLogger } from '../../src/platform/logger'
-import type { PageDriver } from '../../src/domains/marketplace'
+import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
 import type { DbClient } from '../../src/platform/storage'
-import type { ImageStore } from '../../src/platform/images'
 
 const LOG_PATH = 'data/tmp-refresh-product.log'
+
+const noDelay = async () => {}
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
@@ -46,9 +47,9 @@ function fakeDb(): DbClient {
   }
 }
 
-function fakeImageStore(): ImageStore {
+function fakePhotos(): ListingPhotos {
   return {
-    put: async (key: string) => `https://images.example.com/${key}`,
+    save: async () => [],
     deleteAll: async () => {},
   }
 }
@@ -78,16 +79,17 @@ const okTunnel = async () => ({ ok: true as const })
 test('rejects a missing or non-integer productId', async () => {
   const logger = createLogger(LOG_PATH)
   const lock = createRefreshLock()
-  const handle = createRefreshProductHandler(
-    fakeDb(),
-    fakeImageStore(),
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
-    createJobStore(),
-    createRefreshPacer(lock),
-    driverFactory(makeDriver()).factory,
-    okTunnel,
-  )
+    jobs: createJobStore(),
+    pacer: createRefreshPacer(lock),
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+  })
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "productId"' } })
   expect(await handle({ productId: '42' })).toEqual({
@@ -104,16 +106,17 @@ test('429s when the shared lock is already held', async () => {
   const logger = createLogger(LOG_PATH)
   const lock = createRefreshLock()
   lock.acquire()
-  const handle = createRefreshProductHandler(
-    fakeDb(),
-    fakeImageStore(),
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
-    createJobStore(),
-    createRefreshPacer(lock),
-    driverFactory(makeDriver()).factory,
-    okTunnel,
-  )
+    jobs: createJobStore(),
+    pacer: createRefreshPacer(lock),
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+  })
 
   const result = await handle({ productId: 42 })
 
@@ -126,19 +129,20 @@ test('503s and never starts a job when the tunnel is not reachable', async () =>
   const jobs = createJobStore()
   const badTunnel = async () => ({ ok: false as const, error: 'SOCKS_PROXY is not configured' })
   let driverFactoryCalled = false
-  const handle = createRefreshProductHandler(
-    fakeDb(),
-    fakeImageStore(),
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
     jobs,
-    createRefreshPacer(lock),
-    async () => {
+    pacer: createRefreshPacer(lock),
+    driverFactory: async () => {
       driverFactoryCalled = true
       return { driver: makeDriver(), close: async () => {} }
     },
-    badTunnel,
-  )
+    tunnelCheck: badTunnel,
+  })
 
   const result = await handle({ productId: 42 })
 
@@ -153,16 +157,17 @@ test('a product with no eligible listings completes immediately without acquirin
   const db: DbClient = { query: async () => ({ rows: [] }) } // no candidates
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(
+  const handle = createRefreshProductHandler({
     db,
-    fakeImageStore(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
     jobs,
-    createRefreshPacer(lock),
-    driverFactory(makeDriver()).factory,
-    okTunnel,
-  )
+    pacer: createRefreshPacer(lock),
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+  })
 
   const result = await handle({ productId: 42 })
 
@@ -183,16 +188,17 @@ test('starts the job and returns immediately, then the background loop checks ev
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(
-    fakeDb(),
-    fakeImageStore(),
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
     jobs,
-    createRefreshPacer(lock),
-    factory,
-    okTunnel,
-  )
+    pacer: createRefreshPacer(lock),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+  })
 
   const result = await handle({ productId: 42 })
 
@@ -223,16 +229,17 @@ test('cancellation requested after the first candidate stops the loop before the
   })
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
-  const handle = createRefreshProductHandler(
-    fakeDb(),
-    fakeImageStore(),
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
     jobs,
-    createRefreshPacer(lock),
-    factory,
-    okTunnel,
-  )
+    pacer: createRefreshPacer(lock),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+  })
 
   await handle({ productId: 42 })
   await closed
@@ -257,16 +264,17 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
   const { factory, closed } = driverFactory(driver)
   const lock = createRefreshLock()
   const jobs = createJobStore()
-  const handle = createRefreshProductHandler(
-    fakeDb(),
-    fakeImageStore(),
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     lock,
     jobs,
-    createRefreshPacer(lock),
-    factory,
-    okTunnel,
-  )
+    pacer: createRefreshPacer(lock),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+  })
 
   await handle({ productId: 42 })
   await closed

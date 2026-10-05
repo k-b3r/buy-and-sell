@@ -3,14 +3,14 @@ import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
-import { createR2ImageStore } from '../src/platform/images'
+import { realDelay } from '../src/platform/delay'
+import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../src/platform/images'
+import { createListingPhotos } from '../src/modules/collection'
 import { createApp } from './app'
 import { createProxyGuard } from './proxyGuard'
-import { createRefreshHandler, defaultDriverFactory as launchRefreshDriver } from './routes/refresh'
-import {
-  createRefreshProductHandler,
-  defaultDriverFactory as launchProductRefreshDriver,
-} from './routes/refreshProduct'
+import { launchBrowserDriver } from '../src/modules/collection/browser'
+import { createRefreshHandler } from './routes/refresh'
+import { createRefreshProductHandler } from './routes/refreshProduct'
 import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
 import { createLogsHandler } from './routes/logs'
@@ -41,12 +41,17 @@ async function main() {
 
   const logger = createLogger('server.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
-  const imageStore = createR2ImageStore({
-    accountId: R2_ACCOUNT_ID,
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_KEY,
-    bucket: R2_BUCKET_NAME,
-    publicBaseUrl: R2_PUBLIC_BASE_URL,
+  const photos = createListingPhotos({
+    store: createR2ImageStore({
+      accountId: R2_ACCOUNT_ID,
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_KEY,
+      bucket: R2_BUCKET_NAME,
+      publicBaseUrl: R2_PUBLIC_BASE_URL,
+    }),
+    fetchBytes: defaultFetchBytes,
+    compress: defaultCompressImage,
+    logger,
   })
 
   // Shared across the single-listing and bulk product-refresh handlers -
@@ -61,24 +66,26 @@ async function main() {
   const refreshLock = createRefreshLock()
   const refreshPacer = createRefreshPacer(refreshLock)
   const jobs = createJobStore()
-  // Every browser launch goes through a residential proxy (see proxyGuard.ts).
+  // Every browser launch goes through a residential proxy (see proxyGuard.ts):
+  // both refresh handlers pass the guard's resolved proxy to launchBrowserDriver,
+  // with no direct-IP fallback.
   const proxyGuard = createProxyGuard(process.env)
+  const refreshDeps = {
+    db: pool,
+    photos,
+    logger,
+    delay: realDelay,
+    pacer: refreshPacer,
+    driverFactory: launchBrowserDriver,
+    tunnelCheck: proxyGuard,
+  }
 
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const app = createApp(apiKey, {
-    'POST /refresh': createRefreshHandler(pool, imageStore, logger, refreshPacer, launchRefreshDriver, proxyGuard),
-    'POST /refresh-product': createRefreshProductHandler(
-      pool,
-      imageStore,
-      logger,
-      refreshLock,
-      jobs,
-      refreshPacer,
-      launchProductRefreshDriver,
-      proxyGuard,
-    ),
+    'POST /refresh': createRefreshHandler(refreshDeps),
+    'POST /refresh-product': createRefreshProductHandler({ ...refreshDeps, lock: refreshLock, jobs }),
     'GET /refresh-job': createRefreshJobStatusHandler(jobs),
     'POST /refresh-job/cancel': createCancelRefreshJobHandler(jobs),
     'POST /logs': createLogsHandler(),

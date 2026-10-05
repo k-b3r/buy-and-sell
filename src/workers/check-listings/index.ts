@@ -1,120 +1,17 @@
 import { fileURLToPath } from 'node:url'
-import type { Logger } from '../../platform/logger'
-import type { PageDriver } from '../../domains/marketplace'
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
-import type { DbClient } from '../../platform/storage'
+import { launchBrowserDriver } from '../../modules/collection/browser'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { realDelay } from '../../platform/delay'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
-import { resolveProxy } from '../../domains/marketplace'
-import type { CheckListingsCandidate } from '../../domains/marketplace'
 import {
+  createListingPhotos,
   getCheckListingsCandidates,
-  markListingAlive,
-  markListingSold,
-  flagListingRemoved,
-  deleteListing,
-  refreshListingFields,
-} from '../../domains/marketplace'
-import type { ImageStore } from '../../platform/images'
-import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
-import { extractDetailFields } from '../../domains/marketplace'
-import { resolvePageState } from '../../run'
-
-export type CheckOneListingResult =
-  { status: 'sold' } | { status: 'alive' } | { status: 'flagged' } | { status: 'removed' } | { status: 'hard-block' }
-
-// Single-listing core, decoupled from the batch loop below so it can also be
-// driven on-demand (see refresh-server.ts) rather than only via the
-// scheduled getCheckListingsCandidates backlog. Assumes the driver has
-// ALREADY navigated to this listing — pacing (waitRandom) and navigation
-// (openListing) stay caller-side, since a batch run and a single on-demand
-// refresh want different pacing behavior around them (the batch loop's
-// human-paced delay between listings has no reason to apply to a single
-// user-triggered request).
-export async function checkOneListing(
-  driver: PageDriver,
-  db: DbClient,
-  imageStore: ImageStore,
-  logger: Logger,
-  candidate: CheckListingsCandidate,
-  softWallTimeoutMs = 5000,
-): Promise<CheckOneListingResult> {
-  const result = await resolvePageState(
-    driver,
-    logger,
-    () => driver.getDetailHtml(),
-    softWallTimeoutMs,
-    (html) => Object.keys(extractDetailFields(html)).length > 0,
-  )
-
-  if (result.status === 'stop') {
-    if (result.reason !== 'soft-wall-persisted') {
-      // Hard-block or unrecognized state — real signal of an actual
-      // problem (not "removed"), fail closed same as everywhere else.
-      logger.error(`stopping check-listings at listing ${candidate.id}`)
-      return { status: 'hard-block' }
-    }
-
-    if (candidate.flagged_removed_at) {
-      logger.info(
-        `listing ${candidate.id} still soft-walled (flagged since ${candidate.flagged_removed_at}) — confirmed removed, deleting`,
-      )
-      await deleteListingPhotos(imageStore, logger, candidate.id)
-      await deleteListing(db, candidate.id)
-      return { status: 'removed' }
-    }
-
-    logger.warn(`listing ${candidate.id} soft-walled, flagging for confirmation on a later run`)
-    await flagListingRemoved(db, candidate.id)
-    return { status: 'flagged' }
-  }
-
-  const detailFields = extractDetailFields(result.html)
-
-  if (detailFields.is_sold === true) {
-    logger.info(`listing ${candidate.id} detected as sold`)
-    await markListingSold(db, candidate.id)
-    return { status: 'sold' }
-  }
-
-  if (candidate.flagged_removed_at) {
-    logger.info(`listing ${candidate.id} recovered — was flagged, now accessible again, clearing flag`)
-  }
-  // Still live — sync title/price/description/condition in case the
-  // seller edited them since we first saw this listing, and re-sync photos
-  // too if Facebook's own photo ids show the seller actually swapped them
-  // (see refreshListingFields).
-  await refreshListingFields(db, imageStore, logger, candidate.source_photo_ids, detailFields)
-  await markListingAlive(db, candidate.id)
-  return { status: 'alive' }
-}
-
-// Postgres-only, same as every other script now (see CONTEXT.md on removing
-// the local JSONL file that used to double as a second source of truth) —
-// safe to run at the same time as `collect`, ordinary row-level upserts/deletes.
-export async function runCheckListings(
-  driver: PageDriver,
-  db: DbClient,
-  imageStore: ImageStore,
-  logger: Logger,
-  candidates: CheckListingsCandidate[],
-  softWallTimeoutMs = 5000,
-  pacingMinMs = 2000,
-  pacingMaxMs = 4000,
-): Promise<void> {
-  logger.info(`${candidates.length} listings to check`)
-
-  for (const candidate of candidates) {
-    await driver.waitRandom(pacingMinMs, pacingMaxMs)
-    logger.info(`checking listing ${candidate.id}`)
-    await driver.openListing({ id: candidate.id })
-
-    const result = await checkOneListing(driver, db, imageStore, logger, candidate, softWallTimeoutMs)
-    if (result.status === 'hard-block') return
-  }
-}
+  resolveProxy,
+  runCheckListings,
+} from '../../modules/collection'
+import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
 
 async function main() {
   loadEnvFile()
@@ -152,12 +49,17 @@ async function main() {
     ],
     loopDelayKey: 'check_listings.loop_delay_ms',
     setup: async ({ logger, db }) => {
-      const imageStore = createR2ImageStore({
-        accountId: R2_ACCOUNT_ID,
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_KEY,
-        bucket: R2_BUCKET_NAME,
-        publicBaseUrl: R2_PUBLIC_BASE_URL,
+      const photos = createListingPhotos({
+        store: createR2ImageStore({
+          accountId: R2_ACCOUNT_ID,
+          accessKeyId: R2_ACCESS_KEY_ID,
+          secretAccessKey: R2_SECRET_KEY,
+          bucket: R2_BUCKET_NAME,
+          publicBaseUrl: R2_PUBLIC_BASE_URL,
+        }),
+        fetchBytes: defaultFetchBytes,
+        compress: defaultCompressImage,
+        logger,
       })
 
       // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
@@ -193,19 +95,13 @@ async function main() {
             // have had, for free.
             await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
             try {
-              const { page, close } = await launchBrowser({ proxy })
-              const driver = createBrowserDriver(page)
+              const { driver, close } = await launchBrowserDriver(proxy)
               try {
-                await runCheckListings(
-                  driver,
-                  db,
-                  imageStore,
-                  logger,
-                  candidates,
-                  settings['check_listings.soft_wall_timeout_ms'],
-                  settings['check_listings.pacing_min_ms'],
-                  settings['check_listings.pacing_max_ms'],
-                )
+                await runCheckListings({ driver, db, photos, logger, delay: realDelay }, candidates, {
+                  softWallTimeoutMs: settings['check_listings.soft_wall_timeout_ms'],
+                  pacingMinMs: settings['check_listings.pacing_min_ms'],
+                  pacingMaxMs: settings['check_listings.pacing_max_ms'],
+                })
               } finally {
                 await close()
               }

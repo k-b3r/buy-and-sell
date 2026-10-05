@@ -1,6 +1,5 @@
 import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
 import sharp from 'sharp'
-import type { Logger } from './logger'
 
 export interface ImageStore {
   put(key: string, body: Uint8Array, contentType: string): Promise<string>
@@ -52,10 +51,6 @@ export const defaultFetchBytes: FetchBytes = async (url) => {
   }
 }
 
-function extensionFor(contentType: string): string {
-  return contentType.includes('png') ? 'png' : 'jpg'
-}
-
 export type CompressImage = (
   body: Uint8Array,
   contentType: string,
@@ -67,45 +62,4 @@ export type CompressImage = (
 export const defaultCompressImage: CompressImage = async (body) => {
   const output = await sharp(body).resize({ width: 800, withoutEnlargement: true }).jpeg({ quality: 70 }).toBuffer()
   return { body: new Uint8Array(output), contentType: 'image/jpeg' }
-}
-
-// Facebook's CDN URLs on listing_photos are signed and expire in days, so bytes
-// are downloaded and re-hosted at collection time rather than storing the URL
-// alone. A single broken photo shouldn't fail the whole listing — skipped and
-// logged instead.
-export async function storeListingPhotos(
-  store: ImageStore,
-  logger: Logger,
-  listingId: string,
-  photos: unknown,
-  fetchBytes: FetchBytes = defaultFetchBytes,
-  compress: CompressImage = defaultCompressImage,
-): Promise<string[]> {
-  if (!Array.isArray(photos)) return []
-  const urls: string[] = []
-  for (let i = 0; i < photos.length; i++) {
-    const uri = (photos[i] as { image?: { uri?: string } } | undefined)?.image?.uri
-    if (typeof uri !== 'string') continue
-    const fetched = await fetchBytes(uri)
-    if (!fetched) {
-      logger.warn(`failed to download photo ${i} for listing ${listingId}, skipping`)
-      continue
-    }
-    let stored: { body: Uint8Array; contentType: string }
-    try {
-      stored = await compress(fetched.body, fetched.contentType)
-    } catch {
-      logger.warn(`failed to compress photo ${i} for listing ${listingId}, storing original`)
-      stored = fetched
-    }
-    const key = `listings/${listingId}/${i}.${extensionFor(stored.contentType)}`
-    const url = await store.put(key, stored.body, stored.contentType)
-    urls.push(url)
-  }
-  return urls
-}
-
-export async function deleteListingPhotos(store: ImageStore, logger: Logger, listingId: string): Promise<void> {
-  await store.deleteAll(`listings/${listingId}/`)
-  logger.info(`deleted photos for listing ${listingId}`)
 }

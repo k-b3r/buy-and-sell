@@ -16,8 +16,8 @@ module.exports = {
         'src/modules/real-estate',
       ],
       heavyDeps: [
-        // Only marketplace/browser.ts launches a browser; everything else imports it from there.
-        { packages: ['playwright', 'playwright-core'], owner: 'src/domains/marketplace/browser.ts' },
+        // Only collection/browser.ts launches a browser; everything else imports it from there.
+        { packages: ['playwright', 'playwright-core'], owner: 'src/modules/collection/browser.ts' },
         // sharp and the S3 client are heavy native/SDK deps; platform/images.ts owns them.
         { packages: ['sharp', '@aws-sdk/client-s3'], owner: 'src/platform/images.ts' },
         // One place creates DB pools; everything else takes an injected DbClient.

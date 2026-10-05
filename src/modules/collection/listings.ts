@@ -1,15 +1,10 @@
-import type { DbClient } from '../../../platform/storage'
-import type { ImageStore, FetchBytes, CompressImage } from '../../../platform/images'
-import {
-  storeListingPhotos,
-  deleteListingPhotos,
-  defaultFetchBytes,
-  defaultCompressImage,
-} from '../../../platform/images'
-import type { Logger } from '../../../platform/logger'
-import type { PriorPriceRow } from '../../../modules/real-estate'
-import { recordRealEstatePriceChange } from '../../../modules/real-estate'
-import { flagNegotiableFromKeywords } from '../../../modules/pricing'
+import type { DbClient } from '../../platform/storage'
+import type { Logger } from '../../platform/logger'
+import type { PriorPriceRow } from '../real-estate'
+import { recordRealEstatePriceChange } from '../real-estate'
+import type { ListingPhotos } from './photos'
+// Negotiable-keyword flagging is pricing's rule, run on every listing write.
+import { flagNegotiableFromKeywords } from '../pricing'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {
@@ -282,19 +277,15 @@ export async function deleteListing(db: DbClient, id: string): Promise<void> {
 //     compression) and R2 writes across the whole backlog at once.
 //   - baseline present, ids match -> untouched, same as before this existed.
 //   - baseline present, ids differ -> a real change: re-download + re-upload
-//     via the same storeListingPhotos used at initial collection (not
+//     via the same ListingPhotos.save used at initial collection (not
 //     duplicated), overwriting primary_photo_url/stored_photo_urls/
 //     source_photo_ids together. A total re-fetch failure (all photos
 //     unreachable) leaves the existing good copies untouched rather than
 //     wiping them - it'll just look "changed" again next check and retry.
 export async function refreshListingFields(
-  db: DbClient,
-  imageStore: ImageStore,
-  logger: Logger,
+  { db, photos, logger }: { db: DbClient; photos: ListingPhotos; logger: Logger },
   storedPhotoIds: string[] | null,
   listing: Record<string, unknown>,
-  fetchBytes: FetchBytes = defaultFetchBytes,
-  compress: CompressImage = defaultCompressImage,
 ): Promise<void> {
   const f = parseListingFields(listing)
   const currentPhotoIds = extractPhotoIds(listing)
@@ -325,8 +316,8 @@ export async function refreshListingFields(
       setClauses.push(`source_photo_ids = $${params.length}`)
     } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
       logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
-      await deleteListingPhotos(imageStore, logger, f.id)
-      const newUrls = await storeListingPhotos(imageStore, logger, f.id, listing.listing_photos, fetchBytes, compress)
+      await photos.deleteAll(f.id)
+      const newUrls = await photos.save(f.id, listing.listing_photos)
       if (newUrls.length > 0) {
         params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
         setClauses.push(

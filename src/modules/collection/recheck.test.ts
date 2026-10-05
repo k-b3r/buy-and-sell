@@ -1,11 +1,14 @@
 import { existsSync, rmSync } from 'node:fs'
-import { runCheckListings, checkOneListing } from './index'
+import { runCheckListings, checkOneListing } from './recheck'
 import { createLogger } from '../../platform/logger'
-import type { PageDriver } from '../../domains/marketplace'
+import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
-import type { ImageStore } from '../../platform/images'
+import type { ListingPhotos } from './photos'
+import { createListingPhotos } from './photos'
 
 const LOG_PATH = 'data/tmp-check-listings.log'
+
+const noDelay = async () => {}
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
@@ -37,16 +40,21 @@ function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] }
   }
 }
 
-function fakeImageStore(): { store: ImageStore; deletedPrefixes: string[] } {
+function fakeImageStore(): { store: ListingPhotos; deletedPrefixes: string[] } {
   const deletedPrefixes: string[] = []
   return {
     deletedPrefixes,
-    store: {
-      put: async (key: string) => `https://images.example.com/${key}`,
-      deleteAll: async (prefix: string) => {
-        deletedPrefixes.push(prefix)
+    store: createListingPhotos({
+      store: {
+        put: async (key: string) => `https://images.example.com/${key}`,
+        deleteAll: async (prefix: string) => {
+          deletedPrefixes.push(prefix)
+        },
       },
-    },
+      fetchBytes: async () => null,
+      compress: async (body, contentType) => ({ body, contentType }),
+      logger: createLogger(LOG_PATH),
+    }),
   }
 }
 
@@ -61,7 +69,9 @@ test('real content found: marks the listing alive, does not flag or delete', asy
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }])
+  await runCheckListings({ driver, db, photos: store, logger, delay: noDelay }, [
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
+  ])
 
   const aliveCall = calls.find((c) => c.sql.includes('last_checked_at = now()'))
   expect(aliveCall?.sql).toContain('flagged_removed_at = NULL')
@@ -74,7 +84,9 @@ test('real content found: refreshes title/price/description/condition, but not p
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }])
+  await runCheckListings({ driver, db, photos: store, logger, delay: noDelay }, [
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
+  ])
 
   const refreshCall = calls.find((c) => c.sql.includes('last_seen_at = now()'))
   expect(refreshCall).toBeDefined()
@@ -91,7 +103,9 @@ test('real content found with is_sold true: marks the listing sold, not alive', 
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }])
+  await runCheckListings({ driver, db, photos: store, logger, delay: noDelay }, [
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
+  ])
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('sold_at = now()')
@@ -107,7 +121,11 @@ test('soft-wall persists, not previously flagged: flags it, does not delete', as
   const { store, deletedPrefixes } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [{ id: '1', flagged_removed_at: null, source_photo_ids: null }], 10)
+  await runCheckListings(
+    { driver, db, photos: store, logger, delay: noDelay },
+    [{ id: '1', flagged_removed_at: null, source_photo_ids: null }],
+    { softWallTimeoutMs: 10 },
+  )
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('flagged_removed_at = now()')
@@ -121,12 +139,9 @@ test('soft-wall persists, already flagged from a prior run: confirmed removed, d
   const logger = createLogger(LOG_PATH)
 
   await runCheckListings(
-    driver,
-    db,
-    store,
-    logger,
+    { driver, db, photos: store, logger, delay: noDelay },
     [{ id: '1', flagged_removed_at: '2026-08-01T00:00:00Z', source_photo_ids: null }],
-    10,
+    { softWallTimeoutMs: 10 },
   )
 
   expect(deletedPrefixes).toEqual(['listings/1/'])
@@ -140,7 +155,7 @@ test('hard-block stops the whole run immediately, does not flag or delete anythi
   const { store, deletedPrefixes } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [
+  await runCheckListings({ driver, db, photos: store, logger, delay: noDelay }, [
     { id: '1', flagged_removed_at: null, source_photo_ids: null },
     { id: '2', flagged_removed_at: null, source_photo_ids: null },
   ])
@@ -155,30 +170,33 @@ test('checkOneListing returns a status describing what happened, for callers oth
   const logger = createLogger(LOG_PATH)
 
   const alive = await checkOneListing(
-    makeDriver({ getDetailHtml: async () => realListingDetailHtml }),
-    db1,
-    store,
-    logger,
+    {
+      driver: makeDriver({ getDetailHtml: async () => realListingDetailHtml }),
+      db: db1,
+      photos: store,
+      logger,
+      delay: noDelay,
+    },
     { id: '1', flagged_removed_at: null, source_photo_ids: null },
   )
   expect(alive).toEqual({ status: 'alive' })
 
   const { db: db2 } = fakeDb()
   const sold = await checkOneListing(
-    makeDriver({ getDetailHtml: async () => soldListingDetailHtml }),
-    db2,
-    store,
-    logger,
+    {
+      driver: makeDriver({ getDetailHtml: async () => soldListingDetailHtml }),
+      db: db2,
+      photos: store,
+      logger,
+      delay: noDelay,
+    },
     { id: '1', flagged_removed_at: null, source_photo_ids: null },
   )
   expect(sold).toEqual({ status: 'sold' })
 
   const { db: db3 } = fakeDb()
   const flagged = await checkOneListing(
-    makeDriver({ getDetailHtml: async () => softWallHtml }),
-    db3,
-    store,
-    logger,
+    { driver: makeDriver({ getDetailHtml: async () => softWallHtml }), db: db3, photos: store, logger, delay: noDelay },
     { id: '1', flagged_removed_at: null, source_photo_ids: null },
     10,
   )
@@ -186,21 +204,27 @@ test('checkOneListing returns a status describing what happened, for callers oth
 
   const { db: db4 } = fakeDb()
   const removed = await checkOneListing(
-    makeDriver({ getDetailHtml: async () => softWallHtml }),
-    db4,
-    store,
-    logger,
+    { driver: makeDriver({ getDetailHtml: async () => softWallHtml }), db: db4, photos: store, logger, delay: noDelay },
     { id: '1', flagged_removed_at: '2026-08-01T00:00:00Z', source_photo_ids: null },
     10,
   )
   expect(removed).toEqual({ status: 'removed' })
 
   const { db: db5 } = fakeDb()
-  const blocked = await checkOneListing(makeDriver({ getDetailHtml: async () => hardBlockHtml }), db5, store, logger, {
-    id: '1',
-    flagged_removed_at: null,
-    source_photo_ids: null,
-  })
+  const blocked = await checkOneListing(
+    {
+      driver: makeDriver({ getDetailHtml: async () => hardBlockHtml }),
+      db: db5,
+      photos: store,
+      logger,
+      delay: noDelay,
+    },
+    {
+      id: '1',
+      flagged_removed_at: null,
+      source_photo_ids: null,
+    },
+  )
   expect(blocked).toEqual({ status: 'hard-block' })
 })
 
@@ -220,7 +244,10 @@ test('checkOneListing does not navigate or pace itself - that stays with the cal
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await checkOneListing(driver, db, store, logger, { id: '1', flagged_removed_at: null, source_photo_ids: null })
+  await checkOneListing(
+    { driver, db, photos: store, logger, delay: noDelay },
+    { id: '1', flagged_removed_at: null, source_photo_ids: null },
+  )
 
   expect(openListingCalled).toBe(false)
   expect(waitRandomCalled).toBe(false)
@@ -238,7 +265,7 @@ test('paces with waitRandom before each listing', async () => {
   const { store } = fakeImageStore()
   const logger = createLogger(LOG_PATH)
 
-  await runCheckListings(driver, db, store, logger, [
+  await runCheckListings({ driver, db, photos: store, logger, delay: noDelay }, [
     { id: '1', flagged_removed_at: null, source_photo_ids: null },
     { id: '2', flagged_removed_at: null, source_photo_ids: null },
   ])
