@@ -9,7 +9,7 @@ import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY, ensureProductPriced, get
 import type { ExtractionCandidate } from './product-storage'
 import { findOrCreateProduct, updateListingProductIds } from './product-storage'
 import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from './products'
-import type { ExtractedListing, RawExtractionItem } from './extraction'
+import type { ExtractedListing } from './extraction'
 import { parseExtractionItem } from './extraction'
 
 export interface ExtractionClients {
@@ -174,31 +174,45 @@ async function checkDiscount(run: ExtractionRun, productId: number, listing: Ext
 }
 
 // Assigns each extracted listing in one batch to its product (one batched
-// UPDATE), checking its discount before the batch is saved.
+// UPDATE), then checks discounts only once that UPDATE has committed, so a
+// failed save never leaves notifications for listings without a product_id.
+// Skipped items keep product_id null and stay candidates for the next run.
 async function assignBatch(
   run: ExtractionRun,
   batch: ExtractionCandidate[],
-  items: RawExtractionItem[],
+  items: unknown[],
 ): Promise<{ assigned: number; skipped: number }> {
-  const assignments: { id: string; productId: number }[] = []
+  const assigned: { listing: ExtractedListing; productId: number }[] = []
   let skipped = 0
 
   for (const item of items) {
-    const listing = parseExtractionItem(item, batch)
-    if (!listing) {
+    const outcome = parseExtractionItem(item, batch)
+    if (outcome.kind === 'malformed') {
+      run.logger.warn(`item ${outcome.idHint}: malformed fields in model response, skipping`)
       skipped += 1
       continue
     }
+    if (outcome.kind === 'unknown-candidate') {
+      run.logger.warn(`item ${outcome.id}: no matching listing in this batch, skipping`)
+      skipped += 1
+      continue
+    }
+    const { listing } = outcome
     const productId = await resolveProductId(run, listing)
-    assignments.push({ id: listing.candidate.id, productId })
+    assigned.push({ listing, productId })
     run.logger.info(
       `listing ${listing.candidate.id} -> product ${productId} (${listing.baseModel}${listing.variant ? `, ${listing.variant}` : ''})`,
     )
-    await checkDiscount(run, productId, listing)
   }
 
-  await updateListingProductIds(run.db, assignments)
-  return { assigned: assignments.length, skipped }
+  await updateListingProductIds(
+    run.db,
+    assigned.map(({ listing, productId }) => ({ id: listing.candidate.id, productId })),
+  )
+  for (const { listing, productId } of assigned) {
+    await checkDiscount(run, productId, listing)
+  }
+  return { assigned: assigned.length, skipped }
 }
 
 // Extracts products from listings in model-sized batches, pacing between
@@ -248,7 +262,7 @@ export async function runProductExtraction(
     if (!raw || !Array.isArray(raw.results)) {
       logger.error(`${label}: unexpected response shape (no results array), skipping batch`)
     } else {
-      const { assigned, skipped } = await assignBatch(run, batch, raw.results as RawExtractionItem[])
+      const { assigned, skipped } = await assignBatch(run, batch, raw.results)
       logger.info(
         `${label} done: ${assigned} assigned, ${skipped} skipped, ` +
           `${run.productIds.size} distinct products seen so far`,

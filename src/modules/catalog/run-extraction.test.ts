@@ -692,3 +692,52 @@ test('a product that already has pricing is not re-priced - existing prices are 
   const notif = calls.find((c) => c.sql.startsWith('INSERT INTO discount_notifications'))
   expect(notif?.params).toEqual(['1', 1, 30, 10000])
 })
+
+test('a null item in the results array is logged and skipped, while the other items still get assigned', async () => {
+  const clients = fakeClients([null, { id: '1', base_model: 'RTX 3060' }])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction({ clients, db, logger }, candidates, { batchSize: 25 })
+
+  expect(calls.find((c) => c.sql.startsWith('UPDATE listings'))?.params).toEqual(['1', 1])
+  const log = readFileSync(LOG_PATH, 'utf-8')
+  expect(log).toContain('item (missing/invalid id): malformed fields in model response, skipping')
+  expect(log).toContain('batch 1/1 done: 1 assigned, 1 skipped')
+})
+
+test('an item whose id matches no listing in the batch is logged with that id and skipped', async () => {
+  const clients = fakeClients([{ id: 'ghost', base_model: 'RTX 3060' }])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
+
+  await runProductExtraction({ clients, db: fakeDb(), logger }, candidates, { batchSize: 25 })
+
+  expect(readFileSync(LOG_PATH, 'utf-8')).toContain('item ghost: no matching listing in this batch, skipping')
+})
+
+test('a failed batch product_id update leaves no discount notifications behind', async () => {
+  const groq = fakeGroq([{ id: '1', base_model: 'Sony WH-1000XM4' }])
+  const exa: ExaClient = {
+    searchStructured: async () => ({ output: { content: { found: true, price_low: 10000, price_high: 12000 } } }),
+  }
+  const clients: ExtractionClients = { groq, gemini: unusedGemini(), exa, tavily: fakeTavily() }
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'Sony WH-1000XM4', condition: 'New', price_amount: 7000 }),
+  ]
+  const { db: inner, calls } = fakeDbWithCalls()
+  const db: DbClient = {
+    query: async (sql, params) => {
+      if (sql.startsWith('UPDATE listings')) throw new Error('connection lost')
+      return inner.query(sql, params)
+    },
+  }
+
+  await expect(runProductExtraction({ clients, db, logger }, candidates, { batchSize: 25 })).rejects.toThrow(
+    'connection lost',
+  )
+
+  expect(calls.some((c) => c.sql.startsWith('INSERT INTO discount_notifications'))).toBe(false)
+})
