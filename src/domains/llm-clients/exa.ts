@@ -1,3 +1,6 @@
+import { createClientPool } from './client-pool'
+import { isCreditsError } from './error-classification'
+
 export interface ExaClient {
   searchStructured(query: string, systemPrompt: string, schema: object): Promise<unknown>
 }
@@ -47,39 +50,12 @@ export function createExaClient(apiKey: string): ExaClient {
   }
 }
 
-// 402 is Exa's credits-exhausted signal (confirmed live 2026-08-28: real
-// error body tags NO_MORE_CREDITS) - distinct from Gemini/Groq's 429 quota
-// errors, but the same "this key is done for now, not a real failure"
-// shape.
-export function isExaCreditsError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 402
-}
-
-// Same permanent-switch-on-exhaustion pattern as createFallbackGeminiClient/
-// createFallbackGroqClient - once a key's credits are known to be gone,
-// there's no reason to try it again this run. Any other error (network
-// failure, malformed response) is not a credits signal and is rethrown
-// immediately without switching.
+// Switches only on Exa's 402 credits signal (isCreditsError), not on a 429.
+// Switching contract: createClientPool.
 export function createFallbackExaClient(clients: ExaClient[]): ExaClient {
-  let currentIndex = 0
-
-  async function withFallback<T>(call: (client: ExaClient) => Promise<T>): Promise<T> {
-    while (currentIndex < clients.length) {
-      try {
-        return await call(clients[currentIndex])
-      } catch (err) {
-        if (isExaCreditsError(err) && currentIndex < clients.length - 1) {
-          currentIndex += 1
-          continue
-        }
-        throw err
-      }
-    }
-    throw new Error('all Exa clients exhausted')
-  }
-
+  const run = createClientPool(clients, { provider: 'Exa', isExhausted: isCreditsError })
   return {
     searchStructured: (query, systemPrompt, schema) =>
-      withFallback((client) => client.searchStructured(query, systemPrompt, schema)),
+      run((client) => client.searchStructured(query, systemPrompt, schema)),
   }
 }

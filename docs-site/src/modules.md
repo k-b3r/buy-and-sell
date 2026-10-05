@@ -340,7 +340,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/extractor.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/errors`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
+**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
 
 ### `extractRealEstateBatch(groq: JsonModelClient, logger: Logger, delay: DelayFn, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
