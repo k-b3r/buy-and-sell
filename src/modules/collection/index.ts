@@ -8,15 +8,11 @@ export { extractDetailFields } from './extract/detail'
 export type { CheckListingsCandidate } from './listings'
 export {
   deleteListing,
-  flagListingRemoved,
   getBackfillCandidates,
   getCheckListingsCandidates,
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
-  markListingAlive,
   markListingPhotosUnavailable,
-  markListingSold,
-  refreshListingFields,
   upsertListing,
 } from './listings'
 export { isWithinServiceArea } from './location'
@@ -31,4 +27,5 @@ export {
   saveListing,
   unsaveListing,
 } from './queries'
+export { checkOneListing, runCheckListings } from './recheck'
 export { resolvePageState, runCollection } from './run'

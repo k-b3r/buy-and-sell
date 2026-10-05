@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
-import { runCheckListings, checkOneListing } from './index'
+import { runCheckListings, checkOneListing } from './recheck'
 import { createLogger } from '../../platform/logger'
-import type { PageDriver } from '../../modules/collection'
+import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
 import type { ImageStore } from '../../platform/images'
 
