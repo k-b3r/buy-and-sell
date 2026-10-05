@@ -1,7 +1,11 @@
+import { existsSync, rmSync } from 'node:fs'
+import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
+import type { NegotiableKeywordCandidate } from './listing-price-review'
 import {
   getNegotiableKeywordCandidates,
   getPriceReviewCandidates,
+  runFlagNegotiableKeywords,
   upsertListingPriceReview,
   upsertKeywordNegotiable,
 } from './listing-price-review'
@@ -202,4 +206,51 @@ test('upsertKeywordNegotiable inserts is_negotiable=true with no price estimate,
   expect(calls[0].sql).not.toContain('price_low = EXCLUDED')
   expect(calls[0].sql).not.toContain('reasoning = EXCLUDED')
   expect(calls[0].params).toEqual(['123', 'keyword match: "nego"'])
+})
+
+const KEYWORD_LOG_PATH = 'data/tmp-flag-negotiable-keywords.log'
+
+afterEach(() => {
+  if (existsSync(KEYWORD_LOG_PATH)) rmSync(KEYWORD_LOG_PATH)
+})
+
+test('runFlagNegotiableKeywords flags listings whose title or description matches a negotiability keyword', async () => {
+  const { db, calls } = mockDb()
+  const candidates: NegotiableKeywordCandidate[] = [
+    { id: '1', title: 'RTX 3060', description: 'Nego pa presyo' },
+    { id: '2', title: 'PS5 Slim, price OBO', description: null },
+  ]
+
+  const flagged = await runFlagNegotiableKeywords(db, createLogger(KEYWORD_LOG_PATH), candidates)
+
+  expect(flagged).toBe(2)
+  expect(calls.map((c) => c.params)).toEqual([
+    ['1', 'keyword match: "nego"'],
+    ['2', 'keyword match: "obo"'],
+  ])
+})
+
+test('runFlagNegotiableKeywords skips listings with no negotiability signal, no db call made', async () => {
+  const { db, calls } = mockDb()
+  const candidates: NegotiableKeywordCandidate[] = [
+    { id: '1', title: 'Sony WH-1000XM6, barely used', description: null },
+  ]
+
+  const flagged = await runFlagNegotiableKeywords(db, createLogger(KEYWORD_LOG_PATH), candidates)
+
+  expect(flagged).toBe(0)
+  expect(calls).toHaveLength(0)
+})
+
+test('runFlagNegotiableKeywords only upserts the matching listings in a mixed batch', async () => {
+  const { db, calls } = mockDb()
+  const candidates: NegotiableKeywordCandidate[] = [
+    { id: '1', title: 'iPhone 13', description: 'clean unit no issues' },
+    { id: '2', title: 'iPhone 14', description: 'open to offers' },
+  ]
+
+  const flagged = await runFlagNegotiableKeywords(db, createLogger(KEYWORD_LOG_PATH), candidates)
+
+  expect(flagged).toBe(1)
+  expect(calls.map((c) => c.params)).toEqual([['2', 'keyword match: "open to offers"']])
 })

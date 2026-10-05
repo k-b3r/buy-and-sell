@@ -690,6 +690,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getUnexcludedBaseModels(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
 ### `excludeProductFromReview(db: DbClient, productId: number, reason: unknown): Promise<void>`
 
 _(undocumented)_
@@ -701,6 +705,10 @@ _(undocumented)_
 ## src/modules/pricing/generic-products.ts
 
 ### `detectGenericBaseModel(baseModel: string): { reason: GenericReason; matched: string } | null`
+
+_(undocumented)_
+
+### `groupGenericBaseModels(baseModels: string[]): Record<GenericReason, string[]>`
 
 _(undocumented)_
 
@@ -810,6 +818,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `groupGenericBaseModels(baseModels: string[]): Record<GenericReason, string[]>`
+
+_(undocumented)_
+
 ### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
 
 _(undocumented)_
@@ -822,6 +834,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getUnexcludedBaseModels(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `excludeIneligibleCategories(db: DbClient, logger: Logger): Promise<void>`
+
+_(undocumented)_
+
 ### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
 
 _(undocumented)_
@@ -830,7 +850,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
+### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<string | null>`
 
 _(undocumented)_
 
@@ -842,15 +862,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
+### `runFlagNegotiableKeywords(db: DbClient, logger: Logger, candidates: NegotiableKeywordCandidate[]): Promise<number>`
 
 _(undocumented)_
 
 ### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
-
-_(undocumented)_
-
-### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
 
 _(undocumented)_
 
@@ -867,6 +883,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void>`
+
+_(undocumented)_
+
+### `runPriceFromListings(db: DbClient, logger: Logger, groups: ListingPricesForProductCondition[]): Promise<void>`
 
 _(undocumented)_
 
@@ -890,9 +910,17 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/pricing/ineligible-categories.ts
+
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./exclusion`
+
+### `excludeIneligibleCategories(db: DbClient, logger: Logger): Promise<void>`
+
+_(undocumented)_
+
 ## src/modules/pricing/listing-price-review.ts
 
-**Interactions:** imports `../../platform/storage`, `./clean-median`, `./negotiable-keywords`, `./price-review`
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./negotiable-keywords`, `./price-review`
 
 ### `getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]>`
 
@@ -910,13 +938,29 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
+### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<string | null>`
+
+_(undocumented)_
+
+### `runFlagNegotiableKeywords(db: DbClient, logger: Logger, candidates: NegotiableKeywordCandidate[]): Promise<number>`
 
 _(undocumented)_
 
 ## src/modules/pricing/negotiable-keywords.ts
 
 ### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
+
+_(undocumented)_
+
+## src/modules/pricing/price-from-listings.ts
+
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./price-history`, `./price-lookup`
+
+### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
+
+_(undocumented)_
+
+### `runPriceFromListings(db: DbClient, logger: Logger, groups: ListingPricesForProductCondition[]): Promise<void>`
 
 _(undocumented)_
 

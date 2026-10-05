@@ -1,5 +1,10 @@
 import type { DbClient } from '../../platform/storage'
-import { applyEligibilityFromEnrichment, excludeFromPricing, excludeProductFromReview } from './exclusion'
+import {
+  applyEligibilityFromEnrichment,
+  excludeFromPricing,
+  excludeProductFromReview,
+  getUnexcludedBaseModels,
+} from './exclusion'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -69,4 +74,17 @@ test('applyEligibilityFromEnrichment auto-excludes high-confidence non-specific 
   expect(calls[1].sql).toContain("e.confidence = 'low'")
   expect(calls[1].sql).toContain('NOT p.price_lookup_excluded')
   expect(calls[1].sql).toContain('p.price_lookup_review_dismissed_at IS NULL')
+})
+
+test('getUnexcludedBaseModels returns distinct base_model values of products not yet excluded', async () => {
+  const calls: string[] = []
+  const db: DbClient = {
+    query: async (sql: string) => {
+      calls.push(sql)
+      return { rows: [{ base_model: 'Coach Bag' }, { base_model: 'iPhone 13' }] }
+    },
+  }
+
+  expect(await getUnexcludedBaseModels(db)).toEqual(['Coach Bag', 'iPhone 13'])
+  expect(calls[0]).toBe('SELECT DISTINCT base_model FROM products WHERE NOT price_lookup_excluded ORDER BY base_model')
 })

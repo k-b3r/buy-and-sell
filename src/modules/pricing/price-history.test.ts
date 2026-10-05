@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import { insertPriceCheck, getPriceLookupCandidates } from './price-history'
+import { insertPriceCheck, getListingPricesByProduct, getPriceLookupCandidates } from './price-history'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -129,4 +129,29 @@ test('getPriceLookupCandidates skips a product with a price row from ANY source'
   expect(calls[0].sql).toContain("price_lookup_review_status IS DISTINCT FROM 'needs_review'")
   expect(calls[0].sql).toContain('LEFT JOIN product_enrichment')
   expect(calls[0].sql).toContain('sibling_variants')
+})
+
+test('getListingPricesByProduct groups by product AND condition, excludes unlabeled-condition listings, requires 2+ per group', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return {
+        rows: [
+          { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'Used - Good', prices: ['14999', '15000'] },
+          { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: ['18000', '18500'] },
+        ],
+      }
+    },
+  }
+
+  const result = await getListingPricesByProduct(db)
+
+  expect(calls[0].sql).toContain('HAVING count(l.id) >= 2')
+  expect(calls[0].sql).toContain('l.condition IS NOT NULL')
+  expect(calls[0].sql).toContain('p.id, p.base_model, p.variant_tier, l.condition')
+  expect(result).toEqual([
+    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'Used - Good', prices: [14999, 15000] },
+    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: [18000, 18500] },
+  ])
 })
