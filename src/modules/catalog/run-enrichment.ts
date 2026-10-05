@@ -4,10 +4,9 @@ import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../dom
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from './enrichment'
-import type { EnrichmentCandidate } from './enrichment'
+import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
+import type { EnrichmentCandidate, RawEnrichmentItem } from './enrichment'
 import { upsertProductEnrichment, updateProductCategories } from './product-storage'
-import { PRODUCT_CATEGORIES } from './products'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before
@@ -35,126 +34,110 @@ const MODEL = 'openai/gpt-oss-120b'
 const DEFAULT_MAX_ATTEMPTS = 3
 const DEFAULT_RETRY_DELAY_MS = 3000
 
-const VALID_CATEGORIES = new Set<string>(PRODUCT_CATEGORIES)
-
-interface RawEnrichmentItem {
-  id?: unknown
-  description?: unknown
-  value_drivers?: unknown
-  has_trained_price_knowledge?: unknown
-  trained_price_low?: unknown
-  trained_price_high?: unknown
-  category?: unknown
-  is_specific_product?: unknown
-  confidence?: unknown
+interface EnrichmentIo {
+  groq: GroqClient
+  db: DbClient
+  logger: Logger
+  delay?: DelayFn
 }
 
-export async function runProductEnrichment(
-  groq: GroqClient,
-  db: DbClient,
-  logger: Logger,
-  candidates: EnrichmentCandidate[],
-  delay: DelayFn = realDelay,
-  batchSize = DEFAULT_BATCH_SIZE,
-  maxAttempts = DEFAULT_MAX_ATTEMPTS,
-  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
-): Promise<void> {
-  logger.info(`${candidates.length} products to enrich`)
+interface EnrichmentOptions {
+  batchSize?: number
+  maxAttempts?: number
+  retryDelayMs?: number
+}
 
-  for (let i = 0; i < candidates.length; i += batchSize) {
-    const batch = candidates.slice(i, i + batchSize)
-    const prompt = buildEnrichmentPrompt(batch)
+type EnrichmentResponse = { stop: true } | { stop: false; raw: { results?: unknown } | undefined }
 
-    // Groq's daily token cap (see spec's Open Risks) is expected to be hit mid-run
-    // on the full backlog, and a truncated/malformed response can throw a JSON
-    // parse error inside generateJson too — either way this must be a recorded,
-    // clean stop, not an uncaught throw that silently truncates the log and kills
-    // the process (same "don't let this class of error crash uncaught" precedent
-    // used elsewhere for a batch/quota failure).
-    let raw: { results?: unknown } | undefined
-    try {
-      raw = (await withRetry(() => groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA), {
-        provider: 'Groq',
-        label: `batch starting at ${i}`,
-        maxAttempts,
-        retryDelayMs,
-        delay,
-        logger,
-      })) as { results?: unknown }
-    } catch (err) {
-      if (err instanceof QuotaExhaustedError) {
-        logger.error(`batch starting at ${i}: Groq quota exhausted (${err.message}), stopping run`)
-      } else if (err instanceof RetriesExhaustedError) {
-        logger.error(
-          `batch starting at ${i}: Groq request failed after ${maxAttempts} attempts (${err.message}), stopping run`,
-        )
-      } else {
-        throw err
-      }
-      break
+// Asks Groq for one batch's enrichment, retrying transient failures. Groq's
+// daily token cap (see spec's Open Risks) is expected to be hit mid-run on
+// the full backlog, and a truncated/malformed response can throw a JSON parse
+// error inside generateJson too — either way this must be a recorded, clean
+// stop, not an uncaught throw that silently truncates the log and kills the
+// process (same "don't let this class of error crash uncaught" precedent used
+// elsewhere for a batch/quota failure).
+async function requestEnrichment(
+  { groq, logger, delay = realDelay }: EnrichmentIo,
+  prompt: string,
+  label: string,
+  { maxAttempts = DEFAULT_MAX_ATTEMPTS, retryDelayMs = DEFAULT_RETRY_DELAY_MS }: EnrichmentOptions,
+): Promise<EnrichmentResponse> {
+  try {
+    const raw = (await withRetry(() => groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA), {
+      provider: 'Groq',
+      label,
+      maxAttempts,
+      retryDelayMs,
+      delay,
+      logger,
+    })) as { results?: unknown } | undefined
+    return { stop: false, raw }
+  } catch (err) {
+    if (err instanceof QuotaExhaustedError) {
+      logger.error(`${label}: Groq quota exhausted (${err.message}), stopping run`)
+    } else if (err instanceof RetriesExhaustedError) {
+      logger.error(`${label}: Groq request failed after ${maxAttempts} attempts (${err.message}), stopping run`)
+    } else {
+      throw err
     }
+    return { stop: true }
+  }
+}
 
-    if (!raw || !Array.isArray(raw.results)) {
-      logger.error(`batch starting at ${i}: unexpected response shape (no results array), skipping batch`)
+async function saveEnrichments(
+  { db, logger }: EnrichmentIo,
+  batch: EnrichmentCandidate[],
+  items: RawEnrichmentItem[],
+): Promise<void> {
+  const categoryAssignments: { id: number; category: string }[] = []
+
+  for (const item of items) {
+    const outcome = parseEnrichmentItem(item, batch)
+    if (outcome.kind === 'malformed') {
+      logger.warn(`item ${outcome.idHint}: malformed fields in Groq response, skipping`)
+      continue
+    }
+    if (outcome.kind === 'unknown-candidate') {
+      logger.warn(`item ${outcome.id}: no matching candidate in this batch, skipping`)
       continue
     }
 
-    const categoryAssignments: { id: number; category: string }[] = []
-
-    for (const item of raw.results as RawEnrichmentItem[]) {
-      if (
-        typeof item.id !== 'string' ||
-        typeof item.description !== 'string' ||
-        typeof item.value_drivers !== 'string' ||
-        typeof item.has_trained_price_knowledge !== 'boolean' ||
-        typeof item.is_specific_product !== 'boolean' ||
-        (item.confidence !== 'high' && item.confidence !== 'low')
-      ) {
-        const idHint = typeof item.id === 'string' ? item.id : '(missing/invalid id)'
-        logger.warn(`item ${idHint}: malformed fields in Groq response, skipping`)
-        continue
-      }
-      const candidate = batch.find((c) => String(c.id) === item.id)
-      if (!candidate) {
-        logger.warn(`item ${item.id}: no matching candidate in this batch, skipping`)
-        continue
-      }
-
-      const trainedPriceLow = typeof item.trained_price_low === 'number' ? item.trained_price_low : null
-      const trainedPriceHigh = typeof item.trained_price_high === 'number' ? item.trained_price_high : null
-
-      await upsertProductEnrichment(
-        db,
-        candidate.id,
-        {
-          description: item.description,
-          valueDrivers: item.value_drivers,
-          hasTrainedPriceKnowledge: item.has_trained_price_knowledge,
-          trainedPriceLow,
-          trainedPriceHigh,
-          isSpecificProduct: item.is_specific_product,
-          confidence: item.confidence,
-        },
-        MODEL,
-      )
-      logger.info(
-        `product ${candidate.id} enriched (trained price known: ${item.has_trained_price_knowledge}, specific product: ${item.is_specific_product}/${item.confidence})`,
-      )
-
-      // category is best-effort here, unlike the enrichment fields above — a
-      // malformed category doesn't invalidate the enrichment upsert that
-      // already happened. Only ever fills a gap (candidate.category is
-      // already null): a candidate arriving here with a category already
-      // set (assigned at creation by extract-products.ts) keeps it as-is.
-      if (candidate.category === null) {
-        if (typeof item.category === 'string' && VALID_CATEGORIES.has(item.category)) {
-          categoryAssignments.push({ id: candidate.id, category: item.category })
-        } else {
-          logger.warn(`product ${candidate.id}: malformed/invalid category in Groq response, leaving category unset`)
-        }
-      }
+    const { candidate, data, category } = outcome
+    await upsertProductEnrichment(db, candidate.id, data, MODEL)
+    logger.info(
+      `product ${candidate.id} enriched (trained price known: ${data.hasTrainedPriceKnowledge}, specific product: ${data.isSpecificProduct}/${data.confidence})`,
+    )
+    if (category.kind === 'assign') {
+      categoryAssignments.push({ id: candidate.id, category: category.category })
+    } else if (category.kind === 'invalid') {
+      logger.warn(`product ${candidate.id}: malformed/invalid category in Groq response, leaving category unset`)
     }
+  }
 
-    await updateProductCategories(db, categoryAssignments)
+  await updateProductCategories(db, categoryAssignments)
+}
+
+// Enriches products in Groq-sized batches. Stops the run when Groq is
+// exhausted; skips a batch whose response has no results array.
+export async function runProductEnrichment(
+  io: EnrichmentIo,
+  candidates: EnrichmentCandidate[],
+  options: EnrichmentOptions = {},
+): Promise<void> {
+  const { batchSize = DEFAULT_BATCH_SIZE } = options
+  io.logger.info(`${candidates.length} products to enrich`)
+
+  for (let i = 0; i < candidates.length; i += batchSize) {
+    const batch = candidates.slice(i, i + batchSize)
+    const label = `batch starting at ${i}`
+    const response = await requestEnrichment(io, buildEnrichmentPrompt(batch), label, options)
+    if (response.stop) break
+
+    const { raw } = response
+    if (!raw || !Array.isArray(raw.results)) {
+      io.logger.error(`${label}: unexpected response shape (no results array), skipping batch`)
+      continue
+    }
+    await saveEnrichments(io, batch, raw.results as RawEnrichmentItem[])
   }
 }

@@ -38,16 +38,11 @@ async function main() {
         return {
           dryRun: `marketplace will call Groq for enrichment on ${candidates.length} products this lap`,
           run: async () => {
-            await runProductEnrichment(
-              groq,
-              db,
-              logger,
-              candidates,
-              realDelay,
-              settings['enrich_products.batch_size'],
-              settings['enrich_products.max_attempts'],
-              settings['enrich_products.retry_delay_ms'],
-            )
+            await runProductEnrichment({ groq, db, logger, delay: realDelay }, candidates, {
+              batchSize: settings['enrich_products.batch_size'],
+              maxAttempts: settings['enrich_products.max_attempts'],
+              retryDelayMs: settings['enrich_products.retry_delay_ms'],
+            })
             // Applies this lap's freshly-produced is_specific_product/confidence
             // judgments to price_lookup_excluded/price_lookup_review_status - lives
             // here rather than in flag-price-ineligible.ts (which only handles the
