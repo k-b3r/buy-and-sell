@@ -8,10 +8,6 @@
           "slug": "domains-llm-clients"
         },
         {
-          "name": "domains/marketplace",
-          "slug": "domains-marketplace"
-        },
-        {
           "name": "modules",
           "slug": "modules"
         },
