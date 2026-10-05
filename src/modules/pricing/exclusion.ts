@@ -7,8 +7,8 @@ import type { DbClient } from '../../platform/storage'
 //   real_estate, too_generic, parts_accessory, service - text heuristic
 //     (detectGenericBaseModel in generic-products.ts, applied live by
 //     ensureProductPriced)
-//     or the human-curated lists in flag-price-ineligible
-//   needs_component_pricing - human-curated (flag-price-ineligible)
+//     or the human-curated lists in ineligible-categories.ts
+//   needs_component_pricing - human-curated (ineligible-categories.ts)
 //   groq_generic - LLM judgment (applyEligibilityFromEnrichment below)
 //   retail_not_found - no provider found a retail price (ensureProductPriced)
 //   manual_review - a human excluded it from the needs-review page
@@ -49,6 +49,16 @@ export async function excludeFromPricing(
     `UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1${resolveReview} WHERE ${where}`,
     [reason, 'productId' in target ? target.productId : target.baseModels],
   )
+}
+
+// Distinct base_model values not yet excluded, alphabetical: the pool the
+// offline generic-product report scans.
+export async function getUnexcludedBaseModels(db: DbClient): Promise<string[]> {
+  const result = (await db.query(
+    `SELECT DISTINCT base_model FROM products WHERE NOT price_lookup_excluded ORDER BY base_model`,
+    [],
+  )) as { rows: { base_model: string }[] }
+  return result.rows.map((r) => r.base_model)
 }
 
 // Needs-review page's alternative to markProductReviewed: a human looked and

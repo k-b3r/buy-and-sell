@@ -1,39 +1,9 @@
 import { fileURLToPath } from 'node:url'
-import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
-import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import type { NegotiableKeywordCandidate } from '../../modules/pricing'
-import { getNegotiableKeywordCandidates, upsertKeywordNegotiable } from '../../modules/pricing'
-import { matchesNegotiableKeyword } from '../../modules/pricing'
-
-// One-off/rerunnable sweep over EXISTING listings for the negotiability
-// keyword scan that modules/collection/listings.ts's upsertListing
-// and refreshListingFields now run automatically going forward (see
-// modules/pricing/listing-price-review.ts's flagNegotiableFromKeywords) - this
-// covers everything collected before that wiring existed. Deterministic
-// pattern match, no LLM call, so safe to run against the whole table in one pass.
-export async function runFlagNegotiableKeywords(
-  db: DbClient,
-  logger: Logger,
-  candidates: NegotiableKeywordCandidate[],
-): Promise<number> {
-  logger.info(`${candidates.length} listings to scan for negotiability keywords`)
-
-  let flagged = 0
-  for (const candidate of candidates) {
-    const matched = matchesNegotiableKeyword(candidate.title, candidate.description)
-    if (!matched) continue
-    await upsertKeywordNegotiable(db, candidate.id, matched)
-    flagged += 1
-    logger.info(`listing ${candidate.id} flagged negotiable (matched "${matched}")`)
-  }
-
-  logger.info(`flagged ${flagged} of ${candidates.length} listings as negotiable`)
-  return flagged
-}
+import { getNegotiableKeywordCandidates, runFlagNegotiableKeywords } from '../../modules/pricing'
 
 async function main() {
   loadEnvFile()

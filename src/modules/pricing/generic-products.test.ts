@@ -1,4 +1,4 @@
-import { detectGenericBaseModel } from './generic-products'
+import { detectGenericBaseModel, groupGenericBaseModels } from './generic-products'
 
 test('flags a bare category noun with no brand or model', () => {
   expect(detectGenericBaseModel('Air Conditioner')).toEqual({ reason: 'too_generic', matched: 'air conditioner' })
@@ -70,4 +70,15 @@ test('returns null for a real, specific, priceable product', () => {
   expect(detectGenericBaseModel('Motorola Razr 50 Ultra')).toBeNull()
   expect(detectGenericBaseModel('Seiko 5 Automatic Watch')).toBeNull()
   expect(detectGenericBaseModel('Nike Sabrina 1')).toBeNull()
+})
+
+test('groupGenericBaseModels files each generic base_model under its reason and drops specific ones', () => {
+  expect(
+    groupGenericBaseModels(['Refrigerator', 'iPhone 13', 'Vista Plumeria Condo', 'Massage Service', 'Coach Bag']),
+  ).toEqual({
+    real_estate: ['Vista Plumeria Condo'],
+    too_generic: ['Refrigerator', 'Coach Bag'],
+    parts_accessory: [],
+    service: ['Massage Service'],
+  })
 })
