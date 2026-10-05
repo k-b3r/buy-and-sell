@@ -51,6 +51,16 @@ export async function excludeFromPricing(
   )
 }
 
+// Distinct base_model values not yet excluded, alphabetical: the pool the
+// offline generic-product report scans.
+export async function getUnexcludedBaseModels(db: DbClient): Promise<string[]> {
+  const result = (await db.query(
+    `SELECT DISTINCT base_model FROM products WHERE NOT price_lookup_excluded ORDER BY base_model`,
+    [],
+  )) as { rows: { base_model: string }[] }
+  return result.rows.map((r) => r.base_model)
+}
+
 // Needs-review page's alternative to markProductReviewed: a human looked and
 // agrees with Groq's low-confidence hunch that this isn't a real priceable
 // product. reason arrives from the dashboard over RPC, so it's checked

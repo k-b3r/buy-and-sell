@@ -46,8 +46,13 @@ export {
 } from './discount-notifications'
 export type { VerificationClients } from './discount-verification'
 export type { GenericReason } from './generic-products'
-export { detectGenericBaseModel } from './generic-products'
-export { applyEligibilityFromEnrichment, excludeFromPricing, excludeProductFromReview } from './exclusion'
+export { detectGenericBaseModel, groupGenericBaseModels } from './generic-products'
+export {
+  applyEligibilityFromEnrichment,
+  excludeFromPricing,
+  excludeProductFromReview,
+  getUnexcludedBaseModels,
+} from './exclusion'
 export { excludeIneligibleCategories } from './ineligible-categories'
 export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
 export type { NegotiableKeywordCandidate } from './listing-price-review'

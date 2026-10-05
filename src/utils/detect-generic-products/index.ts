@@ -1,32 +1,13 @@
 import { fileURLToPath } from 'node:url'
-import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import type { GenericReason } from '../../modules/pricing'
-import { detectGenericBaseModel } from '../../modules/pricing'
+import { getUnexcludedBaseModels, groupGenericBaseModels } from '../../modules/pricing'
 
-interface BaseModelRow {
-  base_model: string
-}
-
-async function getUnflaggedBaseModels(db: DbClient): Promise<string[]> {
-  const result = (await db.query(
-    `SELECT DISTINCT base_model FROM products WHERE NOT price_lookup_excluded ORDER BY base_model`,
-    [],
-  )) as { rows: BaseModelRow[] }
-  return result.rows.map((r) => r.base_model)
-}
-
-// Read-only by design - reports candidates for a human (or an agent) to
-// review before adding them to flag-price-ineligible/index.ts's curated
-// PRICE_INELIGIBLE_CATEGORIES list, same as every entry already in that file
-// was found. Detection and application are deliberately separate steps here
-// (unlike detectGenericBaseModel's other caller, the price-lookup workers,
-// which DO apply it live - a live miss there just costs one skipped
-// lookup, reversible, whereas this script's job is a broader/riskier sweep
-// meant for human review before being folded into the curated list).
+// Read-only report for a human to review before curating the pricing
+// module's ineligible-categories list (see groupGenericBaseModels).
 async function main(): Promise<void> {
   loadEnvFile()
   const dbUrl = process.env.DATABASE_URL
@@ -35,17 +16,8 @@ async function main(): Promise<void> {
   const logger = createLogger('data/detect-generic-products.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   try {
-    const baseModels = await getUnflaggedBaseModels(pool)
-    const byReason: Record<GenericReason, string[]> = {
-      real_estate: [],
-      too_generic: [],
-      parts_accessory: [],
-      service: [],
-    }
-    for (const baseModel of baseModels) {
-      const result = detectGenericBaseModel(baseModel)
-      if (result) byReason[result.reason].push(baseModel)
-    }
+    const baseModels = await getUnexcludedBaseModels(pool)
+    const byReason = groupGenericBaseModels(baseModels)
 
     for (const reason of Object.keys(byReason) as GenericReason[]) {
       const matches = byReason[reason]

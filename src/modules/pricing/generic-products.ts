@@ -462,3 +462,23 @@ export function detectGenericBaseModel(baseModel: string): { reason: GenericReas
 
   return null
 }
+
+// The offline report's grouping: every detected-generic base_model under its
+// reason, input order kept, non-generic ones dropped. Read-only by design -
+// the report feeds a human review before entries are folded into
+// ineligible-categories.ts, unlike the live price-lookup path that applies
+// detectGenericBaseModel directly (a live miss there just costs one skipped
+// lookup, reversible; this sweep is broader and riskier).
+export function groupGenericBaseModels(baseModels: string[]): Record<GenericReason, string[]> {
+  const byReason: Record<GenericReason, string[]> = {
+    real_estate: [],
+    too_generic: [],
+    parts_accessory: [],
+    service: [],
+  }
+  for (const baseModel of baseModels) {
+    const result = detectGenericBaseModel(baseModel)
+    if (result) byReason[result.reason].push(baseModel)
+  }
+  return byReason
+}
