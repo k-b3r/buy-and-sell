@@ -44,10 +44,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null, category: string | null = null, subCategory: string | null = null): Promise<number>`
-
-_(undocumented)_
-
 ### `getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]>`
 
 _(undocumented)_
@@ -150,7 +146,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null, category: string | null = null, subCategory: string | null = null): Promise<number>`
+### `findOrCreateProduct(db: DbClient, product: ProductIdentity): Promise<number>`
 
 _(undocumented)_
 
@@ -364,6 +360,18 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `loadCollectKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `planLapQueries(input: LapPlanInput): LapQuery[]`
+
+_(undocumented)_
+
 ### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
 
 _(undocumented)_
@@ -429,6 +437,22 @@ _(undocumented)_
 _(undocumented)_
 
 ### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/keywords.ts
+
+**Interactions:** imports `../../platform/storage`
+
+### `loadCollectKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `planLapQueries(input: LapPlanInput): LapQuery[]`
 
 _(undocumented)_
 
@@ -1140,7 +1164,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `upsertRealEstateDetails(db: DbClient, listingId: string, f: RealEstateFields, model: string, sourceHash: string): Promise<void>`
+### `upsertRealEstateDetails(db: DbClient, row: RealEstateDetailsRow): Promise<void>`
 
 _(undocumented)_
 
@@ -1170,11 +1194,11 @@ _(undocumented)_
 
 **Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
 
-### `extractRealEstateBatch(groq: JsonModelClient, logger: Logger, delay: DelayFn, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
+### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
 _(undocumented)_
 
-### `runRealEstateExtraction(groq: JsonModelClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
+### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
 
 _(undocumented)_
 
@@ -1184,11 +1208,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runRealEstateExtraction(groq: JsonModelClient, db: DbClient, logger: Logger, candidates: RealEstateCandidate[], batchSize = 10, delay: DelayFn = realDelay): Promise<void>`
+### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
 
 _(undocumented)_
 
-### `recordRealEstatePriceChange(db: DbClient, logger: Logger, listingId: string, prior: PriorPriceRow | undefined, newPrice: number | null, newCurrency: string | null): Promise<void>`
+### `recordRealEstatePriceChange(db: DbClient, logger: Logger, change: ListingPriceChange): Promise<void>`
 
 _(undocumented)_
 
@@ -1200,7 +1224,7 @@ _(undocumented)_
 
 **Interactions:** imports `../../platform/logger`, `../../platform/storage`
 
-### `recordRealEstatePriceChange(db: DbClient, logger: Logger, listingId: string, prior: PriorPriceRow | undefined, newPrice: number | null, newCurrency: string | null): Promise<void>`
+### `recordRealEstatePriceChange(db: DbClient, logger: Logger, change: ListingPriceChange): Promise<void>`
 
 _(undocumented)_
 
