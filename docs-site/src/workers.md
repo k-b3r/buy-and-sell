@@ -12,9 +12,9 @@ _(undocumented)_
 
 ## src/workers/enrich-listing-prices/index.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../domains/llm-clients/groq-sdk`, `../../modules/pricing`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`, `../../platform/worker`
+**Interactions:** imports `../../domains/llm-clients`, `../../domains/llm-clients/groq-sdk`, `../../modules/pricing`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`, `../../platform/worker`
 
-### `runPriceReview(groq: GroqClient, db: DbClient, logger: Logger, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
+### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
 _(undocumented)_
 
