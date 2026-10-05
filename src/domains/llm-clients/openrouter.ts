@@ -1,3 +1,6 @@
+import { createClientPool } from './client-pool'
+import { isCreditsError, isQuotaError } from './error-classification'
+
 export interface OpenRouterClient {
   generateJson(prompt: string, schema: object): Promise<unknown>
 }
@@ -33,39 +36,12 @@ export function createOpenRouterClient(apiKey: string, model = 'deepseek/deepsee
   }
 }
 
-// 429 is OpenRouter's rate-limit signal; 402 is its insufficient-credits
-// signal (same convention as Exa's isExaCreditsError) - both mean "this key
-// is done for now," not a real failure worth retrying against the same key.
-export function isQuotaError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null || !('status' in err)) return false
-  const status = (err as { status?: unknown }).status
-  return status === 429 || status === 402
-}
-
-// Same permanent-switch-on-exhaustion pattern as createFallbackGroqClient/
-// createFallbackGeminiClient - once a key's quota/credits are known to be
-// gone, there's no reason to try it again this run. Any other error
-// (malformed response, network failure) is not a quota signal and is
-// rethrown immediately without switching.
+// A 429 rate limit or a 402 insufficient-credits both mean "this key is done
+// for now", so either one switches keys. Switching contract: createClientPool.
 export function createFallbackOpenRouterClient(clients: OpenRouterClient[]): OpenRouterClient {
-  let currentIndex = 0
-
-  async function withFallback<T>(call: (client: OpenRouterClient) => Promise<T>): Promise<T> {
-    while (currentIndex < clients.length) {
-      try {
-        return await call(clients[currentIndex])
-      } catch (err) {
-        if (isQuotaError(err) && currentIndex < clients.length - 1) {
-          currentIndex += 1
-          continue
-        }
-        throw err
-      }
-    }
-    throw new Error('all OpenRouter clients exhausted')
-  }
-
-  return {
-    generateJson: (prompt, schema) => withFallback((client) => client.generateJson(prompt, schema)),
-  }
+  const run = createClientPool(clients, {
+    provider: 'OpenRouter',
+    isExhausted: (err) => isQuotaError(err) || isCreditsError(err),
+  })
+  return { generateJson: (prompt, schema) => run((client) => client.generateJson(prompt, schema)) }
 }

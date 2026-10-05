@@ -1,5 +1,5 @@
 import type { OpenRouterClient } from './openrouter'
-import { isQuotaError, createFallbackOpenRouterClient } from './openrouter'
+import { createFallbackOpenRouterClient } from './openrouter'
 
 // createOpenRouterClient itself wraps the real fetch call to openrouter.ai
 // and is not unit tested here — same precedent as createGroqClient/
@@ -13,21 +13,16 @@ test('an OpenRouterClient exposes generateJson(prompt, schema) returning parsed 
   expect(result).toEqual({ still_discounted: true })
 })
 
-test('isQuotaError is true for a 429 rate-limit or a 402 insufficient-credits error', () => {
-  const rateLimited = new Error('rate limited') as Error & { status: number }
-  rateLimited.status = 429
-  expect(isQuotaError(rateLimited)).toBe(true)
+test('fallback client switches keys on a 402 insufficient-credits error as well as a 429', async () => {
+  const noCredits: OpenRouterClient = {
+    generateJson: async () => {
+      throw Object.assign(new Error('insufficient credits'), { status: 402 })
+    },
+  }
+  const spare: OpenRouterClient = { generateJson: async () => ({ from: 'spare' }) }
+  const client = createFallbackOpenRouterClient([noCredits, spare])
 
-  const noCredits = new Error('insufficient credits') as Error & { status: number }
-  noCredits.status = 402
-  expect(isQuotaError(noCredits)).toBe(true)
-
-  const badRequest = new Error('bad request') as Error & { status: number }
-  badRequest.status = 400
-  expect(isQuotaError(badRequest)).toBe(false)
-
-  expect(isQuotaError(new Error('plain error'))).toBe(false)
-  expect(isQuotaError('not an object')).toBe(false)
+  expect(await client.generateJson('p', {})).toEqual({ from: 'spare' })
 })
 
 test('fallback client uses the primary until it hits a quota error, then switches permanently to the next one', async () => {

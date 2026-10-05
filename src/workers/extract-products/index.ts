@@ -5,10 +5,9 @@ import {
   createGeminiClient,
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
-  isGeminiQuotaError,
   createGroqPool,
   loadGroqApiKeys,
-  isGroqQuotaError,
+  isQuotaError,
   summarizeGroqError,
   createExaClient,
   createFallbackExaClient,
@@ -90,7 +89,7 @@ async function extractBatch(
       return await clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
     } catch (err) {
       const message = summarizeGroqError(err)
-      if (isGroqQuotaError(err)) {
+      if (isQuotaError(err)) {
         logger.warn(`${batchLabel}: Groq quota exhausted (${message}), falling back to Gemini`)
         break
       }
@@ -113,7 +112,7 @@ async function extractBatch(
       return await clients.gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      if (isGeminiQuotaError(err)) {
+      if (isQuotaError(err)) {
         logger.error(`${batchLabel}: Gemini quota exhausted across all configured keys too (${message}), stopping run`)
         return null
       }

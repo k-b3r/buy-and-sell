@@ -1,4 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
+import { createClientPool } from './client-pool'
+import { isQuotaError } from './error-classification'
 
 export interface GeminiClient {
   generateJson(prompt: string, schema: object): Promise<unknown>
@@ -113,10 +115,6 @@ export function createDailyGroundingCap(
   }
 }
 
-export function isQuotaError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 429
-}
-
 // Reacts to Google's real 429 instead of guessing a request count (see the
 // comment above createDailyGroundingCap - this unbilled key's true ceiling
 // is a flat 20/day, confirmed live, not the 1,500 that cap's default was
@@ -160,31 +158,12 @@ export function createQuotaAwareGeminiClient(client: GeminiClient, now: () => Da
 
 // Wraps multiple GeminiClients (e.g. free-tier keys from different accounts,
 // each with its own independent daily quota) and falls back to the next one
-// the moment the current one hits a quota error (HTTP 429). The switch is
-// permanent for the rest of the process — once a client's quota is known to
-// be exhausted, there's no reason to try it again this run. Any other kind
-// of error (malformed response, network failure, etc.) is not a quota
-// signal and is rethrown immediately without switching.
+// the moment the current one hits a quota error (HTTP 429). Both methods share
+// one cursor. Switching contract: createClientPool.
 export function createFallbackGeminiClient(clients: GeminiClient[]): GeminiClient {
-  let currentIndex = 0
-
-  async function withFallback<T>(call: (client: GeminiClient) => Promise<T>): Promise<T> {
-    while (currentIndex < clients.length) {
-      try {
-        return await call(clients[currentIndex])
-      } catch (err) {
-        if (isQuotaError(err) && currentIndex < clients.length - 1) {
-          currentIndex += 1
-          continue
-        }
-        throw err
-      }
-    }
-    throw new Error('all Gemini clients exhausted')
-  }
-
+  const run = createClientPool(clients, { provider: 'Gemini' })
   return {
-    generateJson: (prompt, schema) => withFallback((client) => client.generateJson(prompt, schema)),
-    generateGroundedText: (prompt) => withFallback((client) => client.generateGroundedText(prompt)),
+    generateJson: (prompt, schema) => run((client) => client.generateJson(prompt, schema)),
+    generateGroundedText: (prompt) => run((client) => client.generateGroundedText(prompt)),
   }
 }
