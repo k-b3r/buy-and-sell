@@ -5,6 +5,20 @@
 // never loads the browser.
 export type { PageDriver } from './driver'
 export { extractDetailFields } from './extract/detail'
+export type { CheckListingsCandidate } from './listings'
+export {
+  deleteListing,
+  flagListingRemoved,
+  getBackfillCandidates,
+  getCheckListingsCandidates,
+  getListingCheckCandidate,
+  getListingCheckCandidatesForProduct,
+  markListingAlive,
+  markListingPhotosUnavailable,
+  markListingSold,
+  refreshListingFields,
+  upsertListing,
+} from './listings'
 export { isWithinServiceArea } from './location'
 export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'

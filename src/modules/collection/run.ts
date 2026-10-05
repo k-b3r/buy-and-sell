@@ -10,7 +10,7 @@ import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './location'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import { upsertListing, getCollectedListingIds } from '../../domains/marketplace'
+import { upsertListing, getCollectedListingIds } from './listings'
 import type { ImageStore } from '../../platform/images'
 import { storeListingPhotos } from '../../platform/images'
 

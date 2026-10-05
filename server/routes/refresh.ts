@@ -1,6 +1,6 @@
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
-import { getListingCheckCandidate } from '../../src/domains/marketplace'
+import { getListingCheckCandidate } from '../../src/modules/collection'
 import type { ImageStore } from '../../src/platform/images'
 import type { PageDriver, ResolvedProxy } from '../../src/modules/collection'
 import { launchBrowser, createBrowserDriver } from '../../src/modules/collection/browser'

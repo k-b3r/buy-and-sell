@@ -26,7 +26,6 @@ export {
   normalizeVariantTier,
 } from './products'
 export type {
-  CheckListingsCandidate,
   DiscountPolicyThresholds,
   DiscountVerificationCandidate,
   NegotiableKeywordCandidate,
@@ -34,25 +33,14 @@ export type {
 export {
   DEFAULT_DISCOUNT_POLICY,
   checkListingDiscount,
-  deleteListing,
-  flagListingRemoved,
-  getBackfillCandidates,
-  getCheckListingsCandidates,
-  getCollectedListingIds,
-  getListingCheckCandidate,
-  getListingCheckCandidatesForProduct,
+  flagNegotiableFromKeywords,
   getNegotiableKeywordCandidates,
   getPriceReviewCandidates,
   getUnverifiedDiscountCandidates,
   markDiscountNotificationAttempted,
   markDiscountNotificationVerified,
-  markListingAlive,
-  markListingPhotosUnavailable,
-  markListingSold,
-  refreshListingFields,
   rejectDiscountNotification,
   upsertKeywordNegotiable,
-  upsertListing,
   upsertListingPriceReview,
 } from './storage/listings'
 export type { ListingPricesForProductCondition } from './storage/pricing'

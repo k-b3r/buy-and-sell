@@ -10,9 +10,9 @@ import { getNegotiableKeywordCandidates, upsertKeywordNegotiable } from '../../d
 import { matchesNegotiableKeyword } from '../../domains/marketplace'
 
 // One-off/rerunnable sweep over EXISTING listings for the negotiability
-// keyword scan that domains/marketplace/storage/listings.ts's upsertListing
+// keyword scan that modules/collection/listings.ts's upsertListing
 // and refreshListingFields now run automatically going forward (see
-// listings.ts's flagNegotiableFromKeywords) - this
+// domains/marketplace/storage/listings.ts's flagNegotiableFromKeywords) - this
 // covers everything collected before that wiring existed. Deterministic
 // pattern match, no LLM call, so safe to run against the whole table in one pass.
 export async function runFlagNegotiableKeywords(
