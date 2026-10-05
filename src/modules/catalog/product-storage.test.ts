@@ -5,10 +5,7 @@ import {
   getExtractionCandidates,
   getEnrichmentCandidates,
   upsertProductEnrichment,
-  getCategoryBackfillCandidates,
   updateProductCategories,
-  getSubCategoryBackfillCandidates,
-  updateProductSubCategories,
   mergeDuplicateProduct,
   findProductIdsByNormalizedName,
   getProductMatchedListings,
@@ -293,21 +290,6 @@ test('upsertProductEnrichment stores null currency when no trained price is know
   expect(calls[0].params).toEqual([17, 'desc', 'drivers', false, null, null, null, 'openai/gpt-oss-120b', false, 'low'])
 })
 
-test('getCategoryBackfillCandidates returns products with no category assigned yet', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return { rows: [{ id: 1, base_model: 'RTX 3060', variant_tier: null }] }
-    },
-  }
-
-  const result = await getCategoryBackfillCandidates(db)
-
-  expect(calls[0].sql).toContain('category_id IS NULL')
-  expect(result).toEqual([{ id: 1, base_model: 'RTX 3060', variant_tier: null }])
-})
-
 test('updateProductCategories does nothing (no query) when given an empty array', async () => {
   const { db, calls } = mockDb()
 
@@ -329,45 +311,6 @@ test('updateProductCategories issues a single multi-row UPDATE for all assignmen
   expect(calls[0].sql).toContain('FROM (VALUES')
   expect(calls[0].sql).toContain('JOIN categories')
   expect(calls[0].params).toEqual([1, 'Gaming', 2, 'Audio'])
-})
-
-test('getSubCategoryBackfillCandidates returns products with a category but no sub-category assigned yet', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return { rows: [{ id: 1, base_model: 'RTX 3060', variant_tier: null, category: 'PC Components' }] }
-    },
-  }
-
-  const result = await getSubCategoryBackfillCandidates(db)
-
-  expect(calls[0].sql).toContain('sub_category_id IS NULL')
-  expect(calls[0].sql).toContain('JOIN categories c ON c.id = p.category_id')
-  expect(result).toEqual([{ id: 1, base_model: 'RTX 3060', variant_tier: null, category: 'PC Components' }])
-})
-
-test('updateProductSubCategories does nothing (no query) when given an empty array', async () => {
-  const { db, calls } = mockDb()
-
-  await updateProductSubCategories(db, [])
-
-  expect(calls).toHaveLength(0)
-})
-
-test('updateProductSubCategories issues a single multi-row UPDATE targeting sub_category_id', async () => {
-  const { db, calls } = mockDb()
-
-  await updateProductSubCategories(db, [
-    { id: 1, subCategory: 'Graphics Cards' },
-    { id: 2, subCategory: 'Headphones & Earphones' },
-  ])
-
-  expect(calls).toHaveLength(1)
-  expect(calls[0].sql).toMatch(/^UPDATE products SET sub_category_id/)
-  expect(calls[0].sql).toContain('FROM (VALUES')
-  expect(calls[0].sql).toContain('JOIN categories')
-  expect(calls[0].params).toEqual([1, 'Graphics Cards', 2, 'Headphones & Earphones'])
 })
 
 test('mergeDuplicateProduct reassigns listings, price history, notifications, and enrichment (skipping it if the survivor already has one), then deletes the loser', async () => {

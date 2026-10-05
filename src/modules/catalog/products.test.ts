@@ -4,15 +4,10 @@ import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
   PRODUCT_CATEGORIES,
-  buildCategoryBackfillPrompt,
-  CATEGORY_BACKFILL_RESPONSE_SCHEMA,
   SUB_CATEGORIES,
-  buildSubCategoryBackfillPrompt,
-  SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA,
   isProductCategory,
   isSubCategory,
 } from './products'
-import type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
 
 test('normalizeBaseModel trims, lowercases, and collapses internal whitespace', () => {
   expect(normalizeBaseModel('  RTX   3060  ')).toBe('rtx 3060')
@@ -116,28 +111,6 @@ test('normalizeVariantTier trims, lowercases, collapses whitespace, and strips a
   expect(normalizeVariantTier('Founders edition')).toBe('founders edition')
 })
 
-test('buildCategoryBackfillPrompt includes each product id/label and the fixed category list', () => {
-  const products: CategoryBackfillCandidate[] = [
-    { id: 363, base_model: 'iPhone 12', variant_tier: 'Mini' },
-    { id: 17, base_model: 'RTX 2060', variant_tier: null },
-  ]
-
-  const prompt = buildCategoryBackfillPrompt(products)
-
-  expect(prompt).toContain('[id: 363] iPhone 12 (Mini)')
-  expect(prompt).toContain('[id: 17] RTX 2060')
-  expect(prompt).toContain(PRODUCT_CATEGORIES.join(', '))
-})
-
-test('CATEGORY_BACKFILL_RESPONSE_SCHEMA requires a results array with id/category per item', () => {
-  expect(CATEGORY_BACKFILL_RESPONSE_SCHEMA.type).toBe('object')
-  expect(CATEGORY_BACKFILL_RESPONSE_SCHEMA.required).toEqual(['results'])
-  expect(CATEGORY_BACKFILL_RESPONSE_SCHEMA.properties.results.items.required).toEqual(['id', 'category'])
-  expect(CATEGORY_BACKFILL_RESPONSE_SCHEMA.properties.results.items.properties.category.enum).toEqual(
-    PRODUCT_CATEGORIES,
-  )
-})
-
 test('SUB_CATEGORIES has no duplicates and includes Other as the fallback', () => {
   expect(new Set(SUB_CATEGORIES).size).toBe(SUB_CATEGORIES.length)
   expect(SUB_CATEGORIES).toContain('Other')
@@ -156,26 +129,4 @@ test('isSubCategory accepts only exact names from the fixed sub-category list', 
   expect(isSubCategory('Other')).toBe(true)
   expect(isSubCategory('Gaming')).toBe(false)
   expect(isSubCategory(undefined)).toBe(false)
-})
-
-test('buildSubCategoryBackfillPrompt includes each product id/label/current-category and the fixed sub-category list', () => {
-  const products: SubCategoryBackfillCandidate[] = [
-    { id: 363, base_model: 'iPhone 12', variant_tier: 'Mini', category: 'Phones & Tablets' },
-    { id: 17, base_model: 'RTX 2060', variant_tier: null, category: 'Computers & Laptops' },
-  ]
-
-  const prompt = buildSubCategoryBackfillPrompt(products)
-
-  expect(prompt).toContain('[id: 363] iPhone 12 (Mini) — currently filed under: Phones & Tablets')
-  expect(prompt).toContain('[id: 17] RTX 2060 — currently filed under: Computers & Laptops')
-  expect(prompt).toContain(SUB_CATEGORIES.join(', '))
-})
-
-test('SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA requires a results array with id/sub_category per item', () => {
-  expect(SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA.type).toBe('object')
-  expect(SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA.required).toEqual(['results'])
-  expect(SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA.properties.results.items.required).toEqual(['id', 'sub_category'])
-  expect(SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA.properties.results.items.properties.sub_category.enum).toEqual(
-    SUB_CATEGORIES,
-  )
 })

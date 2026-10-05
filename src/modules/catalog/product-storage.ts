@@ -1,7 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import { normalizeBaseModel, normalizeVariantTier } from './products'
 import type { EnrichmentCandidate, EnrichmentData } from './enrichment'
-import type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
 
 // The products_base_model_variant_idx identity: one row per normalized
 // base_model + variant_tier. Every "does this product already exist" check
@@ -162,24 +161,12 @@ export async function upsertProductEnrichment(
   )
 }
 
-// category_id IS NULL is both the filter and the resumability marker — no
-// separate results table needed (same pattern as the enrichment candidate
-// query above). Only pre-existing products lack a category; extract-products
-// assigns it at creation time for everything new, so this backlog only shrinks.
-export async function getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]> {
-  const result = (await db.query(
-    `SELECT id, base_model, variant_tier FROM products WHERE category_id IS NULL ORDER BY id`,
-    [],
-  )) as { rows: CategoryBackfillCandidate[] }
-  return result.rows
-}
-
 // Batched single round trip, same reasoning as updateListingProductIds above
 // — the Neon round-trip cost dwarfs the LLM cost here. Assignments carry the
 // category NAME (from the LLM response / caller), resolved to category_id via
 // the join below — categories is a small fixed seeded set, never written to
-// here. Also used by enrich-products, which assigns a category at
-// first-enrichment time too.
+// here. Used by enrich-products, which assigns a category at first-enrichment
+// time.
 export async function updateProductCategories(
   db: DbClient,
   assignments: { id: number; category: string }[],
@@ -193,50 +180,6 @@ export async function updateProductCategories(
     `UPDATE products SET category_id = c.id
      FROM (VALUES ${valuesSql}) AS data(id, category)
      JOIN categories c ON c.name = data.category
-     WHERE products.id = data.id`,
-    params,
-  )
-}
-
-// sub_category_id IS NULL is the resumability marker, same pattern as
-// category_id above — but unlike category_id, it can't double as "no
-// category assigned yet" (a product can validly land back on the 'Other'
-// leaf after classification, same name as the pre-existing coarse
-// category, so category_id alone can't tell "not yet reconsidered" apart
-// from "reconsidered and confirmed Other"). sub_category_id starts NULL for
-// every product regardless of its current category and is set exactly once.
-// Requires category_id already set (join, not left join) — nothing should
-// reach the sub-category pass before the coarse pass has run.
-export async function getSubCategoryBackfillCandidates(db: DbClient): Promise<SubCategoryBackfillCandidate[]> {
-  const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, c.name AS category
-     FROM products p
-     JOIN categories c ON c.id = p.category_id
-     WHERE p.sub_category_id IS NULL
-     ORDER BY p.id`,
-    [],
-  )) as { rows: SubCategoryBackfillCandidate[] }
-  return result.rows
-}
-
-// Same batching/join shape as updateProductCategories above, targeting the
-// new sub_category_id column instead. Assignments carry the sub-category
-// NAME (from the LLM response), resolved via the same categories table —
-// the 36 new leaf rows plus the pre-existing 'Other' row (db/schema.sql's
-// 2026-08-28 migration), never written to here.
-export async function updateProductSubCategories(
-  db: DbClient,
-  assignments: { id: number; subCategory: string }[],
-): Promise<void> {
-  if (assignments.length === 0) return
-
-  const valuesSql = assignments.map((_, i) => `($${i * 2 + 1}::int, $${i * 2 + 2}::text)`).join(', ')
-  const params = assignments.flatMap((a) => [a.id, a.subCategory])
-
-  await db.query(
-    `UPDATE products SET sub_category_id = c.id
-     FROM (VALUES ${valuesSql}) AS data(id, sub_category)
-     JOIN categories c ON c.name = data.sub_category
      WHERE products.id = data.id`,
     params,
   )

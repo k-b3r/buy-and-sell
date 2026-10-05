@@ -267,8 +267,9 @@ UPDATE categories SET parent_id = (SELECT id FROM categories WHERE name = 'Fashi
 -- products.sub_category_id is a NEW, separate column from category_id, not
 -- a repoint of it - category_id keeps meaning exactly what every existing
 -- dashboard query/filter/icon already assumes it means (one of the 14), so
--- none of that breaks. sub_category_id is additive: NULL until the
--- backfill-sub-categories worker (mirrors backfill-categories) sets it.
+-- none of that breaks. sub_category_id is additive: extract-products sets
+-- it on insert. Pre-existing rows were filled by a one-off backfill util,
+-- deleted 2026-10-05 once the prod NULL backlog was 0.
 -- 'Other' is deliberately NOT split further (it's the catch-all - see
 -- products.ts's SUB_CATEGORIES comment) and gets no new child row; it's
 -- reused as-is as one of the fixed leaf options every product can land on.

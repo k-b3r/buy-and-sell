@@ -95,8 +95,7 @@ async function main() {
               // live 2026-08-20) - unverified whether 100/batch is still the
               // right size now that Groq (TPM-capped, not daily-request-capped)
               // is primary. Left as-is pending a live batch-size audit, same
-              // status as enrich-listing-prices' 35 and
-              // catalog/category-backfill.ts's 100 (see pipeline-consolidation plan).
+              // status as enrich-listing-prices' 35 (see pipeline-consolidation plan).
               batchSize: settings['extract_products.batch_size'],
               delayMs: settings['extract_products.inter_batch_delay_ms'],
               maxAttempts: settings['extract_products.max_attempts'],
