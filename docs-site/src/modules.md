@@ -20,10 +20,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `excludeProductFromReview(db: QueryClient, productId: number, reason: string): Promise<void>`
-
-_(undocumented)_
-
 ### `getProductsNeedingReview(db: QueryClient): Promise<ProductNeedingReview[]>`
 
 _(undocumented)_
@@ -61,10 +57,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `markProductReviewed(db: QueryClient, productId: number): Promise<void>`
-
-_(undocumented)_
-
-### `excludeProductFromReview(db: QueryClient, productId: number, reason: string): Promise<void>`
 
 _(undocumented)_
 
@@ -130,19 +122,97 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/pricing/clean-median.ts
+
+### `isPlaceholderPrice(price: number): boolean`
+
+_(undocumented)_
+
+### `notPlaceholderPriceSql(column: string): string`
+
+_(undocumented)_
+
+### `isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean`
+
+_(undocumented)_
+
+### `notMagnitudeOutlierSql(column: string, medianColumn: string): string`
+
+_(undocumented)_
+
+### `computeMedians(prices: number[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+
+_(undocumented)_
+
+### `medianCtes({ name, pool, minSample = 1, clean = true }: MedianCtesOptions): string`
+
+_(undocumented)_
+
 ## src/modules/pricing/deals.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./price-rules`, `./queries`
+**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./queries`, `./repost`
 
 ### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
 
 _(undocumented)_
 
-## src/modules/pricing/index.ts
+## src/modules/pricing/discount-notifications.ts
 
-### `computeListingDiscount(priceAmount: unknown, rawMedianPrice: unknown, cleanMedianPrice: unknown, sampleSize: unknown): { discountPercent: number | null; referencePrice: number | null }`
+**Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`, `./price-rules`, `./queries`
+
+### `checkListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
 
 _(undocumented)_
+
+### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
+
+_(undocumented)_
+
+### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
+
+_(undocumented)_
+
+### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/discount-verification.ts
+
+**Interactions:** imports `../../domains/llm-clients`, `./discount-notifications`, `./price-rules`
+
+### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
+
+_(undocumented)_
+
+### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
+
+_(undocumented)_
+
+### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
+
+_(undocumented)_
+
+## src/modules/pricing/exclusion.ts
+
+**Interactions:** imports `../../platform/storage`
+
+### `excludeFromPricing(db: DbClient, target: ExclusionTarget, reason: PriceExclusionReason, options: { resolveReview?: boolean } = {}): Promise<void>`
+
+_(undocumented)_
+
+### `excludeProductFromReview(db: DbClient, productId: number, reason: unknown): Promise<void>`
+
+_(undocumented)_
+
+### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/index.ts
 
 ### `computeMedians(prices: number[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
 
@@ -152,7 +222,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean`
+### `medianCtes({ name, pool, minSample = 1, clean = true }: MedianCtesOptions): string`
 
 _(undocumented)_
 
@@ -164,7 +234,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `resolveSecondhandPrice(usedLow: unknown, usedHigh: unknown, usedSource: unknown, hasTrainedPriceKnowledge: unknown, trainedLow: unknown, trainedHigh: unknown): { low: number | null; high: number | null; source: string | null }`
+### `computeListingDiscount(priceAmount: unknown, rawMedianPrice: unknown, cleanMedianPrice: unknown, sampleSize: unknown): { discountPercent: number | null; referencePrice: number | null }`
+
+_(undocumented)_
+
+### `isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean`
+
+_(undocumented)_
+
+### `resolveSecondhandPrice(used: { low: unknown; high: unknown; source: unknown }, trained: { known: unknown; low: unknown; high: unknown }): { low: number | null; high: number | null; source: string | null }`
 
 _(undocumented)_
 
@@ -216,31 +294,223 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `checkListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
+
+_(undocumented)_
+
+### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
+
+_(undocumented)_
+
+### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
+
+_(undocumented)_
+
+### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
+
+_(undocumented)_
+
+### `excludeFromPricing(db: DbClient, target: ExclusionTarget, reason: PriceExclusionReason, options: { resolveReview?: boolean } = {}): Promise<void>`
+
+_(undocumented)_
+
+### `excludeProductFromReview(db: DbClient, productId: number, reason: unknown): Promise<void>`
+
+_(undocumented)_
+
+### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
+
+_(undocumented)_
+
+### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
+
+_(undocumented)_
+
+### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
+
+_(undocumented)_
+
+### `getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]>`
+
+_(undocumented)_
+
+### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
+
+_(undocumented)_
+
+### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
+
+_(undocumented)_
+
+### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
+
+_(undocumented)_
+
+### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
+
+_(undocumented)_
+
+### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
+
+_(undocumented)_
+
+### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
+
+_(undocumented)_
+
+### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
+
+_(undocumented)_
+
+### `insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void>`
+
+_(undocumented)_
+
+### `ensureProductPriced(deps: PriceLookupDeps, product: PriceLookupCandidate): Promise<ProductPricingResult>`
+
+_(undocumented)_
+
+### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
+
+_(undocumented)_
+
+### `repostKey(listing: { id: string; title: string | null }): string`
+
+_(undocumented)_
+
+### `repostKeySql(titleColumn: string, idColumn: string): string`
+
+_(undocumented)_
+
+### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
+
+_(undocumented)_
+
+## src/modules/pricing/listing-price-review.ts
+
+**Interactions:** imports `../../platform/storage`, `./clean-median`, `./negotiable-keywords`, `./price-review`
+
+### `getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]>`
+
+_(undocumented)_
+
+### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
+
+_(undocumented)_
+
+### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
+
+_(undocumented)_
+
+### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
+
+_(undocumented)_
+
+### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/negotiable-keywords.ts
+
+### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
+
+_(undocumented)_
+
+## src/modules/pricing/price-history.ts
+
+**Interactions:** imports `../../platform/storage`, `./price-lookup`
+
+### `insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void>`
+
+_(undocumented)_
+
+### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
+
+_(undocumented)_
+
+### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
+
+_(undocumented)_
+
+### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
+
+_(undocumented)_
+
+## src/modules/pricing/price-lookup.ts
+
+**Interactions:** imports `../../domains/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./exclusion`, `./price-history`
+
+### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
+
+_(undocumented)_
+
+### `buildGeminiPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `parseGeminiPriceResponse(text: string): PriceRange | null`
+
+_(undocumented)_
+
+### `buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `parseExaPriceResponse(response: unknown): PriceRange | null`
+
+_(undocumented)_
+
+### `buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `parseTavilyPriceAnswer(text: string | null): PriceRange | null`
+
+_(undocumented)_
+
+### `lookupPrice(deps: Pick<PriceLookupDeps, 'clients' | 'logger'>, kind: PriceKind, product: PriceLookupCandidate): Promise<PriceLookupResult | null>`
+
+_(undocumented)_
+
+### `ensureProductPriced(deps: PriceLookupDeps, product: PriceLookupCandidate): Promise<ProductPricingResult>`
+
+_(undocumented)_
+
+## src/modules/pricing/price-review.ts
+
+### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
+
+_(undocumented)_
+
+### `extractDescriptionPrice(description: string | null): number | null`
+
+_(undocumented)_
+
+### `descriptionPriceDiverges(description: string | null, priceAmount: number, factor = DESCRIPTION_PRICE_DIVERGENCE_FACTOR): boolean`
+
+_(undocumented)_
+
 ## src/modules/pricing/price-rules.ts
 
-**Interactions:** imports `../../platform/rows`
+**Interactions:** imports `../../platform/rows`, `./clean-median`
 
 ### `summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary`
 
 _(undocumented)_
 
 ### `toDiscountBands(value: unknown): DiscountBand[]`
-
-_(undocumented)_
-
-### `notPlaceholderPriceSql(column: string): string`
-
-_(undocumented)_
-
-### `notMagnitudeOutlierSql(column: string, medianColumn: string): string`
-
-_(undocumented)_
-
-### `isPlaceholderPrice(price: number): boolean`
-
-_(undocumented)_
-
-### `isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean`
 
 _(undocumented)_
 
@@ -252,7 +522,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `resolveSecondhandPrice(usedLow: unknown, usedHigh: unknown, usedSource: unknown, hasTrainedPriceKnowledge: unknown, trainedLow: unknown, trainedHigh: unknown): { low: number | null; high: number | null; source: string | null }`
+### `resolveSecondhandPrice(used: { low: unknown; high: unknown; source: unknown }, trained: { known: unknown; low: unknown; high: unknown }): { low: number | null; high: number | null; source: string | null }`
 
 _(undocumented)_
 
@@ -264,15 +534,19 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `computeMedians(prices: number[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+### `isNewCondition(condition: string | null): boolean`
 
 _(undocumented)_
 
 ## src/modules/pricing/queries.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./price-rules`
+**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`
 
 ### `setManualPrice(db: QueryClient, productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
+
+_(undocumented)_
+
+### `getProductCleanMedian(db: DbClient, productId: number, options: { scope: ListingScope; minSample: number }): Promise<ProductCleanMedian | null>`
 
 _(undocumented)_
 
@@ -301,6 +575,20 @@ _(undocumented)_
 _(undocumented)_
 
 ### `markAllDiscountNotificationsRead(db: QueryClient): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/repost.ts
+
+### `repostKey(listing: { id: string; title: string | null }): string`
+
+_(undocumented)_
+
+### `repostKeySql(titleColumn: string, idColumn: string): string`
+
+_(undocumented)_
+
+### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
 
 _(undocumented)_
 

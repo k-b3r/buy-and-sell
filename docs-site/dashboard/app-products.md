@@ -30,7 +30,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/listingsFilters.ts
 
-**Interactions:** imports `../../../lib/pricing`, `../../../lib/queries`, `./discountBand`, `./repostDetection`
+**Interactions:** imports `../../../lib/pricing`, `../../../lib/queries`, `./discountBand`
 
 ### `hasActiveFilters(filters: ListingsFilters): boolean`
 
@@ -118,16 +118,10 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/app/products/[id]/repostDetection.ts
-
-### `computeRepostIds(listings: { id: string; title: string }[]): Set<string>`
-
-_(undocumented)_
-
 ## dashboard/src/app/products/[id]/useListingsPages.ts
 
 **Interactions:** imports `./listingsFilters`
 
-### `useListingsPages({ productId, filters, initialListings, initialNextOffset, initialMatchedCount, initialAllIds, }: { productId: number filters: ListingsFilters initialListings: PaginatedListingSummary[] initialNextOffset: number | null initialMatchedCount: number initialAllIds: string[] }): { listings: PaginatedListingSummary[]; nextOffset: number | null; matchedCount: number; loading: boolean; sentinelRef: React.RefObject<HTMLDivElement | null>; }`
+### `useListingsPages({ productId, filters, initialListings, initialNextOffset, initialMatchedCount, initialAllIds, }: { productId: number filters: ListingsFilters initialListings: PaginatedListingSummary[] initialNextOffset: number | null initialMatchedCount: number initialAllIds: string[] }): { listings: ProductListingSummary[]; nextOffset: number | null; matchedCount: number; loading: boolean; sentinelRef: React.RefObject<HTMLDivElement | null>; }`
 
 _(undocumented)_

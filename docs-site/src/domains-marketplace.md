@@ -18,22 +18,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/domains/marketplace/discount-verification.ts
-
-**Interactions:** imports `../llm-clients`, `./storage/listings`
-
-### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
-
-_(undocumented)_
-
-### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
-
-_(undocumented)_
-
-### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
-
-_(undocumented)_
-
 ## src/domains/marketplace/enrichment.ts
 
 **Interactions:** imports `./products`
@@ -72,14 +56,6 @@ _(undocumented)_
 
 ## src/domains/marketplace/index.ts
 
-### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
-
-_(undocumented)_
-
-### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
-
-_(undocumented)_
-
 ### `buildEnrichmentPrompt(products: EnrichmentCandidate[]): string`
 
 _(undocumented)_
@@ -112,10 +88,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
-
-_(undocumented)_
-
 ### `extractCursor(html: string): PageCursor | null`
 
 _(undocumented)_
@@ -125,14 +97,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `parsePaginationResponse(json: string): PaginationPage | null`
-
-_(undocumented)_
-
-### `ensureProductPriced(clients: PriceLookupClients, db: DbClient, product: PriceLookupCandidate, logger: Logger): Promise<ProductPricingResult>`
-
-_(undocumented)_
-
-### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
 
 _(undocumented)_
 
@@ -157,10 +121,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
-
-_(undocumented)_
-
-### `checkListingDiscount(db: DbClient, listingId: string, productId: number, condition: string | null, priceAmount: number | null, retailPrice: PriceRange | null, secondhandPrice: PriceRange | null, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
 
 _(undocumented)_
 
@@ -192,26 +152,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]>`
-
-_(undocumented)_
-
-### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
-
-_(undocumented)_
-
-### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
-
-_(undocumented)_
-
-### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
-
-_(undocumented)_
-
 ### `markListingAlive(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
@@ -228,47 +168,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
-
-_(undocumented)_
-
 ### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
 
 _(undocumented)_
 
-### `upsertListingPriceReview(db: DbClient, listingId: string, data: PriceReviewData, model: string, reviewedDescription: string | null): Promise<void>`
-
-_(undocumented)_
-
-### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
-
-_(undocumented)_
-
-### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
-
-_(undocumented)_
-
-### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
-
-_(undocumented)_
-
-### `insertPriceCheck(db: DbClient, productId: number, price: PriceRange, rawResponse: string, source: PriceCheckSource, condition: string | null = null, confidence: string | null = null, releaseYear: number | null = null, isDiscontinued: boolean | null = null): Promise<void>`
-
-_(undocumented)_
-
-### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
-
-_(undocumented)_
-
 ### `findOrCreateProduct(db: DbClient, baseModel: string, variantTier: string | null, category: string | null = null, subCategory: string | null = null): Promise<number>`
-
-_(undocumented)_
-
-### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
 
 _(undocumented)_
 
@@ -332,12 +236,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/domains/marketplace/negotiable-keywords.ts
-
-### `matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null`
-
-_(undocumented)_
-
 ## src/domains/marketplace/paginate.ts
 
 ### `extractCursor(html: string): PageCursor | null`
@@ -349,68 +247,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `parsePaginationResponse(json: string): PaginationPage | null`
-
-_(undocumented)_
-
-## src/domains/marketplace/price-lookup.ts
-
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `../llm-clients`, `./generic-products`, `./storage/pricing`
-
-### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
-
-_(undocumented)_
-
-### `buildGeminiPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `parseGeminiPriceResponse(text: string): PriceRange | null`
-
-_(undocumented)_
-
-### `buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `parseExaPriceResponse(response: unknown): PriceRange | null`
-
-_(undocumented)_
-
-### `buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `parseTavilyPriceAnswer(text: string | null): PriceRange | null`
-
-_(undocumented)_
-
-### `lookupRetail(clients: PriceLookupClients, product: PriceLookupCandidate, logger: Logger, label: string): Promise<PriceLookupResult | null>`
-
-_(undocumented)_
-
-### `lookupSecondhand(clients: PriceLookupClients, product: PriceLookupCandidate, logger: Logger, label: string): Promise<PriceLookupResult | null>`
-
-_(undocumented)_
-
-### `ensureProductPriced(clients: PriceLookupClients, db: DbClient, product: PriceLookupCandidate, logger: Logger): Promise<ProductPricingResult>`
-
-_(undocumented)_
-
-## src/domains/marketplace/price-review.ts
-
-### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
-
-_(undocumented)_
-
-### `extractDescriptionPrice(description: string | null): number | null`
-
-_(undocumented)_
-
-### `descriptionPriceDiverges(description: string | null, priceAmount: number, factor = DESCRIPTION_PRICE_DIVERGENCE_FACTOR): boolean`
 
 _(undocumented)_
 
@@ -450,7 +286,7 @@ _(undocumented)_
 
 ## src/domains/marketplace/storage/listings.ts
 
-**Interactions:** imports `../../../modules/real-estate`, `../../../platform/images`, `../../../platform/logger`, `../../../platform/storage`, `../negotiable-keywords`, `../price-lookup`, `../price-review`
+**Interactions:** imports `../../../modules/pricing`, `../../../modules/real-estate`, `../../../platform/images`, `../../../platform/logger`, `../../../platform/storage`
 
 ### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
 
@@ -500,66 +336,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]>`
-
-_(undocumented)_
-
-### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
-
-_(undocumented)_
-
-### `upsertListingPriceReview(db: DbClient, listingId: string, data: PriceReviewData, model: string, reviewedDescription: string | null): Promise<void>`
-
-_(undocumented)_
-
-### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
-
-_(undocumented)_
-
-### `checkListingDiscount(db: DbClient, listingId: string, productId: number, condition: string | null, priceAmount: number | null, retailPrice: PriceRange | null, secondhandPrice: PriceRange | null, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
-
-_(undocumented)_
-
-### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
-
-_(undocumented)_
-
-### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
-
-_(undocumented)_
-
-### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-## src/domains/marketplace/storage/pricing.ts
-
-**Interactions:** imports `../../../platform/storage`, `../price-lookup`
-
-### `insertPriceCheck(db: DbClient, productId: number, price: PriceRange, rawResponse: string, source: PriceCheckSource, condition: string | null = null, confidence: string | null = null, releaseYear: number | null = null, isDiscontinued: boolean | null = null): Promise<void>`
-
-_(undocumented)_
-
-### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
-
-_(undocumented)_
-
-### `flagProductPriceLookupExcluded(db: DbClient, productId: number, reason: string): Promise<void>`
-
-_(undocumented)_
-
-### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
-
-_(undocumented)_
-
-### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
-
-_(undocumented)_
-
 ## src/domains/marketplace/storage/products.ts
 
 **Interactions:** imports `../../../platform/storage`, `../enrichment`, `../products`
@@ -584,10 +360,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
-
-_(undocumented)_
-
 ### `getCategoryBackfillCandidates(db: DbClient): Promise<CategoryBackfillCandidate[]>`
 
 _(undocumented)_
@@ -605,10 +377,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `mergeDuplicateProduct(db: DbClient, survivorId: number, loserId: number): Promise<void>`
-
-_(undocumented)_
-
-### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
 
 _(undocumented)_
 
