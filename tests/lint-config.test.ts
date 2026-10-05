@@ -23,7 +23,7 @@ const selectors = (entry: RuleEntry | undefined) =>
 
 test('lint config bans process.env in domain, platform and server modules', async () => {
   for (const file of [
-    'src/domains/marketplace/products.ts',
+    'src/modules/catalog/products.ts',
     'src/platform/storage.ts',
     'src/platform/env.ts',
     'server/routes/query.ts',
@@ -40,7 +40,7 @@ test('lint config lets entry points read process.env', async () => {
 }, 60_000)
 
 test('lint config bans inline sleeps, export * and default exports in domain code', async () => {
-  const found = selectors(await rule('src/domains/marketplace/products.ts', 'no-restricted-syntax'))
+  const found = selectors(await rule('src/modules/catalog/products.ts', 'no-restricted-syntax'))
   expect(found).toEqual(
     expect.arrayContaining([
       'ExportAllDeclaration',

@@ -4,8 +4,8 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
-import type { GenericReason } from '../../domains/marketplace'
-import { detectGenericBaseModel } from '../../domains/marketplace'
+import type { GenericReason } from '../../modules/pricing'
+import { detectGenericBaseModel } from '../../modules/pricing'
 
 interface BaseModelRow {
   base_model: string

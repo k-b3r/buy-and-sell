@@ -87,16 +87,18 @@ CI (`.github/workflows/`) runs every check above on each PR, plus an agent revie
 ```
 src/
   domains/
-    marketplace/                        # pricing/product business logic + persistence (moving to modules/)
-      pricing.ts, new-price.ts, price-review.ts, products.ts, enrichment.ts, negotiable-keywords.ts
-      storage/listings.ts, storage/products.ts, storage/pricing.ts   # every DB query, grouped by table area
-      index.ts                          # barrel — the only import path other code should use
-    llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (spans marketplace concerns)
+    llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (shared LLM/search clients)
       index.ts                          # barrel
   modules/                              # feature modules (see CONTEXT.md > Architecture)
+    catalog/                            # products: extraction, enrichment, categories, dedup/merge,
+                                        # model-code mismatches, catalog dashboard queries
+      index.ts                          # public API — nothing imports its internals (dependency-cruiser)
     collection/                         # browser, proxy/tunnel, pagination, wall detection, extraction,
                                         # run loop, recheck, listing upsert, listing photos
       index.ts                          # public API; browser.ts is the only other entry (Playwright)
+    pricing/                            # price lookup, price review, clean median, discounts,
+                                        # generic-product check, pricing dashboard queries
+      index.ts                          # public API — nothing imports its internals (dependency-cruiser)
     real-estate/                        # extraction, real_estate_details, price history, dashboard query
       index.ts                          # public API — nothing imports its internals (dependency-cruiser)
   platform/                             # cross-cutting, not a domain

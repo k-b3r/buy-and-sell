@@ -18,25 +18,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/workers/enrich-products/index.ts
-
-**Interactions:** imports `../../domains/llm-clients`, `../../domains/marketplace`, `../../modules/pricing`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`, `../../platform/worker`
-
-### `runProductEnrichment(groq: GroqClient, db: DbClient, logger: Logger, candidates: EnrichmentCandidate[], delay: DelayFn = realDelay, batchSize = DEFAULT_BATCH_SIZE, maxAttempts = DEFAULT_MAX_ATTEMPTS, retryDelayMs = DEFAULT_RETRY_DELAY_MS): Promise<void>`
-
-_(undocumented)_
-
-## src/workers/extract-products/index.ts
-
-**Interactions:** imports `../../domains/llm-clients`, `../../domains/marketplace`, `../../modules/pricing`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`, `../../platform/worker`
-
-### `runProductExtraction(clients: ExtractionClients, db: DbClient, logger: Logger, candidates: ExtractionCandidate[], options: ExtractionOptions, delay: DelayFn = realDelay): Promise<void>`
-
-_(undocumented)_
-
 ## src/workers/price-lookup/index.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../domains/marketplace`, `../../modules/pricing`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`, `../../platform/worker`
+**Interactions:** imports `../../domains/llm-clients`, `../../modules/pricing`, `../../platform/delay`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`, `../../platform/worker`
 
 ### `runPriceLookup(clients: PriceLookupClients, db: DbClient, logger: Logger, products: PriceLookupCandidate[], delay: DelayFn = realDelay, pacingDelayMs = 1000): Promise<void>`
 

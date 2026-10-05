@@ -1,9 +1,9 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runProductEnrichment } from './index'
+import { runProductEnrichment } from './run-enrichment'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { EnrichmentCandidate } from '../../domains/marketplace'
+import type { EnrichmentCandidate } from './enrichment'
 
 const LOG_PATH = 'data/tmp-enrich.log'
 
@@ -53,7 +53,7 @@ test('upserts enrichment data for each product in the batch response', async () 
     { id: 363, base_model: 'iPhone 12', variant_tier: 'Mini', sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts).toHaveLength(1)
   expect(upserts[0]).toEqual([
@@ -92,7 +92,7 @@ test('has_trained_price_knowledge false with no price fields stores null prices 
     { id: 17, base_model: 'RTX 2060', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts[0]).toEqual([17, 'x', 'y', false, null, null, null, 'openai/gpt-oss-120b', true, 'high'])
 })
@@ -119,7 +119,7 @@ test('a product judged generic with high confidence is still upserted with is_sp
     { id: 5, base_model: 'Furniture', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts[0]).toEqual([
     5,
@@ -157,7 +157,7 @@ test('an item with a missing is_specific_product or invalid confidence is logged
     { id: 1, base_model: 'A', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
@@ -181,7 +181,7 @@ test('batches candidates at 20 per Groq call', async () => {
     category: null,
   }))
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(callCount).toBe(2)
 })
@@ -194,7 +194,7 @@ test('a malformed batch response (no results array) is logged and skipped, witho
     { id: 1, base_model: 'X', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[ERROR]')
@@ -234,7 +234,7 @@ test('a malformed item within an otherwise well-formed batch is logged and skipp
     { id: 2, base_model: 'B', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts).toHaveLength(1)
   expect(upserts[0]).toEqual([
@@ -274,7 +274,7 @@ test('an item whose id has no matching candidate in the batch is logged and skip
     { id: 1, base_model: 'A', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts).toHaveLength(0)
   const logContents = readFileSync(LOG_PATH, 'utf-8')
@@ -302,7 +302,7 @@ test('a real 429 quota error is not retried — logged and stops the run cleanly
     category: null,
   }))
 
-  await expect(runProductEnrichment(groq, db, logger, candidates)).resolves.toBeUndefined()
+  await expect(runProductEnrichment({ groq, db, logger }, candidates)).resolves.toBeUndefined()
 
   expect(callCount).toBe(1)
   expect(upserts).toHaveLength(0)
@@ -341,9 +341,11 @@ test('a non-quota Groq error (e.g. the occasional 400 structural glitch) is retr
   ]
   const delays: number[] = []
 
-  await runProductEnrichment(groq, db, logger, candidates, async (ms) => {
+  const delay = async (ms: number) => {
     delays.push(ms)
-  })
+  }
+
+  await runProductEnrichment({ groq, db, logger, delay }, candidates)
 
   expect(callCount).toBe(2)
   expect(upserts).toHaveLength(1)
@@ -364,7 +366,7 @@ test('a persistent non-quota Groq error gives up after 3 attempts, logged, stops
     { id: 1, base_model: 'RTX 3060', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates, async () => {})
+  await runProductEnrichment({ groq, db, logger, delay: async () => {} }, candidates)
 
   expect(callCount).toBe(3)
   expect(upserts).toHaveLength(0)
@@ -406,7 +408,7 @@ test('assigns category via a batched update when the candidate has none and the 
     { id: 2, base_model: 'Airpods', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(categoryUpdates).toHaveLength(1)
   expect(categoryUpdates[0]).toEqual([1, 'Gaming', 2, 'Audio'])
@@ -434,7 +436,7 @@ test('does not touch category when the candidate already has one, even if Groq r
     { id: 1, base_model: 'PS5', variant_tier: null, sibling_variants: [], category: 'Gaming' },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(categoryUpdates).toHaveLength(0)
 })
@@ -461,7 +463,7 @@ test('an invalid category is logged and skipped without affecting the enrichment
     { id: 1, base_model: 'PS5', variant_tier: null, sibling_variants: [], category: null },
   ]
 
-  await runProductEnrichment(groq, db, logger, candidates)
+  await runProductEnrichment({ groq, db, logger }, candidates)
 
   expect(upserts).toHaveLength(1)
   expect(categoryUpdates).toHaveLength(0)

@@ -357,8 +357,8 @@ CREATE TABLE IF NOT EXISTS saved_listings (
 
 -- Written once, at extraction time, when a listing first crosses the
 -- high-discount bar against its product's clean median (see
--- detectAndRecordDiscountNotifications in domains/marketplace/storage/
--- listings.ts). Deliberately NOT re-evaluated later if sibling listings
+-- checkListingDiscount in src/modules/pricing/discount-notifications.ts).
+-- Deliberately NOT re-evaluated later if sibling listings
 -- shift the median afterward - same "set once" tradeoff this codebase
 -- already makes for base_model/category. UNIQUE on listing_id both
 -- enforces "at most one notification per listing ever" and gives the

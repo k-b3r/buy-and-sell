@@ -114,8 +114,8 @@ export const PRICE_INELIGIBLE_CATEGORIES: Partial<Record<PriceExclusionReason, s
     'Villa Olympia 6 House',
     'Vista Plumeria Condo',
     'Zadia Tower 3 Condo Unit',
-    // Found live 2026-08-29 via detect-generic-products (src/domains/
-    // marketplace/generic-products.ts), reviewed before curating - 4 of the
+    // Found live 2026-08-29 via detect-generic-products (src/modules/
+    // pricing/generic-products.ts), reviewed before curating - 4 of the
     // detector's raw real_estate matches were dropped as false positives
     // ("Adjustable Learning Tower"/"Cougar Panzer Full Tower Casing" matched
     // on "tower", "KKV Area-X Patrick Star House Lego"/"Sylvanian Families

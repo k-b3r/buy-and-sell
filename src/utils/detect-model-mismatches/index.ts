@@ -4,7 +4,7 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
-import { findModelCodeMismatches } from '../../domains/marketplace'
+import { findModelCodeMismatches } from '../../modules/catalog'
 
 interface CandidateRow {
   listing_id: string

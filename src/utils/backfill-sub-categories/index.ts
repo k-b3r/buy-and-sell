@@ -9,13 +9,13 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile } from '../../platform/env'
-import { getSubCategoryBackfillCandidates, updateProductSubCategories } from '../../domains/marketplace'
+import { getSubCategoryBackfillCandidates, updateProductSubCategories } from '../../modules/catalog'
 import {
   buildSubCategoryBackfillPrompt,
   SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA,
   SUB_CATEGORIES,
-} from '../../domains/marketplace'
-import type { SubCategoryBackfillCandidate } from '../../domains/marketplace'
+} from '../../modules/catalog'
+import type { SubCategoryBackfillCandidate } from '../../modules/catalog'
 
 // Mirrors backfill-categories/index.ts exactly - same output shape class
 // ({id, sub_category} per item), same batch size reasoning.

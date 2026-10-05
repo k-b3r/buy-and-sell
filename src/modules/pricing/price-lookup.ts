@@ -3,8 +3,8 @@ import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-cl
 import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './price-history'
 import { insertPriceCheck } from './price-history'
-import type { PriceExclusionReason } from './exclusion'
 import { excludeFromPricing } from './exclusion'
+import { detectGenericBaseModel } from './generic-products'
 
 export interface PriceRange {
   low: number
@@ -263,16 +263,10 @@ export async function lookupPrice(
   return null
 }
 
-// The catalog's text-only generic-product check (detectGenericBaseModel),
-// injected rather than imported: catalog code imports pricing, so a direct
-// import back would close a module cycle.
-export type DetectGeneric = (baseModel: string) => { reason: PriceExclusionReason; matched: string } | null
-
 export interface PriceLookupDeps {
   clients: PriceLookupClients
   db: DbClient
   logger: Logger
-  detectGeneric: DetectGeneric
 }
 
 export interface ProductPricingResult {
@@ -298,7 +292,7 @@ export async function ensureProductPriced(
   // getPriceLookupCandidates can't apply itself (it only knows
   // price_lookup_excluded is already false, not whether it plausibly
   // should be true).
-  const generic = deps.detectGeneric(product.base_model)
+  const generic = detectGenericBaseModel(product.base_model)
   if (generic) {
     await excludeFromPricing(db, { productId: product.id }, generic.reason)
     logger.warn(

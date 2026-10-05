@@ -8,7 +8,6 @@ module.exports = {
   forbidden: [
     ...baseRules({
       publicApis: [
-        'src/domains/marketplace',
         'src/domains/llm-clients',
         'src/modules/catalog',
         'src/modules/collection',

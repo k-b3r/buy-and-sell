@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
-import { normalizeBaseModel, normalizeVariantTier } from '../../domains/marketplace'
-import { mergeDuplicateProduct } from '../../domains/marketplace'
+import { normalizeBaseModel, normalizeVariantTier } from '../../modules/catalog'
+import { mergeDuplicateProduct } from '../../modules/catalog'
 
 // Generalizes ./index.ts's CANONICAL_BASE_MODEL (base_model-only rename) to
 // also move text between base_model and variant_tier - most of the
@@ -16,7 +16,7 @@ export interface ProductAliasRule {
 }
 
 // Matches on the normalized columns (same ones the extraction path's own
-// dedup check uses, see storage/products.ts findOrCreateProduct) rather than
+// dedup check uses, see catalog's findOrCreateProduct) rather than
 // raw base_model equality like ./index.ts's tool does - case/whitespace
 // differences in how a rule is transcribed don't cause a false "no match"
 // the way exact-string matching would.
