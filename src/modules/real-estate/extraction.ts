@@ -205,6 +205,35 @@ export function normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateC
   }
 }
 
+export interface ParsedRealEstateResponse {
+  fields: Map<string, RealEstateFields>
+  // One log line per dropped item, in response order.
+  skipped: string[]
+}
+
+// null when the response is not shaped like REAL_ESTATE_RESPONSE_SCHEMA at all.
+export function parseRealEstateResponse(raw: unknown, batch: RealEstateCandidate[]): ParsedRealEstateResponse | null {
+  const results = (raw as { results?: unknown } | undefined)?.results
+  if (!Array.isArray(results)) return null
+  const fields = new Map<string, RealEstateFields>()
+  const skipped: string[] = []
+  for (const item of results as { id?: unknown }[]) {
+    const id = typeof item?.id === 'string' ? item.id : null
+    const candidate = id === null ? undefined : batch.find((c) => c.id === id)
+    if (!candidate) {
+      skipped.push(`item ${id ?? '(missing id)'}: no matching candidate in this batch, skipping`)
+      continue
+    }
+    const normalized = normalizeRealEstateItem(item, candidate)
+    if (!normalized) {
+      skipped.push(`item ${candidate.id}: malformed fields in Groq response, skipping`)
+      continue
+    }
+    fields.set(candidate.id, normalized)
+  }
+  return { fields, skipped }
+}
+
 export function buildRealEstatePrompt(candidates: RealEstateCandidate[]): string {
   const lines = candidates
     .map((c) => {

@@ -64,10 +64,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `summarizeGroqError(err: unknown, maxLength = 200): string`
-
-_(undocumented)_
-
 ### `createFallbackGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
 
 _(undocumented)_
@@ -142,11 +138,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `summarizeGroqError(err: unknown, maxLength = 200): string`
+### `isGroqQuotaError(err: unknown): boolean`
 
 _(undocumented)_
 
-### `isGroqQuotaError(err: unknown): boolean`
+### `summarizeGroqError(err: unknown, maxLength = 200): string`
 
 _(undocumented)_
 

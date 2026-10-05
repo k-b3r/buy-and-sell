@@ -91,17 +91,6 @@ export function isQuotaError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 429
 }
 
-// Groq's own error message is `${status} ${body}`, where body can be a huge
-// JSON blob - e.g. a 400 json_validate_failed's `failed_generation` echoes
-// back the model's entire (malformed) output. Callers that just want a
-// one-line "what happened" for a log, not a dump, should log this instead of
-// err.message directly.
-export function summarizeGroqError(err: unknown, maxLength = 200): string {
-  const message = err instanceof Error ? err.message : String(err)
-  const oneLine = message.replace(/\s+/g, ' ').trim()
-  return oneLine.length > maxLength ? `${oneLine.slice(0, maxLength)}…` : oneLine
-}
-
 interface FallbackOptions {
   // Human-readable name per client, purely for logging (e.g. model names or
   // "GROQ_API_KEY0") - index-based ("client 0", "client 1") if omitted.

@@ -1,5 +1,5 @@
-import type { DbClient } from '../../../platform/storage'
-import type { RealEstateCandidate, RealEstateFields } from '../real-estate'
+import type { DbClient } from '../../platform/storage'
+import type { RealEstateCandidate, RealEstateFields } from './extraction'
 
 // Computed in SQL both when selecting candidates and (via the value returned
 // here) when storing, so the JS side never has to reproduce the hash.

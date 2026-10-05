@@ -5,21 +5,9 @@ import {
   createRoundRobinGroqClient,
   createGroqPool,
   loadGroqApiKeys,
-  summarizeGroqError,
   buildGroqRequest,
   GROQ_MODEL_FALLBACK_CHAIN,
 } from './groq'
-
-test('summarizeGroqError collapses whitespace and truncates a long message, leaving a short one untouched', () => {
-  expect(summarizeGroqError(new Error('rate limit exceeded'))).toBe('rate limit exceeded')
-  expect(summarizeGroqError('plain string error')).toBe('plain string error')
-  expect(summarizeGroqError(new Error('line one\n  line two'))).toBe('line one line two')
-
-  const huge = new Error(`400 ${'x'.repeat(500)}`)
-  const summarized = summarizeGroqError(huge)
-  expect(summarized.length).toBe(201) // 200 chars + ellipsis
-  expect(summarized.endsWith('…')).toBe(true)
-})
 
 // createModelFallbackGroqClient itself isn't unit tested here — it's a thin
 // createFallbackGroqClient(models.map(createGroqClient)) composition, and

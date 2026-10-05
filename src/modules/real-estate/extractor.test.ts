@@ -1,9 +1,14 @@
 import { existsSync, rmSync } from 'node:fs'
-import { extractRealEstateBatch, runRealEstateExtraction, EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS } from './index'
+import {
+  extractRealEstateBatch,
+  runRealEstateExtraction,
+  EXTRACTOR_MODELS,
+  EXTRACTOR_REQUEST_OPTIONS,
+} from './extractor'
+import type { JsonModelClient } from './extractor'
 import { createLogger } from '../../platform/logger'
-import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { RealEstateCandidate } from '../../domains/marketplace'
+import type { RealEstateCandidate } from './extraction'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
 afterEach(() => {
@@ -37,7 +42,7 @@ const item = (id: string, over: Record<string, unknown> = {}) => ({
 })
 
 test('extractRealEstateBatch returns normalized fields keyed by listing id and skips unknown ids', async () => {
-  const groq: GroqClient = { generateJson: async () => ({ results: [item('1'), item('zzz')] }) }
+  const groq: JsonModelClient = { generateJson: async () => ({ results: [item('1'), item('zzz')] }) }
   const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1')])
   expect([...out.keys()]).toEqual(['1'])
   expect(out.get('1')).toMatchObject({ property_type: 'condo', price_php: 4500000 })
@@ -45,7 +50,7 @@ test('extractRealEstateBatch returns normalized fields keyed by listing id and s
 
 test('extractRealEstateBatch splits the batch and retries when a request keeps failing', async () => {
   let calls = 0
-  const groq: GroqClient = {
+  const groq: JsonModelClient = {
     generateJson: async (prompt: string) => {
       calls++
       const ids = [...prompt.matchAll(/"id":"(\w+)"/g)].map((m) => m[1])
@@ -59,7 +64,7 @@ test('extractRealEstateBatch splits the batch and retries when a request keeps f
 })
 
 test('extractRealEstateBatch stops the run on a 429 quota error', async () => {
-  const groq: GroqClient = {
+  const groq: JsonModelClient = {
     generateJson: async () => {
       throw Object.assign(new Error('quota'), { status: 429 })
     },
@@ -75,7 +80,7 @@ test('runRealEstateExtraction upserts each extracted listing with its source has
       return { rows: [] }
     },
   }
-  const groq: GroqClient = { generateJson: async () => ({ results: [item('1')] }) }
+  const groq: JsonModelClient = { generateJson: async () => ({ results: [item('1')] }) }
 
   await runRealEstateExtraction(groq, db, createLogger(LOG_PATH), [cand('1')], 20, noDelay)
 
@@ -87,7 +92,7 @@ test('runRealEstateExtraction upserts each extracted listing with its source has
 
 test('extractRealEstateBatch retries the listings the model left out of its response', async () => {
   let calls = 0
-  const groq: GroqClient = {
+  const groq: JsonModelClient = {
     generateJson: async (prompt: string) => {
       calls++
       const ids = [...prompt.matchAll(/"id":"(\w+)"/g)].map((m) => m[1])
@@ -102,7 +107,7 @@ test('extractRealEstateBatch retries the listings the model left out of its resp
 
 test('extractRealEstateBatch retries missing listings only once, so a stubborn model cannot loop', async () => {
   let calls = 0
-  const groq: GroqClient = {
+  const groq: JsonModelClient = {
     generateJson: async () => {
       calls++
       return { results: [] }

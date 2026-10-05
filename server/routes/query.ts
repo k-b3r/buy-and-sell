@@ -1,6 +1,7 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../queries'
 import * as queries from '../queries'
+import { getRealEstateListings } from '../../src/modules/real-estate'
 
 // The dashboard runs on Vercel and has no route to this box's Postgres, which
 // listens on localhost only (deliberately - see the migration off Neon). This
@@ -42,7 +43,7 @@ const REGISTRY = {
   getCollectKeywords: queries.getCollectKeywords,
   replaceCollectKeywords: queries.replaceCollectKeywords,
   getListingProductId: queries.getListingProductId,
-  getRealEstateListings: queries.getRealEstateListings,
+  getRealEstateListings,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
 export type QueryName = keyof typeof REGISTRY

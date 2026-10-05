@@ -34,8 +34,6 @@ export {
 } from './products'
 export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'
-export type { RealEstateCandidate, RealEstateFields } from './real-estate'
-export { REAL_ESTATE_RESPONSE_SCHEMA, buildRealEstatePrompt, normalizeRealEstateItem } from './real-estate'
 export type {
   CheckListingsCandidate,
   DiscountPolicyThresholds,
@@ -88,5 +86,4 @@ export {
   updateProductSubCategories,
   upsertProductEnrichment,
 } from './storage/products'
-export { getRealEstateCandidates, upsertRealEstateDetails } from './storage/real-estate'
 export { detectPageState } from './wall'

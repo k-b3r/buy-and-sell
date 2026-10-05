@@ -95,10 +95,13 @@ src/
       index.ts                          # barrel — the only import path other code should use
     llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (spans marketplace concerns)
       index.ts                          # barrel
+  modules/                              # feature modules (see CONTEXT.md > Architecture)
+    real-estate/                        # extraction, real_estate_details, price history, dashboard query
+      index.ts                          # public API — nothing imports its internals (dependency-cruiser)
   platform/                             # cross-cutting, not a domain
     storage.ts                          # DbClient/createDbPool — Postgres connection, sole entry point
     worker.ts                           # runWorker — every worker's lap loop, pid/log files, pool lifecycle
-    images.ts, logger.ts, review.ts, delay.ts, env.ts
+    images.ts, logger.ts, review.ts, delay.ts, env.ts, errors.ts, rows.ts
   workers/                              # the 7 looping, continuously-running processes
     collect/, check-listings/           # Group B: collection (independent pacing)
     extract-products/, enrich-products/, price-lookup/,

@@ -160,14 +160,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
-
-_(undocumented)_
-
-### `normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateCandidate): RealEstateFields | null`
-
-_(undocumented)_
-
 ### `checkListingDiscount(db: DbClient, listingId: string, productId: number, condition: string | null, priceAmount: number | null, retailPrice: PriceRange | null, secondhandPrice: PriceRange | null, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
 
 _(undocumented)_
@@ -316,14 +308,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
-
-_(undocumented)_
-
-### `upsertRealEstateDetails(db: DbClient, listingId: string, f: RealEstateFields, model: string, sourceHash: string): Promise<void>`
-
-_(undocumented)_
-
 ### `detectPageState(html: string): PageState`
 
 _(undocumented)_
@@ -464,27 +448,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/domains/marketplace/real-estate.ts
-
-### `parsePriceShorthand(text: string): number[]`
-
-_(undocumented)_
-
-### `normalizeNcrArea(text: string | null): string | null`
-
-_(undocumented)_
-
-### `normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateCandidate): RealEstateFields | null`
-
-_(undocumented)_
-
-### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
-
-_(undocumented)_
-
 ## src/domains/marketplace/storage/listings.ts
 
-**Interactions:** imports `../../../platform/images`, `../../../platform/logger`, `../../../platform/storage`, `../negotiable-keywords`, `../price-lookup`, `../price-review`
+**Interactions:** imports `../../../modules/real-estate`, `../../../platform/images`, `../../../platform/logger`, `../../../platform/storage`, `../negotiable-keywords`, `../price-lookup`, `../price-review`
 
 ### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
 
@@ -643,18 +609,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `flagPriceLookupExcluded(db: DbClient, baseModels: string[], reason: string): Promise<void>`
-
-_(undocumented)_
-
-## src/domains/marketplace/storage/real-estate.ts
-
-**Interactions:** imports `../../../platform/storage`, `../real-estate`
-
-### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
-
-_(undocumented)_
-
-### `upsertRealEstateDetails(db: DbClient, listingId: string, f: RealEstateFields, model: string, sourceHash: string): Promise<void>`
 
 _(undocumented)_
 

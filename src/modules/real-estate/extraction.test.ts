@@ -4,8 +4,9 @@ import {
   normalizeRealEstateItem,
   buildRealEstatePrompt,
   NCR_LGUS,
-} from './real-estate'
-import type { RealEstateCandidate } from './real-estate'
+  parseRealEstateResponse,
+} from './extraction'
+import type { RealEstateCandidate } from './extraction'
 
 const candidate = (over: Partial<RealEstateCandidate> = {}): RealEstateCandidate => ({
   id: '1',
@@ -197,4 +198,23 @@ test('buildRealEstatePrompt explains pasalo cash-out, condo detection and room s
   expect(prompt).toContain('cash out')
   expect(prompt).toContain('room_share')
   expect(prompt).toContain('parking slot')
+})
+
+test('parseRealEstateResponse keys normalized fields by listing id and reports each skipped item', () => {
+  const batch = [candidate({ id: '1' }), candidate({ id: '2' })]
+  const parsed = parseRealEstateResponse(
+    { results: [raw({ id: '1' }), raw({ id: '9' }), { price_basis: 'total' }, raw({ id: '2', property_type: 7 })] },
+    batch,
+  )
+  expect([...(parsed?.fields.keys() ?? [])]).toEqual(['1'])
+  expect(parsed?.skipped).toEqual([
+    'item 9: no matching candidate in this batch, skipping',
+    'item (missing id): no matching candidate in this batch, skipping',
+    'item 2: malformed fields in Groq response, skipping',
+  ])
+})
+
+test('parseRealEstateResponse returns null when the response has no results array', () => {
+  expect(parseRealEstateResponse(undefined, [candidate()])).toBeNull()
+  expect(parseRealEstateResponse({ results: 'nope' }, [candidate()])).toBeNull()
 })
