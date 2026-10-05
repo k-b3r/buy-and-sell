@@ -21,6 +21,10 @@ module.exports = {
         { packages: ['sharp', '@aws-sdk/client-s3'], owner: 'src/platform/images.ts' },
         // One place creates DB pools; everything else takes an injected DbClient.
         { packages: ['pg'], owner: 'src/platform/storage.ts' },
+        // LLM SDKs: the llm-clients index and the modules importing it stay SDK-free;
+        // workers import the SDK-backed constructors from these files by path.
+        { packages: ['groq-sdk'], owner: 'src/domains/llm-clients/groq-sdk.ts' },
+        { packages: ['@google/genai'], owner: 'src/domains/llm-clients/gemini-sdk.ts' },
       ],
       inner: ['src/domains', 'src/modules'],
       entryPoints: ['src/workers', 'src/utils', 'server'],

@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import {
-  createGeminiClient,
   createQuotaAwareGeminiClient,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
 } from '../../domains/llm-clients'
+import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'

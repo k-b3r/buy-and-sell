@@ -7,10 +7,10 @@ import {
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
-  createGeminiClient,
   createDailyGroundingCap,
   createOpenRouterClient,
 } from '../../domains/llm-clients'
+import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'

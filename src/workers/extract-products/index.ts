@@ -1,15 +1,15 @@
 import { fileURLToPath } from 'node:url'
 import {
-  createGeminiClient,
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
-  createGroqPool,
   loadGroqApiKeys,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
 } from '../../domains/llm-clients'
+import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
+import { createGroqPool } from '../../domains/llm-clients/groq-sdk'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'

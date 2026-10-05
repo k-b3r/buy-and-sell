@@ -2,17 +2,14 @@ import type { GroqClient } from './groq'
 import {
   createFallbackGroqClient,
   createRoundRobinGroqClient,
-  createGroqPool,
   loadGroqApiKeys,
   buildGroqRequest,
   GROQ_MODEL_FALLBACK_CHAIN,
 } from './groq'
 
-// createModelFallbackGroqClient itself isn't unit tested here — it's a thin
-// createFallbackGroqClient(models.map(createGroqClient)) composition, and
-// createGroqClient wraps the real SDK (see the comment below). This test
-// just locks down the chain's order — best model first — since a wrong
-// order would silently under-use a healthy key.
+// createGroqPool (groq-sdk.ts) walks this chain per key. This test just locks
+// down the chain's order — best model first — since a wrong order would
+// silently under-use a healthy key.
 test('GROQ_MODEL_FALLBACK_CHAIN tries the best model first, weakest last', () => {
   expect(GROQ_MODEL_FALLBACK_CHAIN).toEqual(['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'])
 })
@@ -205,14 +202,6 @@ test('round-robin client fires onFallback with the from/to key labels the moment
   await client.generateJson('p2', {}) // b 429s -> drops, falls to a
 
   expect(events).toEqual([['GROQ_API_KEY1', 'GROQ_API_KEY0']])
-})
-
-// createGroqPool composes createFallbackGroqClient/createRoundRobinGroqClient
-// (both covered above) around the real createGroqClient, which wraps the SDK
-// and isn't network-tested here - this just locks down the shape it returns.
-test('createGroqPool returns a GroqClient built from the given keys', () => {
-  const pool = createGroqPool(['fake-groq-key-0', 'fake-groq-key-1'])
-  expect(typeof pool.generateJson).toBe('function')
 })
 
 test('buildGroqRequest without options is the exact request every existing worker sends', () => {

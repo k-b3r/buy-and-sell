@@ -1,21 +1,17 @@
+// Public API of the LLM clients: client types, fallback/round-robin pools,
+// retry and error classification. The SDK-backed constructors are absent on
+// purpose: gemini-sdk.ts and groq-sdk.ts own @google/genai and groq-sdk and are
+// imported by path only where a worker builds a real client.
 export type { GeminiClient } from './gemini'
-export {
-  createGeminiClient,
-  createFallbackGeminiClient,
-  createDailyGroundingCap,
-  createQuotaAwareGeminiClient,
-} from './gemini'
+export { createFallbackGeminiClient, createDailyGroundingCap, createQuotaAwareGeminiClient } from './gemini'
 
 export type { ExaClient } from './exa'
 export { createExaClient, createFallbackExaClient, loadExaApiKeys } from './exa'
 
 export type { GroqClient, GroqRequestOptions } from './groq'
 export {
-  createGroqClient,
   createFallbackGroqClient,
-  createModelFallbackGroqClient,
   createRoundRobinGroqClient,
-  createGroqPool,
   loadGroqApiKeys,
   GROQ_MODEL_FALLBACK_CHAIN,
 } from './groq'

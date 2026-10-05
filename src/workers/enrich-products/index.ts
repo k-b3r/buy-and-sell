@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
-import { createGroqPool, loadGroqApiKeys } from '../../domains/llm-clients'
+import { loadGroqApiKeys } from '../../domains/llm-clients'
+import { createGroqPool } from '../../domains/llm-clients/groq-sdk'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
