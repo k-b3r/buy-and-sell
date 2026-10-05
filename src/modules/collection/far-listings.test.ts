@@ -1,7 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import type { ImageStore } from '../../platform/images'
 import type { Logger } from '../../platform/logger'
-import { filterFarCandidates, purgeFarListings } from './index'
+import { filterFarCandidates, purgeFarListings } from './far-listings'
 
 function silentLogger(): Logger {
   return { info: () => {}, warn: () => {}, error: () => {} }

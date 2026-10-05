@@ -4,18 +4,14 @@
 // entry, imported by path only where a browser is launched, so a light import
 // never loads the browser.
 export type { PageDriver } from './driver'
-export { extractDetailFields } from './extract/detail'
-export type { CheckListingsCandidate } from './listings'
+export { getFarListingCandidates, purgeFarListings } from './far-listings'
 export {
-  deleteListing,
   getBackfillCandidates,
   getCheckListingsCandidates,
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
-  markListingPhotosUnavailable,
-  upsertListing,
 } from './listings'
-export { isWithinServiceArea } from './location'
+export { backfillListingPhotos } from './photo-backfill'
 export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'
 export {
@@ -28,4 +24,4 @@ export {
   unsaveListing,
 } from './queries'
 export { checkOneListing, runCheckListings } from './recheck'
-export { resolvePageState, runCollection } from './run'
+export { runCollection } from './run'

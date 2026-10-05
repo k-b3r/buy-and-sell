@@ -9,7 +9,7 @@
     },
     "via": [
       {
-        "name": "src/modules/collection/listings.ts",
+        "name": "src/modules/collection/far-listings.ts",
         "dependencyTypes": [
           "local",
           "export"
