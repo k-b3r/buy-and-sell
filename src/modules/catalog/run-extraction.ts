@@ -15,7 +15,7 @@ import {
   DEFAULT_DISCOUNT_POLICY,
   ensureProductPriced,
   getProductPricingStatus,
-  insertDiscountNotification,
+  insertDiscountNotifications,
 } from '../pricing'
 import type { ExtractionCandidate } from './product-storage'
 import { findOrCreateProduct, updateListingProductIds } from './product-storage'
@@ -229,9 +229,10 @@ async function assignBatch(
     run.db,
     assigned.map(({ listing, productId }) => ({ id: listing.candidate.id, productId })),
   )
-  for (const notification of notifications) {
-    await insertDiscountNotification(run.db, notification)
-  }
+  // No transaction on DbClient: a failure between these two statements loses
+  // this batch's notifications (listings already assigned, not retried).
+  // Accepted 2026-10-06 (BUY-37); the one-statement insert keeps it all or nothing.
+  await insertDiscountNotifications(run.db, notifications)
   return { assigned: assigned.length, skipped }
 }
 

@@ -8,7 +8,7 @@ import {
   getPeerMedianPrice,
   getPriceReviewCandidates,
   getSoldComparablePrice,
-  insertDiscountNotification,
+  insertDiscountNotifications,
   isPlaceholderPrice,
   medianCtes,
 } from '../../src/modules/pricing'
@@ -329,9 +329,10 @@ test('discount detection falls back to the peer median across sold and active li
       thresholds,
     ),
   ]
-  for (const notification of decided) {
-    if (notification) await insertDiscountNotification(pool, notification)
-  }
+  await insertDiscountNotifications(
+    pool,
+    decided.filter((n) => n !== null),
+  )
 
   const result = await pool.query(
     'SELECT listing_id, discount_percent, reference_price FROM discount_notifications WHERE product_id = ANY($1)',

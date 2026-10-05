@@ -68,7 +68,7 @@ export interface DiscountNotification {
 // becoming available" design (2026-08-31), replacing the old
 // batch-of-siblings-only check that could never fire on a product's first
 // listing. Reads only; returns the notification to insert, or null when the
-// listing doesn't qualify. Split from insertDiscountNotification so the
+// listing doesn't qualify. Split from insertDiscountNotifications so the
 // caller can decide before its batch's product_ids are saved (peer median
 // then excludes the batch's own listings) and insert only after the save.
 //
@@ -109,14 +109,22 @@ export async function decideListingDiscount(
   return { listingId: listing.id, productId, discountPercent, referencePrice }
 }
 
+// One multi-row statement, so a batch's notifications land all or nothing.
 // ON CONFLICT (listing_id) DO NOTHING enforces "at most one notification per
 // listing ever", so re-inserting a decided notification is a no-op.
-export async function insertDiscountNotification(db: DbClient, notification: DiscountNotification): Promise<void> {
+export async function insertDiscountNotifications(db: DbClient, notifications: DiscountNotification[]): Promise<void> {
+  if (notifications.length === 0) return
+
+  const valuesSql = notifications
+    .map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`)
+    .join(', ')
+  const params = notifications.flatMap((n) => [n.listingId, n.productId, n.discountPercent, n.referencePrice])
+
   await db.query(
     `INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
-     VALUES ($1, $2, $3, $4)
+     VALUES ${valuesSql}
      ON CONFLICT (listing_id) DO NOTHING`,
-    [notification.listingId, notification.productId, notification.discountPercent, notification.referencePrice],
+    params,
   )
 }
 

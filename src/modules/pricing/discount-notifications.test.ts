@@ -1,7 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import {
   decideListingDiscount,
-  insertDiscountNotification,
+  insertDiscountNotifications,
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
@@ -154,15 +154,26 @@ test('decideListingDiscount returns null when the listing price is a placeholder
   expect(await decideListingDiscount(db, used(12345), { retail: null, secondhand: range(20400, 22000) })).toBeNull()
 })
 
-test('insertDiscountNotification inserts the decided notification, ignoring a listing that already has one', async () => {
+test('insertDiscountNotifications inserts every decided notification in one statement, ignoring listings that already have one', async () => {
   const { db, calls } = mockDb()
 
-  await insertDiscountNotification(db, { listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 })
+  await insertDiscountNotifications(db, [
+    { listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 },
+    { listingId: '2', productId: 11, discountPercent: 40, referencePrice: 5000 },
+  ])
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('INSERT INTO discount_notifications')
   expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO NOTHING')
-  expect(calls[0].params).toEqual(['1', 10, 30, 10000])
+  expect(calls[0].params).toEqual(['1', 10, 30, 10000, '2', 11, 40, 5000])
+})
+
+test('insertDiscountNotifications runs no query for an empty batch', async () => {
+  const { db, calls } = mockDb()
+
+  await insertDiscountNotifications(db, [])
+
+  expect(calls).toHaveLength(0)
 })
 
 test('getUnverifiedDiscountCandidates returns pending candidates with listing/product/enrichment context, respecting the retry backoff', async () => {

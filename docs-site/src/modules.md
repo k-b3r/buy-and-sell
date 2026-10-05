@@ -598,7 +598,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `insertDiscountNotification(db: DbClient, notification: DiscountNotification): Promise<void>`
+### `insertDiscountNotifications(db: DbClient, notifications: DiscountNotification[]): Promise<void>`
 
 _(undocumented)_
 
@@ -754,7 +754,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `insertDiscountNotification(db: DbClient, notification: DiscountNotification): Promise<void>`
+### `insertDiscountNotifications(db: DbClient, notifications: DiscountNotification[]): Promise<void>`
 
 _(undocumented)_
 

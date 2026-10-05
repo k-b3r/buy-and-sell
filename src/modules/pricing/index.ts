@@ -44,7 +44,7 @@ export {
   decideListingDiscount,
   DEFAULT_DISCOUNT_POLICY,
   getUnverifiedDiscountCandidates,
-  insertDiscountNotification,
+  insertDiscountNotifications,
   markDiscountNotificationAttempted,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
