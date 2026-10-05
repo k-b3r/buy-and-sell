@@ -3,7 +3,13 @@
 // queries, plus the shared price rules (placeholder/outlier checks, clean
 // median, discount, price laterals) that catalog and collection queries build
 // on. Everything else is internal (enforced by dependency-cruiser).
-export { computeMedians, isPlaceholderPrice, notMagnitudeOutlierSql, notPlaceholderPriceSql } from './clean-median'
+export {
+  computeMedians,
+  isPlaceholderPrice,
+  medianCtes,
+  notMagnitudeOutlierSql,
+  notPlaceholderPriceSql,
+} from './clean-median'
 export type { DiscountBand, ListingPriceReview } from './price-rules'
 export {
   computeListingDiscount,
