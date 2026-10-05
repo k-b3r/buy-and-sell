@@ -44,6 +44,8 @@ export {
   rejectDiscountNotification,
 } from './discount-notifications'
 export type { VerificationClients } from './discount-verification'
+export type { PriceExclusionReason } from './exclusion'
+export { applyEligibilityFromEnrichment, excludeFromPricing, excludeProductFromReview } from './exclusion'
 export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
 export type { NegotiableKeywordCandidate } from './listing-price-review'
 export {

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { excludeProductFromReview, getProductsNeedingReview, markProductReviewed } from './review-queue'
+import { getProductsNeedingReview, markProductReviewed } from './review-queue'
 import type { QueryClient } from '../../platform/storage'
 
 test('getProductsNeedingReview queries only price_lookup_review_status = needs_review, with enrichment when present', async () => {
@@ -165,23 +165,4 @@ test('markProductReviewed clears price_lookup_review_status back to NULL for one
   expect(capturedSql).toContain('price_lookup_review_dismissed_at = now()')
   expect(capturedSql).toContain('WHERE id = $1')
   expect(capturedParams).toEqual([12])
-})
-
-test('excludeProductFromReview sets price_lookup_excluded with a reason and clears the review flag', async () => {
-  let capturedSql = ''
-  let capturedParams: unknown[] = []
-  const db: QueryClient = {
-    query: async (sql, params) => {
-      capturedSql = sql
-      capturedParams = params
-      return { rows: [] }
-    },
-  }
-
-  await excludeProductFromReview(db, 12, 'manual_review')
-
-  expect(capturedSql).toContain('price_lookup_excluded = true')
-  expect(capturedSql).toContain('price_lookup_excluded_reason = $1')
-  expect(capturedSql).toContain('price_lookup_review_status = NULL')
-  expect(capturedParams).toEqual(['manual_review', 12])
 })

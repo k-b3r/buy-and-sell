@@ -5,13 +5,11 @@ import {
   getExtractionCandidates,
   getEnrichmentCandidates,
   upsertProductEnrichment,
-  applyEligibilityFromEnrichment,
   getCategoryBackfillCandidates,
   updateProductCategories,
   getSubCategoryBackfillCandidates,
   updateProductSubCategories,
   mergeDuplicateProduct,
-  flagPriceLookupExcluded,
 } from './products'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -285,23 +283,6 @@ test('upsertProductEnrichment stores null currency when no trained price is know
   expect(calls[0].params).toEqual([17, 'desc', 'drivers', false, null, null, null, 'openai/gpt-oss-120b', false, 'low'])
 })
 
-test('applyEligibilityFromEnrichment auto-excludes high-confidence non-specific products, then flags low-confidence ones for review', async () => {
-  const { db, calls } = mockDb()
-
-  await applyEligibilityFromEnrichment(db)
-
-  expect(calls).toHaveLength(2)
-  expect(calls[0].sql).toContain('UPDATE products p SET price_lookup_excluded = true')
-  expect(calls[0].sql).toContain("price_lookup_excluded_reason = 'groq_generic'")
-  expect(calls[0].sql).toContain("e.confidence = 'high'")
-  expect(calls[0].sql).toContain('e.is_specific_product = false')
-  expect(calls[0].sql).toContain('NOT p.price_lookup_excluded')
-  expect(calls[1].sql).toContain("UPDATE products p SET price_lookup_review_status = 'needs_review'")
-  expect(calls[1].sql).toContain("e.confidence = 'low'")
-  expect(calls[1].sql).toContain('NOT p.price_lookup_excluded')
-  expect(calls[1].sql).toContain('p.price_lookup_review_dismissed_at IS NULL')
-})
-
 test('getCategoryBackfillCandidates returns products with no category assigned yet', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {
@@ -398,13 +379,4 @@ test('mergeDuplicateProduct reassigns listings, price history, notifications, an
   expect(calls[4].params).toEqual([200])
   expect(calls[5].sql).toBe('DELETE FROM products WHERE id = $1')
   expect(calls[5].params).toEqual([200])
-})
-
-test('flagPriceLookupExcluded updates products matching any of the given base_model values', async () => {
-  const { db, calls } = mockDb()
-
-  await flagPriceLookupExcluded(db, ['Condo', 'House and Lot'], 'real_estate')
-
-  expect(calls[0].sql).toMatch(/^UPDATE products SET price_lookup_excluded = true/)
-  expect(calls[0].params).toEqual(['real_estate', ['Condo', 'House and Lot']])
 })

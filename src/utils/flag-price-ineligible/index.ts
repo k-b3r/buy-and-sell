@@ -1,7 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import { flagPriceLookupExcluded } from '../../domains/marketplace'
+import type { PriceExclusionReason } from '../../modules/pricing'
+import { excludeFromPricing } from '../../modules/pricing'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 
@@ -19,7 +20,7 @@ import { secretsFromEnv } from '../../platform/redact'
 // them. Re-run whenever a new batch of
 // extraction turns up more junk categories — idempotent, matches on
 // base_model text.
-export const PRICE_INELIGIBLE_CATEGORIES: Record<string, string[]> = {
+export const PRICE_INELIGIBLE_CATEGORIES: Partial<Record<PriceExclusionReason, string[]>> = {
   real_estate: [
     'Apartment',
     'Condo',
@@ -695,8 +696,12 @@ async function main() {
   const logger = createLogger('data/flag-price-ineligible.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   try {
-    for (const [reason, baseModels] of Object.entries(PRICE_INELIGIBLE_CATEGORIES)) {
-      await flagPriceLookupExcluded(pool, baseModels, reason)
+    // Object.entries widens keys to string; the record's type already pins them.
+    for (const [reason, baseModels] of Object.entries(PRICE_INELIGIBLE_CATEGORIES) as [
+      PriceExclusionReason,
+      string[],
+    ][]) {
+      await excludeFromPricing(pool, { baseModels }, reason)
       logger.info(`flagged ${baseModels.length} base_model values as '${reason}'`)
     }
   } finally {

@@ -62,7 +62,7 @@ export interface ProductNeedingReview {
 }
 
 // price_lookup_review_status = 'needs_review' is set by
-// applyEligibilityFromEnrichment (src/domains/marketplace/storage/products.ts)
+// applyEligibilityFromEnrichment (src/modules/pricing/exclusion.ts)
 // when Groq's own confidence in identifying the product came back 'low' - see
 // db/schema.sql's comment on the column. Never auto-resolves; this is the
 // admin review page that comment says doesn't exist yet.
@@ -137,18 +137,5 @@ export async function markProductReviewed(db: QueryClient, productId: number): P
   await db.query(
     `UPDATE products SET price_lookup_review_status = NULL, price_lookup_review_dismissed_at = now() WHERE id = $1`,
     [productId],
-  )
-}
-
-// Alternative resolution to markProductReviewed: a human looked and agrees
-// with Groq's low-confidence hunch that this isn't a real priceable product.
-// Reuses price_lookup_excluded same as flagPriceLookupExcluded/
-// applyEligibilityFromEnrichment's automatic paths (src/domains/marketplace/
-// storage/products.ts) - one flag, three possible writers. Clears the review
-// flag too since exclusion is itself a resolution, not a pending state.
-export async function excludeProductFromReview(db: QueryClient, productId: number, reason: string): Promise<void> {
-  await db.query(
-    `UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1, price_lookup_review_status = NULL WHERE id = $2`,
-    [reason, productId],
   )
 }

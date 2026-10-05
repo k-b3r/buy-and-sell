@@ -2,7 +2,6 @@ import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
 import { getAllSettings, updateSettings } from '../../src/platform/settings'
 import {
-  excludeProductFromReview,
   getProductDetail,
   getProductsNeedingReview,
   getProductSummaries,
@@ -22,6 +21,7 @@ import {
 import {
   getComparableListings,
   getDeals,
+  excludeProductFromReview,
   getDiscountNotifications,
   getPeerMedianPrice,
   getSoldComparablePrice,

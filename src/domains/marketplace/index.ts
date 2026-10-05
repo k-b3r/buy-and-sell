@@ -44,9 +44,7 @@ export {
 } from './storage/listings'
 export type { ExtractionCandidate } from './storage/products'
 export {
-  applyEligibilityFromEnrichment,
   findOrCreateProduct,
-  flagPriceLookupExcluded,
   getCategoryBackfillCandidates,
   getEnrichmentCandidates,
   getExtractionCandidates,

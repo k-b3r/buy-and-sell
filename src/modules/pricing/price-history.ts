@@ -85,17 +85,6 @@ export async function getPriceLookupCandidates(db: DbClient): Promise<PriceLooku
   return result.rows
 }
 
-// Per-product, not per-category — called when the search itself came up
-// empty for this specific product, not for a transient request failure. One
-// real "no result" is a strong enough signal not to keep paying for the same
-// search again on every future run.
-export async function flagProductPriceLookupExcluded(db: DbClient, productId: number, reason: string): Promise<void> {
-  await db.query(`UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2`, [
-    reason,
-    productId,
-  ])
-}
-
 export interface ProductPricingStatus {
   retail: PriceRange | null
   secondhand: PriceRange | null

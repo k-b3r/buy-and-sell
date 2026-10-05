@@ -2,7 +2,9 @@ import type { Logger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './price-history'
-import { insertPriceCheck, flagProductPriceLookupExcluded } from './price-history'
+import { insertPriceCheck } from './price-history'
+import type { PriceExclusionReason } from './exclusion'
+import { excludeFromPricing } from './exclusion'
 
 export interface PriceRange {
   low: number
@@ -264,7 +266,7 @@ export async function lookupPrice(
 // The catalog's text-only generic-product check (detectGenericBaseModel),
 // injected rather than imported: catalog code imports pricing, so a direct
 // import back would close a module cycle.
-export type DetectGeneric = (baseModel: string) => { reason: string; matched: string } | null
+export type DetectGeneric = (baseModel: string) => { reason: PriceExclusionReason; matched: string } | null
 
 export interface PriceLookupDeps {
   clients: PriceLookupClients
@@ -298,7 +300,7 @@ export async function ensureProductPriced(
   // should be true).
   const generic = deps.detectGeneric(product.base_model)
   if (generic) {
-    await flagProductPriceLookupExcluded(db, product.id, generic.reason)
+    await excludeFromPricing(db, { productId: product.id }, generic.reason)
     logger.warn(
       `product ${product.id} (${label}): detected generic (${generic.reason}: "${generic.matched}"), flagged and skipping`,
     )
@@ -313,7 +315,7 @@ export async function ensureProductPriced(
     // as a generic/unpriceable-item signal, same permanent exclusion as the
     // text-pattern check above, per direct instruction (2026-08-31) - not
     // worth trying secondhand either.
-    await flagProductPriceLookupExcluded(db, product.id, 'retail_not_found')
+    await excludeFromPricing(db, { productId: product.id }, 'retail_not_found')
     logger.warn(
       `product ${product.id} (${label}): retail price not found via any provider, excluding from pricing entirely`,
     )
