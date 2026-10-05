@@ -82,7 +82,19 @@ _(undocumented)_
 
 ## src/platform/logger.ts
 
-### `createLogger(logFilePath: string): Logger`
+**Interactions:** imports `./redact`
+
+### `createLogger(logFilePath: string, secrets: readonly string[] = []): Logger`
+
+_(undocumented)_
+
+## src/platform/redact.ts
+
+### `redact(message: string, secrets: readonly string[]): string`
+
+_(undocumented)_
+
+### `secretsFromEnv(env: Record<string, string | undefined>): string[]`
 
 _(undocumented)_
 
@@ -132,7 +144,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runWorkerProcess(name: string, databaseUrl: string, body: (io: WorkerIo) => Promise<void>, deps: WorkerDeps = realDeps): Promise<void>`
+### `runWorkerProcess({ name, databaseUrl, secrets }: WorkerProcess, body: (io: WorkerIo) => Promise<void>, deps: WorkerDeps = realDeps): Promise<void>`
 
 _(undocumented)_
 

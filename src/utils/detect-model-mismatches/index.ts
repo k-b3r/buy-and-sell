@@ -3,6 +3,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 import { findModelCodeMismatches } from '../../domains/marketplace'
 
 interface CandidateRow {
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env')
 
-  const logger = createLogger('data/detect-model-mismatches.log')
+  const logger = createLogger('data/detect-model-mismatches.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   try {
     const rows = await getMatchedListings(pool)

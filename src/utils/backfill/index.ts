@@ -2,6 +2,7 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 import { upsertListing, getBackfillCandidates, markListingPhotosUnavailable } from '../../domains/marketplace'
 import { createR2ImageStore, storeListingPhotos } from '../../platform/images'
 import { extractDetailFields } from '../../domains/marketplace'
@@ -30,7 +31,7 @@ async function main() {
     limit = parsed
   }
 
-  const logger = createLogger('data/backfill.log')
+  const logger = createLogger('data/backfill.log', secretsFromEnv(process.env))
 
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
   if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_BASE_URL) {

@@ -20,6 +20,7 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import type { ExtractionCandidate } from '../../domains/marketplace'
 import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace'
 import type { DiscountPolicyThresholds } from '../../domains/marketplace'
@@ -320,6 +321,7 @@ async function main() {
   await runWorker({
     name: 'extract-products',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: [
       'extract_products.batch_size',

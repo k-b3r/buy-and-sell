@@ -12,6 +12,7 @@ interface Harness {
   events: string[]
   delays: number[]
   settingQueries: unknown[][]
+  loggerSecrets: (readonly string[])[]
 }
 
 // A fake pool answering loadSettings from `settings`, and a delay that ends
@@ -21,9 +22,11 @@ function harness(settings: Record<string, number> = {}, laps = 1): Harness {
   const events: string[] = []
   const delays: number[] = []
   const settingQueries: unknown[][] = []
+  const loggerSecrets: (readonly string[])[] = []
   const deps: WorkerDeps = {
-    createLogger: (logPath) => {
+    createLogger: (logPath, secrets) => {
       events.push(`logger ${logPath}`)
+      loggerSecrets.push(secrets)
       return {
         info: (msg) => logs.push(`INFO ${msg}`),
         warn: (msg) => logs.push(`WARN ${msg}`),
@@ -49,13 +52,14 @@ function harness(settings: Record<string, number> = {}, laps = 1): Harness {
       if (delays.length >= laps) throw new StopLoop()
     },
   }
-  return { deps, logs, events, delays, settingQueries }
+  return { deps, logs, events, delays, settingQueries, loggerSecrets }
 }
 
 function config(overrides: Partial<WorkerConfig> = {}): WorkerConfig {
   return {
     name: 'demo',
     databaseUrl: 'postgres://demo',
+    secrets: ['demo-secret-value'],
     testRun: false,
     settingKeys: ['demo.batch_size', 'demo.loop_delay_ms'],
     loopDelayKey: 'demo.loop_delay_ms',
@@ -68,6 +72,12 @@ test('runWorker writes the log and pid files under data/ named after the worker,
   const h = harness()
   await expect(runWorker(config(), h.deps)).rejects.toBeInstanceOf(StopLoop)
   expect(h.events.slice(0, 3)).toEqual(['logger data/demo.log', 'pid data/demo.pid', 'pool postgres://demo'])
+})
+
+test('runWorker creates the logger with the configured secrets so every line it writes is redacted', async () => {
+  const h = harness()
+  await expect(runWorker(config({ secrets: ['fake-groq-key-for-tests'] }), h.deps)).rejects.toBeInstanceOf(StopLoop)
+  expect(h.loggerSecrets).toEqual([['fake-groq-key-for-tests']])
 })
 
 test('runWorker logs the same lap lines the workers always have, sleeping the loop delay setting between laps', async () => {
@@ -197,8 +207,7 @@ test('runWorker ends the pool when a lap throws, and rethrows', async () => {
 test('runWorkerProcess gives the body a logger and pool, and ends the pool once the body returns', async () => {
   const h = harness()
   await runWorkerProcess(
-    'collector',
-    'postgres://demo',
+    { name: 'collector', databaseUrl: 'postgres://demo', secrets: ['demo-secret-value'] },
     async ({ logger }) => {
       logger.info('body ran')
     },
@@ -206,6 +215,7 @@ test('runWorkerProcess gives the body a logger and pool, and ends the pool once 
   )
   expect(h.events).toEqual(['logger data/collector.log', 'pid data/collector.pid', 'pool postgres://demo', 'pool end'])
   expect(h.logs).toEqual(['INFO body ran'])
+  expect(h.loggerSecrets).toEqual([['demo-secret-value']])
 })
 
 test('writePidFile writes the current process id as a string', () => {

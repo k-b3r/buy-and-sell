@@ -7,6 +7,7 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../../domains/marketplace'
 import type { EnrichmentCandidate } from '../../domains/marketplace'
 import {
@@ -181,6 +182,7 @@ async function main() {
   await runWorker({
     name: 'enrich-products',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: [
       'enrich_products.batch_size',

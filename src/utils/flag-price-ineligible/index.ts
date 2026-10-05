@@ -3,6 +3,7 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { flagPriceLookupExcluded } from '../../domains/marketplace'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 
 // NOT a continuously-running worker, deliberately - unlike the automatic
 // Groq-derived half of eligibility gating (applyEligibilityFromEnrichment,
@@ -691,7 +692,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env')
 
-  const logger = createLogger('data/flag-price-ineligible.log')
+  const logger = createLogger('data/flag-price-ineligible.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   try {
     for (const [reason, baseModels] of Object.entries(PRICE_INELIGIBLE_CATEGORIES)) {

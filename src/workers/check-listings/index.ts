@@ -5,6 +5,7 @@ import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/br
 import type { DbClient } from '../../platform/storage'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { resolveProxy } from '../../domains/marketplace'
 import type { CheckListingsCandidate } from '../../domains/marketplace'
@@ -139,6 +140,7 @@ async function main() {
   await runWorker({
     name: 'check-listings',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: [
       'check_listings.loop_delay_ms',

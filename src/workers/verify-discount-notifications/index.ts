@@ -16,6 +16,7 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from '../../domains/marketplace'
 import {
   getUnverifiedDiscountCandidates,
@@ -129,6 +130,7 @@ async function main() {
   await runWorker({
     name: 'verify-discount-notifications',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: [
       'verify_discount.lap_limit_default',

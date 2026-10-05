@@ -3,6 +3,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 import { normalizeBaseModel } from '../../domains/marketplace'
 import { findModelCodeMismatches, deriveTargetBaseModel } from '../../domains/marketplace'
 import { updateListingProductIds } from '../../domains/marketplace'
@@ -102,7 +103,7 @@ async function main(): Promise<void> {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env')
   const dryRun = process.argv.includes('--dry-run')
 
-  const logger = createLogger('data/reassign-model-mismatches.log')
+  const logger = createLogger('data/reassign-model-mismatches.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   try {
     const { reassigned, skipped } = await reassignModelMismatches(pool, dryRun)

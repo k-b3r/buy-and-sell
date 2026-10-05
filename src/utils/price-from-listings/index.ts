@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
@@ -65,7 +66,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price-from-listings requires Postgres')
 
-  const logger = createLogger('data/price-from-listings.log')
+  const logger = createLogger('data/price-from-listings.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
 
   try {

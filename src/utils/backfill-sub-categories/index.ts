@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
+import { secretsFromEnv } from '../../platform/redact'
 import type { GroqClient } from '../../domains/llm-clients'
 import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -152,7 +153,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — sub-category backfill requires Postgres')
 
-  const logger = createLogger('data/backfill-sub-categories.log')
+  const logger = createLogger('data/backfill-sub-categories.log', secretsFromEnv(process.env))
   // See createGroqPool - per-key model fallback round-robined across keys,
   // logging every hop.
   const groq = createGroqPool(apiKeys, (fromLabel, toLabel) =>

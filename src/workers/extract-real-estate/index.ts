@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { createGroqPool, loadGroqApiKeys } from '../../domains/llm-clients'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { secretsFromEnv } from '../../platform/redact'
 import {
   EXTRACTOR_MODELS,
   EXTRACTOR_REQUEST_OPTIONS,
@@ -21,6 +22,7 @@ async function main() {
   await runWorker({
     name: 'extract-real-estate',
     databaseUrl: dbUrl,
+    secrets: secretsFromEnv(process.env),
     testRun: isTestRun(process.env),
     settingKeys: ['extract_real_estate.batch_size', 'extract_real_estate.loop_delay_ms'],
     loopDelayKey: 'extract_real_estate.loop_delay_ms',
