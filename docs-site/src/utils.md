@@ -18,14 +18,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/utils/flag-negotiable-keywords/index.ts
-
-**Interactions:** imports `../../modules/pricing`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
-
-### `runFlagNegotiableKeywords(db: DbClient, logger: Logger, candidates: NegotiableKeywordCandidate[]): Promise<number>`
-
-_(undocumented)_
-
 ## src/utils/merge-duplicate-products/index.ts
 
 **Interactions:** imports `../../modules/catalog`, `../../platform/env`, `../../platform/storage`, `./variant-alias-rules`, `./variant-aliases`
@@ -39,22 +31,6 @@ _(undocumented)_
 **Interactions:** imports `../../modules/catalog`, `../../platform/storage`
 
 ### `mergeProductVariantAliases(db: DbClient, rules: ProductAliasRule[], opts: { dryRun?: boolean } = {}): Promise<MergeVariantAliasesResult>`
-
-_(undocumented)_
-
-## src/utils/price-from-listings/index.ts
-
-**Interactions:** imports `../../modules/pricing`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
-
-### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
-
-_(undocumented)_
-
-### `runPriceFromListings(db: DbClient, logger: Logger, groups: ListingPricesForProductCondition[]): Promise<void>`
-
-_(undocumented)_
-
-### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
 
 _(undocumented)_
 
