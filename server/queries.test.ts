@@ -31,7 +31,7 @@ import {
   getComparableListings,
   getDeals,
 } from './queries'
-import type { QueryClient } from './queries'
+import type { QueryClient } from '../src/platform/storage'
 
 test('summarizeDiscounts groups qualifying discounts into descending decade bands', () => {
   const result = summarizeDiscounts([73, 68, 41, 22, 5, null, -10])

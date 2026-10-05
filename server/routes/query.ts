@@ -1,5 +1,5 @@
 import type { RouteHandler, RouteResult } from '../app'
-import type { QueryClient } from '../queries'
+import type { QueryClient } from '../../src/platform/storage'
 import * as queries from '../queries'
 import { getRealEstateListings } from '../../src/modules/real-estate'
 

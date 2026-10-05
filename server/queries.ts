@@ -1,8 +1,5 @@
+import type { QueryClient } from '../src/platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../src/platform/rows'
-
-export interface QueryClient {
-  query(sql: string, params: unknown[]): Promise<{ rows: unknown[] }>
-}
 
 export interface ProductSummary {
   id: number
