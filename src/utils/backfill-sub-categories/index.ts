@@ -3,7 +3,7 @@ import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
+import { createGroqPool, loadGroqApiKeys, QuotaExhaustedError, withRetryAndSplit } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
@@ -30,11 +30,6 @@ interface RawSubCategoryItem {
   id?: unknown
   sub_category?: unknown
 }
-
-// Thrown to unwind out of the recursion below and stop the whole run — a
-// 429 means the key itself is dead, which says nothing about batch size and
-// isn't fixed by retrying smaller.
-class QuotaExhaustedError extends Error {}
 
 function parseAssignments(
   raw: { results?: unknown } | undefined,
@@ -67,60 +62,10 @@ function parseAssignments(
   return assignments
 }
 
-// Recurses on a persistent non-quota failure by halving the batch and
-// retrying each half independently (its own fresh MAX_ATTEMPTS budget) -
-// confirmed live 2026-08-28: gpt-oss-120b occasionally wraps a 100-item
-// results array as {results: {items: [...]}} instead of a flat array, which
-// Groq's own strict-mode schema validator rejects as a 400 before any
-// content comes back. A smaller array gives the model less room to lose
-// track of the shape mid-generation, so halving is a real mitigation, not
-// just spreading the same odds across more calls. Only gives up (skips)
-// once a single item alone still fails 3 times — genuinely rare, and it
-// stays sub_category_id IS NULL for the next run to pick up.
-async function attemptBatch(
-  groq: GroqClient,
-  logger: Logger,
-  delay: DelayFn,
-  batch: SubCategoryBackfillCandidate[],
-  offset: number,
-): Promise<{ id: number; subCategory: string }[]> {
-  const prompt = buildSubCategoryBackfillPrompt(batch)
-  let raw: { results?: unknown } | undefined
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      raw = (await groq.generateJson(prompt, SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA)) as { results?: unknown }
-      break
-    } catch (err) {
-      const status = (err as { status?: unknown }).status
-      const message = summarizeGroqError(err)
-      if (status === 429) {
-        logger.error(`batch starting at ${offset}: Groq quota exhausted (${message}), stopping run`)
-        throw new QuotaExhaustedError(message)
-      }
-      if (attempt === MAX_ATTEMPTS) {
-        if (batch.length === 1) {
-          logger.error(
-            `item ${batch[0].id}: Groq request failed after ${MAX_ATTEMPTS} attempts even at batch size 1 (${message}), skipping`,
-          )
-          return []
-        }
-        const mid = Math.ceil(batch.length / 2)
-        logger.error(
-          `batch starting at ${offset}: Groq request failed after ${MAX_ATTEMPTS} attempts at batch size ${batch.length} (${message}), splitting into ${mid} + ${batch.length - mid} and retrying`,
-        )
-        const first = await attemptBatch(groq, logger, delay, batch.slice(0, mid), offset)
-        const second = await attemptBatch(groq, logger, delay, batch.slice(mid), offset + mid)
-        return [...first, ...second]
-      }
-      logger.warn(`batch starting at ${offset}: Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message})`)
-      await delay(RETRY_DELAY_MS)
-    }
-  }
-
-  return parseAssignments(raw, batch, logger, offset)
-}
-
+// Halves a batch that keeps failing (see withRetryAndSplit) - confirmed live
+// 2026-08-28: gpt-oss-120b occasionally wraps a 100-item results array as
+// {results: {items: [...]}}, which Groq's strict-mode validator rejects as a
+// 400. A skipped item stays sub_category_id IS NULL for the next run.
 export async function runSubCategoryBackfill(
   groq: GroqClient,
   db: DbClient,
@@ -135,10 +80,25 @@ export async function runSubCategoryBackfill(
     const batch = candidates.slice(i, i + batchSize)
     let assignments: { id: number; subCategory: string }[]
     try {
-      assignments = await attemptBatch(groq, logger, delay, batch, i)
+      assignments = await withRetryAndSplit({
+        items: batch,
+        request: (part) =>
+          groq.generateJson(buildSubCategoryBackfillPrompt(part), SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA) as Promise<{
+            results?: unknown
+          }>,
+        onResponse: (part, raw, offset) => parseAssignments(raw, part, logger, i + offset),
+        itemId: (candidate) => candidate.id,
+        label: (offset) => `batch starting at ${i + offset}`,
+        provider: 'Groq',
+        maxAttempts: MAX_ATTEMPTS,
+        retryDelayMs: RETRY_DELAY_MS,
+        delay,
+        logger,
+      })
     } catch (err) {
-      if (err instanceof QuotaExhaustedError) break
-      throw err
+      if (!(err instanceof QuotaExhaustedError)) throw err
+      logger.error(`batch starting at ${i}: Groq quota exhausted (${err.message}), stopping run`)
+      break
     }
 
     await updateProductSubCategories(db, assignments)

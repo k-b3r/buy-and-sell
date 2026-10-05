@@ -3,7 +3,13 @@ import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
+import {
+  createGroqPool,
+  loadGroqApiKeys,
+  QuotaExhaustedError,
+  RetriesExhaustedError,
+  withRetry,
+} from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
@@ -47,31 +53,27 @@ export async function runCategoryBackfill(
     const prompt = buildCategoryBackfillPrompt(batch)
 
     let raw: { results?: unknown } | undefined
-    let fatal = false
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        raw = (await groq.generateJson(prompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA)) as { results?: unknown }
-        break
-      } catch (err) {
-        const status = (err as { status?: unknown }).status
-        const message = summarizeGroqError(err)
-        if (status === 429) {
-          logger.error(`batch starting at ${i}: Groq quota exhausted (${message}), stopping run`)
-          fatal = true
-          break
-        }
-        if (attempt === MAX_ATTEMPTS) {
-          logger.error(
-            `batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${message}), stopping run`,
-          )
-          fatal = true
-          break
-        }
-        logger.warn(`batch starting at ${i}: Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message})`)
-        await delay(RETRY_DELAY_MS)
+    try {
+      raw = (await withRetry(() => groq.generateJson(prompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA), {
+        provider: 'Groq',
+        label: `batch starting at ${i}`,
+        maxAttempts: MAX_ATTEMPTS,
+        retryDelayMs: RETRY_DELAY_MS,
+        delay,
+        logger,
+      })) as { results?: unknown }
+    } catch (err) {
+      if (err instanceof QuotaExhaustedError) {
+        logger.error(`batch starting at ${i}: Groq quota exhausted (${err.message}), stopping run`)
+      } else if (err instanceof RetriesExhaustedError) {
+        logger.error(
+          `batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${err.message}), stopping run`,
+        )
+      } else {
+        throw err
       }
+      break
     }
-    if (fatal) break
 
     if (!raw || !Array.isArray(raw.results)) {
       logger.error(`batch starting at ${i}: unexpected response shape (no results array), skipping batch`)

@@ -1,8 +1,8 @@
 import type { Logger } from '../../platform/logger'
-import { summarizeError } from '../../platform/errors'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
+import { QuotaExhaustedError, withRetryAndSplit } from '../../domains/llm-clients'
 import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from './extraction'
 import type { RealEstateCandidate, RealEstateFields } from './extraction'
 import { upsertRealEstateDetails } from './details'
@@ -28,12 +28,9 @@ export const EXTRACTOR_MODELS = ['openai/gpt-oss-120b'] as const
 // stays under the 8000 TPM limit.
 export const EXTRACTOR_REQUEST_OPTIONS = { reasoningEffort: 'low', maxCompletionTokens: 4096 } as const
 
-// A 429 means the key itself is dead - retrying smaller does not help, so it
-// unwinds the whole run (same rule as the sub-category backfill).
-class QuotaExhaustedError extends Error {}
-
-// Same halve-on-persistent-failure recovery the other Groq workers use: a
-// smaller array gives the model less room to lose the response shape.
+// Same halve-on-persistent-failure recovery the other Groq workers use
+// (withRetryAndSplit): a smaller array gives the model less room to lose the
+// response shape. A quota error unwinds as QuotaExhaustedError.
 export async function extractRealEstateBatch(
   groq: JsonModelClient,
   logger: Logger,
@@ -41,58 +38,42 @@ export async function extractRealEstateBatch(
   batch: RealEstateCandidate[],
   retryMissing = true,
 ): Promise<Map<string, RealEstateFields>> {
-  const prompt = buildRealEstatePrompt(batch)
-  let raw: { results?: unknown } | undefined
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      raw = (await groq.generateJson(prompt, REAL_ESTATE_RESPONSE_SCHEMA)) as { results?: unknown }
-      break
-    } catch (err) {
-      const message = summarizeError(err)
-      if ((err as { status?: unknown }).status === 429) {
-        logger.error(`Groq quota exhausted (${message}), stopping run`)
-        throw new QuotaExhaustedError(message)
-      }
-      if (attempt === MAX_ATTEMPTS) {
-        if (batch.length === 1) {
-          logger.error(
-            `listing ${batch[0].id}: Groq failed after ${MAX_ATTEMPTS} attempts at batch size 1 (${message}), skipping`,
-          )
-          return new Map()
-        }
-        const mid = Math.ceil(batch.length / 2)
-        logger.error(
-          `Groq failed after ${MAX_ATTEMPTS} attempts at batch size ${batch.length} (${message}), splitting ${mid} + ${batch.length - mid}`,
-        )
-        const first = await extractRealEstateBatch(groq, logger, delay, batch.slice(0, mid))
-        const second = await extractRealEstateBatch(groq, logger, delay, batch.slice(mid))
-        return new Map([...first, ...second])
-      }
-      logger.warn(`Groq request failed, attempt ${attempt}/${MAX_ATTEMPTS} (${message}), retrying`)
-      await delay(RETRY_DELAY_MS)
+  async function handleResponse(part: RealEstateCandidate[], raw: unknown): Promise<[string, RealEstateFields][]> {
+    const parsed = parseRealEstateResponse(raw, part)
+    if (!parsed) {
+      logger.error('unexpected response shape (no results array), skipping batch')
+      return []
     }
+    for (const line of parsed.skipped) logger.warn(line)
+    const out = parsed.fields
+
+    // Confirmed on a real run: the model sometimes returns fewer results than it
+    // was sent (17 of 25). Ask once more for just the missing ones; anything still
+    // missing stays a candidate and is picked up next lap. Once only, so a model
+    // that keeps omitting items cannot loop this. A split half always retries its
+    // missing listings, even under a retryMissing=false call: pre-existing
+    // behavior kept as-is (BUY-8 is refactor only).
+    const missing = part.filter((c) => !out.has(c.id))
+    if ((retryMissing || part !== batch) && missing.length > 0) {
+      logger.warn(`model returned ${out.size} of ${part.length} listings, retrying the ${missing.length} missing`)
+      const retried = await extractRealEstateBatch(groq, logger, delay, missing, false)
+      for (const [id, fields] of retried) out.set(id, fields)
+    }
+    return [...out]
   }
 
-  const parsed = parseRealEstateResponse(raw, batch)
-  if (!parsed) {
-    logger.error('unexpected response shape (no results array), skipping batch')
-    return new Map()
-  }
-  for (const line of parsed.skipped) logger.warn(line)
-  const out = parsed.fields
-
-  // Confirmed on a real run: the model sometimes returns fewer results than it
-  // was sent (17 of 25). Ask once more for just the missing ones; anything still
-  // missing stays a candidate and is picked up next lap. Once only, so a model
-  // that keeps omitting items cannot loop this.
-  const missing = batch.filter((c) => !out.has(c.id))
-  if (retryMissing && missing.length > 0) {
-    logger.warn(`model returned ${out.size} of ${batch.length} listings, retrying the ${missing.length} missing`)
-    const retried = await extractRealEstateBatch(groq, logger, delay, missing, false)
-    for (const [id, fields] of retried) out.set(id, fields)
-  }
-  return out
+  const entries = await withRetryAndSplit({
+    items: batch,
+    request: (part) => groq.generateJson(buildRealEstatePrompt(part), REAL_ESTATE_RESPONSE_SCHEMA),
+    onResponse: handleResponse,
+    itemId: (candidate) => candidate.id,
+    provider: 'Groq',
+    maxAttempts: MAX_ATTEMPTS,
+    retryDelayMs: RETRY_DELAY_MS,
+    delay,
+    logger,
+  })
+  return new Map(entries)
 }
 
 export async function runRealEstateExtraction(
@@ -110,8 +91,9 @@ export async function runRealEstateExtraction(
     try {
       extracted = await extractRealEstateBatch(groq, logger, delay, batch)
     } catch (err) {
-      if (err instanceof QuotaExhaustedError) return
-      throw err
+      if (!(err instanceof QuotaExhaustedError)) throw err
+      logger.error(`Groq quota exhausted (${err.message}), stopping run`)
+      return
     }
     for (const candidate of batch) {
       const fields = extracted.get(candidate.id)

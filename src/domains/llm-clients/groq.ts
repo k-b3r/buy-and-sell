@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk'
+import { createClientPool } from './client-pool'
 
 export interface GroqClient {
   generateJson(prompt: string, schema: object): Promise<unknown>
@@ -87,90 +88,33 @@ export function createModelFallbackGroqClient(
   )
 }
 
-export function isQuotaError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 429
-}
-
 interface FallbackOptions {
   // Human-readable name per client, purely for logging (e.g. model names or
   // "GROQ_API_KEY0") - index-based ("client 0", "client 1") if omitted.
   labels?: string[]
   // Fired once, permanently, the moment a client is dropped for hitting its
   // quota - so a worker can log "falling back to X" without needing to know
-  // isQuotaError or the rotation logic itself.
+  // the rotation logic itself.
   onFallback?: (fromLabel: string, toLabel: string) => void
-}
-
-function labelFor(labels: string[] | undefined, index: number): string {
-  return labels?.[index] ?? `client ${index}`
 }
 
 // Wraps multiple GroqClients (e.g. different models on the same key — Groq's
 // daily token cap is scoped per-model, confirmed live 2026-08-22 via the real
 // 429 body naming the specific model — so a different model has its own,
 // untouched quota) and falls back to the next one the moment the current one
-// hits a quota error (HTTP 429). The switch is permanent for the rest of the
-// process. Any other kind of error (the occasional structural glitch, network
-// failure, etc.) is not a quota signal and is rethrown immediately without
-// switching — runProductEnrichment's own retry loop handles those.
+// hits a quota error. Switching contract: createClientPool.
 export function createFallbackGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient {
-  let currentIndex = 0
-
-  async function withFallback<T>(call: (client: GroqClient) => Promise<T>): Promise<T> {
-    while (currentIndex < clients.length) {
-      try {
-        return await call(clients[currentIndex])
-      } catch (err) {
-        if (isQuotaError(err) && currentIndex < clients.length - 1) {
-          const fromLabel = labelFor(options.labels, currentIndex)
-          currentIndex += 1
-          options.onFallback?.(fromLabel, labelFor(options.labels, currentIndex))
-          continue
-        }
-        throw err
-      }
-    }
-    throw new Error('all Groq clients exhausted')
-  }
-
-  return {
-    generateJson: (prompt, schema) => withFallback((client) => client.generateJson(prompt, schema)),
-  }
+  const run = createClientPool(clients, { ...options, provider: 'Groq' })
+  return { generateJson: (prompt, schema) => run((client) => client.generateJson(prompt, schema)) }
 }
 
 // Round-robins across multiple GroqClients (e.g. one per GROQ_API_KEY<n>) to
-// spread load instead of hammering a single key. Same permanent-removal-on-
-// quota-error behavior as createFallbackGroqClient, just selecting the next
-// client to try by rotation instead of always starting from index 0 - so a
-// key that hasn't hit its quota yet still gets its fair share of calls even
-// after an earlier key in the list has failed over. Any other kind of error
-// is not a quota signal and is rethrown immediately without rotating.
+// spread load instead of hammering a single key - so a key that hasn't hit its
+// quota yet still gets its fair share of calls even after an earlier key in
+// the list has failed over.
 export function createRoundRobinGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient {
-  const pool = clients.map((client, index) => ({ client, label: labelFor(options.labels, index) }))
-  let nextIndex = 0
-
-  async function withRoundRobin<T>(call: (client: GroqClient) => Promise<T>): Promise<T> {
-    while (pool.length > 0) {
-      const index = nextIndex % pool.length
-      try {
-        const result = await call(pool[index].client)
-        nextIndex = index + 1
-        return result
-      } catch (err) {
-        if (isQuotaError(err) && pool.length > 1) {
-          const [dropped] = pool.splice(index, 1)
-          options.onFallback?.(dropped.label, pool[index % pool.length].label)
-          continue
-        }
-        throw err
-      }
-    }
-    throw new Error('all Groq clients exhausted')
-  }
-
-  return {
-    generateJson: (prompt, schema) => withRoundRobin((client) => client.generateJson(prompt, schema)),
-  }
+  const run = createClientPool(clients, { ...options, provider: 'Groq', strategy: 'round-robin' })
+  return { generateJson: (prompt, schema) => run((client) => client.generateJson(prompt, schema)) }
 }
 
 // One-stop setup for a worker: builds a GroqClient per key (each walking

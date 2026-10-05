@@ -1,6 +1,5 @@
 import type { GroqClient } from './groq'
 import {
-  isQuotaError,
   createFallbackGroqClient,
   createRoundRobinGroqClient,
   createGroqPool,
@@ -28,19 +27,6 @@ test('a GroqClient exposes generateJson(prompt, schema) returning parsed data', 
   }
   const result = await client.generateJson('some prompt', { type: 'object' })
   expect(result).toEqual({ results: [{ id: '1', description: 'x' }] })
-})
-
-test('isQuotaError is true only for an error with status 429', () => {
-  const quotaErr = new Error('rate limited') as Error & { status: number }
-  quotaErr.status = 429
-  expect(isQuotaError(quotaErr)).toBe(true)
-
-  const otherErr = new Error('bad request') as Error & { status: number }
-  otherErr.status = 400
-  expect(isQuotaError(otherErr)).toBe(false)
-
-  expect(isQuotaError(new Error('plain error'))).toBe(false)
-  expect(isQuotaError('not an object')).toBe(false)
 })
 
 test('fallback client uses the primary until it hits a quota error, then switches permanently to the next one', async () => {
@@ -225,7 +211,7 @@ test('round-robin client fires onFallback with the from/to key labels the moment
 // (both covered above) around the real createGroqClient, which wraps the SDK
 // and isn't network-tested here - this just locks down the shape it returns.
 test('createGroqPool returns a GroqClient built from the given keys', () => {
-  const pool = createGroqPool(['key0', 'key1'])
+  const pool = createGroqPool(['fake-groq-key-0', 'fake-groq-key-1'])
   expect(typeof pool.generateJson).toBe('function')
 })
 
