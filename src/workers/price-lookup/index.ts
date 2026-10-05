@@ -14,15 +14,16 @@ import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import type { PriceLookupCandidate, PriceLookupClients } from '../../domains/marketplace'
-import { detectGenericBaseModel, ensureProductPriced } from '../../domains/marketplace'
-import { getPriceLookupCandidates } from '../../domains/marketplace'
+import type { PriceLookupCandidate, PriceLookupClients } from '../../modules/pricing'
+import { detectGenericBaseModel } from '../../domains/marketplace'
+import { ensureProductPriced } from '../../modules/pricing'
+import { getPriceLookupCandidates } from '../../modules/pricing'
 
-export type { PriceLookupClients } from '../../domains/marketplace'
+export type { PriceLookupClients } from '../../modules/pricing'
 
 // Each product is independent - a failure on one doesn't stop the lap.
 // All the actual provider-chain/exclusion logic lives in
-// ensureProductPriced (domains/marketplace/price-lookup.ts), shared with
+// ensureProductPriced (modules/pricing/price-lookup.ts), shared with
 // extract-products.ts's inline per-listing trigger - this loop is just the
 // backfill pass over whatever getPriceLookupCandidates still finds
 // unpriced (extraction's own inline attempt is now the primary path for

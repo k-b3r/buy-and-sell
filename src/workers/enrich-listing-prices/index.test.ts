@@ -3,7 +3,7 @@ import { runPriceReview } from './index'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { PriceReviewCandidate } from '../../domains/marketplace'
+import type { PriceReviewCandidate } from '../../modules/pricing'
 
 const LOG_PATH = 'data/tmp-enrich-listing-prices.log'
 

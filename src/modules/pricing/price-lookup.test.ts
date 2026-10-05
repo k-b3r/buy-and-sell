@@ -15,7 +15,7 @@ import {
 } from './price-lookup'
 import type { DetectGeneric, PriceLookupCandidate, PriceLookupClients } from './price-lookup'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../llm-clients'
+import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 
 const candidate: PriceLookupCandidate = {

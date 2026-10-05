@@ -1,6 +1,6 @@
-import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../llm-clients'
-import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './storage/listings'
-import { DEFAULT_DISCOUNT_POLICY } from './storage/listings'
+import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './discount-notifications'
+import { DEFAULT_DISCOUNT_POLICY } from './discount-notifications'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }

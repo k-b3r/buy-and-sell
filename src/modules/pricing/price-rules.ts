@@ -33,7 +33,7 @@ export function summarizeDiscounts(discountPercents: (number | null)[]): Discoun
 // (primary, free - promoted 2026-09-02 since a free Gemini attempt can only
 // ever save a paid Exa/Tavily call, never add cost) -> exa_new_retail
 // (fallback 1, structured, cites sources) -> tavily_new_retail (fallback 2,
-// free, regex-parsed) - see src/domains/marketplace/price-lookup.ts. Only
+// free, regex-parsed) - see price-lookup.ts. Only
 // one of these is ever written per product per lookup (whichever
 // succeeded), so in practice they don't compete against each other here,
 // but the ordering still reflects real trust tier if historical data ever
@@ -204,7 +204,7 @@ export function isPlaceholderPrice(price: number): boolean {
   return ASCENDING_RUN_RE.test(digits)
 }
 
-// Same magnitude-outlier heuristic as domains/marketplace/storage/listings.ts's getPriceReviewCandidates
+// Same magnitude-outlier heuristic as listing-price-review.ts's getPriceReviewCandidates
 // (>10x or <0.1x the raw median) - exactly the pre-filter that makes a
 // listing an enrich-listing-prices candidate, independent of whether that
 // worker has actually reviewed it yet. Used two ways: computeListingDiscount

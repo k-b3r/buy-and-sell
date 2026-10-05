@@ -1,5 +1,5 @@
-import type { DbClient } from '../../../platform/storage'
-import { insertPriceCheck, getPriceLookupCandidates, flagProductPriceLookupExcluded } from './pricing'
+import type { DbClient } from '../../platform/storage'
+import { insertPriceCheck, getPriceLookupCandidates, flagProductPriceLookupExcluded } from './price-history'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

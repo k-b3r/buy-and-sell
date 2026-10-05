@@ -6,9 +6,9 @@ import type { DbClient } from '../../platform/storage'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../domains/marketplace'
-import type { PriceReviewCandidate } from '../../domains/marketplace'
-import { getPriceReviewCandidates, upsertListingPriceReview } from '../../domains/marketplace'
+import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from '../../modules/pricing'
+import type { PriceReviewCandidate } from '../../modules/pricing'
+import { getPriceReviewCandidates, upsertListingPriceReview } from '../../modules/pricing'
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'

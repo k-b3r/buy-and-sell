@@ -201,7 +201,7 @@ export interface DiscountNotification {
 }
 
 // Written by the root pipeline's detectAndRecordDiscountNotifications (see
-// src/domains/marketplace/storage/listings.ts) right after a listing first
+// discount-notifications.ts) right after a listing first
 // gets a product_id - not queried live here, just displayed. No
 // unstable_cache wrapper (unlike most of cachedQueries.ts): a bell badge
 // showing a stale count defeats the point, and this table is small/indexed

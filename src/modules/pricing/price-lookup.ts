@@ -1,8 +1,8 @@
 import type { Logger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../llm-clients'
+import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { PriceCheckSource } from './storage/pricing'
-import { insertPriceCheck, flagProductPriceLookupExcluded } from './storage/pricing'
+import type { PriceCheckSource } from './price-history'
+import { insertPriceCheck, flagProductPriceLookupExcluded } from './price-history'
 
 export interface PriceRange {
   low: number
@@ -322,7 +322,7 @@ export interface ProductPricingResult {
 // Ensures a product has retail/secondhand pricing, unconditionally attempting
 // both (callers are responsible for skipping this call entirely when a
 // product already has pricing or is already excluded - see
-// getProductPricingStatus in storage/pricing.ts). Shared by price-lookup.ts's
+// getProductPricingStatus in price-history.ts). Shared by price-lookup.ts's
 // own backfill loop and extract-products.ts's inline per-listing trigger, so
 // both go through identical provider chains and exclusion rules.
 export async function ensureProductPriced(

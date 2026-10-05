@@ -281,8 +281,8 @@ export async function getDeals(
        FROM deal_deduped
        WHERE ask_price >= ${minPricePlaceholder}
          -- Same magnitude-outlier guard detectAndRecordDiscountNotifications
-         -- applies before ever recording a discount (src/domains/marketplace/
-         -- storage/listings.ts) - a joke/decoy ask (e.g. ₱700 for an iPhone
+         -- applies before ever recording a discount (discount-
+         -- notifications.ts) - a joke/decoy ask (e.g. ₱700 for an iPhone
          -- 16 Pro Max, confirmed live 2026-09-02) is 10x+ below its own
          -- reference price and would otherwise rank as the single best "deal"
          -- on the page. Skipped only when there's no reference_price at all

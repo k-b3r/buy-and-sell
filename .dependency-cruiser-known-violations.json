@@ -9,17 +9,10 @@
     },
     "via": [
       {
-        "name": "src/domains/marketplace/discount-verification.ts",
-        "dependencyTypes": [
-          "local",
-          "export"
-        ]
-      },
-      {
         "name": "src/domains/marketplace/storage/listings.ts",
         "dependencyTypes": [
           "local",
-          "import"
+          "export"
         ]
       },
       {

@@ -4,7 +4,7 @@ import type { PriceLookupClients } from './index'
 import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { PriceLookupCandidate } from '../../domains/marketplace'
+import type { PriceLookupCandidate } from '../../modules/pricing'
 
 const LOG_PATH = 'data/tmp-price-lookup.log'
 
@@ -14,7 +14,7 @@ afterEach(() => {
 
 // runPriceLookup is a thin loop now - all provider-chain/exclusion behavior
 // is tested directly against ensureProductPriced in
-// domains/marketplace/price-lookup.test.ts. These tests just confirm the
+// modules/pricing/price-lookup.test.ts. These tests just confirm the
 // loop calls it once per product, with the right pacing.
 function fakeClients(): PriceLookupClients {
   const gemini: GeminiClient = {
