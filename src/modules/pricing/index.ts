@@ -55,11 +55,9 @@ export {
   flagNegotiableFromKeywords,
   getNegotiableKeywordCandidates,
   getPriceReviewCandidates,
-  upsertKeywordNegotiable,
+  runFlagNegotiableKeywords,
   upsertListingPriceReview,
 } from './listing-price-review'
-export { matchesNegotiableKeyword } from './negotiable-keywords'
-export type { ListingPricesForProductCondition } from './price-history'
 export {
   getListingPricesByProduct,
   getPriceLookupCandidates,

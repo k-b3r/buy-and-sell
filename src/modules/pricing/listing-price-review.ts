@@ -1,3 +1,4 @@
+import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from './price-review'
 import { descriptionPriceDiverges } from './price-review'
@@ -152,14 +153,40 @@ export async function upsertKeywordNegotiable(db: DbClient, listingId: string, m
 // above). Runs on every listing write instead, independent of whether the
 // recorded price looks valid, so "nego"/"negotiable" in the text surfaces
 // the badge even on a normally priced listing. No-op (no extra round trip)
-// when nothing matches, which is the common case.
+// when nothing matches, which is the common case. Returns the matched
+// keyword, or null when nothing matched.
 export async function flagNegotiableFromKeywords(
   db: DbClient,
   listingId: string,
   title: string | null,
   description: string | null,
-): Promise<void> {
+): Promise<string | null> {
   const matched = matchesNegotiableKeyword(title, description)
-  if (!matched) return
+  if (!matched) return null
   await upsertKeywordNegotiable(db, listingId, matched)
+  return matched
+}
+
+// Rerunnable sweep of the same keyword rule over EXISTING listings (from
+// getNegotiableKeywordCandidates): upsertListing and refreshListingFields in
+// the collection module run it on every write going forward, this covers
+// everything collected before that wiring existed. Deterministic pattern
+// match, no LLM call, so safe to run against the whole table in one pass.
+export async function runFlagNegotiableKeywords(
+  db: DbClient,
+  logger: Logger,
+  candidates: NegotiableKeywordCandidate[],
+): Promise<number> {
+  logger.info(`${candidates.length} listings to scan for negotiability keywords`)
+
+  let flagged = 0
+  for (const candidate of candidates) {
+    const matched = await flagNegotiableFromKeywords(db, candidate.id, candidate.title, candidate.description)
+    if (!matched) continue
+    flagged += 1
+    logger.info(`listing ${candidate.id} flagged negotiable (matched "${matched}")`)
+  }
+
+  logger.info(`flagged ${flagged} of ${candidates.length} listings as negotiable`)
+  return flagged
 }
