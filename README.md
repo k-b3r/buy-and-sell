@@ -87,14 +87,16 @@ CI (`.github/workflows/`) runs every check above on each PR, plus an agent revie
 ```
 src/
   domains/
-    llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (shared LLM/search clients)
-      index.ts                          # barrel
+    llm-clients/                        # shared LLM/search clients (Gemini, Groq, Exa, Tavily, OpenRouter),
+                                        # fallback pools, retry, error classification
+      index.ts                          # public API, SDK-free
+      gemini-sdk.ts, groq-sdk.ts        # the only files loading @google/genai / groq-sdk; workers import by path
   modules/                              # feature modules (see CONTEXT.md > Architecture)
     catalog/                            # products: extraction, enrichment, categories, dedup/merge,
                                         # model-code mismatches, catalog dashboard queries
       index.ts                          # public API — nothing imports its internals (dependency-cruiser)
     collection/                         # browser, proxy/tunnel, pagination, wall detection, extraction,
-                                        # run loop, recheck, listing upsert, listing photos
+                                        # run loop, recheck, listing upsert, listing photos, collect keywords
       index.ts                          # public API; browser.ts is the only other entry (Playwright)
     pricing/                            # price lookup, price review, clean median, discounts,
                                         # generic-product check, pricing dashboard queries
@@ -104,16 +106,26 @@ src/
   platform/                             # cross-cutting, not a domain
     storage.ts                          # DbClient/createDbPool — Postgres connection, sole entry point
     worker.ts                           # runWorker — every worker's lap loop, pid/log files, pool lifecycle
-    images.ts, logger.ts, review.ts, delay.ts, env.ts, errors.ts, rows.ts
-  workers/                              # the 7 looping, continuously-running processes
+    settings.ts                         # DB-backed runtime settings with SETTING_DEFAULTS fallback
+    images.ts, logger.ts, review.ts, delay.ts, env.ts, errors.ts, rows.ts, redact.ts, browserLock.ts
+  workers/                              # the 8 looping, continuously-running processes
     collect/, check-listings/           # Group B: collection (independent pacing)
     extract-products/, enrich-products/, price-lookup/,
     enrich-listing-prices/              # Group A: pricing pipeline (shared pacing)
+    extract-real-estate/, verify-discount-notifications/
   utils/                                # one-off scripts, run by hand, not looped/deployed — no domain
-    backfill/, backfill-categories/     # logic of their own, everything domain-shaped lives in modules/
-    flag-negotiable-keywords/, flag-price-ineligible/
-    merge-duplicate-products/, price-from-listings/
-  each worker/util dir: index.ts entrypoint (wiring; workers loop via runWorker, collect via its own laps.ts)
+    backfill/, backfill-categories/,    # logic of their own, everything domain-shaped lives in modules/
+    backfill-sub-categories/, detect-generic-products/, detect-model-mismatches/,
+    reassign-model-mismatches/, flag-negotiable-keywords/, flag-price-ineligible/,
+    merge-duplicate-products/, price-from-listings/, purge-far-listings/
+  each worker/util dir: index.ts entrypoint, wiring only (ESLint blocks oversized or complex ones);
+  workers loop via runWorker, collect via its own laps.ts
+server/                                 # VPS HTTP server: auth, named-query whitelist, refresh, worker control
+  routes/                               # one handler per route, wiring only (same ESLint limits)
+dashboard/                              # Next.js app, thin RPC client over server/
+db/schema.sql                           # single source of schema truth
+scripts/                                # gen-arch-doc, deploy, backup, tunnel
+tests/                                  # integration/, e2e/, lint-config.test.ts
 *.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
 docs/superpowers/plans/                 # implementation plans this was built from
 ```

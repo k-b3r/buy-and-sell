@@ -11,17 +11,18 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 ## Architecture
 
 ```
-src/platform/   shared infra (db, logger, settings, utils)
-src/domains/    pure-ish domain logic + external clients (marketplace, llm-clients)
-src/modules/    feature modules, index.ts is the only public API (real-estate)
-src/workers/    long-running loops, one folder each, entry = index.ts
-src/utils/      one-off / backfill scripts, one folder each
-server/         VPS HTTP server (named-query whitelist, worker control)
-dashboard/      Next.js app, thin RPC client over server/
-db/schema.sql   single source of schema truth
+src/platform/             shared infra (db, logger, settings, images, worker loop)
+src/domains/llm-clients/  shared LLM/search clients; SDKs only in gemini-sdk.ts / groq-sdk.ts
+src/modules/              feature modules (catalog, collection, pricing, real-estate), index.ts is the only public API
+src/workers/              long-running loops, one folder each, entry = index.ts (wiring only)
+src/utils/                one-off / backfill scripts, one folder each (wiring only)
+server/                   VPS HTTP server (named-query whitelist, worker control)
+dashboard/                Next.js app, thin RPC client over server/
+db/schema.sql             single source of schema truth
 ```
 
-- `tool` Module boundaries: ESLint + `.dependency-cruiser.cjs` (`pnpm depcruise`).
+- `tool` Module boundaries: ESLint + `.dependency-cruiser.cjs` (`pnpm depcruise`). Every `src/modules/*` folder is a public API automatically; heavy SDKs (Playwright, sharp/S3, pg, groq-sdk, @google/genai) load only from their owner file.
+- `tool` Entry points stay thin: `max-lines` and `complexity` are errors (not hints) for `src/workers/*/index.ts`, `src/utils/*/index.ts` and `server/routes/*` (`eslint.config.js`, covered by `tests/lint-config.test.ts`).
 
 ## Design
 
