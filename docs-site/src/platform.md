@@ -58,17 +58,7 @@ _(undocumented)_
 
 ## src/platform/images.ts
 
-**Interactions:** imports `./logger`
-
 ### `createR2ImageStore(config: R2Config): ImageStore`
-
-_(undocumented)_
-
-### `storeListingPhotos(store: ImageStore, logger: Logger, listingId: string, photos: unknown, fetchBytes: FetchBytes = defaultFetchBytes, compress: CompressImage = defaultCompressImage): Promise<string[]>`
-
-_(undocumented)_
-
-### `deleteListingPhotos(store: ImageStore, logger: Logger, listingId: string): Promise<void>`
 
 _(undocumented)_
 

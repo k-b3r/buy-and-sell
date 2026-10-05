@@ -58,22 +58,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/utils/purge-far-listings/index.ts
-
-**Interactions:** imports `../../domains/marketplace`, `../../platform/env`, `../../platform/images`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
-
-### `filterFarCandidates(rows: { id: string; location_lat: string | number | null; location_lng: string | number | null }[]): FarListingCandidate[]`
-
-_(undocumented)_
-
-### `getFarListingCandidates(db: DbClient): Promise<FarListingCandidate[]>`
-
-_(undocumented)_
-
-### `purgeFarListings(db: DbClient, logger: Logger, imageStore: ImageStore, candidates: FarListingCandidate[]): Promise<number>`
-
-_(undocumented)_
-
 ## src/utils/reassign-model-mismatches/index.ts
 
 **Interactions:** imports `../../domains/marketplace`, `../../platform/env`, `../../platform/logger`, `../../platform/redact`, `../../platform/storage`
