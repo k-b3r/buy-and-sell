@@ -15,7 +15,7 @@ import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import type { PriceLookupCandidate, PriceLookupClients } from '../../domains/marketplace'
-import { ensureProductPriced } from '../../domains/marketplace'
+import { detectGenericBaseModel, ensureProductPriced } from '../../domains/marketplace'
 import { getPriceLookupCandidates } from '../../domains/marketplace'
 
 export type { PriceLookupClients } from '../../domains/marketplace'
@@ -41,7 +41,7 @@ export async function runPriceLookup(
 
   for (let i = 0; i < products.length; i++) {
     if (i > 0) await delay(pacingDelayMs)
-    await ensureProductPriced(clients, db, products[i], logger)
+    await ensureProductPriced({ clients, db, logger, detectGeneric: detectGenericBaseModel }, products[i])
   }
 }
 

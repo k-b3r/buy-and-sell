@@ -3,7 +3,6 @@ import type { GeminiClient, ExaClient, TavilyClient } from '../llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './storage/pricing'
 import { insertPriceCheck, flagProductPriceLookupExcluded } from './storage/pricing'
-import { detectGenericBaseModel } from './generic-products'
 
 export interface PriceRange {
   low: number
@@ -302,6 +301,18 @@ export async function lookupSecondhand(
   }
 }
 
+// The catalog's text-only generic-product check (detectGenericBaseModel),
+// injected rather than imported: catalog code imports pricing, so a direct
+// import back would close a module cycle.
+export type DetectGeneric = (baseModel: string) => { reason: string; matched: string } | null
+
+export interface PriceLookupDeps {
+  clients: PriceLookupClients
+  db: DbClient
+  logger: Logger
+  detectGeneric: DetectGeneric
+}
+
 export interface ProductPricingResult {
   retail: PriceRange | null
   secondhand: PriceRange | null
@@ -315,18 +326,17 @@ export interface ProductPricingResult {
 // own backfill loop and extract-products.ts's inline per-listing trigger, so
 // both go through identical provider chains and exclusion rules.
 export async function ensureProductPriced(
-  clients: PriceLookupClients,
-  db: DbClient,
+  deps: PriceLookupDeps,
   product: PriceLookupCandidate,
-  logger: Logger,
 ): Promise<ProductPricingResult> {
+  const { clients, db, logger } = deps
   const label = productLabel(product.base_model, product.variant_tier)
 
   // Cheap text-only check before spending any paid/quota call - same signal
   // getPriceLookupCandidates can't apply itself (it only knows
   // price_lookup_excluded is already false, not whether it plausibly
   // should be true).
-  const generic = detectGenericBaseModel(product.base_model)
+  const generic = deps.detectGeneric(product.base_model)
   if (generic) {
     await flagProductPriceLookupExcluded(db, product.id, generic.reason)
     logger.warn(

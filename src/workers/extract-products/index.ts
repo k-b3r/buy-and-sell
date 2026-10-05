@@ -27,7 +27,7 @@ import type { DiscountPolicyThresholds } from '../../domains/marketplace'
 import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../domains/marketplace'
 import { getProductPricingStatus } from '../../domains/marketplace'
 import type { PriceLookupClients, ProductPricingResult } from '../../domains/marketplace'
-import { ensureProductPriced } from '../../domains/marketplace'
+import { detectGenericBaseModel, ensureProductPriced } from '../../domains/marketplace'
 import {
   buildExtractionPrompt,
   EXTRACTION_RESPONSE_SCHEMA,
@@ -139,10 +139,8 @@ async function ensureProductPricing(
   // it hasn't been through enrich-products.ts yet. The search still works,
   // just with less disambiguating context than a backfilled lookup gets.
   return ensureProductPriced(
-    clients,
-    db,
+    { clients, db, logger, detectGeneric: detectGenericBaseModel },
     { id: productId, base_model: baseModel, variant_tier: variantTier, description: null, sibling_variants: [] },
-    logger,
   )
 }
 

@@ -13,7 +13,7 @@ import {
   lookupSecondhand,
   ensureProductPriced,
 } from './price-lookup'
-import type { PriceLookupCandidate, PriceLookupClients } from './price-lookup'
+import type { DetectGeneric, PriceLookupCandidate, PriceLookupClients } from './price-lookup'
 import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -150,6 +150,10 @@ afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
 
+// Stands in for catalog's detectGenericBaseModel: only "Refrigerator" is generic.
+const detectGeneric: DetectGeneric = (baseModel) =>
+  baseModel === 'Refrigerator' ? { reason: 'too_generic', matched: 'refrigerator' } : null
+
 function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
   return {
@@ -279,7 +283,7 @@ test('ensureProductPriced excludes a text-pattern-generic product before spendin
     sibling_variants: [],
   }
 
-  const result = await ensureProductPriced(clients, db, generic, logger)
+  const result = await ensureProductPriced({ clients, db, logger, detectGeneric }, generic)
 
   expect(result).toEqual({ retail: null, secondhand: null, excluded: true })
   const flagCall = calls.find((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))
@@ -300,7 +304,7 @@ test('ensureProductPriced excludes the product entirely when retail is not found
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
 
-  const result = await ensureProductPriced(clients, db, product, logger)
+  const result = await ensureProductPriced({ clients, db, logger, detectGeneric }, product)
 
   expect(result).toEqual({ retail: null, secondhand: null, excluded: true })
   // Exactly 1: retail's own Gemini attempt (which also failed, along with
@@ -323,7 +327,7 @@ test('ensureProductPriced is not excluded when retail succeeds but secondhand do
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
 
-  const result = await ensureProductPriced(clients, db, product, logger)
+  const result = await ensureProductPriced({ clients, db, logger, detectGeneric }, product)
 
   expect(result.excluded).toBe(false)
   expect(result.retail).toEqual({ low: 14499, high: 19999, currency: 'PHP' })
@@ -358,7 +362,7 @@ test('ensureProductPriced records both retail and secondhand when both succeed',
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
 
-  const result = await ensureProductPriced(clients, db, product, logger)
+  const result = await ensureProductPriced({ clients, db, logger, detectGeneric }, product)
 
   expect(result).toEqual({
     retail: { low: 14499, high: 19999, currency: 'PHP' },
