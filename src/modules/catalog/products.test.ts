@@ -70,7 +70,7 @@ test('PRODUCT_CATEGORIES includes Other as a catch-all', () => {
 // moving it to variant (e.g. "iPhone 14 Plus" [] vs "iPhone 14" [Plus] -
 // same real product, two rows). Worked examples across the families that
 // fragmented most, plus an explicit rule, are the fix - see
-// src/utils/merge-duplicate-products/variant-alias-rules.ts for the cleanup
+// variant-alias-rules.ts for the cleanup
 // this was already needed for once.
 test('buildExtractionPrompt tells the model to split a known trim/tier suffix out of base_model into variant, with worked examples', () => {
   const prompt = buildExtractionPrompt([{ id: '1', title: 'iPhone 14 Plus', description: '' }])
