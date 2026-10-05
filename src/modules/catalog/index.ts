@@ -5,7 +5,6 @@
 export { runCategoryBackfill } from './category-backfill'
 export { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
 export {
-  findOrCreateProduct,
   getCategoryBackfillCandidates,
   getEnrichmentCandidates,
   getExtractionCandidates,

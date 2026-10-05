@@ -44,13 +44,17 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/domains/llm-clients/gemini.ts
+## src/domains/llm-clients/gemini-sdk.ts
 
-**Interactions:** imports `./client-pool`, `./error-classification`
+**Interactions:** imports `./gemini`
 
 ### `createGeminiClient(apiKey: string, model = 'gemini-2.5-flash'): GeminiClient`
 
 _(undocumented)_
+
+## src/domains/llm-clients/gemini.ts
+
+**Interactions:** imports `./client-pool`, `./error-classification`
 
 ### `createDailyGroundingCap(client: GeminiClient, limit: number | (() => Promise<number>) = DEFAULT_DAILY_GROUNDING_CAP, now: () => Date = () => new Date()): GeminiClient`
 
@@ -61,6 +65,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `createFallbackGeminiClient(clients: GeminiClient[]): GeminiClient`
+
+_(undocumented)_
+
+## src/domains/llm-clients/groq-sdk.ts
+
+**Interactions:** imports `./groq`
+
+### `createGroqPool(apiKeys: string[], onFallback?: (fromLabel: string, toLabel: string) => void, models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN, requestOptions: GroqRequestOptions = {}): GroqClient`
 
 _(undocumented)_
 
@@ -76,14 +88,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `createGroqClient(apiKey: string, model = 'openai/gpt-oss-120b', options: GroqRequestOptions = {}): GroqClient`
-
-_(undocumented)_
-
-### `createModelFallbackGroqClient(apiKey: string, models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN, onFallback?: (fromLabel: string, toLabel: string) => void): GroqClient`
-
-_(undocumented)_
-
 ### `createFallbackGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
 
 _(undocumented)_
@@ -92,15 +96,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `createGroqPool(apiKeys: string[], onFallback?: (fromLabel: string, toLabel: string) => void, models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN, requestOptions: GroqRequestOptions = {}): GroqClient`
-
-_(undocumented)_
-
 ## src/domains/llm-clients/index.ts
-
-### `createGeminiClient(apiKey: string, model = 'gemini-2.5-flash'): GeminiClient`
-
-_(undocumented)_
 
 ### `createFallbackGeminiClient(clients: GeminiClient[]): GeminiClient`
 
@@ -126,23 +122,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `createGroqClient(apiKey: string, model = 'openai/gpt-oss-120b', options: GroqRequestOptions = {}): GroqClient`
-
-_(undocumented)_
-
 ### `createFallbackGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
 
 _(undocumented)_
 
-### `createModelFallbackGroqClient(apiKey: string, models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN, onFallback?: (fromLabel: string, toLabel: string) => void): GroqClient`
-
-_(undocumented)_
-
 ### `createRoundRobinGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
-
-_(undocumented)_
-
-### `createGroqPool(apiKeys: string[], onFallback?: (fromLabel: string, toLabel: string) => void, models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN, requestOptions: GroqRequestOptions = {}): GroqClient`
 
 _(undocumented)_
 

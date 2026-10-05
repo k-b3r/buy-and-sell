@@ -6,6 +6,8 @@
 export type { BrowserDriver, DriverFactory, PageDriver } from './driver'
 export { isBrowserUnusableError } from './driver'
 export { getFarListingCandidates, purgeFarListings } from './far-listings'
+export type { LapQuery } from './keywords'
+export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
 export {
   getBackfillCandidates,
   getCheckListingsCandidates,

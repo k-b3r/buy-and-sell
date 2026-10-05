@@ -81,7 +81,7 @@ async function main() {
         const limit = explicitLimit ?? settings['check_listings.limit_default']
         const candidates = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
         return {
-          dryRun: `marketplace will call Facebook to check ${candidates.length} listings`,
+          dryRun: `would call Facebook to check ${candidates.length} listings`,
           run: async () => {
             if (candidates.length === 0) {
               logger.info('lap has no candidates, skipping browser launch')

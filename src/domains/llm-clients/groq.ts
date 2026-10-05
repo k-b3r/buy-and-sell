@@ -1,4 +1,3 @@
-import Groq from 'groq-sdk'
 import { createClientPool } from './client-pool'
 
 export interface GroqClient {
@@ -49,24 +48,6 @@ export function buildGroqRequest(model: string, prompt: string, schema: object, 
   }
 }
 
-export function createGroqClient(
-  apiKey: string,
-  model = 'openai/gpt-oss-120b',
-  options: GroqRequestOptions = {},
-): GroqClient {
-  const client = new Groq({ apiKey })
-  return {
-    async generateJson(prompt: string, schema: object): Promise<unknown> {
-      const response = await client.chat.completions.create(buildGroqRequest(model, prompt, schema, options))
-      const content = response.choices[0]?.message?.content
-      if (!content) {
-        throw new Error('Groq response contained no content')
-      }
-      return JSON.parse(content)
-    },
-  }
-}
-
 // Best-quality-first. A key's daily token quota is scoped per-model
 // (confirmed live 2026-08-22 via the 429 body naming the specific model), so
 // falling back to the next model on the same key buys extra headroom before
@@ -75,18 +56,6 @@ export function createGroqClient(
 // qwen/qwen3.6-27b dropped 2026-09-24: Groq now 404s it ("does not exist or you
 // do not have access to it"), so it only added a dead hop to every fallback.
 export const GROQ_MODEL_FALLBACK_CHAIN = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'] as const
-
-// One key, walked down GROQ_MODEL_FALLBACK_CHAIN on quota exhaustion.
-export function createModelFallbackGroqClient(
-  apiKey: string,
-  models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN,
-  onFallback?: (fromLabel: string, toLabel: string) => void,
-): GroqClient {
-  return createFallbackGroqClient(
-    models.map((model) => createGroqClient(apiKey, model)),
-    { labels: [...models], onFallback },
-  )
-}
 
 interface FallbackOptions {
   // Human-readable name per client, purely for logging (e.g. model names or
@@ -115,29 +84,4 @@ export function createFallbackGroqClient(clients: GroqClient[], options: Fallbac
 export function createRoundRobinGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient {
   const run = createClientPool(clients, { ...options, provider: 'Groq', strategy: 'round-robin' })
   return { generateJson: (prompt, schema) => run((client) => client.generateJson(prompt, schema)) }
-}
-
-// One-stop setup for a worker: builds a GroqClient per key (each walking
-// GROQ_MODEL_FALLBACK_CHAIN, best model first, on its own quota exhaustion),
-// then round-robins across keys so calls spread across all of them instead
-// of hammering GROQ_API_KEY0 until it's dead. onFallback is wired to both
-// levels (model-within-key, and key-to-key) so a worker can log every hop
-// down the chain without duplicating this wiring itself.
-export function createGroqPool(
-  apiKeys: string[],
-  onFallback?: (fromLabel: string, toLabel: string) => void,
-  models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN,
-  requestOptions: GroqRequestOptions = {},
-): GroqClient {
-  const keyLabels = apiKeys.map((_, i) => `GROQ_API_KEY${i}`)
-  const perKeyClients = apiKeys.map((apiKey, i) =>
-    createFallbackGroqClient(
-      models.map((model) => createGroqClient(apiKey, model, requestOptions)),
-      {
-        labels: [...models],
-        onFallback: (fromModel, toModel) => onFallback?.(`${keyLabels[i]}:${fromModel}`, `${keyLabels[i]}:${toModel}`),
-      },
-    ),
-  )
-  return createRoundRobinGroqClient(perKeyClients, { labels: keyLabels, onFallback })
 }

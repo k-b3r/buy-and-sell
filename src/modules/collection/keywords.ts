@@ -1,4 +1,4 @@
-import type { DbClient } from './storage'
+import type { DbClient } from '../../platform/storage'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent
 // listings, the actual "buy-and-sell opportunity" signal this project is

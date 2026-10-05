@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import {
-  createGeminiClient,
   createQuotaAwareGeminiClient,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
 } from '../../domains/llm-clients'
+import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
@@ -100,7 +100,7 @@ async function main() {
         const products = pending.slice(0, limit)
         logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
         return {
-          dryRun: `marketplace will call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
+          dryRun: `would call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
           run: () => runPriceLookup(clients, db, logger, products, realDelay, settings['price_lookup.pacing_delay_ms']),
         }
       }

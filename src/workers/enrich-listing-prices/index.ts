@@ -1,7 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
-import { createGroqPool, loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
+import { loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
+import { createGroqPool } from '../../domains/llm-clients/groq-sdk'
 import type { DbClient } from '../../platform/storage'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
@@ -99,7 +100,7 @@ async function main() {
       return async ({ settings }) => {
         const candidates = await getPriceReviewCandidates(db)
         return {
-          dryRun: `marketplace will call Groq for price review on ${candidates.length} listings this lap`,
+          dryRun: `would call Groq for price review on ${candidates.length} listings this lap`,
           run: () => runPriceReview(groq, db, logger, candidates, settings['enrich_listing_prices.batch_size']),
         }
       }

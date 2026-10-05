@@ -50,6 +50,34 @@ test('lint config bans inline sleeps, export * and default exports in domain cod
   )
 }, 60_000)
 
+test('lint config blocks oversized or complex entry points, where the shared config only warns', async () => {
+  for (const file of [
+    'src/workers/collect/index.ts',
+    'src/utils/backfill/index.ts',
+    'server/routes/workerControl.ts',
+  ]) {
+    expect([file, severity(await rule(file, 'max-lines')), severity(await rule(file, 'complexity'))]).toEqual([
+      file,
+      2,
+      2,
+    ])
+  }
+}, 60_000)
+
+test('lint config keeps size and complexity as warnings outside entry points', async () => {
+  for (const file of ['src/modules/catalog/products.ts', 'src/workers/collect/laps.ts', 'server/app.ts']) {
+    expect([file, severity(await rule(file, 'max-lines')), severity(await rule(file, 'complexity'))]).toEqual([
+      file,
+      1,
+      1,
+    ])
+  }
+}, 60_000)
+
+test('lint config leaves entry-point tests out of the size limit', async () => {
+  expect(severity(await rule('server/routes/workerControl.test.ts', 'max-lines'))).toBe(0)
+}, 60_000)
+
 test('lint config allows default exports only in framework files', async () => {
   expect(selectors(await rule('dashboard/src/app/page.tsx', 'no-restricted-syntax'))).not.toContain(
     'ExportDefaultDeclaration',

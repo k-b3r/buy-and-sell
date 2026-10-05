@@ -31,13 +31,18 @@ export const EXTRACTOR_REQUEST_OPTIONS = { reasoningEffort: 'low', maxCompletion
 // Same halve-on-persistent-failure recovery the other Groq workers use
 // (withRetryAndSplit): a smaller array gives the model less room to lose the
 // response shape. A quota error unwinds as QuotaExhaustedError.
+export interface ExtractorDeps {
+  groq: JsonModelClient
+  logger: Logger
+  delay: DelayFn
+}
+
 export async function extractRealEstateBatch(
-  groq: JsonModelClient,
-  logger: Logger,
-  delay: DelayFn,
+  deps: ExtractorDeps,
   batch: RealEstateCandidate[],
   retryMissing = true,
 ): Promise<Map<string, RealEstateFields>> {
+  const { groq, logger, delay } = deps
   async function handleResponse(part: RealEstateCandidate[], raw: unknown): Promise<[string, RealEstateFields][]> {
     const parsed = parseRealEstateResponse(raw, part)
     if (!parsed) {
@@ -56,7 +61,7 @@ export async function extractRealEstateBatch(
     const missing = part.filter((c) => !out.has(c.id))
     if ((retryMissing || part !== batch) && missing.length > 0) {
       logger.warn(`model returned ${out.size} of ${part.length} listings, retrying the ${missing.length} missing`)
-      const retried = await extractRealEstateBatch(groq, logger, delay, missing, false)
+      const retried = await extractRealEstateBatch(deps, missing, false)
       for (const [id, fields] of retried) out.set(id, fields)
     }
     return [...out]
@@ -77,19 +82,17 @@ export async function extractRealEstateBatch(
 }
 
 export async function runRealEstateExtraction(
-  groq: JsonModelClient,
-  db: DbClient,
-  logger: Logger,
+  deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn },
   candidates: RealEstateCandidate[],
   batchSize = 10,
-  delay: DelayFn = realDelay,
 ): Promise<void> {
+  const { groq, db, logger, delay = realDelay } = deps
   logger.info(`${candidates.length} real estate listings to extract`)
   for (let i = 0; i < candidates.length; i += batchSize) {
     const batch = candidates.slice(i, i + batchSize)
     let extracted: Map<string, RealEstateFields>
     try {
-      extracted = await extractRealEstateBatch(groq, logger, delay, batch)
+      extracted = await extractRealEstateBatch({ groq, logger, delay }, batch)
     } catch (err) {
       if (!(err instanceof QuotaExhaustedError)) throw err
       logger.error(`Groq quota exhausted (${err.message}), stopping run`)
@@ -98,7 +101,12 @@ export async function runRealEstateExtraction(
     for (const candidate of batch) {
       const fields = extracted.get(candidate.id)
       if (!fields) continue
-      await upsertRealEstateDetails(db, candidate.id, fields, MODEL, candidate.source_hash)
+      await upsertRealEstateDetails(db, {
+        listingId: candidate.id,
+        fields,
+        model: MODEL,
+        sourceHash: candidate.source_hash,
+      })
       logger.info(
         `listing ${candidate.id} extracted (${fields.property_type}, price basis ${fields.price_basis}, ${fields.confidence})`,
       )

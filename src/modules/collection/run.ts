@@ -11,7 +11,7 @@ import { upsertListing, getCollectedListingIds } from './listings'
 import type { ListingPhotos } from './photos'
 
 // Diagnostic-only, never allowed to take down the caller - confirmed live
-// 2026-08-24: refresh-server.ts runs with CWD=server/ (no data/ dir there,
+// 2026-08-24: the server (server/index.ts) runs with CWD=server/ (no data/ dir there,
 // unlike the root CLI scripts' convention), and the missing directory
 // crashed the entire long-lived HTTP process uncaught, not just this one
 // request. mkdir handles the expected case; the catch is defense-in-depth

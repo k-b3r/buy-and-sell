@@ -34,9 +34,9 @@ const refreshButtonStyle: CSSProperties = {
   cursor: 'pointer',
 }
 
-// Hits /api/listings/[id]/refresh, which hands off to refresh-server.ts on
-// the box that actually runs a browser - see that route for why. router.refresh()
-// re-fetches this server component's data on success, so a price/description
+// Hits /api/listings/[id]/refresh, which hands off to the server's refresh
+// route (server/routes/refresh.ts) on the box that actually runs a browser -
+// see that route for why. router.refresh() re-fetches this server component's data on success, so a price/description
 // edit picked up by the re-scrape shows up immediately without a manual reload.
 //
 // status:'removed' means checkOneListing already hard-deleted the row (see

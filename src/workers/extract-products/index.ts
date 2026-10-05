@@ -1,15 +1,15 @@
 import { fileURLToPath } from 'node:url'
 import {
-  createGeminiClient,
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
-  createGroqPool,
   loadGroqApiKeys,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
 } from '../../domains/llm-clients'
+import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
+import { createGroqPool } from '../../domains/llm-clients/groq-sdk'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
@@ -88,15 +88,15 @@ async function main() {
       return async ({ settings }) => {
         const candidates = await getExtractionCandidates(db)
         return {
-          dryRun: `marketplace will call Groq for extraction on ${candidates.length} listings this lap`,
+          dryRun: `would call Groq for extraction on ${candidates.length} listings this lap`,
           run: () =>
             runProductExtraction({ clients, db, logger }, candidates, {
               // batchSize was tuned around Gemini's 20 req/day cap (confirmed
               // live 2026-08-20) - unverified whether 100/batch is still the
               // right size now that Groq (TPM-capped, not daily-request-capped)
               // is primary. Left as-is pending a live batch-size audit, same
-              // status as enrich-listing-prices.ts's 35 and
-              // backfill-categories.ts's 100 (see pipeline-consolidation plan).
+              // status as enrich-listing-prices' 35 and
+              // catalog/category-backfill.ts's 100 (see pipeline-consolidation plan).
               batchSize: settings['extract_products.batch_size'],
               delayMs: settings['extract_products.inter_batch_delay_ms'],
               maxAttempts: settings['extract_products.max_attempts'],

@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai'
 import { createClientPool } from './client-pool'
 import { isQuotaError } from './error-classification'
 
@@ -11,39 +10,6 @@ export interface GeminiClient {
   // text — the prompt is expected to ask for an easily-parseable trailing
   // line rather than relying on structured output.
   generateGroundedText(prompt: string): Promise<string>
-}
-
-export function createGeminiClient(apiKey: string, model = 'gemini-2.5-flash'): GeminiClient {
-  const ai = new GoogleGenAI({ apiKey })
-  return {
-    async generateJson(prompt: string, schema: object): Promise<unknown> {
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: schema,
-        },
-      })
-      if (response.text === undefined) {
-        throw new Error('Gemini response contained no text')
-      }
-      return JSON.parse(response.text)
-    },
-    async generateGroundedText(prompt: string): Promise<string> {
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-        },
-      })
-      if (response.text === undefined) {
-        throw new Error('Gemini response contained no text')
-      }
-      return response.text
-    },
-  }
 }
 
 const DEFAULT_DAILY_GROUNDING_CAP = 1000

@@ -356,11 +356,12 @@ CREATE TABLE IF NOT EXISTS saved_listings (
 );
 
 -- Written once, at extraction time, when a listing first crosses the
--- high-discount bar against its product's clean median (see
--- checkListingDiscount in src/modules/pricing/discount-notifications.ts).
--- Deliberately NOT re-evaluated later if sibling listings
--- shift the median afterward - same "set once" tradeoff this codebase
--- already makes for base_model/category. UNIQUE on listing_id both
+-- high-discount bar against its product's reference price: retail for a
+-- "New" listing, otherwise secondhand, falling back to the clean median of
+-- the product's own listings (see checkListingDiscount in
+-- src/modules/pricing/discount-notifications.ts). Deliberately NOT
+-- re-evaluated later if prices or sibling listings shift afterward - same
+-- "set once" tradeoff this codebase already makes for base_model/category. UNIQUE on listing_id both
 -- enforces "at most one notification per listing ever" and gives the
 -- insert its idempotency for free (ON CONFLICT DO NOTHING).
 CREATE TABLE IF NOT EXISTS discount_notifications (
@@ -429,7 +430,7 @@ ON CONFLICT (key) DO NOTHING;
 -- (previously the hardcoded MOTIVATED_SELLER_KEYWORDS array). Loaded fresh
 -- every lap, same no-restart pattern as the settings table above. Empty
 -- table (not just a missing row) falls back to DEFAULT_COLLECT_KEYWORDS in
--- src/platform/collect-keywords.ts - collect must never run a lap with zero
+-- src/modules/collection/keywords.ts - collect must never run a lap with zero
 -- search queries.
 CREATE TABLE IF NOT EXISTS collect_keywords (
   keyword TEXT PRIMARY KEY,

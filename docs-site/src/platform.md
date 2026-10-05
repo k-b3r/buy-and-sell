@@ -18,22 +18,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/platform/collect-keywords.ts
-
-**Interactions:** imports `./storage`
-
-### `loadCollectKeywords(db: DbClient): Promise<string[]>`
-
-_(undocumented)_
-
-### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
-
-_(undocumented)_
-
-### `planLapQueries(input: LapPlanInput): LapQuery[]`
-
-_(undocumented)_
-
 ## src/platform/delay.ts
 
 ### `realDelay(ms): Promise<void>`

@@ -72,6 +72,21 @@ function readAlivePid(pidFile: string, isAlive: WorkerControlDeps['isAlive']): n
   return pid
 }
 
+type WorkerAction = 'start' | 'stop' | 'status'
+
+function parseRequest(body: unknown): { worker: string; action: WorkerAction } | RouteResult {
+  const req = (body as Record<string, unknown> | null) ?? {}
+  const worker = req.worker
+  if (typeof worker !== 'string' || !(worker in WORKER_PID_FILES)) {
+    return { statusCode: 400, body: { error: 'unknown "worker"' } }
+  }
+  const action = req.action
+  if (action !== 'start' && action !== 'stop' && action !== 'status') {
+    return { statusCode: 400, body: { error: 'unknown "action"' } }
+  }
+  return { worker, action }
+}
+
 // Dashboard's /admin/logs page - start/stop/status for a worker process.
 // Workers self-register their own pid (writePidFile, called from their own
 // main()) regardless of how they were launched, so this works the same for
@@ -106,15 +121,9 @@ export function createWorkerControlHandler(
   const stoppedIntentionally = new Set<string>()
 
   return async function handleWorkerControl(body: unknown): Promise<RouteResult> {
-    const req = (body as Record<string, unknown> | null) ?? {}
-    const worker = req.worker
-    if (typeof worker !== 'string' || !(worker in WORKER_PID_FILES)) {
-      return { statusCode: 400, body: { error: 'unknown "worker"' } }
-    }
-    const action = req.action
-    if (action !== 'start' && action !== 'stop' && action !== 'status') {
-      return { statusCode: 400, body: { error: 'unknown "action"' } }
-    }
+    const parsed = parseRequest(body)
+    if ('statusCode' in parsed) return parsed
+    const { worker, action } = parsed
 
     const pidFile = path.join(dataDir, WORKER_PID_FILES[worker])
     const currentPid = readAlivePid(pidFile, deps.isAlive)
@@ -143,10 +152,14 @@ export function createWorkerControlHandler(
       return { statusCode: 200, body: { running: false, lastRunErrored: lastRunErrored.get(worker) ?? false } }
     }
 
-    // start
     if (currentPid !== null) {
       return { statusCode: 409, body: { error: `${worker} is already running` } }
     }
+    startWorker(worker, pidFile)
+    return { statusCode: 200, body: { running: true, lastRunErrored: lastRunErrored.get(worker) ?? false } }
+  }
+
+  function startWorker(worker: string, pidFile: string): void {
     // Fresh run, fresh log - a Start click means "show me this run", not the
     // last one's output still sitting above it. Only this route's own start
     // clears it; createLogger itself still just appends, so a hand-started
@@ -205,6 +218,5 @@ export function createWorkerControlHandler(
         lastRunErrored.set(worker, false)
       }
     })
-    return { statusCode: 200, body: { running: true, lastRunErrored: lastRunErrored.get(worker) ?? false } }
   }
 }

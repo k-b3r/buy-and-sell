@@ -1,11 +1,14 @@
-import type { BrowserDriver, PageDriver } from '../../modules/collection'
-import { isBrowserUnusableError } from '../../modules/collection'
+import type { BrowserDriver, LapQuery, PageDriver } from '../../modules/collection'
+import {
+  isBrowserUnusableError,
+  loadCollectKeywords,
+  loadRealEstateKeywords,
+  planLapQueries,
+} from '../../modules/collection'
 import type { DelayFn } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import { loadSettings } from '../../platform/settings'
-import { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from '../../platform/collect-keywords'
-import type { LapQuery } from '../../platform/collect-keywords'
 
 // collect's loop, kept out of platform/worker.ts's runWorker on purpose: it
 // runs once by default and loops only with --cycle, logs its laps differently,
@@ -24,7 +27,7 @@ const TEST_RUN_LOOP_DELAY_MS = 5000
 // below swallowing each failure and moving on immediately, that turned into
 // a zero-delay infinite loop - 14 keywords x every lap x no backoff - that
 // produced a 16GB collector.log (and, downstream, crash-looped the whole
-// refresh-server process every time it tried to tail that file). A crashed
+// server process (server/) every time it tried to tail that file). A crashed
 // page gets a fresh browser instead of being retried as-is, every failure
 // backs off before the next attempt, and too many in a row stops the worker
 // outright rather than spinning on a problem that isn't transient (dead

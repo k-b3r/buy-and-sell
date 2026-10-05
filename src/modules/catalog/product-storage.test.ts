@@ -39,7 +39,7 @@ test('findOrCreateProduct inserts a new product when none matches, returns its i
     },
   }
 
-  const id = await findOrCreateProduct(db, 'RTX 3060', null)
+  const id = await findOrCreateProduct(db, { baseModel: 'RTX 3060', variantTier: null })
 
   expect(id).toBe(42)
   expect(calls[0].sql).toMatch(/^SELECT/)
@@ -60,7 +60,7 @@ test('findOrCreateProduct stores category on a newly-created product', async () 
     },
   }
 
-  const id = await findOrCreateProduct(db, 'RTX 3060', null, 'PC Components')
+  const id = await findOrCreateProduct(db, { baseModel: 'RTX 3060', variantTier: null, category: 'PC Components' })
 
   expect(id).toBe(99)
   expect(calls[1].params).toEqual(['RTX 3060', 'rtx 3060', null, null, 'PC Components', null])
@@ -78,7 +78,12 @@ test('findOrCreateProduct stores sub_category alongside category on a newly-crea
     },
   }
 
-  const id = await findOrCreateProduct(db, 'RTX 3060', null, 'PC Components', 'Graphics Cards')
+  const id = await findOrCreateProduct(db, {
+    baseModel: 'RTX 3060',
+    variantTier: null,
+    category: 'PC Components',
+    subCategory: 'Graphics Cards',
+  })
 
   expect(id).toBe(100)
   expect(calls[1].sql).toContain('sub_category_id')
@@ -88,7 +93,7 @@ test('findOrCreateProduct stores sub_category alongside category on a newly-crea
 test('findOrCreateProduct reuses an existing product when normalized base_model + variant_tier already match', async () => {
   const db = { query: async () => ({ rows: [{ id: 7 }] }) }
 
-  const id = await findOrCreateProduct(db, '  RTX 3060  ', 'Custom AIB/OC')
+  const id = await findOrCreateProduct(db, { baseModel: '  RTX 3060  ', variantTier: 'Custom AIB/OC' })
 
   expect(id).toBe(7)
 })
@@ -105,7 +110,7 @@ test('findOrCreateProduct dedupes variant_tier on a normalized column, keeping t
     },
   }
 
-  const id = await findOrCreateProduct(db, 'RTX 3060', "Founder's edition")
+  const id = await findOrCreateProduct(db, { baseModel: 'RTX 3060', variantTier: "Founder's edition" })
 
   expect(id).toBe(55)
   expect(calls[0].params).toEqual(['rtx 3060', 'founders edition'])
@@ -129,9 +134,12 @@ test('findOrCreateProduct treats "Founders edition" and "Founder\'s edition" as 
     },
   }
 
-  const ocId = await findOrCreateProduct(db, 'RTX 3060', 'OC')
-  const foundersId = await findOrCreateProduct(db, 'RTX 3060', 'Founders edition')
-  const founderSApostropheId = await findOrCreateProduct(db, 'RTX 3060', "Founder's edition")
+  const ocId = await findOrCreateProduct(db, { baseModel: 'RTX 3060', variantTier: 'OC' })
+  const foundersId = await findOrCreateProduct(db, { baseModel: 'RTX 3060', variantTier: 'Founders edition' })
+  const founderSApostropheId = await findOrCreateProduct(db, {
+    baseModel: 'RTX 3060',
+    variantTier: "Founder's edition",
+  })
 
   expect(foundersId).toBe(founderSApostropheId)
   expect(ocId).not.toBe(foundersId)

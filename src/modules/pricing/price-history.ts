@@ -55,7 +55,7 @@ export async function insertPriceCheck(db: DbClient, check: PriceCheck): Promise
   )
 }
 
-// Retail (Tavily) and secondhand (Gemini->Exa->Tavily) prices both come from
+// Retail and secondhand prices (both Gemini->Exa->Tavily) come from
 // one lap through this same candidate set now, so every non-excluded product
 // is a candidate regardless of listing count. Skips any product with a price
 // row from ANY source — a product already priced doesn't need another
