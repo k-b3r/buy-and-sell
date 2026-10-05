@@ -1,9 +1,9 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runSubCategoryBackfill } from './index'
+import { runSubCategoryBackfill } from './sub-category-backfill'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { SubCategoryBackfillCandidate } from '../../modules/catalog'
+import type { SubCategoryBackfillCandidate } from './products'
 
 const LOG_PATH = 'data/tmp-backfill-sub-categories.log'
 
