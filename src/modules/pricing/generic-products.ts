@@ -157,7 +157,7 @@ const BRANDS = [
 const BRAND_PREFIXES = [...new Set(BRANDS.map((b) => b.toLowerCase()))].sort((a, b) => b.length - a.length)
 
 // Bare category nouns with no fixed price - same reasoning as the existing
-// PRICE_INELIGIBLE_CATEGORIES.too_generic in flag-price-ineligible/index.ts
+// PRICE_INELIGIBLE_CATEGORIES.too_generic in ineligible-categories.ts
 // ('GPU'/'Lenovo Thinkpad'/etc): a brand+bare-category pair (or a bare
 // category alone) spans an entire product tier, not one product. Checked by
 // EXACT match after brand-stripping, not substring/suffix - a suffix-only
@@ -358,8 +358,8 @@ const GENERIC_NOUNS = new Set([
   'unit',
   'shoes',
   // bare Apple product lines with no generation - same "spans an entire
-  // product tier" problem as 'Lenovo Thinkpad' (base flag-price-ineligible
-  // list) - a 2015 12" MacBook and a 2019 one are wildly different prices.
+  // product tier" problem as 'Lenovo Thinkpad' (curated
+  // ineligible-categories.ts list) - a 2015 12" MacBook and a 2019 one are wildly different prices.
   'iphone',
   'ipad',
   'ipad air',
@@ -440,7 +440,7 @@ function stripBrand(key: string): string {
 // skip a paid/quota-limited price-lookup call for a detected-generic
 // candidate, same as they already do for exa_no_result/groq_generic) and
 // offline (detect-generic-products' read-only report, for a human to review
-// before curating flag-price-ineligible.ts's list from it).
+// before curating ineligible-categories.ts's list from it).
 export function detectGenericBaseModel(baseModel: string): { reason: GenericReason; matched: string } | null {
   const key = baseModel.toLowerCase().trim()
 

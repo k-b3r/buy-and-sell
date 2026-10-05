@@ -7,8 +7,8 @@ import type { DbClient } from '../../platform/storage'
 //   real_estate, too_generic, parts_accessory, service - text heuristic
 //     (detectGenericBaseModel in generic-products.ts, applied live by
 //     ensureProductPriced)
-//     or the human-curated lists in flag-price-ineligible
-//   needs_component_pricing - human-curated (flag-price-ineligible)
+//     or the human-curated lists in ineligible-categories.ts
+//   needs_component_pricing - human-curated (ineligible-categories.ts)
 //   groq_generic - LLM judgment (applyEligibilityFromEnrichment below)
 //   retail_not_found - no provider found a retail price (ensureProductPriced)
 //   manual_review - a human excluded it from the needs-review page
