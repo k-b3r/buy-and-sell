@@ -1,38 +1,8 @@
-import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from './price-review'
 import { descriptionPriceDiverges } from './price-review'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
 import { medianCtes, notPlaceholderPriceSql } from './clean-median'
-
-export interface NegotiableKeywordCandidate {
-  id: string
-  title: string
-  description: string | null
-}
-
-// Backfill's candidate set: every listing not already flagged negotiable -
-// includes ones with no listing_price_review row at all, and ones an LLM
-// review already looked at but read as false (a keyword hit here can still
-// upgrade that, see upsertKeywordNegotiable below; it never downgrades).
-// Deliberately not limited to price-outlier listings the way
-// getPriceReviewCandidates' candidate query is - the whole point is to
-// catch "nego" on a normally-priced listing too.
-export async function getNegotiableKeywordCandidates(db: DbClient): Promise<NegotiableKeywordCandidate[]> {
-  const result = (await db.query(
-    `SELECT l.id, l.title, l.description
-     FROM listings l
-     WHERE NOT EXISTS (
-       SELECT 1 FROM listing_price_review pr WHERE pr.listing_id = l.id AND pr.is_negotiable = true
-     )`,
-    [],
-  )) as { rows: Record<string, unknown>[] }
-  return result.rows.map((r) => ({
-    id: r.id as string,
-    title: r.title as string,
-    description: r.description as string | null,
-  }))
-}
 
 // Loose SQL pre-filter for "the description names a price": any currency/
 // keyword-prefixed number, or a k-abbreviated one. Deliberately over-matches
@@ -165,28 +135,4 @@ export async function flagNegotiableFromKeywords(
   if (!matched) return null
   await upsertKeywordNegotiable(db, listingId, matched)
   return matched
-}
-
-// Rerunnable sweep of the same keyword rule over EXISTING listings (from
-// getNegotiableKeywordCandidates): upsertListing and refreshListingFields in
-// the collection module run it on every write going forward, this covers
-// everything collected before that wiring existed. Deterministic pattern
-// match, no LLM call, so safe to run against the whole table in one pass.
-export async function runFlagNegotiableKeywords(
-  db: DbClient,
-  logger: Logger,
-  candidates: NegotiableKeywordCandidate[],
-): Promise<number> {
-  logger.info(`${candidates.length} listings to scan for negotiability keywords`)
-
-  let flagged = 0
-  for (const candidate of candidates) {
-    const matched = await flagNegotiableFromKeywords(db, candidate.id, candidate.title, candidate.description)
-    if (!matched) continue
-    flagged += 1
-    logger.info(`listing ${candidate.id} flagged negotiable (matched "${matched}")`)
-  }
-
-  logger.info(`flagged ${flagged} of ${candidates.length} listings as negotiable`)
-  return flagged
 }

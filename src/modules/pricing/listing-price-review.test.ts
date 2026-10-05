@@ -1,11 +1,7 @@
-import { existsSync, rmSync } from 'node:fs'
-import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { NegotiableKeywordCandidate } from './listing-price-review'
 import {
-  getNegotiableKeywordCandidates,
+  flagNegotiableFromKeywords,
   getPriceReviewCandidates,
-  runFlagNegotiableKeywords,
   upsertListingPriceReview,
   upsertKeywordNegotiable,
 } from './listing-price-review'
@@ -35,22 +31,6 @@ function mockDbWithRows(rows: unknown[]): { db: DbClient; calls: { sql: string; 
     },
   }
 }
-
-test('getNegotiableKeywordCandidates returns listings not already flagged negotiable', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return { rows: [{ id: '1', title: 'RTX 3060', description: 'nego pa' }] }
-    },
-  }
-
-  const result = await getNegotiableKeywordCandidates(db)
-
-  expect(calls[0].sql).toContain('NOT EXISTS')
-  expect(calls[0].sql).toContain('is_negotiable = true')
-  expect(result).toEqual([{ id: '1', title: 'RTX 3060', description: 'nego pa' }])
-})
 
 test('getPriceReviewCandidates returns listings the SQL flagged as a magnitude outlier vs their product median', async () => {
   const { db, calls } = mockDbWithRows([
@@ -208,49 +188,22 @@ test('upsertKeywordNegotiable inserts is_negotiable=true with no price estimate,
   expect(calls[0].params).toEqual(['123', 'keyword match: "nego"'])
 })
 
-const KEYWORD_LOG_PATH = 'data/tmp-flag-negotiable-keywords.log'
-
-afterEach(() => {
-  if (existsSync(KEYWORD_LOG_PATH)) rmSync(KEYWORD_LOG_PATH)
-})
-
-test('runFlagNegotiableKeywords flags listings whose title or description matches a negotiability keyword', async () => {
+test('flagNegotiableFromKeywords upserts a keyword match from the title or description and returns the keyword', async () => {
   const { db, calls } = mockDb()
-  const candidates: NegotiableKeywordCandidate[] = [
-    { id: '1', title: 'RTX 3060', description: 'Nego pa presyo' },
-    { id: '2', title: 'PS5 Slim, price OBO', description: null },
-  ]
 
-  const flagged = await runFlagNegotiableKeywords(db, createLogger(KEYWORD_LOG_PATH), candidates)
+  expect(await flagNegotiableFromKeywords(db, '1', 'RTX 3060', 'Nego pa presyo')).toBe('nego')
+  expect(await flagNegotiableFromKeywords(db, '2', 'PS5 Slim, price OBO', null)).toBe('obo')
 
-  expect(flagged).toBe(2)
   expect(calls.map((c) => c.params)).toEqual([
     ['1', 'keyword match: "nego"'],
     ['2', 'keyword match: "obo"'],
   ])
 })
 
-test('runFlagNegotiableKeywords skips listings with no negotiability signal, no db call made', async () => {
+test('flagNegotiableFromKeywords returns null and makes no db call when nothing matches', async () => {
   const { db, calls } = mockDb()
-  const candidates: NegotiableKeywordCandidate[] = [
-    { id: '1', title: 'Sony WH-1000XM6, barely used', description: null },
-  ]
 
-  const flagged = await runFlagNegotiableKeywords(db, createLogger(KEYWORD_LOG_PATH), candidates)
+  expect(await flagNegotiableFromKeywords(db, '1', 'Sony WH-1000XM6, barely used', 'clean unit no issues')).toBeNull()
 
-  expect(flagged).toBe(0)
   expect(calls).toHaveLength(0)
-})
-
-test('runFlagNegotiableKeywords only upserts the matching listings in a mixed batch', async () => {
-  const { db, calls } = mockDb()
-  const candidates: NegotiableKeywordCandidate[] = [
-    { id: '1', title: 'iPhone 13', description: 'clean unit no issues' },
-    { id: '2', title: 'iPhone 14', description: 'open to offers' },
-  ]
-
-  const flagged = await runFlagNegotiableKeywords(db, createLogger(KEYWORD_LOG_PATH), candidates)
-
-  expect(flagged).toBe(1)
-  expect(calls.map((c) => c.params)).toEqual([['2', 'keyword match: "open to offers"']])
 })

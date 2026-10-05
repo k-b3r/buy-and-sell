@@ -114,10 +114,9 @@ src/
     enrich-listing-prices/              # Group A: pricing pipeline (shared pacing)
     extract-real-estate/, verify-discount-notifications/
   utils/                                # one-off scripts, run by hand, not looped/deployed — no domain
-    backfill/, backfill-categories/,    # logic of their own, everything domain-shaped lives in modules/
-    backfill-sub-categories/, detect-generic-products/, detect-model-mismatches/,
-    reassign-model-mismatches/, flag-negotiable-keywords/, flag-price-ineligible/,
-    merge-duplicate-products/, price-from-listings/, purge-far-listings/
+    backfill/, detect-generic-products/,  # logic of their own, everything domain-shaped lives in modules/
+    detect-model-mismatches/, reassign-model-mismatches/, flag-price-ineligible/,
+    merge-duplicate-products/, price-from-listings/
   each worker/util dir: index.ts entrypoint, wiring only (ESLint blocks oversized or complex ones);
   workers loop via runWorker, collect via its own laps.ts
 server/                                 # VPS HTTP server: auth, named-query whitelist, refresh, worker control
