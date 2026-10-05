@@ -1,9 +1,11 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
-import { loadGroqApiKeys, summarizeGroqError } from '../../domains/llm-clients'
+import { loadGroqApiKeys, QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../domains/llm-clients'
 import { createGroqPool } from '../../domains/llm-clients/groq-sdk'
 import type { DbClient } from '../../platform/storage'
+import type { DelayFn } from '../../platform/delay'
+import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
@@ -13,6 +15,8 @@ import { getPriceReviewCandidates, upsertListingPriceReview } from '../../module
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 3000
 
 interface RawPriceReviewItem {
   id?: unknown
@@ -22,28 +26,55 @@ interface RawPriceReviewItem {
   reasoning?: unknown
 }
 
+export interface PriceReviewDeps {
+  groq: GroqClient
+  db: DbClient
+  logger: Logger
+  delay?: DelayFn
+}
+
+// Same retry-then-stop as product enrichment (run-enrichment.ts): transient
+// failures are retried, a quota error or exhausted retries end the run, and
+// unreviewed listings stay candidates for the next lap. Null means stop.
+async function requestPriceReview(
+  { groq, logger, delay }: Required<Pick<PriceReviewDeps, 'groq' | 'logger' | 'delay'>>,
+  prompt: string,
+  label: string,
+): Promise<{ results?: unknown } | null> {
+  try {
+    return (await withRetry(() => groq.generateJson(prompt, PRICE_REVIEW_RESPONSE_SCHEMA), {
+      provider: 'Groq',
+      label,
+      maxAttempts: MAX_ATTEMPTS,
+      retryDelayMs: RETRY_DELAY_MS,
+      delay,
+      logger,
+    })) as { results?: unknown }
+  } catch (err) {
+    if (!(err instanceof QuotaExhaustedError || err instanceof RetriesExhaustedError)) throw err
+    const reason =
+      err instanceof QuotaExhaustedError ? 'quota exhausted' : `request failed after ${MAX_ATTEMPTS} attempts`
+    logger.error(`${label}: Groq ${reason} (${err.message}), stopping run`)
+    return null
+  }
+}
+
 export async function runPriceReview(
-  groq: GroqClient,
-  db: DbClient,
-  logger: Logger,
+  deps: PriceReviewDeps,
   candidates: PriceReviewCandidate[],
   batchSize = DEFAULT_BATCH_SIZE,
 ): Promise<void> {
+  const { groq, db, logger, delay = realDelay } = deps
   logger.info(`${candidates.length} listings to price-review`)
 
   for (let i = 0; i < candidates.length; i += batchSize) {
     const batch = candidates.slice(i, i + batchSize)
     const prompt = buildPriceReviewPrompt(batch)
 
-    let raw: { results?: unknown }
-    try {
-      raw = (await groq.generateJson(prompt, PRICE_REVIEW_RESPONSE_SCHEMA)) as { results?: unknown }
-    } catch (err) {
-      logger.error(`batch starting at ${i}: Groq request failed (${summarizeGroqError(err)}), stopping run`)
-      break
-    }
+    const raw = await requestPriceReview({ groq, logger, delay }, prompt, `batch starting at ${i}`)
+    if (raw === null) break
 
-    if (!raw || !Array.isArray(raw.results)) {
+    if (!Array.isArray(raw?.results)) {
       logger.error(`batch starting at ${i}: unexpected response shape (no results array), skipping batch`)
       continue
     }
@@ -101,7 +132,7 @@ async function main() {
         const candidates = await getPriceReviewCandidates(db)
         return {
           dryRun: `would call Groq for price review on ${candidates.length} listings this lap`,
-          run: () => runPriceReview(groq, db, logger, candidates, settings['enrich_listing_prices.batch_size']),
+          run: () => runPriceReview({ groq, db, logger }, candidates, settings['enrich_listing_prices.batch_size']),
         }
       }
     },
