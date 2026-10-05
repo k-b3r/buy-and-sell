@@ -142,13 +142,12 @@ async function ensureProductPricing(
 async function resolveProductId(run: ExtractionRun, listing: ExtractedListing): Promise<number> {
   let productId = run.productIds.get(listing.productKey)
   if (productId === undefined) {
-    productId = await findOrCreateProduct(
-      run.db,
-      listing.baseModel,
-      listing.variant,
-      listing.category,
-      listing.subCategory,
-    )
+    productId = await findOrCreateProduct(run.db, {
+      baseModel: listing.baseModel,
+      variantTier: listing.variant,
+      category: listing.category,
+      subCategory: listing.subCategory,
+    })
     run.productIds.set(listing.productKey, productId)
   }
   return productId

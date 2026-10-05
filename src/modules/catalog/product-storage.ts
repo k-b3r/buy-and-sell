@@ -18,17 +18,19 @@ export async function findProductIdsByNormalizedName(
   return result.rows.map((r) => r.id)
 }
 
+export interface ProductIdentity {
+  baseModel: string
+  variantTier: string | null
+  category?: string | null
+  subCategory?: string | null
+}
+
 // category/subCategory are only ever set at creation, same as
 // base_model/variant_tier — dashboard browsing/filtering only, not
 // re-classified on subsequent extraction passes that happen to match an
 // existing product.
-export async function findOrCreateProduct(
-  db: DbClient,
-  baseModel: string,
-  variantTier: string | null,
-  category: string | null = null,
-  subCategory: string | null = null,
-): Promise<number> {
+export async function findOrCreateProduct(db: DbClient, product: ProductIdentity): Promise<number> {
+  const { baseModel, variantTier, category = null, subCategory = null } = product
   const normalized = normalizeBaseModel(baseModel)
   const normalizedVariant = variantTier === null ? null : normalizeVariantTier(variantTier)
 
