@@ -47,7 +47,7 @@ db/schema.sql   single source of schema truth
 ## Dashboard
 
 - `process` Read Next.js docs in `node_modules/next/dist/docs/` before writing code (version differs from training data).
-- `review` No direct DB access: all SQL lives in `server/queries.ts` behind the named-query whitelist.
+- `review` No direct DB access: all SQL lives in the modules' `queries.ts` (settings in `src/platform/settings.ts`) behind the named-query whitelist in `server/routes/query.ts`.
 - `review` Data pages are `force-dynamic` (no build-time dependency on the VPS).
 
 ## Data

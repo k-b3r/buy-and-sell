@@ -1,13 +1,13 @@
 // Pure pricing/display predicates - no database access, no network.
 //
-// DUPLICATED, BY NECESSITY, from server/queries.ts. These same functions run
+// DUPLICATED, BY NECESSITY, from src/modules/pricing/price-rules.ts. These same functions run
 // server-side inside the SQL-backed queries there, and client-side here (
 // ListingsView, ListingDetailContent and listingsFilters all filter/badge
 // already-fetched rows in the browser, so they cannot be an RPC call). The
 // two packages have no shared import path - same hand-sync constraint as the
 // WORKERS list in app/admin/logs/page.tsx.
 //
-// KEEP IN SYNC WITH server/queries.ts. A divergence here doesn't throw, it
+// KEEP IN SYNC WITH src/modules/pricing/price-rules.ts. A divergence here doesn't throw, it
 // silently shows a different price verdict than the one the server computed.
 
 export interface DiscountBand {

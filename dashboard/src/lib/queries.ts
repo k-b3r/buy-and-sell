@@ -1,9 +1,10 @@
 // Server-side data access for the dashboard.
 //
-// The SQL used to live here. It now lives in server/queries.ts, on the box
-// that owns the database: Postgres moved off Neon onto that VPS and listens
-// on localhost only, so this app - running as Vercel Lambdas - has no route
-// to it. Each function below names a query the server has whitelisted (see
+// The SQL used to live here. It now lives in the feature modules
+// (src/modules/*/queries.ts, settings in src/platform/settings.ts), on the
+// box that owns the database: Postgres moved off Neon onto that VPS and
+// listens on localhost only, so this app - running as Vercel Lambdas - has no
+// route to it. Each function below names a query the server has whitelisted (see
 // server/routes/query.ts) and gets rows back over the same authenticated
 // tunnel /logs and /worker-control already use. No SQL crosses the network,
 // so a leaked REFRESH_API_KEY can only run the queries this app ships.
@@ -12,9 +13,9 @@
 // imported by a client component - the pure pricing predicates a browser
 // needs live in ./pricing.ts, which is safe to import anywhere.
 //
-// Adding a query means adding it to server/queries.ts AND to that route's
+// Adding a query means adding it to its module's queries.ts AND to that route's
 // REGISTRY, then adding the wrapper here. Types below are duplicated from
-// server/queries.ts by hand - the two packages share no import path.
+// the modules' queries.ts by hand - the two packages share no import path.
 
 import type { DiscountBand, ListingPriceReview } from './pricing'
 
@@ -404,7 +405,7 @@ export function getListingProductId(listingId: string): Promise<number | null> {
   return rpc('getListingProductId', [listingId])
 }
 
-// Duplicated from server/queries.ts by hand (no shared import path).
+// Duplicated from src/modules/real-estate/queries.ts by hand (no shared import path).
 export interface RealEstateFilters {
   listingType?: 'sale' | 'rent'
   propertyType?: string

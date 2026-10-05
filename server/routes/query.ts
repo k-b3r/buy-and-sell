@@ -1,6 +1,6 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
-import * as queries from '../queries'
+import { getAllSettings, updateSettings } from '../../src/platform/settings'
 import {
   excludeProductFromReview,
   getProductDetail,
@@ -42,10 +42,12 @@ import { getRealEstateListings } from '../../src/modules/real-estate'
 // database. With a registry the blast radius is exactly the queries the app
 // already ships - no DROP, no exfiltration of tables the dashboard never
 // reads. Args still reach the database, but only ever as bound parameters of
-// a query written here, never as SQL text.
+// a query the server ships, never as SQL text.
 //
-// Adding a dashboard query means adding it here too. That is the intended
-// friction: it's the whole security boundary.
+// Each feature module owns its dashboard queries and exports them from its
+// index.ts; settings live in platform. Adding a dashboard query means adding
+// it here too. That is the intended friction: it's the whole security
+// boundary.
 const REGISTRY = {
   getProductSummaries,
   getSubCategoryTree,
@@ -67,8 +69,8 @@ const REGISTRY = {
   getUnreadDiscountNotificationCount,
   markDiscountNotificationRead,
   markAllDiscountNotificationsRead,
-  getAllSettings: queries.getAllSettings,
-  updateSettings: queries.updateSettings,
+  getAllSettings,
+  updateSettings,
   getCollectKeywords,
   replaceCollectKeywords,
   getListingProductId,

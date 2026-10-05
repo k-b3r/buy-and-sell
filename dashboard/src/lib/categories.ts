@@ -1,5 +1,5 @@
 // Must match src/products.ts's PRODUCT_CATEGORIES (the root project's extraction
-// enum) and server/queries.ts's copy, which the category SQL binds against.
+// enum) and src/modules/catalog/queries.ts's copy, which the category SQL binds against.
 // The three packages share no import path, so this list is duplicated rather
 // than reaching across a package boundary.
 //
