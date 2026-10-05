@@ -4,6 +4,7 @@
 // entry, imported by path only where a browser is launched, so a light import
 // never loads the browser.
 export type { BrowserDriver, DriverFactory, PageDriver } from './driver'
+export { isBrowserUnusableError } from './driver'
 export { getFarListingCandidates, purgeFarListings } from './far-listings'
 export {
   getBackfillCandidates,

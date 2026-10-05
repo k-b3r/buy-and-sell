@@ -1,4 +1,5 @@
 import type { BrowserDriver, PageDriver } from '../../modules/collection'
+import { isBrowserUnusableError } from '../../modules/collection'
 import type { DelayFn } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
@@ -32,15 +33,6 @@ const MAX_CONSECUTIVE_FAILURES = 5
 const FAILURE_BACKOFF_MS = 5000
 const MAX_FAILURE_BACKOFF_MS = 60000
 
-// "Page crashed" is the browser tab itself dying; "Target page, context or
-// browser has been closed" is Playwright's error when the browser/context
-// handle is gone entirely - confirmed live 2026-09-03 via
-// buy-and-sell-server.service's KillMode=control-group SIGTERMing a
-// still-running collect worker's browser as collateral damage from an
-// unrelated server restart. Both leave the existing driver permanently
-// unusable, so both need a fresh browser, not just a retry.
-const BROWSER_UNUSABLE_ERROR_SUBSTRINGS = ['Page crashed', 'Target page, context or browser has been closed']
-
 const SETTING_KEYS = [
   'collect.max_items_default',
   'collect.soft_wall_timeout_ms',
@@ -51,10 +43,6 @@ const SETTING_KEYS = [
   'collect.re_every_n_laps',
   'collect.re_max_items',
 ]
-
-function isBrowserUnusableError(err: unknown): boolean {
-  return err instanceof Error && BROWSER_UNUSABLE_ERROR_SUBSTRINGS.some((s) => err.message.includes(s))
-}
 
 export interface CollectLapsDeps {
   db: DbClient
