@@ -140,6 +140,16 @@ export const SUB_CATEGORIES = [
   'Other',
 ] as const
 
+// The one check every LLM response path (extraction, enrichment, both
+// backfills) runs before trusting a category name it was handed.
+export function isProductCategory(value: unknown): value is (typeof PRODUCT_CATEGORIES)[number] {
+  return typeof value === 'string' && (PRODUCT_CATEGORIES as readonly string[]).includes(value)
+}
+
+export function isSubCategory(value: unknown): value is (typeof SUB_CATEGORIES)[number] {
+  return typeof value === 'string' && (SUB_CATEGORIES as readonly string[]).includes(value)
+}
+
 export function buildExtractionPrompt(listings: ExtractionInput[]): string {
   const lines = listings.map(formatListingLine).join('\n')
   return `Extract the base product model from each Facebook Marketplace listing below.

@@ -1,4 +1,4 @@
-import { PRODUCT_CATEGORIES } from './products'
+import { isProductCategory, PRODUCT_CATEGORIES } from './products'
 
 export interface EnrichmentCandidate {
   id: number
@@ -101,8 +101,6 @@ export const ENRICHMENT_RESPONSE_SCHEMA = {
   additionalProperties: false,
 } as const
 
-const VALID_CATEGORIES = new Set<string>(PRODUCT_CATEGORIES)
-
 // One item of the model's `results` array, unvalidated.
 export interface RawEnrichmentItem {
   id?: unknown
@@ -160,6 +158,6 @@ export function parseEnrichmentItem(item: RawEnrichmentItem, batch: EnrichmentCa
 
 function decideCategory(candidate: EnrichmentCandidate, category: unknown): CategoryDecision {
   if (candidate.category !== null) return { kind: 'keep' }
-  if (typeof category === 'string' && VALID_CATEGORIES.has(category)) return { kind: 'assign', category }
+  if (isProductCategory(category)) return { kind: 'assign', category }
   return { kind: 'invalid' }
 }

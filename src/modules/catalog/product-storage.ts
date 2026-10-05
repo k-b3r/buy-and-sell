@@ -3,6 +3,21 @@ import { normalizeBaseModel, normalizeVariantTier } from './products'
 import type { EnrichmentCandidate, EnrichmentData } from './enrichment'
 import type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
 
+// The products_base_model_variant_idx identity: one row per normalized
+// base_model + variant_tier. Every "does this product already exist" check
+// (extraction, merges, mismatch reassignment) goes through here.
+export async function findProductIdsByNormalizedName(
+  db: DbClient,
+  baseModelNormalized: string,
+  variantTierNormalized: string | null,
+): Promise<number[]> {
+  const result = (await db.query(
+    `SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2`,
+    [baseModelNormalized, variantTierNormalized],
+  )) as { rows: { id: number }[] }
+  return result.rows.map((r) => r.id)
+}
+
 // category/subCategory are only ever set at creation, same as
 // base_model/variant_tier — dashboard browsing/filtering only, not
 // re-classified on subsequent extraction passes that happen to match an
@@ -17,11 +32,8 @@ export async function findOrCreateProduct(
   const normalized = normalizeBaseModel(baseModel)
   const normalizedVariant = variantTier === null ? null : normalizeVariantTier(variantTier)
 
-  const existing = (await db.query(
-    `SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2`,
-    [normalized, normalizedVariant],
-  )) as { rows: { id: number }[] }
-  if (existing.rows.length > 0) return existing.rows[0].id
+  const existing = await findProductIdsByNormalizedName(db, normalized, normalizedVariant)
+  if (existing.length > 0) return existing[0]
 
   const inserted = (await db.query(
     `INSERT INTO products (base_model, base_model_normalized, variant_tier, variant_tier_normalized, category_id, sub_category_id)
@@ -49,6 +61,28 @@ export async function updateListingProductIds(
      WHERE listings.id = data.id`,
     params,
   )
+}
+
+export interface ProductMatchedListing {
+  listing_id: string
+  title: string
+  product_id: number
+  base_model: string
+  variant_tier: string | null
+  variant_tier_normalized: string | null
+}
+
+// Every titled listing already assigned a product, with that product's
+// names: the input of the model-code mismatch scan.
+export async function getProductMatchedListings(db: DbClient): Promise<ProductMatchedListing[]> {
+  const result = (await db.query(
+    `SELECT l.id AS listing_id, l.title, p.id AS product_id, p.base_model, p.variant_tier, p.variant_tier_normalized
+     FROM listings l
+     JOIN products p ON p.id = l.product_id
+     WHERE l.title IS NOT NULL`,
+    [],
+  )) as { rows: ProductMatchedListing[] }
+  return result.rows
 }
 
 export interface ExtractionCandidate {

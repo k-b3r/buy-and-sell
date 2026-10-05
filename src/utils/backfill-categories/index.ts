@@ -1,104 +1,10 @@
 import { fileURLToPath } from 'node:url'
-import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
-import type { GroqClient } from '../../domains/llm-clients'
-import {
-  createGroqPool,
-  loadGroqApiKeys,
-  QuotaExhaustedError,
-  RetriesExhaustedError,
-  withRetry,
-} from '../../domains/llm-clients'
-import type { DbClient } from '../../platform/storage'
+import { createGroqPool, loadGroqApiKeys } from '../../domains/llm-clients'
 import { createDbPool } from '../../platform/storage'
-import type { DelayFn } from '../../platform/delay'
-import { realDelay } from '../../platform/delay'
 import { loadEnvFile } from '../../platform/env'
-import { getCategoryBackfillCandidates, updateProductCategories } from '../../modules/catalog'
-import {
-  buildCategoryBackfillPrompt,
-  CATEGORY_BACKFILL_RESPONSE_SCHEMA,
-  PRODUCT_CATEGORIES,
-} from '../../modules/catalog'
-import type { CategoryBackfillCandidate } from '../../modules/catalog'
-
-// Output per item here is just {id, category} — far smaller than
-// enrich-products.ts's multi-field payload, so this tolerates a much larger
-// batch than that script's tested 20. Not yet re-verified live against a
-// real batch at this size; adjust down if a run hits truncation.
-const BATCH_SIZE = 100
-
-const MAX_ATTEMPTS = 3
-const RETRY_DELAY_MS = 3000
-
-const VALID_CATEGORIES = new Set<string>(PRODUCT_CATEGORIES)
-
-interface RawCategoryItem {
-  id?: unknown
-  category?: unknown
-}
-
-export async function runCategoryBackfill(
-  groq: GroqClient,
-  db: DbClient,
-  logger: Logger,
-  candidates: CategoryBackfillCandidate[],
-  delay: DelayFn = realDelay,
-): Promise<void> {
-  logger.info(`${candidates.length} products to categorize`)
-
-  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-    const batch = candidates.slice(i, i + BATCH_SIZE)
-    const prompt = buildCategoryBackfillPrompt(batch)
-
-    let raw: { results?: unknown } | undefined
-    try {
-      raw = (await withRetry(() => groq.generateJson(prompt, CATEGORY_BACKFILL_RESPONSE_SCHEMA), {
-        provider: 'Groq',
-        label: `batch starting at ${i}`,
-        maxAttempts: MAX_ATTEMPTS,
-        retryDelayMs: RETRY_DELAY_MS,
-        delay,
-        logger,
-      })) as { results?: unknown }
-    } catch (err) {
-      if (err instanceof QuotaExhaustedError) {
-        logger.error(`batch starting at ${i}: Groq quota exhausted (${err.message}), stopping run`)
-      } else if (err instanceof RetriesExhaustedError) {
-        logger.error(
-          `batch starting at ${i}: Groq request failed after ${MAX_ATTEMPTS} attempts (${err.message}), stopping run`,
-        )
-      } else {
-        throw err
-      }
-      break
-    }
-
-    if (!raw || !Array.isArray(raw.results)) {
-      logger.error(`batch starting at ${i}: unexpected response shape (no results array), skipping batch`)
-      continue
-    }
-
-    const assignments: { id: number; category: string }[] = []
-    for (const item of raw.results as RawCategoryItem[]) {
-      if (typeof item.id !== 'string' || typeof item.category !== 'string' || !VALID_CATEGORIES.has(item.category)) {
-        const idHint = typeof item.id === 'string' ? item.id : '(missing/invalid id)'
-        logger.warn(`item ${idHint}: malformed fields in Groq response, skipping`)
-        continue
-      }
-      const candidate = batch.find((c) => String(c.id) === item.id)
-      if (!candidate) {
-        logger.warn(`item ${item.id}: no matching candidate in this batch, skipping`)
-        continue
-      }
-      assignments.push({ id: candidate.id, category: item.category })
-    }
-
-    await updateProductCategories(db, assignments)
-    logger.info(`batch starting at ${i}: ${assignments.length}/${batch.length} products categorized`)
-  }
-}
+import { getCategoryBackfillCandidates, runCategoryBackfill } from '../../modules/catalog'
 
 async function main() {
   loadEnvFile()
@@ -116,15 +22,15 @@ async function main() {
 
   try {
     const candidates = await getCategoryBackfillCandidates(pool)
-    await runCategoryBackfill(groq, pool, logger, candidates)
+    await runCategoryBackfill({ groq, db: pool, logger }, candidates)
   } finally {
     await pool.end()
   }
   logger.info('category backfill complete')
 }
 
-// Guard so importing this module (e.g. from tests) doesn't also run main() —
-// see enrich-products.ts for the same precedent.
+// Guard so importing this module doesn't also run main() — see
+// enrich-products for the same precedent.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error(err)

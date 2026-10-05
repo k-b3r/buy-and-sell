@@ -110,7 +110,7 @@ src/
     extract-products/, enrich-products/, price-lookup/,
     enrich-listing-prices/              # Group A: pricing pipeline (shared pacing)
   utils/                                # one-off scripts, run by hand, not looped/deployed — no domain
-    backfill/, backfill-categories/     # logic of their own, everything domain-shaped lives in domains/
+    backfill/, backfill-categories/     # logic of their own, everything domain-shaped lives in modules/
     flag-negotiable-keywords/, flag-price-ineligible/
     merge-duplicate-products/, price-from-listings/
   each worker/util dir: index.ts entrypoint (wiring; workers loop via runWorker, collect via its own laps.ts)
