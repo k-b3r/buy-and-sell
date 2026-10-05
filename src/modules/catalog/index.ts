@@ -35,5 +35,5 @@ export {
 export { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 export { getProductsNeedingReview, markProductReviewed } from './review-queue'
 export { runProductEnrichment } from './run-enrichment'
-export type { ExtractionClients, ExtractionOptions } from './run-extraction'
+export type { ExtractionClients } from './run-extraction'
 export { runProductExtraction } from './run-extraction'

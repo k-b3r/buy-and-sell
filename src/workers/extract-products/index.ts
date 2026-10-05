@@ -57,7 +57,7 @@ async function main() {
       // Free tier is 20 requests/day per project per model — a second key from a
       // different Google account is a different project, so it has its own
       // independent quota. Gemini is now the fallback provider (see
-      // DEFAULT_MAX_ATTEMPTS' comment above), tried only once Groq is exhausted.
+      // DEFAULT_MAX_ATTEMPTS in modules/catalog/run-extraction.ts), tried only once Groq is exhausted.
       const geminiForExtraction = altGeminiApiKey
         ? createFallbackGeminiClient([
             createGeminiClient(geminiApiKey),
@@ -90,7 +90,7 @@ async function main() {
         return {
           dryRun: `marketplace will call Groq for extraction on ${candidates.length} listings this lap`,
           run: () =>
-            runProductExtraction(clients, db, logger, candidates, {
+            runProductExtraction({ clients, db, logger }, candidates, {
               // batchSize was tuned around Gemini's 20 req/day cap (confirmed
               // live 2026-08-20) - unverified whether 100/batch is still the
               // right size now that Groq (TPM-capped, not daily-request-capped)
