@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
+import { realDelay } from '../src/platform/delay'
 import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../src/platform/images'
 import { createListingPhotos } from '../src/modules/collection'
 import { createApp } from './app'
@@ -69,22 +70,22 @@ async function main() {
   // both refresh handlers pass the guard's resolved proxy to launchBrowserDriver,
   // with no direct-IP fallback.
   const proxyGuard = createProxyGuard(process.env)
+  const refreshDeps = {
+    db: pool,
+    photos,
+    logger,
+    delay: realDelay,
+    pacer: refreshPacer,
+    driverFactory: launchBrowserDriver,
+    tunnelCheck: proxyGuard,
+  }
 
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const app = createApp(apiKey, {
-    'POST /refresh': createRefreshHandler(pool, photos, logger, refreshPacer, launchBrowserDriver, proxyGuard),
-    'POST /refresh-product': createRefreshProductHandler(
-      pool,
-      photos,
-      logger,
-      refreshLock,
-      jobs,
-      refreshPacer,
-      launchBrowserDriver,
-      proxyGuard,
-    ),
+    'POST /refresh': createRefreshHandler(refreshDeps),
+    'POST /refresh-product': createRefreshProductHandler({ ...refreshDeps, lock: refreshLock, jobs }),
     'GET /refresh-job': createRefreshJobStatusHandler(jobs),
     'POST /refresh-job/cancel': createCancelRefreshJobHandler(jobs),
     'POST /logs': createLogsHandler(),

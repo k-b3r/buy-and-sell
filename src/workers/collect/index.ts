@@ -104,11 +104,14 @@ async function main() {
         openBrowser: () => launchBrowserDriver(proxy),
         collectQuery: (driver, { query, maxItems }, settings) =>
           runCollection(
-            driver,
-            logger,
-            autoApprove,
-            process.stdin,
-            process.stdout,
+            {
+              driver,
+              db,
+              logger,
+              delay: realDelay,
+              review: (listing) => autoApprove(listing, process.stdin, process.stdout),
+              photos,
+            },
             {
               query,
               softWallTimeoutMs: settings['collect.soft_wall_timeout_ms'],
@@ -117,8 +120,6 @@ async function main() {
               maxItems,
               daysSinceListed,
             },
-            db,
-            photos,
           ),
       },
       { cycle, testRun: isTestRun(process.env), explicitQuery, explicitMaxItems },

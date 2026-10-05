@@ -60,13 +60,13 @@ async function main() {
 
   const { driver, close } = await launchBrowserDriver(undefined, { headless: !headed })
 
-  let softWallSkipCount = 0
-  try {
-    softWallSkipCount = await backfillListingPhotos({ driver, db: pool, photos, logger, delay: realDelay }, todo)
-  } finally {
+  const softWallSkipCount = await backfillListingPhotos(
+    { driver, db: pool, photos, logger, delay: realDelay },
+    todo,
+  ).finally(async () => {
     if (!headed) await close()
     await pool.end()
-  }
+  })
 
   logger.info(
     `backfill complete (${softWallSkipCount} listings skipped as likely unavailable, marked for later validation)`,

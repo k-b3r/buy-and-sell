@@ -283,9 +283,7 @@ export async function deleteListing(db: DbClient, id: string): Promise<void> {
 //     unreachable) leaves the existing good copies untouched rather than
 //     wiping them - it'll just look "changed" again next check and retry.
 export async function refreshListingFields(
-  db: DbClient,
-  photos: ListingPhotos,
-  logger: Logger,
+  { db, photos, logger }: { db: DbClient; photos: ListingPhotos; logger: Logger },
   storedPhotoIds: string[] | null,
   listing: Record<string, unknown>,
 ): Promise<void> {

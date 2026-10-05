@@ -1,13 +1,9 @@
-import type { Logger } from '../../src/platform/logger'
-import type { DbClient } from '../../src/platform/storage'
-import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
 import { getListingCheckCandidatesForProduct } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
 import type { RouteHandler, RouteResult } from '../app'
 import type { RefreshLock } from '../refreshLock'
-import type { RefreshPacer } from '../refreshPacer'
+import type { RefreshDeps } from './refresh'
 import type { JobStore } from '../jobState'
-import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
 
 // Dashboard's "Refresh all listings" button on a product page. Shares
@@ -18,16 +14,13 @@ import { loadSettings } from '../../src/platform/settings'
 // listing), too long to hold one HTTP request open. The loop itself runs
 // detached, updating the shared JobStore as it goes; the dashboard polls
 // GET /refresh-job (routes/refreshJob.ts) separately for progress.
-export function createRefreshProductHandler(
-  db: DbClient,
-  photos: ListingPhotos,
-  logger: Logger,
-  lock: RefreshLock,
-  jobs: JobStore,
-  pacer: RefreshPacer,
-  driverFactory: DriverFactory,
-  tunnelCheck: () => Promise<TunnelCheckResult>,
-): RouteHandler {
+export interface RefreshProductDeps extends RefreshDeps {
+  lock: RefreshLock
+  jobs: JobStore
+}
+
+export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHandler {
+  const { db, photos, logger, delay, lock, jobs, pacer, driverFactory, tunnelCheck } = deps
   return async function handleRefreshProduct(body: unknown): Promise<RouteResult> {
     const productId = (body as Record<string, unknown> | null)?.productId
     if (typeof productId !== 'number' || !Number.isInteger(productId)) {
@@ -81,10 +74,7 @@ export function createRefreshProductHandler(
           logger.info(`bulk refresh: product ${productId}, listing ${candidate.id}`)
           await driver.openListing({ id: candidate.id })
           const result = await checkOneListing(
-            driver,
-            db,
-            photos,
-            logger,
+            { driver, db, photos, logger, delay },
             candidate,
             settings['check_listings.soft_wall_timeout_ms'],
           )

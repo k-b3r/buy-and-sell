@@ -8,6 +8,8 @@ import type { DbClient } from '../../src/platform/storage'
 
 const LOG_PATH = 'data/tmp-refresh.log'
 
+const noDelay = async () => {}
+
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
@@ -90,14 +92,15 @@ function fastPacer(lock = createRefreshLock()) {
 
 test('rejects a missing or non-string id', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(
-    fakeDb(),
-    fakePhotos(),
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
-    instantPacer(),
-    driverFactory(makeDriver()).factory,
-    okTunnel,
-  )
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+  })
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
   expect(await handle({ id: 42 })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
@@ -107,14 +110,15 @@ test('rejects a missing or non-string id', async () => {
 
 test('404s when the listing id does not exist, without ever queueing', async () => {
   const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler(
-    fakeDb(),
-    fakePhotos(),
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
-    instantPacer(),
-    driverFactory(makeDriver()).factory,
-    okTunnel,
-  )
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+  })
 
   const result = await handle({ id: 'does-not-exist' })
   expect(result).toEqual({ statusCode: 404, body: { error: 'listing does-not-exist not found' } })
@@ -124,17 +128,18 @@ test('503s and takes no action when the tunnel is not reachable', async () => {
   const logger = createLogger(LOG_PATH)
   let driverFactoryCalled = false
   const badTunnel = async () => ({ ok: false as const, error: 'SOCKS_PROXY is not configured' })
-  const handle = createRefreshHandler(
-    fakeDb(),
-    fakePhotos(),
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
-    instantPacer(),
-    async () => {
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: async () => {
       driverFactoryCalled = true
       return { driver: makeDriver(), close: async () => {} }
     },
-    badTunnel,
-  )
+    tunnelCheck: badTunnel,
+  })
 
   const result = await handle({ id: '1' })
 
@@ -152,7 +157,15 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
     },
   })
   const { factory, wasClosed } = driverFactory(driver)
-  const handle = createRefreshHandler(fakeDb(), fakePhotos(), logger, instantPacer(), factory, okTunnel)
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+  })
 
   const result = await handle({ id: '1' })
 
@@ -174,7 +187,15 @@ test('a second request while one is in flight queues and succeeds once the first
     return { driver: makeDriver({ getDetailHtml: async () => realListingDetailHtml }), close: async () => {} }
   }
   const pacer = fastPacer()
-  const handle = createRefreshHandler(fakeDb(), fakePhotos(), logger, pacer, slowFactory, okTunnel)
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    pacer,
+    driverFactory: slowFactory,
+    tunnelCheck: okTunnel,
+  })
 
   const firstRequest = handle({ id: '1' })
   await Promise.resolve() // let the first request reach the driver factory before firing the second
@@ -200,14 +221,15 @@ test('gives up with 429 if the lock never frees within the max queue wait', asyn
     time += ms
   }
   const pacer = createRefreshPacer(lock, now, delay)
-  const handle = createRefreshHandler(
-    fakeDb(),
-    fakePhotos(),
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
+    delay: noDelay,
     pacer,
-    driverFactory(makeDriver()).factory,
-    okTunnel,
-  )
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+  })
 
   const result = await handle({ id: '1' })
 
@@ -217,14 +239,15 @@ test('gives up with 429 if the lock never frees within the max queue wait', asyn
 test('a later request succeeds after an earlier one completes and releases', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
-  const handle = createRefreshHandler(
-    fakeDb(),
-    fakePhotos(),
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
     logger,
-    fastPacer(),
-    driverFactory(driver).factory,
-    okTunnel,
-  )
+    delay: noDelay,
+    pacer: fastPacer(),
+    driverFactory: driverFactory(driver).factory,
+    tunnelCheck: okTunnel,
+  })
 
   const first = await handle({ id: '1' })
   const second = await handle({ id: '1' })

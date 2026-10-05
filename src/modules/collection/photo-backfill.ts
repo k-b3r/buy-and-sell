@@ -1,28 +1,14 @@
-import type { DelayFn } from '../../platform/delay'
-import type { Logger } from '../../platform/logger'
-import type { DbClient } from '../../platform/storage'
-import type { PageDriver } from './driver'
+import type { ListingPageIo } from './driver'
 import { extractDetailFields } from './extract/detail'
 import type { BackfillCandidate } from './listings'
 import { markListingPhotosUnavailable, upsertListing } from './listings'
-import type { ListingPhotos } from './photos'
-import { resolvePageState } from './run'
-
-export interface PhotoBackfillIo {
-  driver: PageDriver
-  db: DbClient
-  photos: ListingPhotos
-  logger: Logger
-  delay: DelayFn
-}
+import { resolveDetailPage } from './run'
 
 // Re-visits each listing live (paced like a normal collection run) to pick up
 // the full photo carousel and re-host it. Returns how many listings were
 // skipped as likely unavailable.
-export async function backfillListingPhotos(
-  { driver, db, photos, logger, delay }: PhotoBackfillIo,
-  candidates: BackfillCandidate[],
-): Promise<number> {
+export async function backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number> {
+  const { driver, db, photos, logger } = io
   // A soft-wall that persists after refresh looks identical, from the HTML
   // alone, whether it's a real session-wide block or just one specific
   // listing that's been removed/sold and redirects anonymous visitors to
@@ -42,14 +28,7 @@ export async function backfillListingPhotos(
     logger.info(`opening listing ${id}`)
     await driver.openListing({ id })
 
-    const result = await resolvePageState(
-      driver,
-      logger,
-      () => driver.getDetailHtml(),
-      5000,
-      (html) => Object.keys(extractDetailFields(html)).length > 0,
-      delay,
-    )
+    const result = await resolveDetailPage(io, 5000)
     if (result.status === 'stop') {
       if (result.reason === 'soft-wall-persisted') {
         softWallSkipCount += 1

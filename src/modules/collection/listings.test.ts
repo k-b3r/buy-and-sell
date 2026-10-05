@@ -254,7 +254,7 @@ test('refreshListingFields updates title/price/description/condition/raw_json, k
     attribute_data: [{ label: 'Used - Fair', value: 'used_fair', attribute_name: 'Condition' }],
   }
 
-  await refreshListingFields(db, photosOver(fakeImageStore()), fakeLogger(), null, listing)
+  await refreshListingFields({ db, photos: photosOver(fakeImageStore()), logger: fakeLogger() }, null, listing)
 
   // Two calls: the field update, plus the keyword scan's price-review
   // upsert - the description says "Now negotiable", so it should fire.
@@ -285,7 +285,7 @@ test('refreshListingFields captures photo ids as a baseline on first sighting, w
     listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
   }
 
-  await refreshListingFields(db, photosOver(store), fakeLogger(), null, listing)
+  await refreshListingFields({ db, photos: photosOver(store), logger: fakeLogger() }, null, listing)
 
   expect(calls[0].sql).toContain('source_photo_ids = $8')
   expect(calls[0].sql).not.toContain('primary_photo_url')
@@ -304,7 +304,7 @@ test('refreshListingFields leaves photos untouched when the ids match the stored
     listing_photos: [{ id: 'photo-a' }, { id: 'photo-b' }],
   }
 
-  await refreshListingFields(db, photosOver(store), fakeLogger(), ['photo-a', 'photo-b'], listing)
+  await refreshListingFields({ db, photos: photosOver(store), logger: fakeLogger() }, ['photo-a', 'photo-b'], listing)
 
   expect(calls[0].sql).not.toContain('primary_photo_url')
   expect(calls[0].sql).not.toContain('stored_photo_urls')
@@ -326,7 +326,7 @@ test('refreshListingFields re-fetches and re-uploads photos when the seller swap
     ],
   }
 
-  await refreshListingFields(db, photosOver(store), fakeLogger(), ['photo-a', 'photo-b'], listing)
+  await refreshListingFields({ db, photos: photosOver(store), logger: fakeLogger() }, ['photo-a', 'photo-b'], listing)
 
   expect(store.deletedPrefixes).toEqual(['listings/12345/'])
   expect(store.puts).toEqual([{ key: 'listings/12345/0.jpg' }, { key: 'listings/12345/1.jpg' }])
@@ -354,7 +354,11 @@ test('refreshListingFields keeps the existing photos when a detected change fail
     listing_photos: [{ id: 'photo-c', image: { uri: 'https://scontent.example/c.jpg' } }],
   }
 
-  await refreshListingFields(db, photosOver(store, failingFetchBytes), logger, ['photo-a', 'photo-b'], listing)
+  await refreshListingFields(
+    { db, photos: photosOver(store, failingFetchBytes), logger },
+    ['photo-a', 'photo-b'],
+    listing,
+  )
 
   expect(store.deletedPrefixes).toEqual(['listings/12345/'])
   expect(store.puts).toEqual([])
@@ -507,7 +511,11 @@ const historyInserts = (calls: { sql: string; params: unknown[] }[]) =>
 test('refreshListingFields hands the prior price to real estate price history when the price changed', async () => {
   const { db, calls } = historyDb({ prior: priorRow('5000000.00'), realEstate: true, hasHistory: false })
 
-  await refreshListingFields(db, photosOver(fakeImageStore()), fakeLogger(), null, condoListing('4500000.00'))
+  await refreshListingFields(
+    { db, photos: photosOver(fakeImageStore()), logger: fakeLogger() },
+    null,
+    condoListing('4500000.00'),
+  )
 
   const inserts = historyInserts(calls)
   expect(inserts).toHaveLength(2)

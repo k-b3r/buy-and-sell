@@ -1,3 +1,4 @@
+import type { DelayFn } from '../../src/platform/delay'
 import type { Logger } from '../../src/platform/logger'
 import type { DbClient } from '../../src/platform/storage'
 import { getListingCheckCandidate } from '../../src/modules/collection'
@@ -12,14 +13,18 @@ import { loadSettings } from '../../src/platform/settings'
 // rather than the batch getCheckListingsCandidates backlog - see checkOneListing
 // for the shared core logic. Auth/JSON-parsing/routing already happened
 // (see ../app.ts) by the time this runs - it only ever sees a parsed body.
-export function createRefreshHandler(
-  db: DbClient,
-  photos: ListingPhotos,
-  logger: Logger,
-  pacer: RefreshPacer,
-  driverFactory: DriverFactory,
-  tunnelCheck: () => Promise<TunnelCheckResult>,
-): RouteHandler {
+export interface RefreshDeps {
+  db: DbClient
+  photos: ListingPhotos
+  logger: Logger
+  delay: DelayFn
+  pacer: RefreshPacer
+  driverFactory: DriverFactory
+  tunnelCheck: () => Promise<TunnelCheckResult>
+}
+
+export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
+  const { db, photos, logger, delay, pacer, driverFactory, tunnelCheck } = deps
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
     const id = (body as Record<string, unknown> | null)?.id
     if (typeof id !== 'string' || id.trim() === '') {
@@ -61,10 +66,7 @@ export function createRefreshHandler(
         await driver.openListing({ id })
         const settings = await loadSettings(db, ['check_listings.soft_wall_timeout_ms'])
         const result = await checkOneListing(
-          driver,
-          db,
-          photos,
-          logger,
+          { driver, db, photos, logger, delay },
           candidate,
           settings['check_listings.soft_wall_timeout_ms'],
         )

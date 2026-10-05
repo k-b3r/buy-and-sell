@@ -1,11 +1,8 @@
-import type { Logger } from '../../platform/logger'
-import type { DbClient } from '../../platform/storage'
-import type { PageDriver } from './driver'
+import type { ListingPageIo } from './driver'
 import { extractDetailFields } from './extract/detail'
 import type { CheckListingsCandidate } from './listings'
 import { deleteListing, flagListingRemoved, markListingAlive, markListingSold, refreshListingFields } from './listings'
-import type { ListingPhotos } from './photos'
-import { resolvePageState } from './run'
+import { resolveDetailPage } from './run'
 
 export type CheckOneListingResult =
   { status: 'sold' } | { status: 'alive' } | { status: 'flagged' } | { status: 'removed' } | { status: 'hard-block' }
@@ -19,20 +16,12 @@ export type CheckOneListingResult =
 // human-paced delay between listings has no reason to apply to a single
 // user-triggered request).
 export async function checkOneListing(
-  driver: PageDriver,
-  db: DbClient,
-  photos: ListingPhotos,
-  logger: Logger,
+  io: ListingPageIo,
   candidate: CheckListingsCandidate,
   softWallTimeoutMs = 5000,
 ): Promise<CheckOneListingResult> {
-  const result = await resolvePageState(
-    driver,
-    logger,
-    () => driver.getDetailHtml(),
-    softWallTimeoutMs,
-    (html) => Object.keys(extractDetailFields(html)).length > 0,
-  )
+  const { db, photos, logger } = io
+  const result = await resolveDetailPage(io, softWallTimeoutMs)
 
   if (result.status === 'stop') {
     if (result.reason !== 'soft-wall-persisted') {
@@ -71,7 +60,7 @@ export async function checkOneListing(
   // seller edited them since we first saw this listing, and re-sync photos
   // too if Facebook's own photo ids show the seller actually swapped them
   // (see refreshListingFields).
-  await refreshListingFields(db, photos, logger, candidate.source_photo_ids, detailFields)
+  await refreshListingFields(io, candidate.source_photo_ids, detailFields)
   await markListingAlive(db, candidate.id)
   return { status: 'alive' }
 }
@@ -79,16 +68,18 @@ export async function checkOneListing(
 // Postgres-only, same as every other script now (see CONTEXT.md on removing
 // the local JSONL file that used to double as a second source of truth) —
 // safe to run at the same time as `collect`, ordinary row-level upserts/deletes.
+export interface RecheckTiming {
+  softWallTimeoutMs: number
+  pacingMinMs: number
+  pacingMaxMs: number
+}
+
 export async function runCheckListings(
-  driver: PageDriver,
-  db: DbClient,
-  photos: ListingPhotos,
-  logger: Logger,
+  io: ListingPageIo,
   candidates: CheckListingsCandidate[],
-  softWallTimeoutMs = 5000,
-  pacingMinMs = 2000,
-  pacingMaxMs = 4000,
+  { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {},
 ): Promise<void> {
+  const { driver, logger } = io
   logger.info(`${candidates.length} listings to check`)
 
   for (const candidate of candidates) {
@@ -96,7 +87,7 @@ export async function runCheckListings(
     logger.info(`checking listing ${candidate.id}`)
     await driver.openListing({ id: candidate.id })
 
-    const result = await checkOneListing(driver, db, photos, logger, candidate, softWallTimeoutMs)
+    const result = await checkOneListing(io, candidate, softWallTimeoutMs)
     if (result.status === 'hard-block') return
   }
 }

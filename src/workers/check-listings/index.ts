@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { launchBrowserDriver } from '../../modules/collection/browser'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
+import { realDelay } from '../../platform/delay'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import {
@@ -96,16 +97,11 @@ async function main() {
             try {
               const { driver, close } = await launchBrowserDriver(proxy)
               try {
-                await runCheckListings(
-                  driver,
-                  db,
-                  photos,
-                  logger,
-                  candidates,
-                  settings['check_listings.soft_wall_timeout_ms'],
-                  settings['check_listings.pacing_min_ms'],
-                  settings['check_listings.pacing_max_ms'],
-                )
+                await runCheckListings({ driver, db, photos, logger, delay: realDelay }, candidates, {
+                  softWallTimeoutMs: settings['check_listings.soft_wall_timeout_ms'],
+                  pacingMinMs: settings['check_listings.pacing_min_ms'],
+                  pacingMaxMs: settings['check_listings.pacing_max_ms'],
+                })
               } finally {
                 await close()
               }

@@ -1,4 +1,8 @@
+import type { DelayFn } from '../../platform/delay'
+import type { Logger } from '../../platform/logger'
+import type { DbClient } from '../../platform/storage'
 import type { GridListing } from './extract/grid'
+import type { ListingPhotos } from './photos'
 import type { PageCursor } from './paginate'
 
 export interface PageDriver {
@@ -9,6 +13,20 @@ export interface PageDriver {
   refresh(): Promise<void>
   waitRandom(minMs: number, maxMs: number): Promise<void>
   fetchNextPage(cursor: PageCursor, lsd: string, query: string): Promise<string>
+}
+
+// What every live page flow (collection run, recheck, photo backfill) reads
+// pages through; delay waits out a soft login-wall before refreshing.
+export interface PageIo {
+  driver: PageDriver
+  logger: Logger
+  delay: DelayFn
+}
+
+// PageIo plus the listing writes a recheck or photo backfill makes.
+export interface ListingPageIo extends PageIo {
+  db: DbClient
+  photos: ListingPhotos
 }
 
 // A launched browser's driver plus the handle that tears the browser down.
