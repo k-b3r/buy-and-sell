@@ -43,7 +43,7 @@ const item = (id: string, over: Record<string, unknown> = {}) => ({
 
 test('extractRealEstateBatch returns normalized fields keyed by listing id and skips unknown ids', async () => {
   const groq: JsonModelClient = { generateJson: async () => ({ results: [item('1'), item('zzz')] }) }
-  const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1')])
+  const out = await extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [cand('1')])
   expect([...out.keys()]).toEqual(['1'])
   expect(out.get('1')).toMatchObject({ property_type: 'condo', price_php: 4500000 })
 })
@@ -58,7 +58,10 @@ test('extractRealEstateBatch splits the batch and retries when a request keeps f
       return { results: ids.map((id) => item(id)) }
     },
   }
-  const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1'), cand('2')])
+  const out = await extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [
+    cand('1'),
+    cand('2'),
+  ])
   expect([...out.keys()].sort()).toEqual(['1', '2'])
   expect(calls).toBeGreaterThan(2)
 })
@@ -69,7 +72,9 @@ test('extractRealEstateBatch stops the run on a 429 quota error', async () => {
       throw Object.assign(new Error('quota'), { status: 429 })
     },
   }
-  await expect(extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1')])).rejects.toThrow()
+  await expect(
+    extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [cand('1')]),
+  ).rejects.toThrow()
 })
 
 test('runRealEstateExtraction upserts each extracted listing with its source hash', async () => {
@@ -82,7 +87,7 @@ test('runRealEstateExtraction upserts each extracted listing with its source has
   }
   const groq: JsonModelClient = { generateJson: async () => ({ results: [item('1')] }) }
 
-  await runRealEstateExtraction(groq, db, createLogger(LOG_PATH), [cand('1')], 20, noDelay)
+  await runRealEstateExtraction({ groq, db, logger: createLogger(LOG_PATH), delay: noDelay }, [cand('1')], 20)
 
   expect(params).toHaveLength(1)
   expect(params[0][0]).toBe('1')
@@ -100,7 +105,11 @@ test('extractRealEstateBatch retries the listings the model left out of its resp
       return { results: ids.slice(0, Math.ceil(ids.length / 2)).map((id) => item(id)) }
     },
   }
-  const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1'), cand('2'), cand('3')])
+  const out = await extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [
+    cand('1'),
+    cand('2'),
+    cand('3'),
+  ])
   expect([...out.keys()].sort()).toEqual(['1', '2', '3'])
   expect(calls).toBe(2)
 })
@@ -113,7 +122,10 @@ test('extractRealEstateBatch retries missing listings only once, so a stubborn m
       return { results: [] }
     },
   }
-  const out = await extractRealEstateBatch(groq, createLogger(LOG_PATH), noDelay, [cand('1'), cand('2')])
+  const out = await extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [
+    cand('1'),
+    cand('2'),
+  ])
   expect(out.size).toBe(0)
   expect(calls).toBe(2)
 })

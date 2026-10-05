@@ -339,7 +339,12 @@ export async function refreshListingFields(
      RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
     params,
   )) as { rows?: PriorPriceRow[] } | undefined
-  await recordRealEstatePriceChange(db, logger, f.id, updated?.rows?.[0], f.priceAmount, f.priceCurrency)
+  await recordRealEstatePriceChange(db, logger, {
+    listingId: f.id,
+    prior: updated?.rows?.[0],
+    newPrice: f.priceAmount,
+    newCurrency: f.priceCurrency,
+  })
   await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 }
 

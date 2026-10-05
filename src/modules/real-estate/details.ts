@@ -30,13 +30,15 @@ export async function getRealEstateCandidates(db: DbClient, limit: number): Prom
   }))
 }
 
-export async function upsertRealEstateDetails(
-  db: DbClient,
-  listingId: string,
-  f: RealEstateFields,
-  model: string,
-  sourceHash: string,
-): Promise<void> {
+export interface RealEstateDetailsRow {
+  listingId: string
+  fields: RealEstateFields
+  model: string
+  sourceHash: string
+}
+
+export async function upsertRealEstateDetails(db: DbClient, row: RealEstateDetailsRow): Promise<void> {
+  const { listingId, fields: f, model, sourceHash } = row
   await db.query(
     `INSERT INTO real_estate_details
        (listing_id, listing_type, property_type, price_php, price_basis, lot_sqm, floor_sqm, bedrooms, bathrooms,

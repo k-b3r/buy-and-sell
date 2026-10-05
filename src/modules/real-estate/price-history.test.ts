@@ -44,7 +44,12 @@ const historyInserts = (calls: { sql: string; params: unknown[] }[]) =>
 test('recordRealEstatePriceChange records no price history for a non-real-estate listing whose price changed', async () => {
   const { db, calls } = historyDb({ realEstate: false, hasHistory: false })
 
-  await recordRealEstatePriceChange(db, fakeLogger(), '12345', priorRow('5000000.00'), 4500000, 'PHP')
+  await recordRealEstatePriceChange(db, fakeLogger(), {
+    listingId: '12345',
+    prior: priorRow('5000000.00'),
+    newPrice: 4500000,
+    newCurrency: 'PHP',
+  })
 
   expect(historyInserts(calls)).toHaveLength(0)
 })
@@ -52,7 +57,12 @@ test('recordRealEstatePriceChange records no price history for a non-real-estate
 test('recordRealEstatePriceChange writes a baseline row then the new price on a real estate first price change', async () => {
   const { db, calls } = historyDb({ realEstate: true, hasHistory: false })
 
-  await recordRealEstatePriceChange(db, fakeLogger(), '12345', priorRow('5000000.00'), 4500000, 'PHP')
+  await recordRealEstatePriceChange(db, fakeLogger(), {
+    listingId: '12345',
+    prior: priorRow('5000000.00'),
+    newPrice: 4500000,
+    newCurrency: 'PHP',
+  })
 
   const inserts = historyInserts(calls)
   expect(inserts).toHaveLength(2)
@@ -63,7 +73,12 @@ test('recordRealEstatePriceChange writes a baseline row then the new price on a 
 test('recordRealEstatePriceChange writes only the new price when real estate history already exists', async () => {
   const { db, calls } = historyDb({ realEstate: true, hasHistory: true })
 
-  await recordRealEstatePriceChange(db, fakeLogger(), '12345', priorRow('5000000.00'), 4500000, 'PHP')
+  await recordRealEstatePriceChange(db, fakeLogger(), {
+    listingId: '12345',
+    prior: priorRow('5000000.00'),
+    newPrice: 4500000,
+    newCurrency: 'PHP',
+  })
 
   const inserts = historyInserts(calls)
   expect(inserts).toHaveLength(1)
@@ -73,7 +88,12 @@ test('recordRealEstatePriceChange writes only the new price when real estate his
 test('recordRealEstatePriceChange does not even probe when the price is unchanged', async () => {
   const { db, calls } = historyDb({ realEstate: true, hasHistory: false })
 
-  await recordRealEstatePriceChange(db, fakeLogger(), '12345', priorRow('4500000.00'), 4500000, 'PHP')
+  await recordRealEstatePriceChange(db, fakeLogger(), {
+    listingId: '12345',
+    prior: priorRow('4500000.00'),
+    newPrice: 4500000,
+    newCurrency: 'PHP',
+  })
 
   expect(calls).toHaveLength(0)
 })
@@ -81,7 +101,12 @@ test('recordRealEstatePriceChange does not even probe when the price is unchange
 test('recordRealEstatePriceChange does nothing when the refresh returned no prior row', async () => {
   const { db, calls } = historyDb({ realEstate: true, hasHistory: false })
 
-  await recordRealEstatePriceChange(db, fakeLogger(), '12345', undefined, 4500000, 'PHP')
+  await recordRealEstatePriceChange(db, fakeLogger(), {
+    listingId: '12345',
+    prior: undefined,
+    newPrice: 4500000,
+    newCurrency: 'PHP',
+  })
 
   expect(calls).toHaveLength(0)
 })
@@ -90,7 +115,12 @@ test('recordRealEstatePriceChange swallows a failed write and logs a warning', a
   const { db } = historyDb({ realEstate: true, hasHistory: false, failProbe: true })
   const logger = fakeLogger()
 
-  await recordRealEstatePriceChange(db, logger, '12345', priorRow('5000000.00'), 4500000, 'PHP')
+  await recordRealEstatePriceChange(db, logger, {
+    listingId: '12345',
+    prior: priorRow('5000000.00'),
+    newPrice: 4500000,
+    newCurrency: 'PHP',
+  })
 
   expect(logger.warnings.some((w) => w.includes('price-history'))).toBe(true)
 })

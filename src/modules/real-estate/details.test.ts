@@ -51,7 +51,7 @@ test('upsertRealEstateDetails writes every field in a stable parameter order and
     confidence: 'high',
   }
 
-  await upsertRealEstateDetails(db, '1', fields, 'openai/gpt-oss-120b', 'abc')
+  await upsertRealEstateDetails(db, { listingId: '1', fields, model: 'openai/gpt-oss-120b', sourceHash: 'abc' })
 
   expect(calls[0].sql).toContain('INSERT INTO real_estate_details')
   expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')

@@ -38,7 +38,8 @@ async function main() {
         const candidates = await getRealEstateCandidates(db, LAP_CANDIDATE_LIMIT)
         return {
           dryRun: `would call Groq to extract ${candidates.length} real estate listings this lap`,
-          run: () => runRealEstateExtraction(groq, db, logger, candidates, settings['extract_real_estate.batch_size']),
+          run: () =>
+            runRealEstateExtraction({ groq, db, logger }, candidates, settings['extract_real_estate.batch_size']),
         }
       }
     },
