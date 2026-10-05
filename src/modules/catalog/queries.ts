@@ -1,6 +1,7 @@
 import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
 import type { DiscountBand, ListingPriceReview } from '../pricing'
+import { PRODUCT_CATEGORIES } from './products'
 import {
   computeListingDiscount,
   computeMedians,
@@ -41,26 +42,6 @@ export interface ProductSummary {
 }
 
 const DEFAULT_LIMIT = 30
-
-// Must match src/products.ts's PRODUCT_CATEGORIES (the root project's extraction
-// enum) - dashboard is a separate package with its own src, no shared import path,
-// so this list is duplicated rather than reaching across the package boundary.
-const PRODUCT_CATEGORIES = [
-  'Phones & Tablets',
-  'Computers & Laptops',
-  'PC Components',
-  'Cameras & Drones',
-  'Audio',
-  'Gaming',
-  'TVs & Monitors',
-  'Appliances',
-  'Vehicles',
-  'Real Estate',
-  'Fashion',
-  'Fitness & Outdoor',
-  'Furniture & Home',
-  'Other',
-] as const
 
 export async function getProductSummaries(
   db: QueryClient,

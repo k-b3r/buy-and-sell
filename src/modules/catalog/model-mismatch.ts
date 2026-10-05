@@ -148,3 +148,33 @@ export function deriveTargetBaseModel(productBaseModel: string, mismatch: ModelC
     productBaseModel.slice(match.index + match[0].length)
   )
 }
+
+// A listing as matched to its product: just the fields the mismatch rules read.
+export interface MatchedListingNames {
+  title: string
+  base_model: string
+  variant_tier: string | null
+}
+
+export function matchedProductText(listing: MatchedListingNames): string {
+  return `${listing.base_model} ${listing.variant_tier ?? ''}`.trim()
+}
+
+export function findListingModelMismatches(listing: MatchedListingNames): ModelCodeMismatch[] {
+  return findModelCodeMismatches(listing.title, matchedProductText(listing))
+}
+
+// What reassign-model-mismatches may do with one listing before it looks up
+// the target product: nothing to fix ('consistent'), too many mismatched
+// prefixes to pick one ('multiple'), a single mismatch whose target name
+// can't be derived ('ambiguous'), or a derived target base_model to look up.
+export type MismatchReassignmentPlan =
+  { kind: 'consistent' } | { kind: 'multiple' } | { kind: 'ambiguous' } | { kind: 'target'; targetBaseModel: string }
+
+export function planMismatchReassignment(listing: MatchedListingNames): MismatchReassignmentPlan {
+  const mismatches = findListingModelMismatches(listing)
+  if (mismatches.length === 0) return { kind: 'consistent' }
+  if (mismatches.length > 1) return { kind: 'multiple' }
+  const targetBaseModel = deriveTargetBaseModel(listing.base_model, mismatches[0])
+  return targetBaseModel === null ? { kind: 'ambiguous' } : { kind: 'target', targetBaseModel }
+}

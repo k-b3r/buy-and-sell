@@ -45,7 +45,7 @@ async function main() {
             })
             // Applies this lap's freshly-produced is_specific_product/confidence
             // judgments to price_lookup_excluded/price_lookup_review_status - lives
-            // here rather than in flag-price-ineligible.ts (which only handles the
+            // here rather than with pricing's ineligible-categories.ts (which only handles the
             // human-curated list, run manually) because this needs to react to new
             // enrichment rows on the same cadence they're produced, not on a
             // human's edit schedule.

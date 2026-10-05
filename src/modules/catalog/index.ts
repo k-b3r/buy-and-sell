@@ -2,32 +2,20 @@
 // enrichment, categories, dedup/merge, model-code mismatch detection) and the
 // catalog dashboard queries. Only what callers outside this folder use;
 // everything else is internal (enforced by dependency-cruiser).
-export { deriveTargetBaseModel, findModelCodeMismatches } from './model-mismatch'
+export { runCategoryBackfill } from './category-backfill'
+export { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
 export {
   findOrCreateProduct,
   getCategoryBackfillCandidates,
   getEnrichmentCandidates,
   getExtractionCandidates,
   getSubCategoryBackfillCandidates,
-  mergeDuplicateProduct,
-  updateListingProductIds,
-  updateProductCategories,
-  updateProductSubCategories,
 } from './product-storage'
-export type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
-export {
-  CANONICAL_BASE_MODEL,
-  CATEGORY_BACKFILL_RESPONSE_SCHEMA,
-  PRODUCT_CATEGORIES,
-  SUB_CATEGORIES,
-  SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA,
-  buildCategoryBackfillPrompt,
-  buildSubCategoryBackfillPrompt,
-  normalizeBaseModel,
-  normalizeVariantTier,
-} from './products'
 export { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 export { getProductsNeedingReview, markProductReviewed } from './review-queue'
 export { runProductEnrichment } from './run-enrichment'
+export { detectModelMismatches, reassignModelMismatches } from './run-model-mismatches'
+export { runSubCategoryBackfill } from './sub-category-backfill'
 export type { ExtractionClients } from './run-extraction'
 export { runProductExtraction } from './run-extraction'
+export { PRODUCT_VARIANT_ALIAS_RULES } from './variant-alias-rules'

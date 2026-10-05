@@ -16,10 +16,6 @@
           "slug": "platform"
         },
         {
-          "name": "utils",
-          "slug": "utils"
-        },
-        {
           "name": "workers",
           "slug": "workers"
         }

@@ -10,6 +10,8 @@ import {
   getSubCategoryBackfillCandidates,
   updateProductSubCategories,
   mergeDuplicateProduct,
+  findProductIdsByNormalizedName,
+  getProductMatchedListings,
 } from './product-storage'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -379,4 +381,46 @@ test('mergeDuplicateProduct reassigns listings, price history, notifications, an
   expect(calls[4].params).toEqual([200])
   expect(calls[5].sql).toBe('DELETE FROM products WHERE id = $1')
   expect(calls[5].params).toEqual([200])
+})
+
+test('findProductIdsByNormalizedName matches on the normalized columns, treating a null variant as its own value', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 4 }, { id: 9 }] }
+    },
+  }
+
+  const result = await findProductIdsByNormalizedName(db, 'iphone 14', null)
+
+  expect(calls[0].sql).toBe(
+    'SELECT id FROM products WHERE base_model_normalized = $1 AND variant_tier_normalized IS NOT DISTINCT FROM $2',
+  )
+  expect(calls[0].params).toEqual(['iphone 14', null])
+  expect(result).toEqual([4, 9])
+})
+
+test('getProductMatchedListings returns titled listings joined to their product names', async () => {
+  const row = {
+    listing_id: '15',
+    title: 'Samsung S23',
+    product_id: 3,
+    base_model: 'Samsung Galaxy S26',
+    variant_tier: null,
+    variant_tier_normalized: null,
+  }
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [row] }
+    },
+  }
+
+  const result = await getProductMatchedListings(db)
+
+  expect(calls[0].sql).toContain('JOIN products p ON p.id = l.product_id')
+  expect(calls[0].sql).toContain('WHERE l.title IS NOT NULL')
+  expect(result).toEqual([row])
 })

@@ -1,4 +1,4 @@
-import type { ProductAliasRule } from './variant-aliases'
+import type { ProductAliasRule } from './product-merge'
 
 // High-confidence duplicate-product merges found by a full-catalog scan
 // (2026-09-02, see git history of SESSION_RESUME.md for the analysis

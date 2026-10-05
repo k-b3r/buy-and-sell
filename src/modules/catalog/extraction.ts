@@ -3,8 +3,8 @@ import {
   CANONICAL_BASE_MODEL,
   normalizeBaseModel,
   normalizeVariantTier,
-  PRODUCT_CATEGORIES,
-  SUB_CATEGORIES,
+  isProductCategory,
+  isSubCategory,
 } from './products'
 
 // One item of the model's `results` array, unvalidated.
@@ -26,10 +26,6 @@ export interface ExtractedListing {
   productKey: string
 }
 
-function oneOf(value: unknown, allowed: readonly string[]): string | null {
-  return typeof value === 'string' && allowed.includes(value) ? value : null
-}
-
 // Validates one response item against the batch it answers. Returns null for
 // an item without a string id/base_model or whose id matches no candidate.
 export function parseExtractionItem(item: RawExtractionItem, batch: ExtractionCandidate[]): ExtractedListing | null {
@@ -44,7 +40,7 @@ export function parseExtractionItem(item: RawExtractionItem, batch: ExtractionCa
   // product row ever gets created for aliases already on this list. Only
   // catches known aliases; a brand-new one extraction turns up still
   // needs a human to spot it and add an entry (same gap as
-  // flag-price-ineligible's curated list) - merge-duplicate-products.ts
+  // pricing's ineligible-categories.ts curated list) - product-merge.ts
   // remains the manual retroactive fix for whatever slips through.
   const baseModel = CANONICAL_BASE_MODEL[item.base_model] ?? item.base_model
   return {
@@ -54,8 +50,8 @@ export function parseExtractionItem(item: RawExtractionItem, batch: ExtractionCa
     // Dashboard browsing/filtering aid only - a missing/invalid category
     // falls back to null rather than skipping the whole item, since
     // base_model assignment matters far more than category.
-    category: oneOf(item.category, PRODUCT_CATEGORIES),
-    subCategory: oneOf(item.sub_category, SUB_CATEGORIES),
+    category: isProductCategory(item.category) ? item.category : null,
+    subCategory: isSubCategory(item.sub_category) ? item.sub_category : null,
     productKey: `${normalizeBaseModel(baseModel)}::${variant ? normalizeVariantTier(variant) : ''}`,
   }
 }
