@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import type { PageDriver } from '../../domains/marketplace'
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
+import type { PageDriver } from '../../modules/collection'
+import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
 import type { DbClient } from '../../platform/storage'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
-import { resolveProxy } from '../../domains/marketplace'
+import { resolveProxy } from '../../modules/collection'
 import type { CheckListingsCandidate } from '../../domains/marketplace'
 import {
   getCheckListingsCandidates,
@@ -19,8 +19,8 @@ import {
 } from '../../domains/marketplace'
 import type { ImageStore } from '../../platform/images'
 import { createR2ImageStore, deleteListingPhotos } from '../../platform/images'
-import { extractDetailFields } from '../../domains/marketplace'
-import { resolvePageState } from '../../run'
+import { extractDetailFields } from '../../modules/collection'
+import { resolvePageState } from '../../modules/collection'
 
 export type CheckOneListingResult =
   { status: 'sold' } | { status: 'alive' } | { status: 'flagged' } | { status: 'removed' } | { status: 'hard-block' }

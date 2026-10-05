@@ -1,5 +1,5 @@
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
-import { runCollection } from '../../run'
+import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
+import { runCollection } from '../../modules/collection'
 import { autoApprove } from '../../platform/review'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { realDelay } from '../../platform/delay'
@@ -7,7 +7,7 @@ import { runWorkerProcess } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { createR2ImageStore } from '../../platform/images'
-import { resolveProxy } from '../../domains/marketplace'
+import { resolveProxy } from '../../modules/collection'
 import { runCollectLaps } from './laps'
 
 async function main() {

@@ -1,12 +1,12 @@
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import { launchBrowser, createBrowserDriver } from '../../domains/marketplace/browser'
+import { launchBrowser, createBrowserDriver } from '../../modules/collection/browser'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import { upsertListing, getBackfillCandidates, markListingPhotosUnavailable } from '../../domains/marketplace'
 import { createR2ImageStore, storeListingPhotos } from '../../platform/images'
-import { extractDetailFields } from '../../domains/marketplace'
-import { resolvePageState } from '../../run'
+import { extractDetailFields } from '../../modules/collection'
+import { resolvePageState } from '../../modules/collection'
 
 // One-off backfill for listings collected before the listing_photos extraction
 // fix and R2 image storage existed. Re-visits each listing live (paced like a

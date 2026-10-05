@@ -1,6 +1,6 @@
 import { runCollectLaps } from './laps'
 import type { CollectLapsDeps } from './laps'
-import type { PageDriver } from '../../domains/marketplace'
+import type { PageDriver } from '../../modules/collection'
 
 class StopLoop extends Error {}
 

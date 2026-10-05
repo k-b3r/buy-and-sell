@@ -6,7 +6,7 @@ import type { DbClient } from '../../platform/storage'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createR2ImageStore, deleteListingPhotos, type ImageStore } from '../../platform/images'
-import { isWithinServiceArea } from '../../domains/marketplace'
+import { isWithinServiceArea } from '../../modules/collection'
 import { deleteListing } from '../../domains/marketplace'
 
 export interface FarListingCandidate {
@@ -16,7 +16,7 @@ export interface FarListingCandidate {
 }
 
 // One-off cleanup for listings collected before the 80km Manila service-area
-// check existed (see domains/marketplace/location.ts) - covers every row
+// check existed (see modules/collection/location.ts) - covers every row
 // regardless of flagged_removed_at/sold_at, since stray R2 photos can outlive
 // either status.
 export function filterFarCandidates(

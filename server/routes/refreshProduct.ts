@@ -8,7 +8,7 @@ import type { RefreshLock } from '../refreshLock'
 import type { RefreshPacer } from '../refreshPacer'
 import type { JobStore } from '../jobState'
 import type { DriverFactory } from './refresh'
-import { launchBrowser, createBrowserDriver } from '../../src/domains/marketplace/browser'
+import { launchBrowser, createBrowserDriver } from '../../src/modules/collection/browser'
 import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
 

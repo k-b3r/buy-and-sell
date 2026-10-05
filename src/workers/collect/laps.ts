@@ -1,4 +1,4 @@
-import type { PageDriver } from '../../domains/marketplace'
+import type { PageDriver } from '../../modules/collection'
 import type { DelayFn } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'

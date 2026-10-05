@@ -30,5 +30,51 @@
         ]
       }
     ]
+  },
+  {
+    "type": "reachability",
+    "from": "src/modules/collection/index.ts",
+    "to": "src/platform/images.ts",
+    "rule": {
+      "severity": "error",
+      "name": "index-stays-light"
+    },
+    "via": [
+      {
+        "name": "src/modules/collection/run.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
+        "name": "src/domains/marketplace/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/domains/marketplace/discount-verification.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
+        "name": "src/domains/marketplace/storage/listings.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/platform/images.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
   }
 ]
