@@ -37,9 +37,10 @@ export {
 } from './queries'
 export type { DiscountPolicyThresholds, DiscountVerificationCandidate } from './discount-notifications'
 export {
-  checkListingDiscount,
+  decideListingDiscount,
   DEFAULT_DISCOUNT_POLICY,
   getUnverifiedDiscountCandidates,
+  insertDiscountNotification,
   markDiscountNotificationAttempted,
   markDiscountNotificationVerified,
   rejectDiscountNotification,

@@ -594,7 +594,11 @@ _(undocumented)_
 
 **Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`, `./price-rules`, `./queries`
 
-### `checkListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
+### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<DiscountNotification | null>`
+
+_(undocumented)_
+
+### `insertDiscountNotification(db: DbClient, notification: DiscountNotification): Promise<void>`
 
 _(undocumented)_
 
@@ -742,11 +746,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `checkListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<void>`
+### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<DiscountNotification | null>`
 
 _(undocumented)_
 
 ### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
+
+_(undocumented)_
+
+### `insertDiscountNotification(db: DbClient, notification: DiscountNotification): Promise<void>`
 
 _(undocumented)_
 

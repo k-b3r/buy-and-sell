@@ -5,7 +5,13 @@ import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import type { DiscountPolicyThresholds, PriceLookupClients, ProductPricingResult } from '../pricing'
-import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY, ensureProductPriced, getProductPricingStatus } from '../pricing'
+import {
+  decideListingDiscount,
+  DEFAULT_DISCOUNT_POLICY,
+  ensureProductPriced,
+  getProductPricingStatus,
+  insertDiscountNotification,
+} from '../pricing'
 import type { ExtractionCandidate } from './product-storage'
 import { findOrCreateProduct, updateListingProductIds } from './product-storage'
 import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from './products'
@@ -156,7 +162,7 @@ async function resolveProductId(run: ExtractionRun, listing: ExtractedListing): 
 // Ensures the listing's product has retail/secondhand pricing (fetching only
 // if genuinely missing), then checks this listing's own discount against that
 // pricing (or peer-comparison, if secondhand isn't in yet) - see
-// ensureProductPricing/checkListingDiscount for the full reasoning.
+// ensureProductPricing/decideListingDiscount for the full reasoning.
 async function checkDiscount(run: ExtractionRun, productId: number, listing: ExtractedListing): Promise<void> {
   let pricing = run.pricing.get(productId)
   if (pricing === undefined) {
@@ -165,12 +171,13 @@ async function checkDiscount(run: ExtractionRun, productId: number, listing: Ext
   }
   if (pricing.excluded) return
   const { candidate } = listing
-  await checkListingDiscount(
+  const notification = await decideListingDiscount(
     run.db,
     { id: candidate.id, productId, condition: candidate.condition, priceAmount: candidate.price_amount },
     { retail: pricing.retail, secondhand: pricing.secondhand },
     run.discountThresholds,
   )
+  if (notification) await insertDiscountNotification(run.db, notification)
 }
 
 // Assigns each extracted listing in one batch to its product (one batched

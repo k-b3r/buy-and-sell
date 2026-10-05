@@ -37,7 +37,7 @@ export const DEFAULT_DISCOUNT_POLICY: DiscountPolicyThresholds = {
   minPricePesos: 500,
 }
 
-// checkListingDiscount's fallback reference when real secondhand market data
+// decideListingDiscount's fallback reference when real secondhand market data
 // isn't available yet: the clean median over ALL this product's listings,
 // sold and active alike (unlike the deals page's active-only peer median).
 // null when there aren't at least 2 comparable listings.
@@ -55,12 +55,22 @@ export interface DiscountCheckListing {
   priceAmount: number | null
 }
 
-// Real-market-price-first discount check for a single listing, called
-// inline right after its product has (or already had) retail/secondhand
-// pricing ensured in catalog/run-extraction.ts - the "trigger is retail pricing
+export interface DiscountNotification {
+  listingId: string
+  productId: number
+  discountPercent: number
+  referencePrice: number
+}
+
+// Real-market-price-first discount decision for a single listing, made in
+// catalog/run-extraction.ts right after its product has (or already had)
+// retail/secondhand pricing ensured - the "trigger is retail pricing
 // becoming available" design (2026-08-31), replacing the old
 // batch-of-siblings-only check that could never fire on a product's first
-// listing.
+// listing. Reads only; returns the notification to insert, or null when the
+// listing doesn't qualify. Split from insertDiscountNotification so the
+// caller can decide before its batch's product_ids are saved (peer median
+// then excludes the batch's own listings) and insert only after the save.
 //
 // Priority: secondhand (real market data) for any non-"New" listing - only
 // falls back to peer-comparison (median of this product's own listings)
@@ -68,18 +78,17 @@ export interface DiscountCheckListing {
 // against retail; a "New" listing is never passed here without a retail
 // price already in hand (see ensureProductPriced's exclude-on-retail-miss
 // behavior - a product with no retail was already excluded before this
-// function would ever be called). ON CONFLICT (listing_id) DO NOTHING
-// enforces "at most one notification per listing ever," same as before.
-export async function checkListingDiscount(
+// function would ever be called).
+export async function decideListingDiscount(
   db: DbClient,
   listing: DiscountCheckListing,
   pricing: { retail: PriceRange | null; secondhand: PriceRange | null },
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
-): Promise<void> {
+): Promise<DiscountNotification | null> {
   const { priceAmount, productId } = listing
-  if (priceAmount === null || priceAmount <= 0) return
-  if (priceAmount < thresholds.minPricePesos) return
-  if (isPlaceholderPrice(priceAmount)) return
+  if (priceAmount === null || priceAmount <= 0) return null
+  if (priceAmount < thresholds.minPricePesos) return null
+  if (isPlaceholderPrice(priceAmount)) return null
 
   let referencePrice: number | null
   if (isNewCondition(listing.condition)) {
@@ -90,18 +99,24 @@ export async function checkListingDiscount(
     referencePrice = await getDiscountPeerMedian(db, productId)
   }
 
-  if (referencePrice === null || referencePrice <= 0) return
-  if (isMagnitudeOutlier(priceAmount, referencePrice)) return
+  if (referencePrice === null || referencePrice <= 0) return null
+  if (isMagnitudeOutlier(priceAmount, referencePrice)) return null
 
   const discountPercent = Math.round(((referencePrice - priceAmount) / referencePrice) * 100)
   const profitPesos = referencePrice - priceAmount
-  if (discountPercent < thresholds.highDiscountThresholdPercent || profitPesos < thresholds.minProfitPesos) return
+  if (discountPercent < thresholds.highDiscountThresholdPercent || profitPesos < thresholds.minProfitPesos) return null
 
+  return { listingId: listing.id, productId, discountPercent, referencePrice }
+}
+
+// ON CONFLICT (listing_id) DO NOTHING enforces "at most one notification per
+// listing ever", so re-inserting a decided notification is a no-op.
+export async function insertDiscountNotification(db: DbClient, notification: DiscountNotification): Promise<void> {
   await db.query(
     `INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (listing_id) DO NOTHING`,
-    [listing.id, productId, discountPercent, referencePrice],
+    [notification.listingId, notification.productId, notification.discountPercent, notification.referencePrice],
   )
 }
 

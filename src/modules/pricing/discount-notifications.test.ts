@@ -1,6 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import {
-  checkListingDiscount,
+  decideListingDiscount,
+  insertDiscountNotification,
   getUnverifiedDiscountCandidates,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
@@ -33,178 +34,135 @@ function mockDbWithRows(rows: unknown[]): { db: DbClient; calls: { sql: string; 
   }
 }
 
-test('checkListingDiscount does nothing when priceAmount is null or non-positive', async () => {
+const used = (priceAmount: number | null) => ({ id: '1', productId: 10, condition: 'Used - Good', priceAmount })
+const range = (low: number, high: number) => ({ low, high, currency: 'PHP' })
+
+test('decideListingDiscount returns null when priceAmount is null or non-positive', async () => {
   const { db, calls } = mockDb()
+  const pricing = { retail: null, secondhand: range(5000, 6000) }
 
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: null },
-    { retail: null, secondhand: { low: 5000, high: 6000, currency: 'PHP' } },
-  )
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 0 },
-    { retail: null, secondhand: { low: 5000, high: 6000, currency: 'PHP' } },
-  )
-
+  expect(await decideListingDiscount(db, used(null), pricing)).toBeNull()
+  expect(await decideListingDiscount(db, used(0), pricing)).toBeNull()
   expect(calls).toHaveLength(0)
 })
 
-test('checkListingDiscount uses retail for a "New" condition listing and inserts when it qualifies', async () => {
+test('decideListingDiscount uses retail for a "New" condition listing and returns the notification when it qualifies, without writing', async () => {
   const { db, calls } = mockDb()
 
   // ₱7,000 vs ₱10,000 retail low = 30% off, ₱3,000 profit - clears both bars.
-  await checkListingDiscount(
+  const decided = await decideListingDiscount(
     db,
     { id: '1', productId: 10, condition: 'New', priceAmount: 7000 },
-    { retail: { low: 10000, high: 12000, currency: 'PHP' }, secondhand: null },
+    { retail: range(10000, 12000), secondhand: null },
   )
 
-  expect(calls).toHaveLength(1)
-  expect(calls[0].sql).toContain('INSERT INTO discount_notifications')
-  expect(calls[0].params).toEqual(['1', 10, 30, 10000])
+  expect(decided).toEqual({ listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 })
+  expect(calls).toHaveLength(0)
 })
 
-test('checkListingDiscount treats "Used - like new" as used, not new - uses secondhand, not retail', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount treats "Used - like new" as used, not new - uses secondhand, not retail', async () => {
+  const { db } = mockDb()
 
-  // Retail (10000) would show 30% off; secondhand (7500) shows only 20% off
+  // Retail (10000) would show 30% off; secondhand (8750) shows only 20% off
   // (below the 30% bar) - if this used retail by mistake, it would wrongly qualify.
-  await checkListingDiscount(
+  const decided = await decideListingDiscount(
     db,
     { id: '1', productId: 10, condition: 'Used - like new', priceAmount: 7000 },
-    { retail: { low: 10000, high: 12000, currency: 'PHP' }, secondhand: { low: 8750, high: 9000, currency: 'PHP' } },
+    { retail: range(10000, 12000), secondhand: range(8750, 9000) },
   )
 
+  expect(decided).toBeNull()
+})
+
+test('decideListingDiscount prefers secondhand over peer-comparison when secondhand is available', async () => {
+  const { db, calls } = mockDb()
+
+  // Secondhand low 10000 -> 30% off at price 7000. No peer-median SELECT
+  // call proves secondhand won.
+  const decided = await decideListingDiscount(db, used(7000), { retail: null, secondhand: range(10000, 12000) })
+
+  expect(decided).toEqual({ listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 })
   expect(calls).toHaveLength(0)
 })
 
-test('checkListingDiscount prefers secondhand over peer-comparison when secondhand is available', async () => {
-  const { db, calls } = mockDb()
-
-  // Secondhand low 10000 -> 30% off at price 7000. If this fell back to peer
-  // median instead, no query would even run to produce a number - the
-  // absence of a peer-median SELECT call here proves secondhand won.
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 7000 },
-    { retail: null, secondhand: { low: 10000, high: 12000, currency: 'PHP' } },
-  )
-
-  expect(calls).toHaveLength(1)
-  expect(calls[0].sql).toContain('INSERT INTO discount_notifications')
-  expect(calls[0].params).toEqual(['1', 10, 30, 10000])
-})
-
-test('checkListingDiscount falls back to peer-comparison median when secondhand is not available', async () => {
+test('decideListingDiscount falls back to peer-comparison median when secondhand is not available', async () => {
   const { db, calls } = mockDbWithRows([{ sample_size: '4', clean_median_price: '10000' }])
 
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 7000 },
-    { retail: null, secondhand: null },
-  )
+  const decided = await decideListingDiscount(db, used(7000), { retail: null, secondhand: null })
 
-  const selectCall = calls.find((c) => c.sql.includes('percentile_cont'))
-  expect(selectCall).toBeDefined()
-  expect(selectCall?.params).toEqual([10])
-  const insertCall = calls.find((c) => c.sql.startsWith('INSERT INTO discount_notifications'))
-  expect(insertCall?.params).toEqual(['1', 10, 30, 10000])
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('percentile_cont')
+  expect(calls[0].params).toEqual([10])
+  expect(decided).toEqual({ listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 })
 })
 
-test('checkListingDiscount does nothing when peer-comparison has no sibling median to compare against', async () => {
-  const { db, calls } = mockDbWithRows([{ sample_size: '1', clean_median_price: null }])
+test('decideListingDiscount returns null when peer-comparison has no sibling median to compare against', async () => {
+  const { db } = mockDbWithRows([{ sample_size: '1', clean_median_price: null }])
 
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 7000 },
-    { retail: null, secondhand: null },
-  )
-
-  expect(calls.some((c) => c.sql.startsWith('INSERT INTO discount_notifications'))).toBe(false)
+  expect(await decideListingDiscount(db, used(7000), { retail: null, secondhand: null })).toBeNull()
 })
 
-test('checkListingDiscount does nothing when the discount is below the 30% bar', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount returns null when the discount is below the 30% bar', async () => {
+  const { db } = mockDb()
 
   // ₱9,000 vs ₱10,000 = only 10% off.
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 9000 },
-    { retail: null, secondhand: { low: 10000, high: 12000, currency: 'PHP' } },
-  )
-
-  expect(calls).toHaveLength(0)
+  expect(await decideListingDiscount(db, used(9000), { retail: null, secondhand: range(10000, 12000) })).toBeNull()
 })
 
-test('checkListingDiscount does nothing when the profit is below the ₱1,000 bar even if the percent clears', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount returns null when the profit is below the ₱1,000 bar even if the percent clears', async () => {
+  const { db } = mockDb()
 
   // ₱140 vs ₱200 = 30% off, but only ₱60 profit.
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 140 },
-    { retail: null, secondhand: { low: 200, high: 250, currency: 'PHP' } },
-  )
-
-  expect(calls).toHaveLength(0)
+  expect(await decideListingDiscount(db, used(140), { retail: null, secondhand: range(200, 250) })).toBeNull()
 })
 
-test('checkListingDiscount does nothing when the listing price is below the ₱500 floor even if percent and profit both clear', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount returns null when the listing price is below the ₱500 floor even if percent and profit both clear', async () => {
+  const { db } = mockDb()
 
   // ₱300 vs ₱1,400 = 79% off, ₱1,100 profit - both bars clear, but ₱300 is
   // too cheap to be worth chasing (also the regime where generic-category
   // mismatches like "Bikini"/"Apple Pencil" produce noisy reference prices).
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 300 },
-    { retail: null, secondhand: { low: 1400, high: 1600, currency: 'PHP' } },
-  )
-
-  expect(calls).toHaveLength(0)
+  expect(await decideListingDiscount(db, used(300), { retail: null, secondhand: range(1400, 1600) })).toBeNull()
 })
 
-test('checkListingDiscount inserts a ₱500 item reselling for ₱1,500 - a real ₱1,000-profit flip, not excluded just for being cheap', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount qualifies a ₱500 item reselling for ₱1,500 - a real ₱1,000-profit flip, not excluded just for being cheap', async () => {
+  const { db } = mockDb()
 
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 500 },
-    { retail: null, secondhand: { low: 1500, high: 1700, currency: 'PHP' } },
-  )
-
-  expect(calls).toHaveLength(1)
+  expect(await decideListingDiscount(db, used(500), { retail: null, secondhand: range(1500, 1700) })).toEqual({
+    listingId: '1',
+    productId: 10,
+    discountPercent: 67,
+    referencePrice: 1500,
+  })
 })
 
-test('checkListingDiscount does nothing when the listing price is a magnitude outlier vs the reference', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount returns null when the listing price is a magnitude outlier vs the reference', async () => {
+  const { db } = mockDb()
 
   // ₱10 vs ₱10,000 reference - looks like a 99.9% discount, but it's an
   // obvious placeholder/typo, not a real deal.
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 10 },
-    { retail: null, secondhand: { low: 10000, high: 12000, currency: 'PHP' } },
-  )
-
-  expect(calls).toHaveLength(0)
+  expect(await decideListingDiscount(db, used(10), { retail: null, secondhand: range(10000, 12000) })).toBeNull()
 })
 
-test('checkListingDiscount does nothing when the listing price is a placeholder digit-pattern, even though it clears the magnitude-outlier band', async () => {
-  const { db, calls } = mockDb()
+test('decideListingDiscount returns null when the listing price is a placeholder digit-pattern, even though it clears the magnitude-outlier band', async () => {
+  const { db } = mockDb()
 
   // ₱12,345 vs ₱20,400 reference - 39% off, well inside the 10x magnitude
   // band, so it isn't caught there. But 12345 is a classic "for attention
   // only" placeholder price, not a real ask (live case: listing
   // 100000000000003, iPhone 14 "For Sale" at ₱12,345).
-  await checkListingDiscount(
-    db,
-    { id: '1', productId: 10, condition: 'Used - Good', priceAmount: 12345 },
-    { retail: null, secondhand: { low: 20400, high: 22000, currency: 'PHP' } },
-  )
+  expect(await decideListingDiscount(db, used(12345), { retail: null, secondhand: range(20400, 22000) })).toBeNull()
+})
 
-  expect(calls).toHaveLength(0)
+test('insertDiscountNotification inserts the decided notification, ignoring a listing that already has one', async () => {
+  const { db, calls } = mockDb()
+
+  await insertDiscountNotification(db, { listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 })
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('INSERT INTO discount_notifications')
+  expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO NOTHING')
+  expect(calls[0].params).toEqual(['1', 10, 30, 10000])
 })
 
 test('getUnverifiedDiscountCandidates returns pending candidates with listing/product/enrichment context, respecting the retry backoff', async () => {
