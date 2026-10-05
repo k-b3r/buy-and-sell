@@ -28,7 +28,16 @@ const SECRET_QUERY_PARAMS = [
 
 const QUERY_PARAM_RE = new RegExp(`([?&](?:${SECRET_QUERY_PARAMS.join('|')})=)[^&#\\s"'<>]+`, 'gi')
 const URL_CREDENTIALS_RE = /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@"'<>]+@/gi
-const BEARER_RE = /\b(bearer\s+)[A-Za-z0-9\-._~+/]+=*/gi
+// "Bearer" is also an English word ("bearer of bad news"), so outside an
+// Authorization header only a token-like value is masked: at least
+// MIN_BARE_BEARER_TOKEN_LENGTH chars with a digit or punctuation in it.
+const MIN_BARE_BEARER_TOKEN_LENGTH = 16
+const TOKEN_CHAR = '[A-Za-z0-9\\-._~+/]'
+const AUTHORIZATION_BEARER_RE = new RegExp(`\\b(authorization:\\s*bearer\\s+)${TOKEN_CHAR}+=*`, 'gi')
+const BARE_BEARER_RE = new RegExp(
+  `\\b(bearer\\s+)(?=${TOKEN_CHAR}*[0-9\\-._~+/])${TOKEN_CHAR}{${MIN_BARE_BEARER_TOKEN_LENGTH},}=*`,
+  'gi',
+)
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -43,13 +52,17 @@ export function redact(message: string, secrets: readonly string[]): string {
   return out
     .replace(URL_CREDENTIALS_RE, `$1${REDACTED}@`)
     .replace(QUERY_PARAM_RE, `$1${REDACTED}`)
-    .replace(BEARER_RE, `$1${REDACTED}`)
+    .replace(AUTHORIZATION_BEARER_RE, `$1${REDACTED}`)
+    .replace(BARE_BEARER_RE, `$1${REDACTED}`)
 }
 
 // Env var names that hold a secret by convention: GROQ_API_KEY0,
 // R2_SECRET_KEY, R2_TOKEN_VALUE, REFRESH_API_KEY... Matching on the name means
 // a key added to .env later is covered without touching any code.
 const SECRET_NAME_RE = /(^|_)(KEY|TOKEN|SECRET|PASSWORD)\d*(_|$)/i
+// ...except names that point at a secret rather than hold one (KEY_PATH,
+// TOKEN_URL): masking a file path or endpoint would wreck ordinary log lines.
+const LOCATOR_NAME_RE = /_(PATH|FILE|DIR|URL|URI|HOST|PORT)$/i
 
 function urlPassword(value: string): string[] {
   if (!value.includes('://')) return []
@@ -68,7 +81,7 @@ export function secretsFromEnv(env: Record<string, string | undefined>): string[
   const secrets: string[] = []
   for (const [name, value] of Object.entries(env)) {
     if (!value) continue
-    if (SECRET_NAME_RE.test(name)) secrets.push(value)
+    if (SECRET_NAME_RE.test(name) && !LOCATOR_NAME_RE.test(name)) secrets.push(value)
     secrets.push(...urlPassword(value))
   }
   return [...new Set(secrets)]
