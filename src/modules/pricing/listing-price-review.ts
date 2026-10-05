@@ -2,7 +2,7 @@ import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from './price-review'
 import { descriptionPriceDiverges } from './price-review'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
-import { notPlaceholderPriceSql } from './clean-median'
+import { medianCtes, notPlaceholderPriceSql } from './clean-median'
 
 export interface NegotiableKeywordCandidate {
   id: string
@@ -42,6 +42,10 @@ const DESCRIPTION_MENTIONS_PRICE_SQL = `(
   OR l.description ~* '[0-9][ ]?k\\y'
 )`
 
+// Tighter than the clean median's MAGNITUDE_OUTLIER_RATIO on purpose (see
+// getPriceReviewCandidates): this only nominates listings for an LLM read.
+const REVIEW_OUTLIER_RATIO = 5
+
 // Cheap SQL pre-filter, no LLM: flags a listing when its price is a magnitude
 // outlier (>5x off its product's own median in either direction), a
 // placeholder digit-pattern regardless of magnitude, OR names a price in its
@@ -63,16 +67,14 @@ const DESCRIPTION_MENTIONS_PRICE_SQL = `(
 // change signal.
 export async function getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]> {
   const result = (await db.query(
-    `WITH product_medians AS (
-       SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price
-       FROM listings
-       WHERE product_id IS NOT NULL AND price_amount IS NOT NULL AND price_amount > 0
-         AND ${notPlaceholderPriceSql('price_amount')}
-       GROUP BY product_id
-     ),
+    `WITH ${medianCtes({
+      name: 'product_medians',
+      pool: 'SELECT product_id, price_amount FROM listings WHERE product_id IS NOT NULL',
+      clean: false,
+    })},
      flagged AS (
        SELECT l.id, l.title, l.description, l.price_amount,
-         (l.price_amount < m.median_price / 5 OR l.price_amount > m.median_price * 5) AS price_outlier,
+         (l.price_amount < m.raw_median_price / ${REVIEW_OUTLIER_RATIO} OR l.price_amount > m.raw_median_price * ${REVIEW_OUTLIER_RATIO}) AS price_outlier,
          NOT ${notPlaceholderPriceSql('l.price_amount')} AS placeholder_price,
          ${DESCRIPTION_MENTIONS_PRICE_SQL} AS description_mentions_price
        FROM listings l

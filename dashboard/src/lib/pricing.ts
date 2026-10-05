@@ -1,13 +1,13 @@
 // Pure pricing/display predicates - no database access, no network.
 //
-// DUPLICATED, BY NECESSITY, from src/modules/pricing/price-rules.ts. These same functions run
+// DUPLICATED, BY NECESSITY, from src/modules/pricing/price-rules.ts and clean-median.ts. These same functions run
 // server-side inside the SQL-backed queries there, and client-side here (
 // ListingsView, ListingDetailContent and listingsFilters all filter/badge
 // already-fetched rows in the browser, so they cannot be an RPC call). The
 // two packages have no shared import path - same hand-sync constraint as the
 // WORKERS list in app/admin/logs/page.tsx.
 //
-// KEEP IN SYNC WITH src/modules/pricing/price-rules.ts. A divergence here doesn't throw, it
+// KEEP IN SYNC WITH src/modules/pricing/price-rules.ts and clean-median.ts. A divergence here doesn't throw, it
 // silently shows a different price verdict than the one the server computed.
 
 export interface DiscountBand {
@@ -68,9 +68,11 @@ export function isPlaceholderPrice(price: number): boolean {
 // >10x or <0.1x the raw median - the same pre-filter that makes a listing an
 // enrich-listing-prices candidate, independent of whether that worker has
 // reviewed it yet.
+const MAGNITUDE_OUTLIER_RATIO = 10
+
 export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
   if (rawMedianPrice === null || rawMedianPrice <= 0) return false
-  return price < rawMedianPrice / 10 || price > rawMedianPrice * 10
+  return price < rawMedianPrice / MAGNITUDE_OUTLIER_RATIO || price > rawMedianPrice * MAGNITUDE_OUTLIER_RATIO
 }
 
 // Magnitude outlier OR a placeholder digit pattern, independent of magnitude

@@ -85,7 +85,7 @@ test('checkListingDiscount prefers secondhand over peer-comparison when secondha
 })
 
 test('checkListingDiscount falls back to peer-comparison median when secondhand is not available', async () => {
-  const { db, calls } = mockDbWithRows([{ clean_median_price: '10000' }])
+  const { db, calls } = mockDbWithRows([{ sample_size: '4', clean_median_price: '10000' }])
 
   await checkListingDiscount(db, '1', 10, 'Used - Good', 7000, null, null)
 
@@ -97,7 +97,7 @@ test('checkListingDiscount falls back to peer-comparison median when secondhand 
 })
 
 test('checkListingDiscount does nothing when peer-comparison has no sibling median to compare against', async () => {
-  const { db, calls } = mockDbWithRows([{ clean_median_price: null }])
+  const { db, calls } = mockDbWithRows([{ sample_size: '1', clean_median_price: null }])
 
   await checkListingDiscount(db, '1', 10, 'Used - Good', 7000, null, null)
 

@@ -1,6 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
-import { isPlaceholderPrice, notPlaceholderPriceSql } from './clean-median'
+import { isMagnitudeOutlier, isPlaceholderPrice } from './clean-median'
+import { getProductCleanMedian } from './queries'
 import { isNewCondition } from './price-rules'
 
 export interface DiscountPolicyThresholds {
@@ -36,36 +37,15 @@ export const DEFAULT_DISCOUNT_POLICY: DiscountPolicyThresholds = {
   minPricePesos: 500,
 }
 
-// Same raw-median -> clean-median formula as the dashboard's
-// DISCOUNT_SUMMARY_LATERAL (dashboard/src/lib/queries.ts), scoped to one
-// product - the fallback reference for checkListingDiscount below when real
-// secondhand market data isn't available yet. Returns null (not 0) when
-// there aren't at least 2 comparable sibling listings, same "nothing to
-// compare against" case the dashboard's own version handles.
-async function getPeerMedianPrice(db: DbClient, productId: number): Promise<number | null> {
-  const result = (await db.query(
-    `WITH product_prices AS (
-       SELECT pl.price_amount
-       FROM listings pl
-       JOIN products p ON p.id = pl.product_id
-       WHERE pl.product_id = $1 AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-         AND NOT p.price_lookup_excluded
-         AND ${notPlaceholderPriceSql('pl.price_amount')}
-     ),
-     raw AS (
-       SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-       FROM product_prices
-     )
-     SELECT
-       (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
-        FROM product_prices pp, raw
-        WHERE raw.n >= 2 AND raw.median_price > 0
-          AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10) AS clean_median_price
-     FROM raw`,
-    [productId],
-  )) as { rows: { clean_median_price: string | null }[] }
-  const value = result.rows[0]?.clean_median_price
-  return value ? Number(value) : null
+// checkListingDiscount's fallback reference when real secondhand market data
+// isn't available yet: the clean median over ALL this product's listings,
+// sold and active alike (unlike the deals page's active-only peer median).
+// null when there aren't at least 2 comparable listings.
+const DISCOUNT_PEER_MIN_SAMPLE = 2
+
+async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<number | null> {
+  const median = await getProductCleanMedian(db, productId, { scope: 'all', minSample: DISCOUNT_PEER_MIN_SAMPLE })
+  return median?.medianPrice ?? null
 }
 
 // Real-market-price-first discount check for a single listing, called
@@ -103,11 +83,11 @@ export async function checkListingDiscount(
   } else if (secondhandPrice) {
     referencePrice = secondhandPrice.low
   } else {
-    referencePrice = await getPeerMedianPrice(db, productId)
+    referencePrice = await getDiscountPeerMedian(db, productId)
   }
 
   if (referencePrice === null || referencePrice <= 0) return
-  if (priceAmount < referencePrice / 10 || priceAmount > referencePrice * 10) return // same magnitude-outlier guard as elsewhere
+  if (isMagnitudeOutlier(priceAmount, referencePrice)) return
 
   const discountPercent = Math.round(((referencePrice - priceAmount) / referencePrice) * 100)
   const profitPesos = referencePrice - priceAmount

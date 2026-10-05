@@ -12,7 +12,10 @@ import {
 } from './pricing'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const SERVER_PRICE_RULES = path.join(HERE, '../../../src/modules/pricing/price-rules.ts')
+// The server splits these across price-rules.ts and clean-median.ts.
+const SERVER_PRICE_RULES = ['price-rules.ts', 'clean-median.ts'].map((f) =>
+  path.join(HERE, '../../../src/modules/pricing', f),
+)
 
 // These functions exist in two places on purpose (see pricing.ts's header):
 // src/modules/pricing/price-rules.ts computes them alongside the SQL, this
@@ -41,7 +44,7 @@ test.each([
   'computeListingDiscount',
   'isListingPriceNegotiable',
 ])('%s stays identical to the server copy', (name) => {
-  const serverSource = readFileSync(SERVER_PRICE_RULES, 'utf8')
+  const serverSource = SERVER_PRICE_RULES.map((f) => readFileSync(f, 'utf8')).join('\n')
   const localSource = readFileSync(path.join(HERE, 'pricing.ts'), 'utf8')
 
   expect(bodyOf(localSource, name)).toBe(bodyOf(serverSource, name))

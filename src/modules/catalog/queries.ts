@@ -7,6 +7,7 @@ import {
   DISCOUNT_SUMMARY_LATERAL,
   isPlaceholderPrice,
   isPriceInvalidated,
+  medianCtes,
   NEW_PRICE_LATERAL,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
@@ -112,13 +113,11 @@ export async function getProductSummaries(
     // median DISCOUNT_SUMMARY_LATERAL calls "raw" - used here only to gate
     // price_min/max/avg against magnitude-outlier troll prices (see
     // notMagnitudeOutlierSql), not as a displayed value itself.
-    `WITH product_median AS (
-       SELECT l.product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY l.price_amount) AS raw_median_price
-       FROM listings l
-       WHERE l.sold_at IS NULL AND l.price_amount IS NOT NULL AND l.price_amount > 0
-         AND ${notPlaceholderPriceSql('l.price_amount')}
-       GROUP BY l.product_id
-     ),
+    `WITH ${medianCtes({
+      name: 'product_median',
+      pool: 'SELECT l.product_id, l.price_amount FROM listings l WHERE l.sold_at IS NULL',
+      clean: false,
+    })},
      p AS (
        SELECT p.id, p.base_model, p.variant_tier, c.name AS category, sc.name AS sub_category, p.price_lookup_excluded,
               count(l.id) as listing_count,

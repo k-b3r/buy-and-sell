@@ -1,5 +1,5 @@
 import { toNullableNumber } from '../../platform/rows'
-import { isMagnitudeOutlier, isPlaceholderPrice, notPlaceholderPriceSql } from './clean-median'
+import { isMagnitudeOutlier, isPlaceholderPrice, medianCtes, notMagnitudeOutlierSql } from './clean-median'
 
 export interface DiscountBand {
   bandFloor: number
@@ -111,34 +111,24 @@ export function toDiscountBands(value: unknown): DiscountBand[] {
 
 export const DISCOUNT_SUMMARY_LATERAL = `
   LEFT JOIN LATERAL (
-    WITH product_prices AS (
-      -- price_lookup_excluded gated here, not just on the final aggregate
-      -- below: the "bands" CTE further down is computed independently of
-      -- that later WHERE (CTEs materialize before it's applied), so an
-      -- excluded product's real discount_bands leaked through even after
-      -- best_discount_percent/discounted_listing_count correctly went null.
-      -- Confirmed live 2026-08-23: "House and Lot"/"Item"/"Desktop PC" all
-      -- still showed real band arrays despite being flagged excluded.
-      SELECT price_amount FROM listings pl
-      WHERE pl.product_id = p.id AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
-        AND NOT p.price_lookup_excluded
-        AND ${notPlaceholderPriceSql('pl.price_amount')}
-    ),
-    raw AS (
-      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
-      FROM product_prices
-    ),
-    clean AS (
-      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount) AS median_price
-      FROM product_prices pp, raw
-      WHERE raw.n >= 2 AND raw.median_price > 0
-        AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
-    ),
+    -- price_lookup_excluded gated in the pool, not just on the final
+    -- aggregate below: the "bands" CTE further down is computed
+    -- independently of that later WHERE (CTEs materialize before it's
+    -- applied), so an excluded product's real discount_bands leaked through
+    -- even after best_discount_percent/discounted_listing_count correctly
+    -- went null. Confirmed live 2026-08-23: "House and Lot"/"Item"/"Desktop
+    -- PC" all still showed real band arrays despite being flagged excluded.
+    WITH ${medianCtes({
+      name: 'product_median',
+      pool: 'SELECT pl.product_id, pl.price_amount FROM listings pl WHERE pl.product_id = p.id AND NOT p.price_lookup_excluded',
+      minSample: 2,
+    })},
     discounts AS (
-      SELECT round(((clean.median_price - pp.price_amount) / clean.median_price) * 100) AS discount_percent
-      FROM product_prices pp, raw, clean
-      WHERE raw.n >= 2 AND raw.median_price > 0 AND clean.median_price > 0
-        AND pp.price_amount BETWEEN raw.median_price / 10 AND raw.median_price * 10
+      SELECT round(((m.clean_median_price - pp.price_amount) / m.clean_median_price) * 100) AS discount_percent
+      FROM product_median_prices pp
+      JOIN product_median m ON m.product_id = pp.product_id
+      WHERE m.clean_median_price > 0
+        AND ${notMagnitudeOutlierSql('pp.price_amount', 'm.raw_median_price')}
     ),
     -- Single-digit discounts (1-9%) aren't a real deal signal - floor is
     -- 10%, per direct instruction (2026-08-23), mirrored in summarizeDiscounts.

@@ -44,7 +44,7 @@ export function notPlaceholderPriceSql(column: string): string {
 
 // >10x or <0.1x the raw median is almost always a placeholder, scam, or
 // typo, not a real ask.
-export const MAGNITUDE_OUTLIER_RATIO = 10
+const MAGNITUDE_OUTLIER_RATIO = 10
 
 // Same magnitude-outlier heuristic as listing-price-review.ts's
 // getPriceReviewCandidates' pre-filter (which uses a tighter band) -
