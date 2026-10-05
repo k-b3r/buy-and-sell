@@ -9,6 +9,8 @@ import {
   SUB_CATEGORIES,
   buildSubCategoryBackfillPrompt,
   SUB_CATEGORY_BACKFILL_RESPONSE_SCHEMA,
+  isProductCategory,
+  isSubCategory,
 } from './products'
 import type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
 
@@ -139,6 +141,21 @@ test('CATEGORY_BACKFILL_RESPONSE_SCHEMA requires a results array with id/categor
 test('SUB_CATEGORIES has no duplicates and includes Other as the fallback', () => {
   expect(new Set(SUB_CATEGORIES).size).toBe(SUB_CATEGORIES.length)
   expect(SUB_CATEGORIES).toContain('Other')
+})
+
+test('isProductCategory accepts only exact names from the fixed category list', () => {
+  expect(isProductCategory('Gaming')).toBe(true)
+  expect(isProductCategory('gaming')).toBe(false)
+  expect(isProductCategory('Consoles')).toBe(false)
+  expect(isProductCategory(null)).toBe(false)
+  expect(isProductCategory(7)).toBe(false)
+})
+
+test('isSubCategory accepts only exact names from the fixed sub-category list', () => {
+  expect(isSubCategory('Consoles')).toBe(true)
+  expect(isSubCategory('Other')).toBe(true)
+  expect(isSubCategory('Gaming')).toBe(false)
+  expect(isSubCategory(undefined)).toBe(false)
 })
 
 test('buildSubCategoryBackfillPrompt includes each product id/label/current-category and the fixed sub-category list', () => {

@@ -3,8 +3,8 @@ import {
   CANONICAL_BASE_MODEL,
   normalizeBaseModel,
   normalizeVariantTier,
-  PRODUCT_CATEGORIES,
-  SUB_CATEGORIES,
+  isProductCategory,
+  isSubCategory,
 } from './products'
 
 // One item of the model's `results` array, unvalidated.
@@ -24,10 +24,6 @@ export interface ExtractedListing {
   subCategory: string | null
   // Listings with the same key belong to the same product row.
   productKey: string
-}
-
-function oneOf(value: unknown, allowed: readonly string[]): string | null {
-  return typeof value === 'string' && allowed.includes(value) ? value : null
 }
 
 // Validates one response item against the batch it answers. Returns null for
@@ -54,8 +50,8 @@ export function parseExtractionItem(item: RawExtractionItem, batch: ExtractionCa
     // Dashboard browsing/filtering aid only - a missing/invalid category
     // falls back to null rather than skipping the whole item, since
     // base_model assignment matters far more than category.
-    category: oneOf(item.category, PRODUCT_CATEGORIES),
-    subCategory: oneOf(item.sub_category, SUB_CATEGORIES),
+    category: isProductCategory(item.category) ? item.category : null,
+    subCategory: isSubCategory(item.sub_category) ? item.sub_category : null,
     productKey: `${normalizeBaseModel(baseModel)}::${variant ? normalizeVariantTier(variant) : ''}`,
   }
 }
