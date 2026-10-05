@@ -2,6 +2,15 @@ import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
 import * as queries from '../queries'
 import {
+  excludeProductFromReview,
+  getProductDetail,
+  getProductsNeedingReview,
+  getProductSummaries,
+  getSoldCountsBySubCategory,
+  getSubCategoryTree,
+  markProductReviewed,
+} from '../../src/modules/catalog'
+import {
   getComparableListings,
   getDeals,
   getDiscountNotifications,
@@ -29,13 +38,13 @@ import { getRealEstateListings } from '../../src/modules/real-estate'
 // Adding a dashboard query means adding it here too. That is the intended
 // friction: it's the whole security boundary.
 const REGISTRY = {
-  getProductSummaries: queries.getProductSummaries,
-  getSubCategoryTree: queries.getSubCategoryTree,
-  getProductsNeedingReview: queries.getProductsNeedingReview,
+  getProductSummaries,
+  getSubCategoryTree,
+  getProductsNeedingReview,
   setManualPrice,
-  markProductReviewed: queries.markProductReviewed,
-  excludeProductFromReview: queries.excludeProductFromReview,
-  getProductDetail: queries.getProductDetail,
+  markProductReviewed,
+  excludeProductFromReview,
+  getProductDetail,
   getListingDetail: queries.getListingDetail,
   getSoldComparablePrice,
   getPeerMedianPrice,
@@ -43,7 +52,7 @@ const REGISTRY = {
   getDeals,
   saveListing: queries.saveListing,
   unsaveListing: queries.unsaveListing,
-  getSoldCountsBySubCategory: queries.getSoldCountsBySubCategory,
+  getSoldCountsBySubCategory,
   getSavedListings: queries.getSavedListings,
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
