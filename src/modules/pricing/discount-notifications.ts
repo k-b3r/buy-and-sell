@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
-import { isPlaceholderPrice, notPlaceholderPriceSql } from './price-rules'
+import { isNewCondition, isPlaceholderPrice, notPlaceholderPriceSql } from './price-rules'
 
 export interface DiscountPolicyThresholds {
   highDiscountThresholdPercent: number
@@ -65,18 +65,6 @@ async function getPeerMedianPrice(db: DbClient, productId: number): Promise<numb
   )) as { rows: { clean_median_price: string | null }[] }
   const value = result.rows[0]?.clean_median_price
   return value ? Number(value) : null
-}
-
-// "used" wins outright over "new" - "Used - like new" contains "new" but is
-// never actually new-in-box. Same fix as discount-verification.ts's
-// isNewCondition, duplicated here rather than imported (that module isn't
-// committed yet as of 2026-08-31, and this is a small enough pure function
-// that duplication is cheaper than the coupling).
-function isNewCondition(condition: string | null): boolean {
-  if (condition === null) return false
-  const lower = condition.toLowerCase()
-  if (lower.includes('used')) return false
-  return lower.includes('new')
 }
 
 // Real-market-price-first discount check for a single listing, called

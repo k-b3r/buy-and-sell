@@ -3,6 +3,7 @@ import {
   computeListingDiscount,
   isListingPriceNegotiable,
   isMagnitudeOutlier,
+  isNewCondition,
   isPlaceholderPrice,
   isPriceInvalidated,
   summarizeDiscounts,
@@ -165,4 +166,11 @@ test('computeListingDiscount is null when price/median data is missing or non-po
   expect(computeListingDiscount(12000, null, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
   expect(computeListingDiscount(12000, 15000, null, 5)).toEqual({ discountPercent: null, referencePrice: null })
   expect(computeListingDiscount(12000, 0, 15000, 5)).toEqual({ discountPercent: null, referencePrice: null })
+})
+
+test('isNewCondition reads only a plain "New" label as new, never a "Used - like new" one', () => {
+  expect(isNewCondition('New')).toBe(true)
+  expect(isNewCondition('Used - Like New')).toBe(false)
+  expect(isNewCondition('Used - Good')).toBe(false)
+  expect(isNewCondition(null)).toBe(false)
 })
