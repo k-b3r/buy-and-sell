@@ -1,9 +1,9 @@
 import { existsSync, rmSync, readFileSync } from 'node:fs'
-import { runProductEnrichment } from './index'
+import { runProductEnrichment } from './run-enrichment'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { EnrichmentCandidate } from '../../modules/catalog'
+import type { EnrichmentCandidate } from './enrichment'
 
 const LOG_PATH = 'data/tmp-enrich.log'
 

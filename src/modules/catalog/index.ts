@@ -34,3 +34,4 @@ export {
 } from './products'
 export { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 export { getProductsNeedingReview, markProductReviewed } from './review-queue'
+export { runProductEnrichment } from './run-enrichment'
