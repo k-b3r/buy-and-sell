@@ -9,11 +9,11 @@ import {
   parseExaPriceResponse,
   buildTavilyQuery,
   parseTavilyPriceAnswer,
-  lookupRetail,
-  lookupSecondhand,
+  lookupPrice,
   ensureProductPriced,
 } from './price-lookup'
 import type { DetectGeneric, PriceLookupCandidate, PriceLookupClients } from './price-lookup'
+import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
@@ -142,7 +142,7 @@ test('parseTavilyPriceAnswer returns null for null or empty text', () => {
   expect(parseTavilyPriceAnswer('')).toBeNull()
 })
 
-// ---- lookupRetail / lookupSecondhand / ensureProductPriced ----
+// ---- lookupPrice / ensureProductPriced ----
 
 const LOG_PATH = 'data/tmp-price-lookup-domain.log'
 
@@ -184,7 +184,7 @@ function fakeClients(overrides: Partial<PriceLookupClients> = {}): PriceLookupCl
   return { gemini, exa, tavily, ...overrides }
 }
 
-test('lookupRetail tries Gemini first', async () => {
+test('lookupPrice retail tries Gemini first', async () => {
   const clients = fakeClients({
     gemini: {
       generateJson: async () => ({}),
@@ -193,7 +193,7 @@ test('lookupRetail tries Gemini first', async () => {
   })
   const logger = createLogger(LOG_PATH)
 
-  const result = await lookupRetail(clients, product, logger, 'Sony WH-1000XM4')
+  const result = await lookupPrice({ clients, logger }, 'retail', product)
 
   expect(result).toEqual({
     price: { low: 14499, high: 19999, currency: 'PHP' },
@@ -202,7 +202,7 @@ test('lookupRetail tries Gemini first', async () => {
   })
 })
 
-test('lookupRetail falls back Gemini -> Exa -> Tavily in order', async () => {
+test('lookupPrice retail falls back Gemini -> Exa -> Tavily in order', async () => {
   const clients = fakeClients({
     exa: {
       searchStructured: async () => ({ output: { content: { found: true, price_low: 14499, price_high: 19999 } } }),
@@ -210,30 +210,30 @@ test('lookupRetail falls back Gemini -> Exa -> Tavily in order', async () => {
   })
   const logger = createLogger(LOG_PATH)
 
-  const result = await lookupRetail(clients, product, logger, 'Sony WH-1000XM4')
+  const result = await lookupPrice({ clients, logger }, 'retail', product)
 
   expect(result?.source).toBe('exa_new_retail')
 })
 
-test('lookupRetail falls back to Tavily when Gemini and Exa both find nothing', async () => {
+test('lookupPrice retail falls back to Tavily when Gemini and Exa both find nothing', async () => {
   const clients = fakeClients({
     tavily: { search: async () => ({ answer: 'Retail price is ₱14,499 to ₱19,999.', results: [] }) },
   })
   const logger = createLogger(LOG_PATH)
 
-  const result = await lookupRetail(clients, product, logger, 'Sony WH-1000XM4')
+  const result = await lookupPrice({ clients, logger }, 'retail', product)
 
   expect(result?.source).toBe('tavily_new_retail')
 })
 
-test('lookupRetail returns null when all three providers find nothing', async () => {
+test('lookupPrice retail returns null when all three providers find nothing', async () => {
   const clients = fakeClients()
   const logger = createLogger(LOG_PATH)
 
-  expect(await lookupRetail(clients, product, logger, 'Sony WH-1000XM4')).toBeNull()
+  expect(await lookupPrice({ clients, logger }, 'retail', product)).toBeNull()
 })
 
-test('lookupSecondhand tries Gemini first', async () => {
+test('lookupPrice secondhand tries Gemini first', async () => {
   const clients = fakeClients({
     gemini: {
       generateJson: async () => ({}),
@@ -242,7 +242,7 @@ test('lookupSecondhand tries Gemini first', async () => {
   })
   const logger = createLogger(LOG_PATH)
 
-  const result = await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')
+  const result = await lookupPrice({ clients, logger }, 'secondhand', product)
 
   expect(result).toEqual({
     price: { low: 8000, high: 11000, currency: 'PHP' },
@@ -251,7 +251,7 @@ test('lookupSecondhand tries Gemini first', async () => {
   })
 })
 
-test('lookupSecondhand falls back Gemini -> Exa -> Tavily in order', async () => {
+test('lookupPrice secondhand falls back Gemini -> Exa -> Tavily in order', async () => {
   const clients = fakeClients({
     exa: {
       searchStructured: async () => ({ output: { content: { found: true, price_low: 9000, price_high: 10500 } } }),
@@ -259,16 +259,84 @@ test('lookupSecondhand falls back Gemini -> Exa -> Tavily in order', async () =>
   })
   const logger = createLogger(LOG_PATH)
 
-  const result = await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')
+  const result = await lookupPrice({ clients, logger }, 'secondhand', product)
 
   expect(result?.source).toBe('exa_secondhand')
 })
 
-test('lookupSecondhand returns null when all three providers find nothing', async () => {
+test('lookupPrice secondhand returns null when all three providers find nothing', async () => {
   const clients = fakeClients()
   const logger = createLogger(LOG_PATH)
 
-  expect(await lookupSecondhand(clients, product, logger, 'Sony WH-1000XM4')).toBeNull()
+  expect(await lookupPrice({ clients, logger }, 'secondhand', product)).toBeNull()
+})
+
+function fakeLogger(): Logger & { warnings: string[] } {
+  const warnings: string[] = []
+  return { warnings, info: () => {}, warn: (msg) => warnings.push(msg), error: () => {} }
+}
+
+test('lookupPrice secondhand falls back to Tavily when Gemini and Exa both find nothing', async () => {
+  const clients = fakeClients({
+    tavily: { search: async () => ({ answer: 'Used ones go for ₱8,000 to ₱11,000.', results: [] }) },
+  })
+
+  const result = await lookupPrice({ clients, logger: fakeLogger() }, 'secondhand', product)
+
+  expect(result?.source).toBe('tavily_secondhand')
+})
+
+test('lookupPrice skips a too-wide range and names the next provider in the warning', async () => {
+  const clients = fakeClients({
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async () => '```json\n{"found": true, "price_low": 1000, "price_high": 50000}\n```',
+    },
+    exa: {
+      searchStructured: async () => ({ output: { content: { found: true, price_low: 9000, price_high: 10500 } } }),
+    },
+  })
+  const logger = fakeLogger()
+
+  const result = await lookupPrice({ clients, logger }, 'secondhand', product)
+
+  expect(result?.source).toBe('exa_secondhand')
+  expect(logger.warnings).toEqual([
+    'product 2 (Sony WH-1000XM4): Gemini secondhand range too wide (1000-50000), falling back to Exa',
+  ])
+})
+
+test('lookupPrice drops a too-wide range from the last provider instead of returning it', async () => {
+  const clients = fakeClients({
+    tavily: { search: async () => ({ answer: 'Anywhere from ₱1,000 to ₱50,000.', results: [] }) },
+  })
+  const logger = fakeLogger()
+
+  const result = await lookupPrice({ clients, logger }, 'retail', product)
+
+  expect(result).toBeNull()
+  expect(logger.warnings).toEqual(['product 2 (Sony WH-1000XM4): Tavily retail range too wide (1000-50000), dropped'])
+})
+
+test('lookupPrice logs a provider error and moves on, with no fallback named after the last provider', async () => {
+  const failing = async (): Promise<never> => {
+    throw new Error('boom')
+  }
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: failing },
+    exa: { searchStructured: failing },
+    tavily: { search: failing },
+  })
+  const logger = fakeLogger()
+
+  const result = await lookupPrice({ clients, logger }, 'retail', product)
+
+  expect(result).toBeNull()
+  expect(logger.warnings).toEqual([
+    'product 2 (Sony WH-1000XM4): Gemini retail lookup failed (boom), falling back to Exa',
+    'product 2 (Sony WH-1000XM4): Exa retail lookup failed (boom), falling back to Tavily',
+    'product 2 (Sony WH-1000XM4): Tavily retail lookup failed (boom)',
+  ])
 })
 
 test('ensureProductPriced excludes a text-pattern-generic product before spending any call', async () => {
@@ -308,7 +376,7 @@ test('ensureProductPriced excludes the product entirely when retail is not found
 
   expect(result).toEqual({ retail: null, secondhand: null, excluded: true })
   // Exactly 1: retail's own Gemini attempt (which also failed, along with
-  // Exa/Tavily) - lookupSecondhand's Gemini attempt never happens because
+  // Exa/Tavily) - the secondhand Gemini attempt never happens because
   // ensureProductPriced bails out before trying secondhand at all.
   expect(geminiCallCount).toBe(1)
   const flagCall = calls.find((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))
