@@ -4,9 +4,9 @@ import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
-import { normalizeBaseModel } from '../../domains/marketplace'
-import { findModelCodeMismatches, deriveTargetBaseModel } from '../../domains/marketplace'
-import { updateListingProductIds } from '../../domains/marketplace'
+import { normalizeBaseModel } from '../../modules/catalog'
+import { findModelCodeMismatches, deriveTargetBaseModel } from '../../modules/catalog'
+import { updateListingProductIds } from '../../modules/catalog'
 
 interface CandidateRow {
   listing_id: string

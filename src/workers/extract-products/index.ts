@@ -21,8 +21,8 @@ import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import type { ExtractionCandidate } from '../../domains/marketplace'
-import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../domains/marketplace'
+import type { ExtractionCandidate } from '../../modules/catalog'
+import { findOrCreateProduct, updateListingProductIds, getExtractionCandidates } from '../../modules/catalog'
 import type { DiscountPolicyThresholds } from '../../modules/pricing'
 import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY } from '../../modules/pricing'
 import { getProductPricingStatus } from '../../modules/pricing'
@@ -36,7 +36,7 @@ import {
   PRODUCT_CATEGORIES,
   SUB_CATEGORIES,
   CANONICAL_BASE_MODEL,
-} from '../../domains/marketplace'
+} from '../../modules/catalog'
 
 export interface ExtractionClients {
   groq: GroqClient

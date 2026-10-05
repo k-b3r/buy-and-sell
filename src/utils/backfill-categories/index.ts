@@ -15,13 +15,13 @@ import { createDbPool } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile } from '../../platform/env'
-import { getCategoryBackfillCandidates, updateProductCategories } from '../../domains/marketplace'
+import { getCategoryBackfillCandidates, updateProductCategories } from '../../modules/catalog'
 import {
   buildCategoryBackfillPrompt,
   CATEGORY_BACKFILL_RESPONSE_SCHEMA,
   PRODUCT_CATEGORIES,
-} from '../../domains/marketplace'
-import type { CategoryBackfillCandidate } from '../../domains/marketplace'
+} from '../../modules/catalog'
+import type { CategoryBackfillCandidate } from '../../modules/catalog'
 
 // Output per item here is just {id, category} — far smaller than
 // enrich-products.ts's multi-field payload, so this tolerates a much larger

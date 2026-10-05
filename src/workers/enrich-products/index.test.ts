@@ -3,7 +3,7 @@ import { runProductEnrichment } from './index'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { EnrichmentCandidate } from '../../domains/marketplace'
+import type { EnrichmentCandidate } from '../../modules/catalog'
 
 const LOG_PATH = 'data/tmp-enrich.log'
 

@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
-import { normalizeBaseModel, normalizeVariantTier } from '../../domains/marketplace'
-import { mergeDuplicateProduct } from '../../domains/marketplace'
+import { normalizeBaseModel, normalizeVariantTier } from '../../modules/catalog'
+import { mergeDuplicateProduct } from '../../modules/catalog'
 
 // Generalizes ./index.ts's CANONICAL_BASE_MODEL (base_model-only rename) to
 // also move text between base_model and variant_tier - most of the

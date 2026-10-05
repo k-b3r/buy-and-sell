@@ -1,7 +1,7 @@
-import type { DbClient } from '../../../platform/storage'
-import { normalizeBaseModel, normalizeVariantTier } from '../products'
-import type { EnrichmentCandidate, EnrichmentData } from '../enrichment'
-import type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from '../products'
+import type { DbClient } from '../../platform/storage'
+import { normalizeBaseModel, normalizeVariantTier } from './products'
+import type { EnrichmentCandidate, EnrichmentData } from './enrichment'
+import type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
 
 // category/subCategory are only ever set at creation, same as
 // base_model/variant_tier — dashboard browsing/filtering only, not

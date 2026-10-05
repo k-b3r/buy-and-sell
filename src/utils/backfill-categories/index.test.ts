@@ -3,7 +3,7 @@ import { runCategoryBackfill } from './index'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { CategoryBackfillCandidate } from '../../domains/marketplace'
+import type { CategoryBackfillCandidate } from '../../modules/catalog'
 
 const LOG_PATH = 'data/tmp-backfill-categories.log'
 
