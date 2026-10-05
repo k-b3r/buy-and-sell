@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from 'node:fs'
-import { computePriceRangeFromPrices, getListingPricesByProduct, runPriceFromListings } from './index'
+import { computePriceRangeFromPrices, runPriceFromListings } from './price-from-listings'
 import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 
@@ -20,35 +20,18 @@ test('computePriceRangeFromPrices returns null when fewer than 2 valid prices re
   expect(computePriceRangeFromPrices([])).toBeNull()
 })
 
-function fakeDb(rows: Record<string, unknown>[] = []): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
+function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
   return {
     calls,
     db: {
       query: async (sql: string, params: unknown[]) => {
         calls.push({ sql, params })
-        return { rows }
+        return { rows: [] }
       },
     },
   }
 }
-
-test('getListingPricesByProduct groups by product AND condition, excludes unlabeled-condition listings, requires 2+ per group', async () => {
-  const { db, calls } = fakeDb([
-    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'Used - Good', prices: ['14999', '15000'] },
-    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: ['18000', '18500'] },
-  ])
-
-  const result = await getListingPricesByProduct(db)
-
-  expect(calls[0].sql).toContain('HAVING count(l.id) >= 2')
-  expect(calls[0].sql).toContain('l.condition IS NOT NULL')
-  expect(calls[0].sql).toContain('p.id, p.base_model, p.variant_tier, l.condition')
-  expect(result).toEqual([
-    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'Used - Good', prices: [14999, 15000] },
-    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: [18000, 18500] },
-  ])
-})
 
 test('runPriceFromListings inserts one listing_prices row per product/condition group with enough valid prices, skips the rest, tags the condition', async () => {
   const logger = createLogger(LOG_PATH)

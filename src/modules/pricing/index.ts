@@ -66,6 +66,7 @@ export {
   getProductPricingStatus,
   insertPriceCheck,
 } from './price-history'
+export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
 export { ensureProductPriced } from './price-lookup'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
