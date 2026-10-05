@@ -20,10 +20,6 @@
           "slug": "platform"
         },
         {
-          "name": "run.ts",
-          "slug": "run.ts"
-        },
-        {
           "name": "utils",
           "slug": "utils"
         },

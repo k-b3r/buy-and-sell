@@ -1,7 +1,8 @@
 import type { DbClient } from '../../platform/storage'
 import type { ImageStore } from '../../platform/images'
 import type { Logger } from '../../platform/logger'
-import { filterFarCandidates, purgeFarListings } from './index'
+import { filterFarCandidates, purgeFarListings } from './far-listings'
+import { createListingPhotos } from './photos'
 
 function silentLogger(): Logger {
   return { info: () => {}, warn: () => {}, error: () => {} }
@@ -32,7 +33,13 @@ test('purgeFarListings deletes photos then the row for every far candidate', asy
     },
   }
 
-  const count = await purgeFarListings(db, silentLogger(), imageStore, [
+  const photos = createListingPhotos({
+    store: imageStore,
+    fetchBytes: async () => null,
+    compress: async (body, contentType) => ({ body, contentType }),
+    logger: silentLogger(),
+  })
+  const count = await purgeFarListings(db, silentLogger(), photos, [
     { id: 'far-1', lat: 10.3157, lng: 123.8854 },
     { id: 'far-2', lat: 16.4, lng: 120.6 },
   ])

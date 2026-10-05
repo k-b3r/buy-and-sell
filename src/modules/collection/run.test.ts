@@ -1,27 +1,17 @@
-import { Readable, Writable } from 'node:stream'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
-import type { PageDriver } from './domains/marketplace'
-import type { DbClient } from './platform/storage'
+import type { PageDriver } from './driver'
+import type { DbClient } from '../../platform/storage'
 import { runCollection, resolvePageState } from './run'
-import { createLogger } from './platform/logger'
+import { createLogger } from '../../platform/logger'
+import { createListingPhotos } from './photos'
 
 const LOG_PATH = 'data/tmp-run.log'
+
+const noDelay = async () => {}
 
 afterEach(() => {
   if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
 })
-
-function mockInput(...lines: string[]): Readable {
-  return Readable.from(lines.map((l) => l + '\n').join(''))
-}
-
-function silentOutput(): Writable {
-  return new Writable({
-    write(_c, _e, cb) {
-      cb()
-    },
-  })
-}
 
 function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
   return {
@@ -39,7 +29,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // existingIds simulates listings Postgres already has (from any prior run, any
 // machine) — the dedup source runCollection reads once at the start via
 // getCollectedListingIds. upsertCalls captures every upsertListing call this
-// run makes, in full param-array form (see domains/marketplace/storage/listings.ts's upsertListing for the
+// run makes, in full param-array form (see listings.ts's upsertListing for the
 // positional layout: [0]=id, [1]=title, [5]=condition, [11]=stored_photo_urls).
 function fakeDb(existingIds: string[] = []): { db: DbClient; upsertCalls: unknown[][] } {
   const upsertCalls: unknown[][] = []
@@ -67,29 +57,19 @@ test('passes daysSinceListed through to the driver, defaulting to 30 when unset'
   const logger = createLogger(LOG_PATH)
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db: fakeDb().db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
     },
-    fakeDb().db,
   )
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db: fakeDb().db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
       daysSinceListed: 7,
     },
-    fakeDb().db,
   )
 
   expect(calls).toEqual([
@@ -116,16 +96,11 @@ test('approved item gets saved, then loop advances to next item', async () => {
   const logger = createLogger(LOG_PATH)
   const { db, upsertCalls } = fakeDb()
   await runCollection(
-    finalDriver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver: finalDriver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
     },
-    db,
   )
 
   expect(upsertCalls).toHaveLength(2)
@@ -155,16 +130,17 @@ test('listing outside the 80km Manila service area is auto-rejected without revi
   const { db, upsertCalls } = fakeDb()
   let reviewCalls = 0
   await runCollection(
-    driver,
-    logger,
-    async () => {
-      reviewCalls += 1
-      return 'approve'
+    {
+      driver,
+      db,
+      logger,
+      delay: noDelay,
+      review: async () => {
+        reviewCalls += 1
+        return 'approve'
+      },
     },
-    mockInput(),
-    silentOutput(),
     { query: 'headphones', softWallTimeoutMs: 100 },
-    db,
   )
 
   expect(reviewCalls).toBe(1)
@@ -189,16 +165,11 @@ test('"stop" decision ends the run without processing remaining items', async ()
   const { db, upsertCalls } = fakeDb()
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'stop',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'stop' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
     },
-    db,
   )
 
   expect(upsertCalls).toHaveLength(0)
@@ -218,16 +189,11 @@ test('hard-block page state fails closed and stops the run', async () => {
   const { db, upsertCalls } = fakeDb()
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
     },
-    db,
   )
 
   expect(upsertCalls).toHaveLength(0)
@@ -240,20 +206,16 @@ test('resolvePageState tags the stop reason so callers can distinguish a real bl
   const logger = createLogger(LOG_PATH)
 
   const hardBlock = await resolvePageState(
-    driver,
-    logger,
-    async () => `<div class="checkpoint_challenge">captcha</div>`,
+    { driver, logger, delay: noDelay },
+    { fetchHtml: async () => `<div class="checkpoint_challenge">captcha</div>`, hasContent: () => false },
     10,
-    () => false,
   )
   expect(hardBlock).toEqual({ status: 'stop', reason: 'hard-block' })
 
   const softWallPersisted = await resolvePageState(
-    driver,
-    logger,
-    async () => `<div class="login_form">log in</div>`,
+    { driver, logger, delay: noDelay },
+    { fetchHtml: async () => `<div class="login_form">log in</div>`, hasContent: () => false },
     10,
-    () => false,
   )
   expect(softWallPersisted).toEqual({ status: 'stop', reason: 'soft-wall-persisted' })
 })
@@ -262,14 +224,15 @@ test('resolvePageState waits the soft-wall timeout through the injected delay be
   const waits: number[] = []
   const driver = makeDriver({ refresh: async () => {} })
   await resolvePageState(
-    driver,
-    createLogger(LOG_PATH),
-    async () => `<div class="login_form">log in</div>`,
-    45000,
-    () => false,
-    async (ms) => {
-      waits.push(ms)
+    {
+      driver,
+      logger: createLogger(LOG_PATH),
+      delay: async (ms) => {
+        waits.push(ms)
+      },
     },
+    { fetchHtml: async () => `<div class="login_form">log in</div>`, hasContent: () => false },
+    45000,
   )
   expect(waits).toEqual([45000])
 })
@@ -296,16 +259,11 @@ test('soft-wall on detail page recovers via refresh and extracts post-refresh co
   const { db, upsertCalls } = fakeDb()
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 10,
     },
-    db,
   )
 
   expect(refreshCalled).toBe(true)
@@ -348,17 +306,12 @@ test('paginates for more items when maxItems exceeds first batch, deduping by id
   const { db, upsertCalls } = fakeDb()
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
       maxItems: 2,
     },
-    db,
   )
 
   expect(upsertCalls.map((c) => c[0])).toEqual(['1', '2'])
@@ -399,17 +352,12 @@ test('clamps to the hard 1000-item limit even when maxItems requests more', asyn
   const { db, upsertCalls } = fakeDb()
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
       maxItems: 2000,
     },
-    db,
   )
 
   // The "exceeds hard limit" warning itself isn't checked here - it's
@@ -465,17 +413,12 @@ test('tolerates an empty pagination page and recovers real items from the next o
   const { db, upsertCalls } = fakeDb()
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
       maxItems: 2,
     },
-    db,
   )
 
   expect(paginationCallIndex).toBe(2)
@@ -508,16 +451,11 @@ test('skips listings Postgres already has from a prior run', async () => {
   const { db, upsertCalls } = fakeDb(['1'])
 
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
     },
-    db,
   )
 
   expect(openedIds).toEqual(['2'])
@@ -557,17 +495,12 @@ test('resuming after a crash processes a fresh maxItems budget of new items, on 
   // already saved and get skipped via dedup regardless, then 3 more new ones
   // (3, 4, 5) get processed to fill the budget.
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve' },
     {
       query: 'headphones',
       softWallTimeoutMs: 100,
       maxItems: 3,
     },
-    db,
   )
 
   expect(openedIds).toEqual(['3', '4', '5'])
@@ -595,22 +528,18 @@ test('when an image store is provided, downloads and re-hosts the photo carousel
     },
     deleteAll: async () => {},
   }
-  const originalFetch = global.fetch
-  global.fetch = (async () =>
-    new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } })) as typeof fetch
+  const photos = createListingPhotos({
+    store: imageStore,
+    fetchBytes: async () => ({ body: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' }),
+    compress: async (body, contentType) => ({ body, contentType }),
+    logger,
+  })
 
   const { db, upsertCalls } = fakeDb()
   await runCollection(
-    driver,
-    logger,
-    async () => 'approve',
-    mockInput(),
-    silentOutput(),
+    { driver, db, logger, delay: noDelay, review: async () => 'approve', photos },
     { query: 'headphones', softWallTimeoutMs: 100 },
-    db,
-    imageStore,
   )
-  global.fetch = originalFetch
 
   expect(puts).toEqual(['listings/1/0.jpg'])
   const storedPhotoUrls = upsertCalls[0][11] as string

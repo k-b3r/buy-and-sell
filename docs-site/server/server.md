@@ -22,7 +22,7 @@ _(undocumented)_
 
 ## server/proxyGuard.ts
 
-**Interactions:** imports `../src/domains/marketplace`
+**Interactions:** imports `../src/modules/collection`
 
 ### `createProxyGuard(env: ProxyGuardEnv, checker: TunnelChecker = defaultProxyChecker): () => Promise<TunnelCheckResult>`
 
@@ -66,13 +66,9 @@ _(undocumented)_
 
 ## server/routes/refresh.ts
 
-**Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/browser`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../proxyGuard`, `../refreshPacer`
+**Interactions:** imports `../../src/modules/collection`, `../../src/platform/delay`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../app`, `../proxyGuard`, `../refreshPacer`
 
-### `createRefreshHandler(db: DbClient, imageStore: ImageStore, logger: Logger, pacer: RefreshPacer, driverFactory: DriverFactory, tunnelCheck: () => Promise<TunnelCheckResult>): RouteHandler`
-
-_(undocumented)_
-
-### `defaultDriverFactory(proxy): Promise<{ driver: PageDriver; close: () => Promise<void>; }>`
+### `createRefreshHandler(deps: RefreshDeps): RouteHandler`
 
 _(undocumented)_
 
@@ -94,13 +90,9 @@ _(undocumented)_
 
 ## server/routes/refreshProduct.ts
 
-**Interactions:** imports `../../src/domains/marketplace`, `../../src/domains/marketplace/browser`, `../../src/platform/images`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../../src/workers/check-listings`, `../app`, `../jobState`, `../proxyGuard`, `../refreshLock`, `../refreshPacer`, `./refresh`
+**Interactions:** imports `../../src/modules/collection`, `../../src/platform/settings`, `../app`, `../jobState`, `../refreshLock`, `./refresh`
 
-### `createRefreshProductHandler(db: DbClient, imageStore: ImageStore, logger: Logger, lock: RefreshLock, jobs: JobStore, pacer: RefreshPacer, driverFactory: DriverFactory, tunnelCheck: () => Promise<TunnelCheckResult>): RouteHandler`
-
-_(undocumented)_
-
-### `defaultDriverFactory(proxy): Promise<{ driver: PageDriver; close: () => Promise<void>; }>`
+### `createRefreshProductHandler(deps: RefreshProductDeps): RouteHandler`
 
 _(undocumented)_
 

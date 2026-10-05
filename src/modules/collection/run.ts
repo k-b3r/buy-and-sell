@@ -1,18 +1,14 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
-import type { PageDriver } from './domains/marketplace'
-import type { Logger } from './platform/logger'
-import type { ReviewDecision } from './platform/review'
-import { detectPageState } from './domains/marketplace'
-import { extractGridListings, looksLikeListing } from './domains/marketplace'
-import { extractDetailFields } from './domains/marketplace'
-import { extractCursor, extractLsd, parsePaginationResponse } from './domains/marketplace'
-import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './domains/marketplace'
-import type { DbClient } from './platform/storage'
-import type { DelayFn } from './platform/delay'
-import { realDelay } from './platform/delay'
-import { upsertListing, getCollectedListingIds } from './domains/marketplace'
-import type { ImageStore } from './platform/images'
-import { storeListingPhotos } from './platform/images'
+import type { PageIo } from './driver'
+import type { ReviewDecision } from '../../platform/review'
+import { detectPageState } from './wall'
+import { extractGridListings, looksLikeListing } from './extract/grid'
+import { extractDetailFields } from './extract/detail'
+import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
+import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './location'
+import type { DbClient } from '../../platform/storage'
+import { upsertListing, getCollectedListingIds } from './listings'
+import type { ListingPhotos } from './photos'
 
 // Diagnostic-only, never allowed to take down the caller - confirmed live
 // 2026-08-24: refresh-server.ts runs with CWD=server/ (no data/ dir there,
@@ -38,22 +34,26 @@ export interface RunOptions {
   pacingMaxMs?: number
 }
 
-type ReviewFn = (
-  listing: Record<string, unknown>,
-  input: NodeJS.ReadableStream,
-  output: NodeJS.WritableStream,
-) => Promise<ReviewDecision>
+export interface CollectionRunIo extends PageIo {
+  db: DbClient
+  // Approves, rejects or stops on each in-area listing before it is saved.
+  review: (listing: Record<string, unknown>) => Promise<ReviewDecision>
+  // Without it, listings keep only Facebook's expiring signed photo URLs.
+  photos?: ListingPhotos
+}
 
 type PageStateResult =
   { status: 'ok'; html: string } | { status: 'stop'; reason: 'soft-wall-persisted' | 'hard-block' | 'unrecognized' }
 
+interface PageRead {
+  fetchHtml: () => Promise<string>
+  hasContent: (html: string) => boolean
+}
+
 export async function resolvePageState(
-  driver: PageDriver,
-  logger: Logger,
-  fetchHtml: () => Promise<string>,
+  { driver, logger, delay }: PageIo,
+  { fetchHtml, hasContent }: PageRead,
   softWallTimeoutMs: number,
-  hasContent: (html: string) => boolean,
-  delay: DelayFn = realDelay,
 ): Promise<PageStateResult> {
   let html = await fetchHtml()
   if (hasContent(html)) return { status: 'ok', html }
@@ -83,16 +83,20 @@ export async function resolvePageState(
   return { status: 'stop', reason: state === 'hard-block' ? 'hard-block' : 'unrecognized' }
 }
 
-export async function runCollection(
-  driver: PageDriver,
-  logger: Logger,
-  review: ReviewFn,
-  input: NodeJS.ReadableStream,
-  output: NodeJS.WritableStream,
-  options: RunOptions,
-  db: DbClient,
-  imageStore?: ImageStore,
-): Promise<void> {
+// A listing detail page counts as loaded once any detail field extracts.
+export function resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult> {
+  return resolvePageState(
+    io,
+    {
+      fetchHtml: () => io.driver.getDetailHtml(),
+      hasContent: (html) => Object.keys(extractDetailFields(html)).length > 0,
+    },
+    softWallTimeoutMs,
+  )
+}
+
+export async function runCollection(io: CollectionRunIo, options: RunOptions): Promise<void> {
+  const { driver, db, logger, review, photos } = io
   const daysSinceListed = options.daysSinceListed ?? 30
   const pacingMinMs = options.pacingMinMs ?? 4000
   const pacingMaxMs = options.pacingMaxMs ?? 10000
@@ -100,11 +104,9 @@ export async function runCollection(
   await driver.gotoSearch(options.query, daysSinceListed)
 
   const gridResult = await resolvePageState(
-    driver,
-    logger,
-    () => driver.getGridHtml(),
+    io,
+    { fetchHtml: () => driver.getGridHtml(), hasContent: (html) => extractGridListings(html).length > 0 },
     options.softWallTimeoutMs,
-    (html) => extractGridListings(html).length > 0,
   )
   if (gridResult.status === 'stop') return
 
@@ -143,13 +145,7 @@ export async function runCollection(
       await driver.openListing(listing)
       await driver.waitRandom(pacingMinMs, pacingMaxMs)
 
-      const detailResult = await resolvePageState(
-        driver,
-        logger,
-        () => driver.getDetailHtml(),
-        options.softWallTimeoutMs,
-        (html) => Object.keys(extractDetailFields(html)).length > 0,
-      )
+      const detailResult = await resolveDetailPage(io, options.softWallTimeoutMs)
       if (detailResult.status === 'stop') return 'stop'
 
       const detail = extractDetailFields(detailResult.html)
@@ -160,14 +156,14 @@ export async function runCollection(
         continue
       }
 
-      const decision = await review(merged, input, output)
+      const decision = await review(merged)
       if (decision === 'stop') {
         logger.info('user stopped run')
         return 'stop'
       }
       if (decision === 'approve') {
-        if (imageStore) {
-          const photoUrls = await storeListingPhotos(imageStore, logger, String(merged.id), merged.listing_photos)
+        if (photos) {
+          const photoUrls = await photos.save(String(merged.id), merged.listing_photos)
           if (photoUrls.length > 0) {
             merged.stored_photo_urls = photoUrls
           }

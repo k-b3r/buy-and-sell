@@ -4,7 +4,7 @@ import {
   type ProxyChecker,
   type ProxyEnv,
   type ResolvedProxy,
-} from '../src/domains/marketplace'
+} from '../src/modules/collection'
 
 export type TunnelChecker = ProxyChecker
 
@@ -20,7 +20,7 @@ export interface ProxyGuardEnv extends ProxyEnv {
 
 // Every browser launch on this server must route through a residential IP -
 // Webshare's rotating proxy first, the laptop-relayed SOCKS5 tunnel as
-// fallback (see src/domains/marketplace/proxy.ts) - same as the CLI's
+// fallback (see src/modules/collection/proxy.ts) - same as the CLI's
 // collect/check-listings. Facebook walls Hetzner's datacenter IP immediately
 // (see src/tunnel.ts's originating commit for the confirmed finding). Fails
 // closed rather than falling back to a direct launch: confirmed live
