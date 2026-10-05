@@ -35,7 +35,11 @@ export {
   markDiscountNotificationRead,
   setManualPrice,
 } from './queries'
-export type { DiscountPolicyThresholds, DiscountVerificationCandidate } from './discount-notifications'
+export type {
+  DiscountNotification,
+  DiscountPolicyThresholds,
+  DiscountVerificationCandidate,
+} from './discount-notifications'
 export {
   decideListingDiscount,
   DEFAULT_DISCOUNT_POLICY,

@@ -717,6 +717,66 @@ test('an item whose id matches no listing in the batch is logged with that id an
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('item ghost: no matching listing in this batch, skipping')
 })
 
+// Product 1 already has retail pricing only, so a used listing falls back to
+// the peer median - the query that would see the batch's own listings if
+// their product_ids were saved first.
+function pricedProductDb(peerMedian: () => { rows: unknown[] }): {
+  db: DbClient
+  calls: { sql: string; params: unknown[] }[]
+} {
+  const calls: { sql: string; params: unknown[] }[] = []
+  return {
+    calls,
+    db: {
+      query: async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        if (sql.includes('product_price_history') && sql.includes('price_lookup_excluded')) {
+          return { rows: [{ price_lookup_excluded: false, price_low: '10000', price_high: '12000', condition: 'New' }] }
+        }
+        if (sql.includes('percentile_cont')) return peerMedian()
+        if (sql.startsWith('SELECT') && sql.includes('base_model_normalized')) return { rows: [{ id: 1 }] }
+        return { rows: [] }
+      },
+    },
+  }
+}
+
+test('discounts are decided before the batch saves its product_ids, and notified only after', async () => {
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060' }])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'RTX 3060', condition: 'Used - Good', price_amount: 7000 }),
+  ]
+  const { db, calls } = pricedProductDb(() => ({ rows: [{ sample_size: '4', clean_median_price: '10000' }] }))
+
+  await runProductExtraction({ clients, db, logger }, candidates, { batchSize: 25 })
+
+  const order = (prefix: string) => calls.findIndex((c) => c.sql.trimStart().startsWith(prefix))
+  const peerMedian = calls.findIndex((c) => c.sql.includes('percentile_cont'))
+  expect(peerMedian).toBeGreaterThanOrEqual(0)
+  expect(peerMedian).toBeLessThan(order('UPDATE listings'))
+  expect(order('UPDATE listings')).toBeLessThan(order('INSERT INTO discount_notifications'))
+  expect(calls[order('INSERT INTO discount_notifications')].params).toEqual(['1', 1, 30, 10000])
+})
+
+test('a failure while deciding a discount leaves the whole batch unassigned for the next run', async () => {
+  const clients = fakeClients([{ id: '1', base_model: 'RTX 3060' }])
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'RTX 3060', condition: 'Used - Good', price_amount: 7000 }),
+  ]
+  const { db, calls } = pricedProductDb(() => {
+    throw new Error('connection lost')
+  })
+
+  await expect(runProductExtraction({ clients, db, logger }, candidates, { batchSize: 25 })).rejects.toThrow(
+    'connection lost',
+  )
+
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
+  expect(calls.some((c) => c.sql.startsWith('INSERT INTO discount_notifications'))).toBe(false)
+})
+
 test('a failed batch product_id update leaves no discount notifications behind', async () => {
   const groq = fakeGroq([{ id: '1', base_model: 'Sony WH-1000XM4' }])
   const exa: ExaClient = {

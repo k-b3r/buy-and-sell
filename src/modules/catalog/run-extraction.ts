@@ -4,7 +4,12 @@ import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../dom
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import type { DiscountPolicyThresholds, PriceLookupClients, ProductPricingResult } from '../pricing'
+import type {
+  DiscountNotification,
+  DiscountPolicyThresholds,
+  PriceLookupClients,
+  ProductPricingResult,
+} from '../pricing'
 import {
   decideListingDiscount,
   DEFAULT_DISCOUNT_POLICY,
@@ -160,36 +165,42 @@ async function resolveProductId(run: ExtractionRun, listing: ExtractedListing): 
 }
 
 // Ensures the listing's product has retail/secondhand pricing (fetching only
-// if genuinely missing), then checks this listing's own discount against that
+// if genuinely missing), then decides this listing's own discount against that
 // pricing (or peer-comparison, if secondhand isn't in yet) - see
 // ensureProductPricing/decideListingDiscount for the full reasoning.
-async function checkDiscount(run: ExtractionRun, productId: number, listing: ExtractedListing): Promise<void> {
+async function decideDiscount(
+  run: ExtractionRun,
+  productId: number,
+  listing: ExtractedListing,
+): Promise<DiscountNotification | null> {
   let pricing = run.pricing.get(productId)
   if (pricing === undefined) {
     pricing = await ensureProductPricing(run, productId, listing)
     run.pricing.set(productId, pricing)
   }
-  if (pricing.excluded) return
+  if (pricing.excluded) return null
   const { candidate } = listing
-  const notification = await decideListingDiscount(
+  return decideListingDiscount(
     run.db,
     { id: candidate.id, productId, condition: candidate.condition, priceAmount: candidate.price_amount },
     { retail: pricing.retail, secondhand: pricing.secondhand },
     run.discountThresholds,
   )
-  if (notification) await insertDiscountNotification(run.db, notification)
 }
 
 // Assigns each extracted listing in one batch to its product (one batched
-// UPDATE), then checks discounts only once that UPDATE has committed, so a
-// failed save never leaves notifications for listings without a product_id.
-// Skipped items keep product_id null and stay candidates for the next run.
+// UPDATE). Discounts are decided before that UPDATE, so the peer median never
+// counts the batch's own listings and a failure while pricing/deciding leaves
+// the whole batch unassigned for the next run. Notifications are inserted only
+// after the UPDATE succeeds, so a failed save leaves none for listings without
+// a product_id. Skipped items keep product_id null and stay candidates too.
 async function assignBatch(
   run: ExtractionRun,
   batch: ExtractionCandidate[],
   items: unknown[],
 ): Promise<{ assigned: number; skipped: number }> {
   const assigned: { listing: ExtractedListing; productId: number }[] = []
+  const notifications: DiscountNotification[] = []
   let skipped = 0
 
   for (const item of items) {
@@ -210,14 +221,16 @@ async function assignBatch(
     run.logger.info(
       `listing ${listing.candidate.id} -> product ${productId} (${listing.baseModel}${listing.variant ? `, ${listing.variant}` : ''})`,
     )
+    const notification = await decideDiscount(run, productId, listing)
+    if (notification) notifications.push(notification)
   }
 
   await updateListingProductIds(
     run.db,
     assigned.map(({ listing, productId }) => ({ id: listing.candidate.id, productId })),
   )
-  for (const { listing, productId } of assigned) {
-    await checkDiscount(run, productId, listing)
+  for (const notification of notifications) {
+    await insertDiscountNotification(run.db, notification)
   }
   return { assigned: assigned.length, skipped }
 }
