@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { findModelCodeMismatches, deriveTargetBaseModel } from './model-mismatch'
+import {
+  deriveTargetBaseModel,
+  findListingModelMismatches,
+  findModelCodeMismatches,
+  matchedProductText,
+  planMismatchReassignment,
+} from './model-mismatch'
 
 describe('findModelCodeMismatches', () => {
   it('flags the real S23-vs-S26 mismatch found manually in listing 1000000000000002', () => {
@@ -51,5 +57,45 @@ describe('deriveTargetBaseModel', () => {
   it('returns null when the product number is not found in the base model text', () => {
     const mismatch = { prefix: 's', titleNumbers: ['23'], productNumbers: ['99'] }
     expect(deriveTargetBaseModel('Samsung Galaxy S26 Ultra', mismatch)).toBeNull()
+  })
+})
+
+describe('findListingModelMismatches', () => {
+  it('compares the title against the product base model plus its variant tier', () => {
+    const listing = { title: 'Samsung S23 Ultra 256gb', base_model: 'Samsung Galaxy S26', variant_tier: 'Ultra' }
+    expect(matchedProductText(listing)).toBe('Samsung Galaxy S26 Ultra')
+    expect(findListingModelMismatches(listing)).toEqual([{ prefix: 's', titleNumbers: ['23'], productNumbers: ['26'] }])
+  })
+
+  it('uses the base model alone when the product has no variant tier', () => {
+    expect(matchedProductText({ title: 'x', base_model: 'iPhone 13', variant_tier: null })).toBe('iPhone 13')
+  })
+})
+
+describe('planMismatchReassignment', () => {
+  it('leaves a listing whose title agrees with its product alone', () => {
+    expect(planMismatchReassignment({ title: 'iPhone 13 Pro', base_model: 'iPhone 13', variant_tier: 'Pro' })).toEqual({
+      kind: 'consistent',
+    })
+  })
+
+  it('targets the product name with the title generation swapped in', () => {
+    expect(
+      planMismatchReassignment({ title: 'Samsung S23 Ultra', base_model: 'Samsung Galaxy S26', variant_tier: 'Ultra' }),
+    ).toEqual({ kind: 'target', targetBaseModel: 'Samsung Galaxy S23' })
+  })
+
+  it('refuses to pick when more than one prefix mismatches', () => {
+    expect(
+      planMismatchReassignment({ title: 'Galaxy S23 A54', base_model: 'Galaxy S26 A15', variant_tier: null }),
+    ).toEqual({
+      kind: 'multiple',
+    })
+  })
+
+  it('reports ambiguous when the single mismatch has several numbers on one side', () => {
+    expect(planMismatchReassignment({ title: 'S23 or S24', base_model: 'Galaxy S26', variant_tier: null })).toEqual({
+      kind: 'ambiguous',
+    })
   })
 })
