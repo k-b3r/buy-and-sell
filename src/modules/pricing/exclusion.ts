@@ -5,7 +5,8 @@ import type { DbClient } from '../../platform/storage'
 // those reasons stay separate on purpose (they're genuinely different
 // sources); only the write and its vocabulary converge here:
 //   real_estate, too_generic, parts_accessory, service - text heuristic
-//     (catalog's detectGenericBaseModel, applied live by ensureProductPriced)
+//     (detectGenericBaseModel in generic-products.ts, applied live by
+//     ensureProductPriced)
 //     or the human-curated lists in flag-price-ineligible
 //   needs_component_pricing - human-curated (flag-price-ineligible)
 //   groq_generic - LLM judgment (applyEligibilityFromEnrichment below)

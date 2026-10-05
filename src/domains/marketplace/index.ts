@@ -1,8 +1,6 @@
 // Public API of the marketplace domain: only what callers outside this folder use.
 export type { EnrichmentCandidate } from './enrichment'
 export { ENRICHMENT_RESPONSE_SCHEMA, buildEnrichmentPrompt } from './enrichment'
-export type { GenericReason } from './generic-products'
-export { detectGenericBaseModel } from './generic-products'
 export { deriveTargetBaseModel, findModelCodeMismatches } from './model-mismatch'
 export type { CategoryBackfillCandidate, SubCategoryBackfillCandidate } from './products'
 export {

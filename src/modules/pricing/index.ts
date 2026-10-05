@@ -2,7 +2,8 @@
 // review, discount detection/verification/notifications, its dashboard
 // queries, plus the shared price rules (placeholder/outlier checks, clean
 // median, discount, price laterals) that catalog and collection queries build
-// on. Everything else is internal (enforced by dependency-cruiser).
+// on, and the generic-product check that decides what is too vague to
+// price. Everything else is internal (enforced by dependency-cruiser).
 export {
   computeMedians,
   isPlaceholderPrice,
@@ -45,6 +46,8 @@ export {
 } from './discount-notifications'
 export type { VerificationClients } from './discount-verification'
 export type { PriceExclusionReason } from './exclusion'
+export type { GenericReason } from './generic-products'
+export { detectGenericBaseModel } from './generic-products'
 export { applyEligibilityFromEnrichment, excludeFromPricing, excludeProductFromReview } from './exclusion'
 export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
 export type { NegotiableKeywordCandidate } from './listing-price-review'
@@ -64,7 +67,6 @@ export {
   insertPriceCheck,
 } from './price-history'
 export type {
-  DetectGeneric,
   PriceLookupCandidate,
   PriceLookupClients,
   PriceRange,
