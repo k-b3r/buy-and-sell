@@ -1,6 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
-import { isNewCondition, isPlaceholderPrice, notPlaceholderPriceSql } from './price-rules'
+import { isPlaceholderPrice, notPlaceholderPriceSql } from './clean-median'
+import { isNewCondition } from './price-rules'
 
 export interface DiscountPolicyThresholds {
   highDiscountThresholdPercent: number

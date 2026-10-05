@@ -1,6 +1,6 @@
 import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
-import { notPlaceholderPriceSql } from './price-rules'
+import { notPlaceholderPriceSql } from './clean-median'
 
 // Human-entered price for a needs_review product - outranks every automated
 // source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not

@@ -1,4 +1,5 @@
 import { toNullableNumber } from '../../platform/rows'
+import { isMagnitudeOutlier, isPlaceholderPrice, notPlaceholderPriceSql } from './clean-median'
 
 export interface DiscountBand {
   bandFloor: number
@@ -108,30 +109,6 @@ export function toDiscountBands(value: unknown): DiscountBand[] {
 // count - a product where everything's priced at/above the median has no
 // deal to advertise.
 
-// SQL equivalent of isPlaceholderPrice below - a single source-of-truth
-// snippet so the three SQL call sites (DISCOUNT_SUMMARY_LATERAL,
-// SIBLING_MEDIAN_SQL, and the price_min/max/avg aggregates) can't drift from
-// each other or from the JS version used by getProductDetail.
-export function notPlaceholderPriceSql(column: string): string {
-  return `NOT (
-    length(trunc(${column})::text) >= 3
-    AND (
-      trunc(${column})::text ~ '^(\\d+)\\1+$'
-      OR trunc(${column})::text ~ '012|123|234|345|456|567|678|789'
-    )
-  )`
-}
-
-// SQL equivalent of isMagnitudeOutlier below - same >10x/<0.1x-of-median
-// heuristic, single source of truth for the price_min/max/avg aggregate
-// (notPlaceholderPriceSql alone requires >=3 digits, so a troll ₱2 or a
-// troll ₱123456789 that doesn't happen to hit a digit-pattern isn't caught
-// by it - confirmed live 2026-09-02: home/product-list page showed price
-// ranges like ₱2-₱123,456,789).
-export function notMagnitudeOutlierSql(column: string, medianColumn: string): string {
-  return `(${medianColumn} IS NULL OR ${medianColumn} <= 0 OR ${column} BETWEEN ${medianColumn} / 10 AND ${medianColumn} * 10)`
-}
-
 export const DISCOUNT_SUMMARY_LATERAL = `
   LEFT JOIN LATERAL (
     WITH product_prices AS (
@@ -180,43 +157,6 @@ export const DISCOUNT_SUMMARY_LATERAL = `
     FROM qualifying
   ) ds ON true
 `
-
-// Classic "fake price to get attention" patterns real sellers use as
-// placeholders - ascending-sequential digit runs anywhere in the price (123,
-// 12345, but also embedded runs like the 456 inside 12456 - confirmed live
-// 2026-08-23 against a real ₱12,456 listing that the old start-only-at-1
-// prefix check missed), repeated-digit runs (111, 9999), and repeated
-// multi-digit blocks (6969, 696969 - joke/meme numbers). Distinct from
-// magnitude-outlier detection: found live 2026-08-23 that ₱123,456 fell well
-// within the 10x magnitude threshold of a real ₱150,000 median yet is
-// obviously not a real ask (it produced a nonsensical -626% "discount").
-// Deliberately accepts some false-positive risk on the ascending-run check
-// (e.g. a genuine ₱3,456 gets caught too) in exchange for catching embedded
-// runs like 12456 - a direct tradeoff picked over the narrower whole-price-
-// only version. Minimum length 3 for the same reason as before (₱11, ₱99 are
-// plausible real small-item prices).
-const ASCENDING_RUN_RE = /012|123|234|345|456|567|678|789/
-
-export function isPlaceholderPrice(price: number): boolean {
-  const digits = String(Math.trunc(Math.abs(price)))
-  if (digits.length < 3) return false
-  if (/^(\d+)\1+$/.test(digits)) return true
-  return ASCENDING_RUN_RE.test(digits)
-}
-
-// Same magnitude-outlier heuristic as listing-price-review.ts's getPriceReviewCandidates
-// (>10x or <0.1x the raw median) - exactly the pre-filter that makes a
-// listing an enrich-listing-prices candidate, independent of whether that
-// worker has actually reviewed it yet. Used two ways: computeListingDiscount
-// below excludes it from discount/reference-price analysis, and callers
-// (getProductDetail/getListingDetail) also null out the listing's own
-// price_amount entirely - a mathematically-outlier price isn't shown, not
-// just unscored, since a >10x-median number is almost always a placeholder/
-// scam/typo, not a real ask worth displaying at all.
-export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
-  if (rawMedianPrice === null || rawMedianPrice <= 0) return false
-  return price < rawMedianPrice / 10 || price > rawMedianPrice * 10
-}
 
 // Matches enrich-listing-prices.ts's full candidate criteria (src/db.ts's
 // getPriceReviewCandidates): magnitude outlier OR a placeholder digit
@@ -308,29 +248,6 @@ export function isListingPriceNegotiable(
   if (priceReview?.is_negotiable) return true
   if (priceAmount !== null && isPlaceholderPrice(priceAmount)) return true
   return discountPercent === null || discountPercent === 0
-}
-
-// percentile_cont(0.5)-equivalent: linear interpolation between the two
-// middle values, matching Postgres's median exactly (used server-side in
-// getListingDetail's SQL; this JS version is for getProductDetail, which
-// already has every sibling listing's price in hand from one query and
-// doesn't need a second round trip to compute the same thing).
-function median(values: number[]): number | null {
-  if (values.length === 0) return null
-  const sorted = [...values].sort((a, b) => a - b)
-  const mid = (sorted.length - 1) / 2
-  return (sorted[Math.floor(mid)] + sorted[Math.ceil(mid)]) / 2
-}
-
-export function computeMedians(prices: number[]): {
-  rawMedian: number | null
-  cleanMedian: number | null
-  sampleSize: number
-} {
-  const rawMedian = median(prices)
-  if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
-  const clean = prices.filter((p) => p >= rawMedian / 10 && p <= rawMedian * 10)
-  return { rawMedian, cleanMedian: median(clean), sampleSize: prices.length }
 }
 
 // "New" listings need a current retail search; anything else (the vast

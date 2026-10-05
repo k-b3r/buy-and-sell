@@ -2,7 +2,7 @@ import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from './price-review'
 import { descriptionPriceDiverges } from './price-review'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
-import { notPlaceholderPriceSql } from './price-rules'
+import { notPlaceholderPriceSql } from './clean-median'
 
 export interface NegotiableKeywordCandidate {
   id: string

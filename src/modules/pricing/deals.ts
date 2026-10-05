@@ -1,6 +1,7 @@
 import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
-import { notPlaceholderPriceSql, SECONDHAND_PRICE_LATERAL } from './price-rules'
+import { notPlaceholderPriceSql } from './clean-median'
+import { SECONDHAND_PRICE_LATERAL } from './price-rules'
 import { PEER_MEDIAN_MIN_SAMPLE, SOLD_COMP_MIN_SAMPLE } from './queries'
 
 type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'

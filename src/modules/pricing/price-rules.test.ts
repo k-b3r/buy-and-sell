@@ -2,9 +2,7 @@ import { expect, test } from 'vitest'
 import {
   computeListingDiscount,
   isListingPriceNegotiable,
-  isMagnitudeOutlier,
   isNewCondition,
-  isPlaceholderPrice,
   isPriceInvalidated,
   summarizeDiscounts,
 } from './price-rules'
@@ -40,46 +38,6 @@ test('summarizeDiscounts returns an empty summary for no qualifying discounts', 
   expect(summarizeDiscounts([null, null])).toEqual({ bestDiscountPercent: null, discountedListingCount: 0, bands: [] })
 })
 
-test('isPlaceholderPrice flags ascending-sequential digit runs', () => {
-  expect(isPlaceholderPrice(123)).toBe(true)
-  expect(isPlaceholderPrice(1234)).toBe(true)
-  expect(isPlaceholderPrice(12345)).toBe(true)
-  expect(isPlaceholderPrice(123456)).toBe(true)
-})
-
-test('isPlaceholderPrice flags an ascending run embedded anywhere in the price, not just starting at 1', () => {
-  // real listing found live 2026-08-23: ₱12,456 - a "1,2" run followed by a
-  // "4,5,6" run, not a clean prefix of 123456789, but still placeholder-like.
-  expect(isPlaceholderPrice(12456)).toBe(true)
-  expect(isPlaceholderPrice(23456)).toBe(true)
-  expect(isPlaceholderPrice(56789)).toBe(true)
-})
-
-test('isPlaceholderPrice flags repeated-single-digit runs', () => {
-  expect(isPlaceholderPrice(111)).toBe(true)
-  expect(isPlaceholderPrice(9999)).toBe(true)
-  expect(isPlaceholderPrice(55555)).toBe(true)
-})
-
-test('isPlaceholderPrice flags repeated multi-digit block runs (e.g. joke/meme numbers)', () => {
-  expect(isPlaceholderPrice(6969)).toBe(true)
-  expect(isPlaceholderPrice(696969)).toBe(true)
-  expect(isPlaceholderPrice(4242)).toBe(true)
-  expect(isPlaceholderPrice(123123)).toBe(true)
-})
-
-test('isPlaceholderPrice does not flag real round prices', () => {
-  expect(isPlaceholderPrice(500)).toBe(false)
-  expect(isPlaceholderPrice(1000)).toBe(false)
-  expect(isPlaceholderPrice(15000)).toBe(false)
-  expect(isPlaceholderPrice(29999)).toBe(false)
-})
-
-test('isPlaceholderPrice does not flag ordinary non-pattern prices', () => {
-  expect(isPlaceholderPrice(17499)).toBe(false)
-  expect(isPlaceholderPrice(32500)).toBe(false)
-})
-
 test('isListingPriceNegotiable is true when the LLM review says so, even with a real discount value present', () => {
   expect(isListingPriceNegotiable(17499, { is_negotiable: true, price_low: null, price_high: null }, 20)).toBe(true)
 })
@@ -102,21 +60,6 @@ test('isListingPriceNegotiable is true when discount_percent is exactly 0 - the 
 
 test('isListingPriceNegotiable is false for an ordinary price with a real nonzero discount value and no review row', () => {
   expect(isListingPriceNegotiable(17499, null, 15)).toBe(false)
-})
-
-test('isMagnitudeOutlier is true for a price >10x or <0.1x the raw median', () => {
-  expect(isMagnitudeOutlier(999999999, 15000)).toBe(true)
-  expect(isMagnitudeOutlier(10, 15000)).toBe(true)
-})
-
-test('isMagnitudeOutlier is false for a price within 10x of the raw median', () => {
-  expect(isMagnitudeOutlier(12000, 15000)).toBe(false)
-  expect(isMagnitudeOutlier(150000, 15000)).toBe(false) // exactly 10x, boundary inclusive
-})
-
-test('isMagnitudeOutlier is false when there is no valid raw median to compare against', () => {
-  expect(isMagnitudeOutlier(12000, null)).toBe(false)
-  expect(isMagnitudeOutlier(12000, 0)).toBe(false)
 })
 
 test('isPriceInvalidated is true for either a magnitude outlier or a placeholder pattern, even in-range', () => {
