@@ -494,9 +494,32 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
         price_review: null,
         discount_percent: null,
         reference_price: null,
+        is_repost: false,
       },
     ],
   })
+})
+
+test('getProductDetail flags every listing that shares a normalized title with another, across the full set', async () => {
+  let call = 0
+  const listing = (id: string, title: string) => ({ id, title, price_amount: '15000', sold_at: null })
+  const db: QueryClient = {
+    query: async () => {
+      call += 1
+      if (call === 1) return { rows: [{ id: 1, base_model: 'RTX 3060', variant_tier: null }] }
+      return {
+        rows: [listing('a', 'RTX 3060 OC'), listing('b', 'Other GPU'), listing('c', '  rtx 3060 oc ')],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(result?.listings.map((l) => [l.id, l.is_repost])).toEqual([
+    ['a', true],
+    ['b', false],
+    ['c', true],
+  ])
 })
 
 test("getProductDetail prefers a listing's stored_photo_urls over its primary_photo_url for the card thumbnail", async () => {

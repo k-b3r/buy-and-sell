@@ -69,5 +69,6 @@ export type {
   ProductPricingResult,
 } from './price-lookup'
 export { ensureProductPriced } from './price-lookup'
+export { computeRepostIds, repostKey, repostKeySql } from './repost'
 export type { PriceReviewCandidate } from './price-review'
 export { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review'

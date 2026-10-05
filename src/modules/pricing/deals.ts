@@ -2,6 +2,7 @@ import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
 import { medianCtes, notPlaceholderPriceSql } from './clean-median'
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
+import { repostKeySql } from './repost'
 import { PEER_MEDIAN_MIN_SAMPLE, SOLD_COMP_MIN_SAMPLE } from './queries'
 
 type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
@@ -237,15 +238,13 @@ export async function getDeals(
      -- Collapses same-seller reposts (identical title, same product,
      -- different listing ids - confirmed live 2026-09-02: two "IPHONE 14"
      -- listings posted 64s apart, same price) down to one row, same
-     -- byte-identical-title heuristic computeRepostIds already uses on the
-     -- product page (repostDetection.ts) - without this, /deals ranked the
-     -- same real-world item twice. Keeps the earliest listing (accurate
-     -- days_listed); COALESCE fallback keeps untitled listings (rare) from
-     -- over-merging into one.
+     -- repost key the product page flags reposts with (repost.ts) - without
+     -- this, /deals ranked the same real-world item twice. Keeps the
+     -- earliest listing (accurate days_listed).
      deal_deduped AS (
-       SELECT DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id)) *
+       SELECT DISTINCT ON (product_id, ${repostKeySql('title', 'listing_id')}) *
        FROM deal
-       ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id
+       ORDER BY product_id, ${repostKeySql('title', 'listing_id')}, listed_at ASC NULLS LAST, listing_id
      ),
      filtered AS (
        SELECT

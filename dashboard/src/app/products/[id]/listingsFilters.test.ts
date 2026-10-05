@@ -34,6 +34,7 @@ function makeListing(overrides: Partial<ProductListingSummary> & { id: string })
     discount_percent: null,
     reference_price: null,
     is_saved: false,
+    is_repost: false,
     verification_reasoning: null,
     ...overrides,
   }
@@ -78,22 +79,6 @@ test('paginateListings matchedCount reflects the post-filter total, not the page
   const page = paginateListings(listings, DEFAULT_FILTERS, 0) // hideSold defaults true
   expect(page.matchedCount).toBe(35)
   expect(page.listings).toHaveLength(30)
-})
-
-test('paginateListings flags reposts on both pages of a repost pair split across the page boundary', () => {
-  // 'repost-low' sorts to the very end (discount 0, lowest) and 'repost-a'
-  // to the very front (discount 34, highest) via discount_desc, so with a
-  // 30-item page size the pair lands on two different pages, but the
-  // repost check must have run over the FULL set before slicing.
-  const listings = [
-    makeListing({ id: 'repost-a', title: 'Same Title', discount_percent: 34 }),
-    ...Array.from({ length: 33 }, (_, i) => makeListing({ id: `filler-${i}`, discount_percent: 33 - i })),
-    makeListing({ id: 'repost-low', title: 'Same Title', discount_percent: 0 }),
-  ]
-  const page1 = paginateListings(listings, DEFAULT_FILTERS, 0)
-  const page2 = paginateListings(listings, DEFAULT_FILTERS, 30)
-  expect(page1.listings.find((l) => l.id === 'repost-a')?.is_repost).toBe(true)
-  expect(page2.listings.find((l) => l.id === 'repost-low')?.is_repost).toBe(true)
 })
 
 test('paginateListings allIds covers the full filtered/sorted set regardless of offset', () => {

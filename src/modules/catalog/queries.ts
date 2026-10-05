@@ -4,6 +4,7 @@ import type { DiscountBand, ListingPriceReview } from '../pricing'
 import {
   computeListingDiscount,
   computeMedians,
+  computeRepostIds,
   DISCOUNT_SUMMARY_LATERAL,
   isPlaceholderPrice,
   isPriceInvalidated,
@@ -229,6 +230,10 @@ interface ProductListingSummary {
   discount_percent: number | null
   reference_price: number | null
   is_saved: boolean
+  // Shares its normalized title with another listing of this product
+  // (pricing's computeRepostIds over the full set, before any dashboard
+  // filtering or paging).
+  is_repost: boolean
   // The model's own reasoning for why this exact listing cleared the
   // verification gate (discount-verification.ts's VerificationOutcome,
   // 'verified' case) - null for any listing that never got a verified
@@ -342,6 +347,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     : rawListings.map((l) => l.price_amount).filter((p): p is number => p !== null && p > 0 && !isPlaceholderPrice(p))
   const { rawMedian, cleanMedian, sampleSize } = computeMedians(validPrices)
 
+  const repostIds = computeRepostIds(rawListings)
   const listings = rawListings.map((l) => {
     const discount = computeListingDiscount(l.price_amount, rawMedian, cleanMedian, sampleSize)
     const priceAmount = l.price_amount !== null && isPriceInvalidated(l.price_amount, rawMedian) ? null : l.price_amount
@@ -350,6 +356,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
       price_amount: priceAmount,
       discount_percent: discount.discountPercent,
       reference_price: discount.referencePrice,
+      is_repost: repostIds.has(l.id),
     }
   })
 
