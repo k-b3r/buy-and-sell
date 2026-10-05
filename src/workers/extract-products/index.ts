@@ -1,14 +1,15 @@
 import { fileURLToPath } from 'node:url'
 import type { Logger } from '../../platform/logger'
-import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import type { GeminiClient, GroqClient, ExaClient, TavilyClient, RetryOptions } from '../../domains/llm-clients'
 import {
   createGeminiClient,
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
   createGroqPool,
   loadGroqApiKeys,
-  isQuotaError,
-  summarizeGroqError,
+  QuotaExhaustedError,
+  RetriesExhaustedError,
+  withRetry,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
@@ -71,65 +72,48 @@ export interface ExtractionOptions {
 const DEFAULT_MAX_ATTEMPTS = 5
 const DEFAULT_RETRY_BASE_DELAY_MS = 30000
 
-// Tries Groq first (own retry/backoff loop below), and only on quota
-// exhaustion or exhausted retries falls through to a second retry loop
+// Tries Groq first (own bounded retry with exponential backoff), and only on
+// quota exhaustion or exhausted retries falls through to a second retry run
 // against Gemini - not fatal until BOTH providers are exhausted. Returns
 // null only when neither provider produced a response.
 async function extractBatch(
   clients: ExtractionClients,
   prompt: string,
-  logger: Logger,
-  batchLabel: string,
-  delay: DelayFn,
-  maxAttempts: number,
-  retryBaseDelayMs: number,
+  retry: Omit<RetryOptions, 'provider'> & { label: string },
 ): Promise<unknown | null> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
-    } catch (err) {
-      const message = summarizeGroqError(err)
-      if (isQuotaError(err)) {
-        logger.warn(`${batchLabel}: Groq quota exhausted (${message}), falling back to Gemini`)
-        break
-      }
-      if (attempt === maxAttempts) {
-        logger.warn(
-          `${batchLabel}: Groq request failed after ${maxAttempts} attempts (${message}), falling back to Gemini`,
-        )
-        break
-      }
-      const retryDelay = retryBaseDelayMs * 2 ** (attempt - 1)
+  const { label, logger, maxAttempts } = retry
+  try {
+    return await withRetry(() => clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA), {
+      ...retry,
+      provider: 'Groq',
+    })
+  } catch (err) {
+    if (err instanceof QuotaExhaustedError) {
+      logger.warn(`${label}: Groq quota exhausted (${err.message}), falling back to Gemini`)
+    } else if (err instanceof RetriesExhaustedError) {
       logger.warn(
-        `${batchLabel}: Groq request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`,
+        `${label}: Groq request failed after ${maxAttempts} attempts (${err.message}), falling back to Gemini`,
       )
-      await delay(retryDelay)
+    } else {
+      throw err
     }
   }
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await clients.gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      if (isQuotaError(err)) {
-        logger.error(`${batchLabel}: Gemini quota exhausted across all configured keys too (${message}), stopping run`)
-        return null
-      }
-      if (attempt === maxAttempts) {
-        logger.error(
-          `${batchLabel}: Gemini request failed after ${maxAttempts} attempts too (${message}), stopping run`,
-        )
-        return null
-      }
-      const retryDelay = retryBaseDelayMs * 2 ** (attempt - 1)
-      logger.warn(
-        `${batchLabel}: Gemini request failed, attempt ${attempt}/${maxAttempts} (${message}), retrying in ${retryDelay}ms`,
-      )
-      await delay(retryDelay)
+  try {
+    return await withRetry(() => clients.gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA), {
+      ...retry,
+      provider: 'Gemini',
+    })
+  } catch (err) {
+    if (err instanceof QuotaExhaustedError) {
+      logger.error(`${label}: Gemini quota exhausted across all configured keys too (${err.message}), stopping run`)
+    } else if (err instanceof RetriesExhaustedError) {
+      logger.error(`${label}: Gemini request failed after ${maxAttempts} attempts too (${err.message}), stopping run`)
+    } else {
+      throw err
     }
+    return null
   }
-  return null
 }
 
 // Ensures a product has retail/secondhand pricing before its listing's
@@ -200,9 +184,14 @@ export async function runProductExtraction(
       batch.map((c) => ({ id: c.id, title: c.title, description: c.description ?? '' })),
     )
 
-    const raw = (await extractBatch(clients, prompt, logger, batchLabel, delay, maxAttempts, retryBaseDelayMs)) as {
-      results?: unknown
-    } | null
+    const raw = (await extractBatch(clients, prompt, {
+      label: batchLabel,
+      maxAttempts,
+      retryDelayMs: retryBaseDelayMs,
+      backoff: 'exponential',
+      delay,
+      logger,
+    })) as { results?: unknown } | null
     if (raw === null) break
 
     if (!raw || !Array.isArray(raw.results)) {

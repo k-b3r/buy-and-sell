@@ -28,4 +28,5 @@ export type { OpenRouterClient } from './openrouter'
 export { createOpenRouterClient, createFallbackOpenRouterClient } from './openrouter'
 
 export { QuotaExhaustedError, isQuotaError, isCreditsError } from './error-classification'
+export type { RetryOptions } from './retry'
 export { RetriesExhaustedError, withRetry, withRetryAndSplit } from './retry'
