@@ -89,7 +89,7 @@ export function formatAreaLine(l: RealEstateListing): string {
   return parts.join(' · ')
 }
 
-// Mirrors the needs_review rule in server/queries.ts (price unresolved, low
+// Mirrors the needs_review rule in src/modules/real-estate/queries.ts (price unresolved, low
 // confidence, or sale/rent unclear).
 export function formatReviewReason(l: RealEstateListing): string {
   const reasons: string[] = []

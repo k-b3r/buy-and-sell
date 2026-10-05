@@ -130,6 +130,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getAllSettings(db: QueryClient): Promise<SettingRow[]>`
+
+_(undocumented)_
+
+### `updateSettings(db: QueryClient, updates: { key: string; value: number }[]): Promise<void>`
+
+_(undocumented)_
+
 ## src/platform/storage.ts
 
 ### `createDbPool(connectionString: string): Pool`

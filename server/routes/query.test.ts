@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import { createQueryHandler, QUERY_NAMES } from './query'
 import type { RouteResult } from '../app'
-import type { QueryClient } from '../queries'
+import type { QueryClient } from '../../src/platform/storage'
 
 function fakeDb(rows: unknown[] = []): QueryClient {
   return { query: vi.fn(async () => ({ rows })) }

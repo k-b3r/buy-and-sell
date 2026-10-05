@@ -1,6 +1,35 @@
 import type { RouteHandler, RouteResult } from '../app'
-import type { QueryClient } from '../queries'
-import * as queries from '../queries'
+import type { QueryClient } from '../../src/platform/storage'
+import { getAllSettings, updateSettings } from '../../src/platform/settings'
+import {
+  excludeProductFromReview,
+  getProductDetail,
+  getProductsNeedingReview,
+  getProductSummaries,
+  getSoldCountsBySubCategory,
+  getSubCategoryTree,
+  markProductReviewed,
+} from '../../src/modules/catalog'
+import {
+  getCollectKeywords,
+  getListingDetail,
+  getListingProductId,
+  getSavedListings,
+  replaceCollectKeywords,
+  saveListing,
+  unsaveListing,
+} from '../../src/modules/collection'
+import {
+  getComparableListings,
+  getDeals,
+  getDiscountNotifications,
+  getPeerMedianPrice,
+  getSoldComparablePrice,
+  getUnreadDiscountNotificationCount,
+  markAllDiscountNotificationsRead,
+  markDiscountNotificationRead,
+  setManualPrice,
+} from '../../src/modules/pricing'
 import { getRealEstateListings } from '../../src/modules/real-estate'
 
 // The dashboard runs on Vercel and has no route to this box's Postgres, which
@@ -13,36 +42,38 @@ import { getRealEstateListings } from '../../src/modules/real-estate'
 // database. With a registry the blast radius is exactly the queries the app
 // already ships - no DROP, no exfiltration of tables the dashboard never
 // reads. Args still reach the database, but only ever as bound parameters of
-// a query written here, never as SQL text.
+// a query the server ships, never as SQL text.
 //
-// Adding a dashboard query means adding it here too. That is the intended
-// friction: it's the whole security boundary.
+// Each feature module owns its dashboard queries and exports them from its
+// index.ts; settings live in platform. Adding a dashboard query means adding
+// it here too. That is the intended friction: it's the whole security
+// boundary.
 const REGISTRY = {
-  getProductSummaries: queries.getProductSummaries,
-  getSubCategoryTree: queries.getSubCategoryTree,
-  getProductsNeedingReview: queries.getProductsNeedingReview,
-  setManualPrice: queries.setManualPrice,
-  markProductReviewed: queries.markProductReviewed,
-  excludeProductFromReview: queries.excludeProductFromReview,
-  getProductDetail: queries.getProductDetail,
-  getListingDetail: queries.getListingDetail,
-  getSoldComparablePrice: queries.getSoldComparablePrice,
-  getPeerMedianPrice: queries.getPeerMedianPrice,
-  getComparableListings: queries.getComparableListings,
-  getDeals: queries.getDeals,
-  saveListing: queries.saveListing,
-  unsaveListing: queries.unsaveListing,
-  getSoldCountsBySubCategory: queries.getSoldCountsBySubCategory,
-  getSavedListings: queries.getSavedListings,
-  getDiscountNotifications: queries.getDiscountNotifications,
-  getUnreadDiscountNotificationCount: queries.getUnreadDiscountNotificationCount,
-  markDiscountNotificationRead: queries.markDiscountNotificationRead,
-  markAllDiscountNotificationsRead: queries.markAllDiscountNotificationsRead,
-  getAllSettings: queries.getAllSettings,
-  updateSettings: queries.updateSettings,
-  getCollectKeywords: queries.getCollectKeywords,
-  replaceCollectKeywords: queries.replaceCollectKeywords,
-  getListingProductId: queries.getListingProductId,
+  getProductSummaries,
+  getSubCategoryTree,
+  getProductsNeedingReview,
+  setManualPrice,
+  markProductReviewed,
+  excludeProductFromReview,
+  getProductDetail,
+  getListingDetail,
+  getSoldComparablePrice,
+  getPeerMedianPrice,
+  getComparableListings,
+  getDeals,
+  saveListing,
+  unsaveListing,
+  getSoldCountsBySubCategory,
+  getSavedListings,
+  getDiscountNotifications,
+  getUnreadDiscountNotificationCount,
+  markDiscountNotificationRead,
+  markAllDiscountNotificationsRead,
+  getAllSettings,
+  updateSettings,
+  getCollectKeywords,
+  replaceCollectKeywords,
+  getListingProductId,
   getRealEstateListings,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
