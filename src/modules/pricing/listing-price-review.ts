@@ -2,6 +2,7 @@ import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from './price-review'
 import { descriptionPriceDiverges } from './price-review'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
+import { notPlaceholderPriceSql } from './price-rules'
 
 export interface NegotiableKeywordCandidate {
   id: string
@@ -31,21 +32,6 @@ export async function getNegotiableKeywordCandidates(db: DbClient): Promise<Nego
     description: r.description as string | null,
   }))
 }
-
-// Same digit-pattern heuristic as the dashboard's isPlaceholderPrice/
-// notPlaceholderPriceSql (dashboard/src/lib/queries.ts) - kept as a separate
-// copy since src/ and dashboard/ are deliberately separate packages (own
-// pnpm-workspace.yaml, see README), not shared code. Catches "for attention
-// only" prices like 123, 999, or 12,567 (an embedded ascending run) that
-// aren't a real ask at all - independent of the magnitude-outlier check
-// below, since a placeholder can sit well within 10x of a real median.
-export const PLACEHOLDER_PRICE_SQL = (column: string): string => `(
-  length(trunc(${column})::text) >= 3
-  AND (
-    trunc(${column})::text ~ '^(\\d+)\\1+$'
-    OR trunc(${column})::text ~ '012|123|234|345|456|567|678|789'
-  )
-)`
 
 // Loose SQL pre-filter for "the description names a price": any currency/
 // keyword-prefixed number, or a k-abbreviated one. Deliberately over-matches
@@ -81,13 +67,13 @@ export async function getPriceReviewCandidates(db: DbClient): Promise<PriceRevie
        SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price
        FROM listings
        WHERE product_id IS NOT NULL AND price_amount IS NOT NULL AND price_amount > 0
-         AND NOT ${PLACEHOLDER_PRICE_SQL('price_amount')}
+         AND ${notPlaceholderPriceSql('price_amount')}
        GROUP BY product_id
      ),
      flagged AS (
        SELECT l.id, l.title, l.description, l.price_amount,
          (l.price_amount < m.median_price / 5 OR l.price_amount > m.median_price * 5) AS price_outlier,
-         ${PLACEHOLDER_PRICE_SQL('l.price_amount')} AS placeholder_price,
+         NOT ${notPlaceholderPriceSql('l.price_amount')} AS placeholder_price,
          ${DESCRIPTION_MENTIONS_PRICE_SQL} AS description_mentions_price
        FROM listings l
        JOIN product_medians m ON m.product_id = l.product_id

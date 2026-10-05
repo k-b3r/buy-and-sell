@@ -1,16 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
-import { PLACEHOLDER_PRICE_SQL } from './listing-price-review'
-
-// JS-side twin of PLACEHOLDER_PRICE_SQL above, for callers (checkListingDiscount)
-// that already have the price as a JS number and don't need a SQL round trip.
-const ASCENDING_RUN_RE = /012|123|234|345|456|567|678|789/
-function isPlaceholderPrice(price: number): boolean {
-  const digits = String(Math.trunc(Math.abs(price)))
-  if (digits.length < 3) return false
-  if (/^(\d+)\1+$/.test(digits)) return true
-  return ASCENDING_RUN_RE.test(digits)
-}
+import { isPlaceholderPrice, notPlaceholderPriceSql } from './price-rules'
 
 export interface DiscountPolicyThresholds {
   highDiscountThresholdPercent: number
@@ -59,7 +49,7 @@ async function getPeerMedianPrice(db: DbClient, productId: number): Promise<numb
        JOIN products p ON p.id = pl.product_id
        WHERE pl.product_id = $1 AND pl.price_amount IS NOT NULL AND pl.price_amount > 0
          AND NOT p.price_lookup_excluded
-         AND NOT ${PLACEHOLDER_PRICE_SQL('pl.price_amount')}
+         AND ${notPlaceholderPriceSql('pl.price_amount')}
      ),
      raw AS (
        SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS median_price, count(*) AS n
