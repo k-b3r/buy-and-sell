@@ -1,6 +1,17 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
 import * as queries from '../queries'
+import {
+  getComparableListings,
+  getDeals,
+  getDiscountNotifications,
+  getPeerMedianPrice,
+  getSoldComparablePrice,
+  getUnreadDiscountNotificationCount,
+  markAllDiscountNotificationsRead,
+  markDiscountNotificationRead,
+  setManualPrice,
+} from '../../src/modules/pricing'
 import { getRealEstateListings } from '../../src/modules/real-estate'
 
 // The dashboard runs on Vercel and has no route to this box's Postgres, which
@@ -21,23 +32,23 @@ const REGISTRY = {
   getProductSummaries: queries.getProductSummaries,
   getSubCategoryTree: queries.getSubCategoryTree,
   getProductsNeedingReview: queries.getProductsNeedingReview,
-  setManualPrice: queries.setManualPrice,
+  setManualPrice,
   markProductReviewed: queries.markProductReviewed,
   excludeProductFromReview: queries.excludeProductFromReview,
   getProductDetail: queries.getProductDetail,
   getListingDetail: queries.getListingDetail,
-  getSoldComparablePrice: queries.getSoldComparablePrice,
-  getPeerMedianPrice: queries.getPeerMedianPrice,
-  getComparableListings: queries.getComparableListings,
-  getDeals: queries.getDeals,
+  getSoldComparablePrice,
+  getPeerMedianPrice,
+  getComparableListings,
+  getDeals,
   saveListing: queries.saveListing,
   unsaveListing: queries.unsaveListing,
   getSoldCountsBySubCategory: queries.getSoldCountsBySubCategory,
   getSavedListings: queries.getSavedListings,
-  getDiscountNotifications: queries.getDiscountNotifications,
-  getUnreadDiscountNotificationCount: queries.getUnreadDiscountNotificationCount,
-  markDiscountNotificationRead: queries.markDiscountNotificationRead,
-  markAllDiscountNotificationsRead: queries.markAllDiscountNotificationsRead,
+  getDiscountNotifications,
+  getUnreadDiscountNotificationCount,
+  markDiscountNotificationRead,
+  markAllDiscountNotificationsRead,
   getAllSettings: queries.getAllSettings,
   updateSettings: queries.updateSettings,
   getCollectKeywords: queries.getCollectKeywords,

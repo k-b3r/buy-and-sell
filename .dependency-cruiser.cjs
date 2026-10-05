@@ -7,7 +7,7 @@ const { baseRules, baseOptions } = require('@k-b3r/agent-config/dependency-cruis
 module.exports = {
   forbidden: [
     ...baseRules({
-      publicApis: ['src/domains/marketplace', 'src/domains/llm-clients', 'src/modules/real-estate'],
+      publicApis: ['src/domains/marketplace', 'src/domains/llm-clients', 'src/modules/pricing', 'src/modules/real-estate'],
       heavyDeps: [
         // Only marketplace/browser.ts launches a browser; everything else imports it from there.
         { packages: ['playwright', 'playwright-core'], owner: 'src/domains/marketplace/browser.ts' },

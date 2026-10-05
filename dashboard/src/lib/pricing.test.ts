@@ -12,11 +12,11 @@ import {
 } from './pricing'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const SERVER_QUERIES = path.join(HERE, '../../../server/queries.ts')
+const SERVER_PRICE_RULES = path.join(HERE, '../../../src/modules/pricing/price-rules.ts')
 
 // These functions exist in two places on purpose (see pricing.ts's header):
-// server/queries.ts computes them alongside the SQL, this copy runs in the
-// browser. Nothing at build time links the two, so this test is the only
+// src/modules/pricing/price-rules.ts computes them alongside the SQL, this
+// copy runs in the browser. Nothing at build time links the two, so this test is the only
 // thing standing between a one-sided edit and the dashboard quietly showing
 // a different price verdict than the server computed. Bodies are compared
 // with comments and whitespace stripped - reworded comments are fine,
@@ -41,7 +41,7 @@ test.each([
   'computeListingDiscount',
   'isListingPriceNegotiable',
 ])('%s stays identical to the server copy', (name) => {
-  const serverSource = readFileSync(SERVER_QUERIES, 'utf8')
+  const serverSource = readFileSync(SERVER_PRICE_RULES, 'utf8')
   const localSource = readFileSync(path.join(HERE, 'pricing.ts'), 'utf8')
 
   expect(bodyOf(localSource, name)).toBe(bodyOf(serverSource, name))
