@@ -4,6 +4,7 @@ import {
   isListingPriceNegotiable,
   isNewCondition,
   isPriceInvalidated,
+  resolveSecondhandPrice,
   summarizeDiscounts,
 } from './price-rules'
 
@@ -116,4 +117,27 @@ test('isNewCondition reads only a plain "New" label as new, never a "Used - like
   expect(isNewCondition('Used - Like New')).toBe(false)
   expect(isNewCondition('Used - Good')).toBe(false)
   expect(isNewCondition(null)).toBe(false)
+})
+
+test('resolveSecondhandPrice prefers a searched secondhand price over the trained-knowledge guess', () => {
+  expect(
+    resolveSecondhandPrice({ low: '8000', high: '9000', source: 'exa_secondhand' }, { known: true, low: 1, high: 2 }),
+  ).toEqual({ low: 8000, high: 9000, source: 'exa_secondhand' })
+})
+
+test('resolveSecondhandPrice falls back to the trained guess only when the model claims the knowledge', () => {
+  expect(
+    resolveSecondhandPrice({ low: null, high: null, source: null }, { known: true, low: '7000', high: '8000' }),
+  ).toEqual({
+    low: 7000,
+    high: 8000,
+    source: 'groq_trained',
+  })
+  expect(
+    resolveSecondhandPrice({ low: null, high: null, source: null }, { known: false, low: '7000', high: '8000' }),
+  ).toEqual({
+    low: null,
+    high: null,
+    source: null,
+  })
 })

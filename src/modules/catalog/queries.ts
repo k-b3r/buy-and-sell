@@ -159,12 +159,8 @@ export async function getProductSummaries(
 
   return (result.rows as Record<string, unknown>[]).map((r) => {
     const secondhand = resolveSecondhandPrice(
-      r.used_price_low,
-      r.used_price_high,
-      r.used_price_source,
-      r.has_trained_price_knowledge,
-      r.trained_price_low,
-      r.trained_price_high,
+      { low: r.used_price_low, high: r.used_price_high, source: r.used_price_source },
+      { known: r.has_trained_price_knowledge, low: r.trained_price_low, high: r.trained_price_high },
     )
     return {
       id: r.id as number,
@@ -363,12 +359,12 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
   const discountSummary = summarizeDiscounts(listings.map((l) => l.discount_percent))
 
   const secondhand = resolveSecondhandPrice(
-    productRow.used_price_low,
-    productRow.used_price_high,
-    productRow.used_price_source,
-    productRow.enrichment_has_trained_price_knowledge,
-    productRow.enrichment_trained_price_low,
-    productRow.enrichment_trained_price_high,
+    { low: productRow.used_price_low, high: productRow.used_price_high, source: productRow.used_price_source },
+    {
+      known: productRow.enrichment_has_trained_price_knowledge,
+      low: productRow.enrichment_trained_price_low,
+      high: productRow.enrichment_trained_price_high,
+    },
   )
 
   return {

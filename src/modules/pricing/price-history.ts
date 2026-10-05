@@ -21,20 +21,22 @@ export type PriceCheckSource =
   | 'tavily_new_retail'
   | 'tavily_secondhand'
 
-// confidence/releaseYear/isDiscontinued were Exa-specific extras — always
-// null for the current web_search/listing_prices sources, which have no
-// equivalent signal.
-export async function insertPriceCheck(
-  db: DbClient,
-  productId: number,
-  price: PriceRange,
-  rawResponse: string,
-  source: PriceCheckSource,
-  condition: string | null = null,
-  confidence: string | null = null,
-  releaseYear: number | null = null,
-  isDiscontinued: boolean | null = null,
-): Promise<void> {
+export interface PriceCheck {
+  productId: number
+  price: PriceRange
+  rawResponse: string
+  source: PriceCheckSource
+  // 'New' (retail slot) or 'Used' (secondhand slot) - see getProductPricingStatus.
+  condition?: string | null
+  // Exa-specific extras - always null for the current sources, which have
+  // no equivalent signal.
+  confidence?: string | null
+  releaseYear?: number | null
+  isDiscontinued?: boolean | null
+}
+
+export async function insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void> {
+  const { productId, price, rawResponse, source } = check
   await db.query(
     `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, raw_response, source, condition, confidence, release_year, is_discontinued)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -45,10 +47,10 @@ export async function insertPriceCheck(
       price.currency,
       rawResponse,
       source,
-      condition,
-      confidence,
-      releaseYear,
-      isDiscontinued,
+      check.condition ?? null,
+      check.confidence ?? null,
+      check.releaseYear ?? null,
+      check.isDiscontinued ?? null,
     ],
   )
 }

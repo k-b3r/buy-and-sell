@@ -53,7 +53,13 @@ export async function runPriceFromListings(
     }
 
     const note = `computed from ${range.usedCount} of ${group.prices.length} "${group.condition}" listings (junk prices excluded)`
-    await insertPriceCheck(db, group.id, range, note, 'listing_prices', group.condition)
+    await insertPriceCheck(db, {
+      productId: group.id,
+      price: range,
+      rawResponse: note,
+      source: 'listing_prices',
+      condition: group.condition,
+    })
     inserted += 1
     logger.info(`product ${group.id} (${label}, ${group.condition}): ${range.low}-${range.high} PHP (${note})`)
   }

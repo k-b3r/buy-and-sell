@@ -264,12 +264,8 @@ export async function runProductExtraction(
       if (!pricing.excluded) {
         await checkListingDiscount(
           db,
-          item.id,
-          productId,
-          candidate.condition,
-          candidate.price_amount,
-          pricing.retail,
-          pricing.secondhand,
+          { id: item.id, productId, condition: candidate.condition, priceAmount: candidate.price_amount },
+          { retail: pricing.retail, secondhand: pricing.secondhand },
           discountThresholds,
         )
       }

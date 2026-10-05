@@ -63,25 +63,29 @@ async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<n
 // behavior - a product with no retail was already excluded before this
 // function would ever be called). ON CONFLICT (listing_id) DO NOTHING
 // enforces "at most one notification per listing ever," same as before.
+export interface DiscountCheckListing {
+  id: string
+  productId: number
+  condition: string | null
+  priceAmount: number | null
+}
+
 export async function checkListingDiscount(
   db: DbClient,
-  listingId: string,
-  productId: number,
-  condition: string | null,
-  priceAmount: number | null,
-  retailPrice: PriceRange | null,
-  secondhandPrice: PriceRange | null,
+  listing: DiscountCheckListing,
+  pricing: { retail: PriceRange | null; secondhand: PriceRange | null },
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
 ): Promise<void> {
+  const { priceAmount, productId } = listing
   if (priceAmount === null || priceAmount <= 0) return
   if (priceAmount < thresholds.minPricePesos) return
   if (isPlaceholderPrice(priceAmount)) return
 
   let referencePrice: number | null
-  if (isNewCondition(condition)) {
-    referencePrice = retailPrice ? retailPrice.low : null
-  } else if (secondhandPrice) {
-    referencePrice = secondhandPrice.low
+  if (isNewCondition(listing.condition)) {
+    referencePrice = pricing.retail ? pricing.retail.low : null
+  } else if (pricing.secondhand) {
+    referencePrice = pricing.secondhand.low
   } else {
     referencePrice = await getDiscountPeerMedian(db, productId)
   }
@@ -97,7 +101,7 @@ export async function checkListingDiscount(
     `INSERT INTO discount_notifications (listing_id, product_id, discount_percent, reference_price)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (listing_id) DO NOTHING`,
-    [listingId, productId, discountPercent, referencePrice],
+    [listing.id, productId, discountPercent, referencePrice],
   )
 }
 

@@ -140,18 +140,17 @@ test('getPriceReviewCandidates also flags placeholder digit-pattern prices (123,
 test('upsertListingPriceReview inserts is_negotiable, price range, reasoning, and model', async () => {
   const { db, calls } = mockDb()
 
-  await upsertListingPriceReview(
-    db,
-    '1000000000000001',
-    {
+  await upsertListingPriceReview(db, {
+    listingId: '1000000000000001',
+    data: {
       isNegotiable: true,
       priceLow: 7500,
       priceHigh: 9000,
       reasoning: 'Swap-only listing, real price is negotiable per description.',
     },
-    'openai/gpt-oss-120b',
-    'FOR SWAP SA RTX 3060, ADD AKO.',
-  )
+    model: 'openai/gpt-oss-120b',
+    reviewedDescription: 'FOR SWAP SA RTX 3060, ADD AKO.',
+  })
 
   expect(calls[0].sql).toMatch(/^INSERT INTO listing_price_review/)
   expect(calls[0].sql).toContain('ON CONFLICT (listing_id) DO UPDATE')
@@ -170,13 +169,17 @@ test('upsertListingPriceReview inserts is_negotiable, price range, reasoning, an
 test('upsertListingPriceReview stores null price range when no real price could be determined', async () => {
   const { db, calls } = mockDb()
 
-  await upsertListingPriceReview(
-    db,
-    '123',
-    { isNegotiable: false, priceLow: null, priceHigh: null, reasoning: 'No price mentioned anywhere in the text.' },
-    'openai/gpt-oss-120b',
-    null,
-  )
+  await upsertListingPriceReview(db, {
+    listingId: '123',
+    data: {
+      isNegotiable: false,
+      priceLow: null,
+      priceHigh: null,
+      reasoning: 'No price mentioned anywhere in the text.',
+    },
+    model: 'openai/gpt-oss-120b',
+    reviewedDescription: null,
+  })
 
   expect(calls[0].params).toEqual([
     '123',

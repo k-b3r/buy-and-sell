@@ -188,18 +188,14 @@ export function computeListingDiscount(
 // still the right *kind* of number, unlike gemini_grounding/web_search which
 // simply may not exist yet for a given product.
 export function resolveSecondhandPrice(
-  usedLow: unknown,
-  usedHigh: unknown,
-  usedSource: unknown,
-  hasTrainedPriceKnowledge: unknown,
-  trainedLow: unknown,
-  trainedHigh: unknown,
+  used: { low: unknown; high: unknown; source: unknown },
+  trained: { known: unknown; low: unknown; high: unknown },
 ): { low: number | null; high: number | null; source: string | null } {
-  if (usedLow !== null && usedLow !== undefined) {
-    return { low: toNullableNumber(usedLow), high: toNullableNumber(usedHigh), source: usedSource as string }
+  if (used.low !== null && used.low !== undefined) {
+    return { low: toNullableNumber(used.low), high: toNullableNumber(used.high), source: used.source as string }
   }
-  if (hasTrainedPriceKnowledge === true) {
-    return { low: toNullableNumber(trainedLow), high: toNullableNumber(trainedHigh), source: 'groq_trained' }
+  if (trained.known === true) {
+    return { low: toNullableNumber(trained.low), high: toNullableNumber(trained.high), source: 'groq_trained' }
   }
   return { low: null, high: null, source: null }
 }

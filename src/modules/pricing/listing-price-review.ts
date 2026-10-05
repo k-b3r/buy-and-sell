@@ -105,13 +105,15 @@ export async function getPriceReviewCandidates(db: DbClient): Promise<PriceRevie
 // reviewedDescription is the description text this review was based on -
 // stored so getPriceReviewCandidates can tell when a later seller edit
 // warrants a fresh review.
-export async function upsertListingPriceReview(
-  db: DbClient,
-  listingId: string,
-  data: PriceReviewData,
-  model: string,
-  reviewedDescription: string | null,
-): Promise<void> {
+export interface ListingPriceReviewWrite {
+  listingId: string
+  data: PriceReviewData
+  model: string
+  reviewedDescription: string | null
+}
+
+export async function upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void> {
+  const { listingId, data, model, reviewedDescription } = review
   await db.query(
     `INSERT INTO listing_price_review (listing_id, is_negotiable, price_low, price_high, reasoning, model, reviewed_description)
      VALUES ($1, $2, $3, $4, $5, $6, $7)

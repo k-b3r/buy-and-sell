@@ -321,14 +321,14 @@ export async function ensureProductPriced(
     )
     return { retail: null, secondhand: null, excluded: true }
   }
-  await insertPriceCheck(db, product.id, retail.price, retail.rawResponse, retail.source, 'New')
+  await insertPriceCheck(db, { productId: product.id, ...retail, condition: 'New' })
   logger.info(
     `product ${product.id} (${label}): retail ${retail.price.low}-${retail.price.high} ${retail.price.currency} (${retail.source})`,
   )
 
   const secondhand = await lookupPrice(deps, 'secondhand', product)
   if (secondhand) {
-    await insertPriceCheck(db, product.id, secondhand.price, secondhand.rawResponse, secondhand.source, 'Used')
+    await insertPriceCheck(db, { productId: product.id, ...secondhand, condition: 'Used' })
     logger.info(
       `product ${product.id} (${label}): secondhand ${secondhand.price.low}-${secondhand.price.high} ${secondhand.price.currency} (${secondhand.source})`,
     )

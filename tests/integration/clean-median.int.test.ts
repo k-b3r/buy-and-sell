@@ -314,8 +314,18 @@ test('deals rank listings against sold comps, then peers, with the outlier guard
 
 test('discount detection falls back to the peer median across sold and active listings', async () => {
   const thresholds = { highDiscountThresholdPercent: 30, minProfitPesos: 1000, minPricePesos: 500 }
-  await checkListingDiscount(pool, 'cm-a7', PHONE, 'Used - Good', 4000, null, null, thresholds)
-  await checkListingDiscount(pool, 'cm-e1', EXCLUDED, 'Used - Good', 5000, null, null, thresholds)
+  await checkListingDiscount(
+    pool,
+    { id: 'cm-a7', productId: PHONE, condition: 'Used - Good', priceAmount: 4000 },
+    { retail: null, secondhand: null },
+    thresholds,
+  )
+  await checkListingDiscount(
+    pool,
+    { id: 'cm-e1', productId: EXCLUDED, condition: 'Used - Good', priceAmount: 5000 },
+    { retail: null, secondhand: null },
+    thresholds,
+  )
 
   const result = await pool.query(
     'SELECT listing_id, discount_percent, reference_price FROM discount_notifications WHERE product_id = ANY($1)',

@@ -17,13 +17,12 @@ function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] }
 test('insertPriceCheck writes a new price_history row for the product, not an upsert', async () => {
   const { db, calls } = mockDb()
 
-  await insertPriceCheck(
-    db,
-    42,
-    { low: 4500, high: 12000, currency: 'PHP' },
-    'Full grounded answer text here.',
-    'gemini_grounding',
-  )
+  await insertPriceCheck(db, {
+    productId: 42,
+    price: { low: 4500, high: 12000, currency: 'PHP' },
+    rawResponse: 'Full grounded answer text here.',
+    source: 'gemini_grounding',
+  })
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toMatch(/^INSERT INTO product_price_history/)
@@ -45,14 +44,13 @@ test('insertPriceCheck writes a new price_history row for the product, not an up
 test('insertPriceCheck tags a listing-derived price with the listing_prices source and a condition', async () => {
   const { db, calls } = mockDb()
 
-  await insertPriceCheck(
-    db,
-    42,
-    { low: 14999, high: 15000, currency: 'PHP' },
-    'computed from 4 listings',
-    'listing_prices',
-    'Used - Good',
-  )
+  await insertPriceCheck(db, {
+    productId: 42,
+    price: { low: 14999, high: 15000, currency: 'PHP' },
+    rawResponse: 'computed from 4 listings',
+    source: 'listing_prices',
+    condition: 'Used - Good',
+  })
 
   expect(calls[0].params).toEqual([
     42,
@@ -71,7 +69,12 @@ test('insertPriceCheck tags a listing-derived price with the listing_prices sour
 test('insertPriceCheck defaults condition to null when not given (e.g. a blended Gemini-grounded range)', async () => {
   const { db, calls } = mockDb()
 
-  await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'text', 'gemini_grounding')
+  await insertPriceCheck(db, {
+    productId: 42,
+    price: { low: 14999, high: 15000, currency: 'PHP' },
+    rawResponse: 'text',
+    source: 'gemini_grounding',
+  })
 
   expect(calls[0].params[6]).toBeNull()
 })
@@ -79,7 +82,14 @@ test('insertPriceCheck defaults condition to null when not given (e.g. a blended
 test('insertPriceCheck stores an Exa confidence value when given', async () => {
   const { db, calls } = mockDb()
 
-  await insertPriceCheck(db, 42, { low: 14999, high: 15000, currency: 'PHP' }, 'raw', 'exa_new_retail', 'New', 'high')
+  await insertPriceCheck(db, {
+    productId: 42,
+    price: { low: 14999, high: 15000, currency: 'PHP' },
+    rawResponse: 'raw',
+    source: 'exa_new_retail',
+    condition: 'New',
+    confidence: 'high',
+  })
 
   expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'raw', 'exa_new_retail', 'New', 'high', null, null])
 })
@@ -87,17 +97,16 @@ test('insertPriceCheck stores an Exa confidence value when given', async () => {
 test('insertPriceCheck stores release_year and is_discontinued when given', async () => {
   const { db, calls } = mockDb()
 
-  await insertPriceCheck(
-    db,
-    42,
-    { low: 14999, high: 15000, currency: 'PHP' },
-    'raw',
-    'exa_new_retail',
-    'New',
-    'high',
-    2021,
-    true,
-  )
+  await insertPriceCheck(db, {
+    productId: 42,
+    price: { low: 14999, high: 15000, currency: 'PHP' },
+    rawResponse: 'raw',
+    source: 'exa_new_retail',
+    condition: 'New',
+    confidence: 'high',
+    releaseYear: 2021,
+    isDiscontinued: true,
+  })
 
   expect(calls[0].params).toEqual([42, 14999, 15000, 'PHP', 'raw', 'exa_new_retail', 'New', 'high', 2021, true])
 })
