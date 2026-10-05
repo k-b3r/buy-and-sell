@@ -87,7 +87,7 @@ CI (`.github/workflows/`) runs every check above on each PR, plus an agent revie
 ```
 src/
   domains/
-    llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (spans marketplace concerns)
+    llm-clients/                        # gemini.ts, exa.ts, groq.ts wrappers (shared LLM/search clients)
       index.ts                          # barrel
   modules/                              # feature modules (see CONTEXT.md > Architecture)
     catalog/                            # products: extraction, enrichment, categories, dedup/merge,
