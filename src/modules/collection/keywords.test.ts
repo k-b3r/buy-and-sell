@@ -1,10 +1,5 @@
-import type { DbClient } from './storage'
-import {
-  loadCollectKeywords,
-  loadRealEstateKeywords,
-  planLapQueries,
-  DEFAULT_COLLECT_KEYWORDS,
-} from './collect-keywords'
+import type { DbClient } from '../../platform/storage'
+import { loadCollectKeywords, loadRealEstateKeywords, planLapQueries, DEFAULT_COLLECT_KEYWORDS } from './keywords'
 
 function mockDb(rows: { keyword: string }[]): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

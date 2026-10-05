@@ -429,7 +429,7 @@ ON CONFLICT (key) DO NOTHING;
 -- (previously the hardcoded MOTIVATED_SELLER_KEYWORDS array). Loaded fresh
 -- every lap, same no-restart pattern as the settings table above. Empty
 -- table (not just a missing row) falls back to DEFAULT_COLLECT_KEYWORDS in
--- src/platform/collect-keywords.ts - collect must never run a lap with zero
+-- src/modules/collection/keywords.ts - collect must never run a lap with zero
 -- search queries.
 CREATE TABLE IF NOT EXISTS collect_keywords (
   keyword TEXT PRIMARY KEY,

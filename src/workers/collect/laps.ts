@@ -1,11 +1,14 @@
-import type { BrowserDriver, PageDriver } from '../../modules/collection'
-import { isBrowserUnusableError } from '../../modules/collection'
+import type { BrowserDriver, LapQuery, PageDriver } from '../../modules/collection'
+import {
+  isBrowserUnusableError,
+  loadCollectKeywords,
+  loadRealEstateKeywords,
+  planLapQueries,
+} from '../../modules/collection'
 import type { DelayFn } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import { loadSettings } from '../../platform/settings'
-import { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from '../../platform/collect-keywords'
-import type { LapQuery } from '../../platform/collect-keywords'
 
 // collect's loop, kept out of platform/worker.ts's runWorker on purpose: it
 // runs once by default and loops only with --cycle, logs its laps differently,
