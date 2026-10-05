@@ -32,3 +32,6 @@ export {
   createFallbackOpenRouterClient,
   isQuotaError as isOpenRouterQuotaError,
 } from './openrouter'
+
+export { QuotaExhaustedError, isQuotaError, isCreditsError } from './error-classification'
+export { RetriesExhaustedError, withRetry, withRetryAndSplit } from './retry'
