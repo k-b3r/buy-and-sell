@@ -30,7 +30,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/listingsFilters.ts
 
-**Interactions:** imports `../../../lib/pricing`, `../../../lib/queries`, `./discountBand`
+**Interactions:** imports `../../../lib/queries`, `../../../lib/shared.generated`, `./discountBand`
 
 ### `hasActiveFilters(filters: ListingsFilters): boolean`
 
@@ -62,7 +62,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/ListingsGrid.tsx
 
-**Interactions:** imports `../../SaveButton`, `./ListingBadges`, `./listingsFilters`, `@/lib/listingPrice`, `@/lib/pricing`
+**Interactions:** imports `../../SaveButton`, `./ListingBadges`, `./listingsFilters`, `@/lib/listingPrice`, `@/lib/shared.generated`
 
 ### `default({ listings, activeListingId, productId, listingHref, }: { listings: PaginatedListingSummary[] activeListingId: string | null productId: number listingHref: (listingId: string) => string }): React.JSX.Element`
 
@@ -70,7 +70,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/ListingsTable.tsx
 
-**Interactions:** imports `../../SaveButton`, `./ListingBadges`, `./listingsFilters`, `@/lib/listingPrice`, `@/lib/pricing`
+**Interactions:** imports `../../SaveButton`, `./ListingBadges`, `./listingsFilters`, `@/lib/listingPrice`, `@/lib/shared.generated`
 
 ### `default({ listings, activeListingId, productId, listingHref, }: { listings: PaginatedListingSummary[] activeListingId: string | null productId: number listingHref: (listingId: string) => string }): React.JSX.Element`
 
@@ -115,6 +115,10 @@ _(undocumented)_
 ## dashboard/src/app/products/[id]/RefreshProductButton.tsx
 
 ### `shouldRefreshPage(prev: JobStatus | undefined, next: JobStatus | undefined): boolean`
+
+_(undocumented)_
+
+### `resumableJob(body: RefreshJob | null, productId: number): RefreshJob | null`
 
 _(undocumented)_
 

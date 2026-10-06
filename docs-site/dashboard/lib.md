@@ -60,18 +60,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/lib/pricing.ts
-
-**Interactions:** imports `./shared.generated`
-
-### `isPlaceholderPrice(price: number): boolean`
-
-_(undocumented)_
-
-### `isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null, discountPercent: number | null): boolean`
-
-_(undocumented)_
-
 ## dashboard/src/lib/queries.ts
 
 **Interactions:** imports `./shared.generated`
@@ -197,5 +185,15 @@ _(undocumented)_
 _(undocumented)_
 
 ### `realEstatePageQuery(params: Record<string, string | undefined>, page: number): string`
+
+_(undocumented)_
+
+## dashboard/src/lib/shared.generated.ts
+
+### `isPlaceholderPrice(price: number): boolean`
+
+_(undocumented)_
+
+### `isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null, discountPercent: number | null): boolean`
 
 _(undocumented)_

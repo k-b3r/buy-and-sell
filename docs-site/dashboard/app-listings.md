@@ -36,7 +36,7 @@ _(undocumented)_
 
 ## dashboard/src/app/listings/[id]/ListingPriceSummary.tsx
 
-**Interactions:** imports `../../InfoTooltip`, `@/lib/listingPrice`, `@/lib/pricing`, `@/lib/queries`
+**Interactions:** imports `../../InfoTooltip`, `@/lib/listingPrice`, `@/lib/queries`, `@/lib/shared.generated`
 
 ### `default({ listing }: { listing: ListingDetail }): React.JSX.Element`
 

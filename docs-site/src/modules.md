@@ -722,6 +722,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `isListingPriceNegotiable(priceAmount: number | null, priceReview: ListingPriceReview | null, discountPercent: number | null): boolean`
+
+_(undocumented)_
+
 ### `isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean`
 
 _(undocumented)_
