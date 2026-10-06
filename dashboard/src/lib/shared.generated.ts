@@ -311,6 +311,25 @@ export interface DiscountNotification {
   verification_reasoning: string | null
 }
 
+export function isPlaceholderPrice(price: number): boolean {
+  const digits = String(Math.trunc(Math.abs(price)))
+  if (digits.length < 3) return false
+  if (/^(\d+)\1+$/.test(digits)) return true
+  return ASCENDING_RUN_RE.test(digits)
+}
+
+export const ASCENDING_RUN_RE = /012|123|234|345|456|567|678|789/
+
+export function isListingPriceNegotiable(
+  priceAmount: number | null,
+  priceReview: ListingPriceReview | null,
+  discountPercent: number | null,
+): boolean {
+  if (priceReview?.is_negotiable) return true
+  if (priceAmount !== null && isPlaceholderPrice(priceAmount)) return true
+  return discountPercent === null || discountPercent === 0
+}
+
 // From src/platform/settings.ts
 
 export interface SettingRow {

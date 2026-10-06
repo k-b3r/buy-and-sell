@@ -44,6 +44,8 @@ const SHARED_SOURCES: SharedSource[] = [
       'DealsDiscountPolicyFloors',
       'DealsFilters',
       'DiscountNotification',
+      'isPlaceholderPrice',
+      'isListingPriceNegotiable',
     ],
   },
   // Platform has no index; settings.ts is the settings feature's public file.

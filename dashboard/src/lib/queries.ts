@@ -11,7 +11,7 @@
 //
 // SERVER-ONLY. Everything here reads REFRESH_API_KEY and must never be
 // imported by a client component - the pure pricing predicates a browser
-// needs live in ./pricing.ts, which is safe to import anywhere.
+// needs live in ./shared.generated.ts, which is safe to import anywhere.
 //
 // Adding a query means adding it to its module's queries.ts AND to that route's
 // REGISTRY, then adding the wrapper here. The two packages share no import
