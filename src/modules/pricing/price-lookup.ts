@@ -1,5 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './price-history'
 import { insertPriceCheck } from './price-history'
@@ -231,11 +232,22 @@ function providerStages(clients: PriceLookupClients, kind: PriceKind, product: P
   ]
 }
 
+// Every provider in the chain errored, none of them on quota or credits: no
+// provider actually answered, so this says nothing about the product. Callers
+// skip the product for now (it stays a candidate) instead of excluding it.
+export class PriceLookupFailedError extends Error {
+  override name = 'PriceLookupFailedError'
+}
+
 // Same chain for both kinds: Gemini (free, grounded) -> Exa (structured,
 // cites sources) -> Tavily (free, regex parsed). Retail was promoted to
 // Gemini-first 2026-09-02 (see buildGeminiPrompt's comment). A provider that
 // errors, finds nothing, or answers with a too-wide range falls through to
 // the next; a too-wide range from the last one is dropped, not returned.
+// Contract: null means at least one provider really answered "no usable
+// price". When every provider errored instead, it throws: a
+// QuotaExhaustedError if any error was quota/credits (fatal, stop the run,
+// per llm-clients' error-classification.ts), else a PriceLookupFailedError.
 export async function lookupPrice(
   deps: Pick<PriceLookupDeps, 'clients' | 'logger'>,
   kind: PriceKind,
@@ -243,6 +255,7 @@ export async function lookupPrice(
 ): Promise<PriceLookupResult | null> {
   const prefix = `product ${product.id} (${productLabel(product.base_model, product.variant_tier)})`
   const stages = providerStages(deps.clients, kind, product)
+  const errors: unknown[] = []
 
   for (const [i, stage] of stages.entries()) {
     const next = stages[i + 1]?.name
@@ -255,13 +268,22 @@ export async function lookupPrice(
         )
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      errors.push(err)
       deps.logger.warn(
-        `${prefix}: ${stage.name} ${kind} lookup failed (${message})${next ? `, falling back to ${next}` : ''}`,
+        `${prefix}: ${stage.name} ${kind} lookup failed (${errorMessage(err)})${next ? `, falling back to ${next}` : ''}`,
       )
     }
   }
-  return null
+  if (errors.length < stages.length) return null
+
+  const summary = `${prefix}: every ${kind} provider failed (${errors.map(errorMessage).join('; ')})`
+  const fatal = errors.find((err) => isQuotaError(err) || isCreditsError(err))
+  if (fatal) throw new QuotaExhaustedError(summary, { cause: fatal })
+  throw new PriceLookupFailedError(summary, { cause: errors.at(-1) })
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 export interface PriceLookupDeps {
@@ -302,6 +324,8 @@ export async function ensureProductPriced(
     return { retail: null, secondhand: null, excluded: true }
   }
 
+  // A chain that only errored throws here (see lookupPrice), so the product
+  // is never excluded on a provider outage or exhausted quota.
   const retail = await lookupPrice(deps, 'retail', product)
   if (!retail) {
     // Retail search failing across BOTH providers (Exa and Tavily) is a much
@@ -321,7 +345,7 @@ export async function ensureProductPriced(
     `product ${product.id} (${label}): retail ${retail.price.low}-${retail.price.high} ${retail.price.currency} (${retail.source})`,
   )
 
-  const secondhand = await lookupPrice(deps, 'secondhand', product)
+  const secondhand = await lookupSecondhand(deps, product)
   if (secondhand) {
     await insertPriceCheck(db, { productId: product.id, ...secondhand, condition: 'Used' })
     logger.info(
@@ -339,4 +363,18 @@ export async function ensureProductPriced(
   }
 
   return { retail: retail.price, secondhand: secondhand?.price ?? null, excluded: false }
+}
+
+// A missing secondhand price never excludes, so a chain that only errored
+// transiently is the same "no data yet" as not found. Quota still unwinds.
+async function lookupSecondhand(
+  deps: PriceLookupDeps,
+  product: PriceLookupCandidate,
+): Promise<PriceLookupResult | null> {
+  try {
+    return await lookupPrice(deps, 'secondhand', product)
+  } catch (err) {
+    if (err instanceof PriceLookupFailedError) return null
+    throw err
+  }
 }
