@@ -10,8 +10,8 @@ import {
   isPriceInvalidated,
   medianCtes,
   NEW_PRICE_LATERAL,
+  notJunkPriceSql,
   notMagnitudeOutlierSql,
-  notPlaceholderPriceSql,
   peerListingSql,
   resolveSecondhandPrice,
   SECONDHAND_PRICE_LATERAL,
@@ -103,9 +103,9 @@ export async function getProductSummaries(
      p AS (
        SELECT p.id, p.base_model, p.variant_tier, c.name AS category, sc.name AS sub_category, p.price_lookup_excluded,
               count(l.id) as listing_count,
-              min(l.price_amount) FILTER (WHERE l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_min,
-              max(l.price_amount) FILTER (WHERE l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_max,
-              avg(l.price_amount) FILTER (WHERE l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_avg,
+              min(l.price_amount) FILTER (WHERE ${notJunkPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_min,
+              max(l.price_amount) FILTER (WHERE ${notJunkPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_max,
+              avg(l.price_amount) FILTER (WHERE ${notJunkPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_avg,
               COALESCE(max(l.stored_photo_urls->>0), max(l.primary_photo_url)) as sample_photo_url
        FROM products p
        JOIN listings l ON l.product_id = p.id
@@ -402,11 +402,11 @@ export async function getSoldCountsBySubCategory(db: QueryClient): Promise<Categ
      ),
      counts AS (
        SELECT c.name AS category, sc.name AS sub_category, date_trunc('week', l.sold_at) AS week_start, count(*) AS n,
-              -- Placeholder/joke prices (see isPlaceholderPrice) would otherwise skew a
+              -- Junk/joke prices (see isJunkPrice) would otherwise skew a
               -- week's average toward a fake number the same way they'd skew a discount
               -- calculation - excluded here for the same reason.
               avg(l.price_amount) FILTER (
-                WHERE l.price_amount IS NOT NULL AND l.price_amount > 0 AND ${notPlaceholderPriceSql('l.price_amount')}
+                WHERE l.price_amount IS NOT NULL AND ${notJunkPriceSql('l.price_amount')}
               ) AS avg_price
        FROM listings l
        JOIN products p ON p.id = l.product_id
