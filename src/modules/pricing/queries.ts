@@ -83,7 +83,6 @@ export type PeerMedianPrice = ProductCleanMedian
 // Deals page's second-tier reference price: median of the same product's peer
 // listings (active plus recently sold, see peerListingSql), used when
 // getSoldComparablePrice above has too few actual sales to trust.
-
 // Per-product so the deals page can call this once per product instead of
 // once per listing.
 export async function getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null> {
