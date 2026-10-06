@@ -11,11 +11,13 @@ import {
   parseTavilyPriceAnswer,
   lookupPrice,
   ensureProductPriced,
+  PriceLookupFailedError,
 } from './price-lookup'
 import type { PriceLookupCandidate, PriceLookupClients } from './price-lookup'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import { QuotaExhaustedError, isQuotaError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 
 const candidate: PriceLookupCandidate = {
@@ -330,14 +332,133 @@ test('lookupPrice logs a provider error and moves on, with no fallback named aft
   })
   const logger = fakeLogger()
 
-  const result = await lookupPrice({ clients, logger }, 'retail', product)
-
-  expect(result).toBeNull()
+  await expect(lookupPrice({ clients, logger }, 'retail', product)).rejects.toThrow(PriceLookupFailedError)
   expect(logger.warnings).toEqual([
     'product 2 (Sony WH-1000XM4): Gemini retail lookup failed (boom), falling back to Exa',
     'product 2 (Sony WH-1000XM4): Exa retail lookup failed (boom), falling back to Tavily',
     'product 2 (Sony WH-1000XM4): Tavily retail lookup failed (boom)',
   ])
+})
+
+function httpError(status: number): Error {
+  return Object.assign(new Error(`HTTP ${status}`), { status })
+}
+
+function throwing(err: Error): () => Promise<never> {
+  return async () => {
+    throw err
+  }
+}
+
+// Every provider errors, at least one on quota/credits: Gemini 429, Exa 402
+// (credits), Tavily a transient 503.
+function quotaFailingClients(): PriceLookupClients {
+  return fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(429)) },
+    exa: { searchStructured: throwing(httpError(402)) },
+    tavily: { search: throwing(httpError(503)) },
+  })
+}
+
+test('lookupPrice throws a quota error when every provider fails and one of them on quota or credits', async () => {
+  const result = lookupPrice({ clients: quotaFailingClients(), logger: fakeLogger() }, 'retail', product)
+
+  await expect(result).rejects.toThrow(QuotaExhaustedError)
+})
+
+test('lookupPrice throws a non-quota PriceLookupFailedError when every provider fails transiently', async () => {
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(503)) },
+    exa: { searchStructured: throwing(new Error('network down')) },
+    tavily: { search: throwing(httpError(500)) },
+  })
+
+  const err = await lookupPrice({ clients, logger: fakeLogger() }, 'retail', product).catch((e: unknown) => e)
+
+  expect(err).toBeInstanceOf(PriceLookupFailedError)
+  expect(isQuotaError(err)).toBe(false)
+})
+
+test('lookupPrice falls through a quota error to the next provider that has a price', async () => {
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(429)) },
+    exa: {
+      searchStructured: async () => ({ output: { content: { found: true, price_low: 14499, price_high: 19999 } } }),
+    },
+  })
+
+  const result = await lookupPrice({ clients, logger: fakeLogger() }, 'retail', product)
+
+  expect(result?.source).toBe('exa_new_retail')
+})
+
+test('lookupPrice returns null when one provider really answers not found, even if the others hit quota', async () => {
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(429)) },
+    exa: { searchStructured: throwing(httpError(402)) },
+  })
+
+  expect(await lookupPrice({ clients, logger: fakeLogger() }, 'retail', product)).toBeNull()
+})
+
+test('ensureProductPriced leaves the product unexcluded and throws when the retail chain fails on quota', async () => {
+  const { db, calls } = fakeDb()
+
+  const result = ensureProductPriced({ clients: quotaFailingClients(), db, logger: fakeLogger() }, product)
+
+  await expect(result).rejects.toThrow(QuotaExhaustedError)
+  expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
+})
+
+test('ensureProductPriced leaves the product unexcluded and throws when the retail chain fails transiently', async () => {
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(503)) },
+    exa: { searchStructured: throwing(httpError(500)) },
+    tavily: { search: throwing(httpError(500)) },
+  })
+  const { db, calls } = fakeDb()
+
+  const result = ensureProductPriced({ clients, db, logger: fakeLogger() }, product)
+
+  await expect(result).rejects.toThrow(PriceLookupFailedError)
+  expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
+})
+
+const RETAIL_FOUND = '```json\n{"found": true, "price_low": 14499, "price_high": 19999}\n```'
+
+// Gemini prices retail, then the secondhand chain errors on every provider.
+function secondhandFailingClients(secondhandError: Error): PriceLookupClients {
+  return fakeClients({
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async (prompt: string) => {
+        if (prompt.includes('brand-new retail')) return RETAIL_FOUND
+        throw secondhandError
+      },
+    },
+    exa: { searchStructured: throwing(secondhandError) },
+    tavily: { search: throwing(secondhandError) },
+  })
+}
+
+test('ensureProductPriced keeps the retail price when the secondhand chain fails transiently', async () => {
+  const { db, calls } = fakeDb()
+  const clients = secondhandFailingClients(httpError(503))
+
+  const result = await ensureProductPriced({ clients, db, logger: fakeLogger() }, product)
+
+  expect(result).toEqual({ retail: { low: 14499, high: 19999, currency: 'PHP' }, secondhand: null, excluded: false })
+  expect(calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))).toHaveLength(1)
+})
+
+test('ensureProductPriced throws when the secondhand chain fails on quota, after saving retail', async () => {
+  const { db, calls } = fakeDb()
+  const clients = secondhandFailingClients(httpError(429))
+
+  const result = ensureProductPriced({ clients, db, logger: fakeLogger() }, product)
+
+  await expect(result).rejects.toThrow(QuotaExhaustedError)
+  expect(calls.filter((c) => c.sql.startsWith('INSERT INTO product_price_history'))).toHaveLength(1)
 })
 
 test('ensureProductPriced excludes a text-pattern-generic product before spending any call', async () => {

@@ -4,6 +4,7 @@ import type { ExtractionClients } from './run-extraction'
 import { createLogger } from '../../platform/logger'
 import { normalizeVariantTier } from './products'
 import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import { QuotaExhaustedError } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { ExtractionCandidate } from './product-storage'
 
@@ -775,6 +776,42 @@ test('a failure while deciding a discount leaves the whole batch unassigned for 
 
   expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
   expect(calls.some((c) => c.sql.startsWith('INSERT INTO discount_notifications'))).toBe(false)
+})
+
+function pricingFailingClients(status: number): ExtractionClients {
+  const fail = async (): Promise<never> => {
+    throw Object.assign(new Error(`HTTP ${status}`), { status })
+  }
+  return {
+    groq: fakeGroq([{ id: '1', base_model: 'RTX 3060' }]),
+    gemini: { generateJson: fail, generateGroundedText: fail },
+    exa: { searchStructured: fail },
+    tavily: { search: fail },
+  }
+}
+
+test('a quota failure across the whole pricing chain stops the run, leaving the listing unassigned and the product unexcluded', async () => {
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
+  const { db, calls } = fakeDbWithCalls()
+
+  const run = runProductExtraction({ clients: pricingFailingClients(429), db, logger }, candidates, { batchSize: 25 })
+
+  await expect(run).rejects.toThrow(QuotaExhaustedError)
+  expect(calls.some((c) => c.sql.startsWith('UPDATE listings'))).toBe(false)
+  expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
+})
+
+test('a transient failure across the whole pricing chain still assigns the listing and leaves the product unexcluded', async () => {
+  const logger = createLogger(LOG_PATH)
+  const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
+  const { db, calls } = fakeDbWithCalls()
+
+  await runProductExtraction({ clients: pricingFailingClients(503), db, logger }, candidates, { batchSize: 25 })
+
+  expect(calls.find((c) => c.sql.startsWith('UPDATE listings'))?.params).toEqual(['1', 1])
+  expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
+  expect(calls.some((c) => c.sql.startsWith('INSERT INTO product_price_history'))).toBe(false)
 })
 
 test('a failed batch product_id update leaves no discount notifications behind', async () => {

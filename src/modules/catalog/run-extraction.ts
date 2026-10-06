@@ -16,6 +16,7 @@ import {
   ensureProductPriced,
   getProductPricingStatus,
   insertDiscountNotifications,
+  PriceLookupFailedError,
 } from '../pricing'
 import type { ExtractionCandidate } from './product-storage'
 import { findOrCreateProduct, updateListingProductIds } from './product-storage'
@@ -144,10 +145,20 @@ async function ensureProductPricing(
   // description/sibling_variants come back empty for a product this new -
   // it hasn't been through product enrichment yet. The search still works,
   // just with less disambiguating context than a backfilled lookup gets.
-  return ensureProductPriced(
-    { clients: priceLookupClients, db, logger },
-    { id: productId, base_model: baseModel, variant_tier: variant, description: null, sibling_variants: [] },
-  )
+  // A quota error propagates and stops the run (batch stays unassigned). A
+  // chain that only failed transiently leaves the product unpriced but not
+  // excluded: the listing is still assigned and the price-lookup backfill
+  // retries the product later.
+  try {
+    return await ensureProductPriced(
+      { clients: priceLookupClients, db, logger },
+      { id: productId, base_model: baseModel, variant_tier: variant, description: null, sibling_variants: [] },
+    )
+  } catch (err) {
+    if (!(err instanceof PriceLookupFailedError)) throw err
+    logger.warn(`${err.message}, leaving product ${productId} for the price-lookup backfill`)
+    return { retail: null, secondhand: null, excluded: false }
+  }
 }
 
 async function resolveProductId(run: ExtractionRun, listing: ExtractedListing): Promise<number> {
