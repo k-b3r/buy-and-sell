@@ -2,7 +2,7 @@ import type { DbClient } from '../../platform/storage'
 import { normalizeBaseModel, normalizeVariantTier } from './products'
 import type { EnrichmentCandidate, EnrichmentData } from './enrichment'
 
-// The products_base_model_variant_idx identity: one row per normalized
+// The products_base_model_variant_normalized_idx identity: one row per normalized
 // base_model + variant_tier. Every "does this product already exist" check
 // (extraction, merges, mismatch reassignment) goes through here.
 export async function findProductIdsByNormalizedName(

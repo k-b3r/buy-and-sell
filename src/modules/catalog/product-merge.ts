@@ -4,15 +4,17 @@ import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from '
 
 interface ProductRow {
   id: number
-  variant_tier: string | null
+  variant_tier_normalized: string | null
 }
 
 // Retroactive fix for duplicates CANONICAL_BASE_MODEL now prevents at
 // extraction time. Renames in place when nothing collides. When the
-// canonical name + same raw variant_tier already exists as a different row
-// (the common case — that's WHY these were split), merges into it instead
-// of renaming, since the products_base_model_variant_idx unique index would
-// otherwise reject the rename outright.
+// canonical name + same variant already exists as a different row (the
+// common case, that's WHY these were split), merges into it instead of
+// renaming, since the products_base_model_variant_normalized_idx unique index
+// would otherwise reject the rename outright. The collision lookup uses that
+// index's normalized identity, so a canonical row differing only in case or
+// spacing is still found.
 export async function mergeDuplicateProducts(
   db: DbClient,
   canonicalMap: Record<string, string> = CANONICAL_BASE_MODEL,
@@ -21,18 +23,19 @@ export async function mergeDuplicateProducts(
   let merged = 0
 
   for (const [alias, canonical] of Object.entries(canonicalMap)) {
-    const aliasRows = (await db.query(`SELECT id, variant_tier FROM products WHERE base_model = $1`, [alias])) as {
+    const aliasRows = (await db.query(`SELECT id, variant_tier_normalized FROM products WHERE base_model = $1`, [
+      alias,
+    ])) as {
       rows: ProductRow[]
     }
 
     for (const row of aliasRows.rows) {
-      const existing = (await db.query(
-        `SELECT id FROM products WHERE base_model = $1 AND COALESCE(variant_tier, '') = COALESCE($2, '') AND id != $3`,
-        [canonical, row.variant_tier, row.id],
-      )) as { rows: { id: number }[] }
+      const existing = (
+        await findProductIdsByNormalizedName(db, normalizeBaseModel(canonical), row.variant_tier_normalized)
+      ).filter((id) => id !== row.id)
 
-      if (existing.rows.length > 0) {
-        await mergeDuplicateProduct(db, existing.rows[0].id, row.id)
+      if (existing.length > 0) {
+        await mergeDuplicateProduct(db, existing[0], row.id)
         merged++
       } else {
         await db.query(`UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3`, [
@@ -62,10 +65,9 @@ export interface ProductAliasRule {
 }
 
 // Matches on the normalized columns (same ones the extraction path's own
-// dedup check uses, see findOrCreateProduct) rather than raw base_model
-// equality like mergeDuplicateProducts does - case/whitespace differences in
-// how a rule is transcribed don't cause a false "no match" the way
-// exact-string matching would.
+// dedup check uses, see findOrCreateProduct) rather than raw text equality -
+// case/whitespace differences in how a rule is transcribed don't cause a
+// false "no match" the way exact-string matching would.
 function findProduct(db: DbClient, base: string, variant: string | null): Promise<number[]> {
   return findProductIdsByNormalizedName(
     db,
