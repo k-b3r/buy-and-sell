@@ -26,7 +26,9 @@ test('isJunkPrice flags a price below the ₱100 floor or with a placeholder dig
 })
 
 test('notJunkPriceSql bounds the column at the floor and rejects placeholder patterns', () => {
-  expect(notJunkPriceSql('l.price_amount')).toBe(`l.price_amount >= 100 AND ${notPlaceholderPriceSql('l.price_amount')}`)
+  expect(notJunkPriceSql('l.price_amount')).toBe(
+    `l.price_amount >= 100 AND ${notPlaceholderPriceSql('l.price_amount')}`,
+  )
 })
 
 test('isPlaceholderPrice flags ascending-sequential digit runs', () => {
