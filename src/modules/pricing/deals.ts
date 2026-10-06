@@ -76,7 +76,7 @@ const DEALS_CATEGORY_CAP = 10
 // Reference-price fallback chain, highest confidence first (see
 // getSoldComparablePrice/getPeerMedianPrice in queries.ts for the same clean-median
 // approach applied per-tier): sold comps (n>=3 actual sales) -> peer
-// listings (active + sold in the last 30 days, n>=3) -> LLM estimate (used_price_low/high, falling back to
+// listings (scope in peerListingSql, n>=3) -> LLM estimate (used_price_low/high, falling back to
 // enrichment's trained_price_low/high the same way resolveSecondhandPrice
 // does in price-rules.ts, collapsed to a single point estimate via
 // midpoint since the deals page ranks by one number, not a range).
