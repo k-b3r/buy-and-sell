@@ -44,6 +44,8 @@ const SHARED_SOURCES: SharedSource[] = [
       'DealsDiscountPolicyFloors',
       'DealsFilters',
       'DiscountNotification',
+      'isPlaceholderPrice',
+      'isListingPriceNegotiable',
     ],
   },
   // Platform has no index; settings.ts is the settings feature's public file.
@@ -75,19 +77,26 @@ function declarationName(node: Node): string {
   return Node.hasName(node) ? node.getName() : node.getText()
 }
 
-// Local interfaces/type aliases/enums a declaration's type references point at,
-// resolved through imports. Library types (Date, Record, ...) live outside the
-// project's own files and stay out.
+function isTopLevelValue(decl: Node): boolean {
+  if (Node.isFunctionDeclaration(decl)) return Node.isSourceFile(decl.getParent())
+  return Node.isVariableDeclaration(decl) && Node.isSourceFile(decl.getVariableStatement()?.getParent())
+}
+
+// Local declarations a declaration depends on, resolved through imports:
+// interfaces/type aliases/enums its type references name, and module-level
+// functions/constants its code uses (so a copied function keeps working).
+// Library declarations (Date, Record, ...) live outside the project's own
+// files and stay out.
 function referencedDeclarations(node: Node): Node[] {
   const found: Node[] = []
-  for (const ref of node.getDescendantsOfKind(SyntaxKind.TypeReference)) {
-    let symbol = ref.getTypeName().getSymbol()
+  for (const id of node.getDescendantsOfKind(SyntaxKind.Identifier)) {
+    let symbol = id.getSymbol()
     if (symbol?.isAlias()) symbol = symbol.getAliasedSymbol()
     for (const decl of symbol?.getDeclarations() ?? []) {
-      const local = !decl.getSourceFile().isInNodeModules() && !decl.getSourceFile().isDeclarationFile()
+      if (decl === node || decl.getSourceFile().isInNodeModules() || decl.getSourceFile().isDeclarationFile()) continue
       const isType =
         Node.isInterfaceDeclaration(decl) || Node.isTypeAliasDeclaration(decl) || Node.isEnumDeclaration(decl)
-      if (local && isType) found.push(decl)
+      if (isType || isTopLevelValue(decl)) found.push(decl)
     }
   }
   return found

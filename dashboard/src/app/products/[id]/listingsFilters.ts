@@ -6,7 +6,7 @@
 // /api/products/[id]/listings route (subsequent pages) for the same reason.
 
 import type { ProductListingSummary } from '../../../lib/queries'
-import { isListingPriceNegotiable } from '../../../lib/pricing'
+import { isListingPriceNegotiable } from '../../../lib/shared.generated'
 import { isInDiscountBand } from './discountBand'
 
 export type View = 'list' | 'cards'

@@ -1,5 +1,5 @@
 import { formatListingPrice } from '@/lib/listingPrice'
-import { isListingPriceNegotiable } from '@/lib/pricing'
+import { isListingPriceNegotiable } from '@/lib/shared.generated'
 import type { ListingDetail } from '@/lib/queries'
 import InfoTooltip from '../../InfoTooltip'
 

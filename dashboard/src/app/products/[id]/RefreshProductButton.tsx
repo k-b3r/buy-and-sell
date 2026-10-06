@@ -20,6 +20,13 @@ export function shouldRefreshPage(prev: JobStatus | undefined, next: JobStatus |
   return next !== undefined || prev === 'running'
 }
 
+// The job a freshly loaded page picks up. One that already finished is left
+// alone: the page was rendered after it, so refreshing would be a wasted
+// round trip on every load while the server still reports it.
+export function resumableJob(body: RefreshJob | null, productId: number): RefreshJob | null {
+  return body?.productId === productId && body.status === 'running' ? body : null
+}
+
 const buttonStyle: CSSProperties = {
   background: 'transparent',
   color: 'var(--color-text)',
@@ -46,7 +53,7 @@ export default function RefreshProductButton({ productId }: { productId: number 
     fetch('/api/refresh-job')
       .then((res) => res.json())
       .then((body) => {
-        if (!cancelled && body && body.productId === productId) setJob(body)
+        if (!cancelled) setJob(resumableJob(body, productId))
       })
       .catch(() => {})
     return () => {

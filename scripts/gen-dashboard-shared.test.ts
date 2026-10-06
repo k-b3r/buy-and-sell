@@ -43,6 +43,25 @@ test('renderDashboardShared also copies the types a requested type references, e
   expect(out).not.toContain('interface Date')
 })
 
+test('renderDashboardShared copies a requested function with the module-level functions and constants it uses', async () => {
+  const project = projectWith({
+    '/m/index.ts': "export { isCheap } from './rules'\n",
+    '/m/rules.ts':
+      "import { isRound } from './round'\n" +
+      'const LIMIT = 100\n' +
+      'export function isCheap(price: number): boolean {\n  const local = price\n  return local < LIMIT && !isRound(local)\n}\n',
+    '/m/round.ts': 'export function isRound(n: number): boolean {\n  return n % 10 === 0\n}\n',
+  })
+
+  const out = await renderDashboardShared(project, [{ index: '/m/index.ts', names: ['isCheap'] }])
+
+  expect(out).toContain('export function isCheap(price: number): boolean {')
+  expect(out).toContain('export const LIMIT = 100')
+  expect(out).toContain('export function isRound(n: number): boolean {')
+  expect(out).not.toContain('import')
+  expect(out.match(/const local/g)).toHaveLength(1)
+})
+
 test('renderDashboardShared fails when two different declarations would share one name', async () => {
   const project = projectWith({
     '/a/index.ts': 'export interface Thing {\n  a: string\n}\n',
