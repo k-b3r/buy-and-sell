@@ -287,8 +287,8 @@ export async function deleteListing(db: DbClient, id: string): Promise<void> {
 //     compression) and R2 writes across the whole backlog at once.
 //   - baseline present, ids match -> untouched, same as before this existed.
 //   - baseline present, ids differ -> a real change: re-download + re-upload
-//     via the same ListingPhotos.save used at initial collection (not
-//     duplicated), overwriting primary_photo_url/stored_photo_urls/
+//     via ListingPhotos.replace (the same save used at initial collection,
+//     plus deleting the keys the new set no longer uses), overwriting primary_photo_url/stored_photo_urls/
 //     source_photo_ids together. A total re-fetch failure (all photos
 //     unreachable) leaves the existing good copies untouched rather than
 //     wiping them - it'll just look "changed" again next check and retry.
@@ -320,16 +320,20 @@ export async function refreshListingFields(
     JSON.stringify(listing),
   ]
 
+  let pruneUnusedPhotos = async (): Promise<void> => {}
   if (currentPhotoIds !== null) {
     if (storedPhotoIds === null) {
       params.push(JSON.stringify(currentPhotoIds))
       setClauses.push(`source_photo_ids = $${params.length}`)
     } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
       logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
-      // No deleteAll first: save writes deterministic keys (listings/<id>/<i>),
-      // so new photos overwrite old ones in place, and a re-fetch that gets
-      // nothing leaves the stored photos the DB points at intact.
-      const newUrls = await photos.save(f.id, listing.listing_photos)
+      // No deleteAll first: replace writes deterministic keys (listings/<id>/<i>),
+      // so new photos overwrite old ones in place, leftovers are pruned only
+      // after the UPDATE below succeeded, and a re-fetch that gets nothing
+      // leaves the stored photos the DB points at intact.
+      const replaced = await photos.replace(f.id, listing.listing_photos)
+      const newUrls = replaced.urls
+      pruneUnusedPhotos = replaced.pruneUnused
       if (newUrls.length > 0) {
         params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
         setClauses.push(
@@ -351,6 +355,7 @@ export async function refreshListingFields(
      RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
     params,
   )) as { rows?: PriorPriceRow[] } | undefined
+  await pruneUnusedPhotos()
   await recordRealEstatePriceChange(db, logger, {
     listingId: f.id,
     prior: updated?.rows?.[0],
