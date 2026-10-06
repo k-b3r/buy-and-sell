@@ -316,6 +316,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `requireBackfillProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ResolvedProxy>`
+
+_(undocumented)_
+
 ### `createListingPhotos({ store, fetchBytes, compress, logger }: ListingPhotosIo): ListingPhotos`
 
 _(undocumented)_
@@ -458,7 +462,11 @@ _(undocumented)_
 
 ## src/modules/collection/photo-backfill.ts
 
-**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./run`
+**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./proxy`, `./run`
+
+### `requireBackfillProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ResolvedProxy>`
+
+_(undocumented)_
 
 ### `backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number>`
 
