@@ -30,7 +30,9 @@ const REVIEW_OUTLIER_RATIO = 5
 // catch them. The median itself excludes placeholder prices from its own
 // input pool, same reasoning as the dashboard's SIBLING_MEDIAN_SQL/
 // DISCOUNT_SUMMARY_LATERAL - a placeholder shouldn't skew the median used to
-// judge everything else. The LEFT JOIN + "description changed since review"
+// judge everything else. Excluded products get no median (it would mix
+// unrelated items), so their listings flag only on the other two branches.
+// The LEFT JOIN + "description changed since review"
 // gate is the resumability mechanism: a listing gets re-reviewed once its
 // seller edits the description (a price clarification is the case that
 // matters), not on every re-scrape - refreshListingFields bumps updated_at
@@ -40,18 +42,20 @@ export async function getPriceReviewCandidates(db: DbClient): Promise<PriceRevie
   const result = (await db.query(
     `WITH ${medianCtes({
       name: 'product_medians',
-      pool: 'SELECT product_id, price_amount FROM listings WHERE product_id IS NOT NULL',
+      pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
+             JOIN products p ON p.id = pl.product_id
+             WHERE NOT p.price_lookup_excluded`,
       clean: false,
     })},
      flagged AS (
        SELECT l.id, l.title, l.description, l.price_amount,
-         (l.price_amount < m.raw_median_price / ${REVIEW_OUTLIER_RATIO} OR l.price_amount > m.raw_median_price * ${REVIEW_OUTLIER_RATIO}) AS price_outlier,
+         COALESCE(l.price_amount < m.raw_median_price / ${REVIEW_OUTLIER_RATIO} OR l.price_amount > m.raw_median_price * ${REVIEW_OUTLIER_RATIO}, false) AS price_outlier,
          NOT ${notPlaceholderPriceSql('l.price_amount')} AS placeholder_price,
          ${DESCRIPTION_MENTIONS_PRICE_SQL} AS description_mentions_price
        FROM listings l
-       JOIN product_medians m ON m.product_id = l.product_id
+       LEFT JOIN product_medians m ON m.product_id = l.product_id
        LEFT JOIN listing_price_review r ON r.listing_id = l.id
-       WHERE l.price_amount IS NOT NULL
+       WHERE l.product_id IS NOT NULL AND l.price_amount IS NOT NULL
          AND (r.listing_id IS NULL OR l.description IS DISTINCT FROM r.reviewed_description)
      )
      SELECT id, title, description, price_amount, price_outlier, placeholder_price

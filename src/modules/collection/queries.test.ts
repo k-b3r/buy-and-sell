@@ -13,11 +13,12 @@ function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }
 }
 
-test('getListingDetail excludes placeholder-pattern prices from the sibling median query', async () => {
+test('getListingDetail excludes placeholder-pattern prices and price-lookup-excluded products from the sibling median query', async () => {
   const db: QueryClient = {
     query: async (sql: string) => {
       if (sql.includes('product_prices')) {
         expect(sql).toContain("'^(\\d+)\\1+$'")
+        expect(sql).toContain('NOT p.price_lookup_excluded')
         return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       }
       return {

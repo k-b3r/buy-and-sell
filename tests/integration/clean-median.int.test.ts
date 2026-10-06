@@ -167,7 +167,7 @@ test('comparable listings are the in-band rows behind the median, excluding the 
   `)
 })
 
-test('listing detail scores a discount against its siblings, including on an excluded product', async () => {
+test('listing detail scores a discount against its siblings, never on an excluded product', async () => {
   const detail = async (id: string) => {
     const d = await getListingDetail(pool, id)
     return { price: d?.price_amount, discount: d?.discount_percent, reference: d?.reference_price }
@@ -182,9 +182,9 @@ test('listing detail scores a discount against its siblings, including on an exc
   }).toMatchInlineSnapshot(`
     {
       "excludedProduct": {
-        "discount": 17,
+        "discount": null,
         "price": 5000,
-        "reference": 6000,
+        "reference": null,
       },
       "inBand": {
         "discount": -22,

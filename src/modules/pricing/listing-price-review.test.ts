@@ -207,3 +207,12 @@ test('flagNegotiableFromKeywords returns null and makes no db call when nothing 
 
   expect(calls).toHaveLength(0)
 })
+
+test('getPriceReviewCandidates takes no median over a price-lookup-excluded product, but still checks its listings for placeholder and description prices', async () => {
+  const { db, calls } = mockDbWithRows([])
+
+  await getPriceReviewCandidates(db)
+
+  expect(calls[0].sql).toContain('NOT p.price_lookup_excluded')
+  expect(calls[0].sql).toContain('LEFT JOIN product_medians m')
+})
