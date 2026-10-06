@@ -27,15 +27,23 @@ const AUTH_FAILURE_WINDOW_MS = 5 * 60 * 1000
 // Pure routing/auth/JSON-parsing core, no Node http types involved - testable
 // directly without spinning up a real server or faking IncomingMessage/
 // ServerResponse. createApp below is just a thin Node adapter around this.
+export interface AppContext {
+  routes: RouteTable
+  apiKey: string
+  rateLimiter: RateLimiter
+}
+
+export interface AppRequest {
+  method: string | undefined
+  url: string | undefined
+  authHeader: string | undefined
+  rawBody: string
+  clientIp: string
+}
+
 export async function handleRequest(
-  routes: RouteTable,
-  apiKey: string,
-  method: string | undefined,
-  url: string | undefined,
-  authHeader: string | undefined,
-  rawBody: string,
-  clientIp: string,
-  rateLimiter: RateLimiter,
+  { routes, apiKey, rateLimiter }: AppContext,
+  { method, url, authHeader, rawBody, clientIp }: AppRequest,
 ): Promise<RouteResult> {
   const handler = routes[`${method} ${url}`]
   if (!handler) {
@@ -85,7 +93,11 @@ function clientIpFrom(req: IncomingMessage): string {
 // Node http.Server back. New use cases add an entry to the route table
 // passed in at the call site (see index.ts), not a change to this file.
 export function createApp(apiKey: string, routes: RouteTable): Server {
-  const rateLimiter = createRateLimiter(MAX_AUTH_FAILURES, AUTH_FAILURE_WINDOW_MS)
+  const app: AppContext = {
+    routes,
+    apiKey,
+    rateLimiter: createRateLimiter(MAX_AUTH_FAILURES, AUTH_FAILURE_WINDOW_MS),
+  }
 
   return createServer((req, res) => {
     let raw = ''
@@ -95,17 +107,13 @@ export function createApp(apiKey: string, routes: RouteTable): Server {
     req.on('end', () => void respond())
 
     async function respond() {
-      const clientIp = clientIpFrom(req)
-      const result = await handleRequest(
-        routes,
-        apiKey,
-        req.method,
-        req.url,
-        req.headers.authorization,
-        raw,
-        clientIp,
-        rateLimiter,
-      )
+      const result = await handleRequest(app, {
+        method: req.method,
+        url: req.url,
+        authHeader: req.headers.authorization,
+        rawBody: raw,
+        clientIp: clientIpFrom(req),
+      })
       res.writeHead(result.statusCode, { 'content-type': 'application/json' })
       res.end(JSON.stringify(result.body))
     }

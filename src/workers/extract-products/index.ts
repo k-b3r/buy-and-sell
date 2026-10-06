@@ -7,9 +7,9 @@ import {
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
-} from '../../domains/llm-clients'
-import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
-import { createGroqPool } from '../../domains/llm-clients/groq-sdk'
+} from '../../platform/llm-clients'
+import { createGeminiClient } from '../../platform/llm-clients/gemini-sdk'
+import { createGroqPool } from '../../platform/llm-clients/groq-sdk'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'

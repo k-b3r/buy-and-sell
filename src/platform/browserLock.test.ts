@@ -69,7 +69,7 @@ test('acquireBrowserLock waits and retries until the holder releases', async () 
     if (attempt === 1) releaseBrowserLock(path, { pid: 111, isAlive: () => true })
   }
 
-  await acquireBrowserLock(path, logger, { pid: 222, isAlive: () => true }, 50, fakeDelay)
+  await acquireBrowserLock(path, logger, { deps: { pid: 222, isAlive: () => true }, pollMs: 50, delay: fakeDelay })
 
   expect(existsSync(path)).toBe(true)
   expect(delays).toEqual([50])
@@ -82,8 +82,12 @@ test('acquireBrowserLock returns immediately if nothing holds the lock', async (
   const logger = { info: () => {} }
   let delayCalls = 0
 
-  await acquireBrowserLock(path, logger, { pid: 111, isAlive: () => true }, 50, async () => {
-    delayCalls++
+  await acquireBrowserLock(path, logger, {
+    deps: { pid: 111, isAlive: () => true },
+    pollMs: 50,
+    delay: async () => {
+      delayCalls++
+    },
   })
 
   expect(delayCalls).toBe(0)

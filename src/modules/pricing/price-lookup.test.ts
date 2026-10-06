@@ -16,8 +16,8 @@ import {
 import type { PriceLookupCandidate, PriceLookupClients } from './price-lookup'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
-import { QuotaExhaustedError, isQuotaError } from '../../domains/llm-clients'
+import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
+import { QuotaExhaustedError, isQuotaError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 
 const candidate: PriceLookupCandidate = {

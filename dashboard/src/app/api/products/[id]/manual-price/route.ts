@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const productId = Number(id)
-  await setManualPrice(productId, kind, priceLow, priceHigh)
+  await setManualPrice(productId, { kind, priceLow, priceHigh })
   await markProductReviewed(productId)
 
   revalidateTag('needs-review', { expire: 0 })

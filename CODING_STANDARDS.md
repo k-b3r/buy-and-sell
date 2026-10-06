@@ -12,7 +12,7 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 
 ```
 src/platform/             shared infra (db, logger, settings, images, worker loop)
-src/domains/llm-clients/  shared LLM/search clients; SDKs only in gemini-sdk.ts / groq-sdk.ts
+src/platform/llm-clients/ shared LLM/search clients; SDKs only in gemini-sdk.ts / groq-sdk.ts
 src/modules/              feature modules (catalog, collection, pricing, real-estate), index.ts is the only public API
 src/workers/              long-running loops, one folder each, entry = index.ts (wiring only)
 src/utils/                one-off / backfill scripts, one folder each (wiring only)

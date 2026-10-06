@@ -5,8 +5,8 @@ import {
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
-} from '../../domains/llm-clients'
-import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
+} from '../../platform/llm-clients'
+import { createGeminiClient } from '../../platform/llm-clients/gemini-sdk'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'

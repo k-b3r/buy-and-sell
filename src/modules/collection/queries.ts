@@ -105,8 +105,8 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
     const [soldComp, peerMedian, salesRows, similarRows] = await Promise.all([
       getSoldComparablePrice(db, productId),
       getPeerMedianPrice(db, productId),
-      getComparableListings(db, productId, listingId, true),
-      getComparableListings(db, productId, listingId, false),
+      getComparableListings(db, { productId, excludeListingId: listingId, sold: true }),
+      getComparableListings(db, { productId, excludeListingId: listingId, sold: false }),
     ])
     if (soldComp) recentSales = salesRows
     if (peerMedian) similarListings = similarRows

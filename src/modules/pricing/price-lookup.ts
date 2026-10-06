@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
-import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../domains/llm-clients'
+import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
+import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './price-history'
 import { insertPriceCheck } from './price-history'

@@ -1,4 +1,4 @@
-import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
+import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
 import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './discount-notifications'
 import { DEFAULT_DISCOUNT_POLICY } from './discount-notifications'
 import { isNewCondition } from './price-rules'

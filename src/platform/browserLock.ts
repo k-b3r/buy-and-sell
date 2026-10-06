@@ -5,6 +5,7 @@ import type { DelayFn } from './delay'
 // Shared by collect and check-listings (the only two workers that launch a
 // browser) - same data/ directory their pid/log files already live in.
 export const BROWSER_LOCK_PATH = 'data/browser.lock'
+const DEFAULT_POLL_MS = 5000
 
 export interface BrowserLockDeps {
   pid: number
@@ -64,12 +65,16 @@ export function releaseBrowserLock(lockPath: string, deps: BrowserLockDeps = def
 // Blocks (polling, not busy-waiting) until this process is the one holding
 // the lock. Workers call this before launchBrowser() and release right
 // after close() - see collect/index.ts and check-listings/index.ts.
+export interface AcquireBrowserLockOptions {
+  deps?: BrowserLockDeps
+  pollMs?: number
+  delay?: DelayFn
+}
+
 export async function acquireBrowserLock(
   lockPath: string,
   logger: { info: (msg: string) => void },
-  deps: BrowserLockDeps = defaultDeps,
-  pollMs = 5000,
-  delay: DelayFn = realDelay,
+  { deps = defaultDeps, pollMs = DEFAULT_POLL_MS, delay = realDelay }: AcquireBrowserLockOptions = {},
 ): Promise<void> {
   let waited = false
   while (!tryAcquireBrowserLock(lockPath, deps)) {
