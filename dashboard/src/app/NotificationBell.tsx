@@ -143,6 +143,7 @@ export default function NotificationBell() {
           )}
           {notifications.map((n) => (
             <Link key={n.id} href={`/listings/${n.listing_id}`} style={itemStyle} onClick={() => markRead(n.id)}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured */}
               <img src={n.primary_photo_url ?? ''} alt="" style={thumbStyle} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div
