@@ -155,3 +155,19 @@ test('getListingPricesByProduct groups by product AND condition, excludes unlabe
     { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: [18000, 18500] },
   ])
 })
+
+test('getListingPricesByProduct skips price-lookup-excluded products and flagged-removed listings, keeping sold ones', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await getListingPricesByProduct(db)
+
+  expect(calls[0].sql).toContain('NOT p.price_lookup_excluded')
+  expect(calls[0].sql).toContain('l.flagged_removed_at IS NULL')
+  expect(calls[0].sql).not.toContain('sold_at')
+})

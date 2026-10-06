@@ -148,12 +148,15 @@ export interface ListingPricesForProductCondition {
 // stated condition can't be assigned a tier, so they're excluded here (they
 // were previously folded into a blended "probably used" range; now that a
 // per-condition breakdown exists, an unlabeled listing has nowhere honest to go).
+// Excluded products are never priced and flagged-removed (taken down)
+// listings are dropped; sold listings stay, an ask that actually sold.
 export async function getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]> {
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier, l.condition, array_agg(l.price_amount) AS prices
      FROM products p
      JOIN listings l ON l.product_id = p.id
      WHERE l.price_amount IS NOT NULL AND l.condition IS NOT NULL
+       AND NOT p.price_lookup_excluded AND l.flagged_removed_at IS NULL
      GROUP BY p.id, p.base_model, p.variant_tier, l.condition
      HAVING count(l.id) >= ${MIN_PEER_SAMPLE}
      ORDER BY count(l.id) DESC`,
