@@ -153,6 +153,43 @@ function lowerConfidence(c: RealEstateConfidence, to: RealEstateConfidence): Rea
   return RE_CONFIDENCES.indexOf(c) >= RE_CONFIDENCES.indexOf(to) ? c : to
 }
 
+interface ResolvedPrice {
+  price: number | null
+  basis: PriceBasis
+  confidence: RealEstateConfidence
+}
+
+// The model's price wins when it is plausible for its basis; otherwise the
+// seller's listed price, read as total (or monthly for a rent), at most medium
+// confidence; otherwise unresolved at low confidence.
+function resolvePrice(
+  r: Record<string, unknown>,
+  listingType: ListingType | null,
+  candidate: RealEstateCandidate,
+): ResolvedPrice {
+  const confidence = oneOf(RE_CONFIDENCES, r.confidence) ?? 'low'
+  const llmBasis = oneOf(PRICE_BASES, r.price_basis) ?? 'unresolved'
+  const llmPrice = numOrNull(r.price_php)
+  if (llmPrice !== null && inBounds(llmBasis, llmPrice)) return { price: llmPrice, basis: llmBasis, confidence }
+
+  const fallbackBasis: PriceBasis = listingType === 'rent' ? 'monthly' : 'total'
+  if (candidate.price_amount !== null && inBounds(fallbackBasis, candidate.price_amount)) {
+    return { price: candidate.price_amount, basis: fallbackBasis, confidence: lowerConfidence(confidence, 'medium') }
+  }
+  return { price: null, basis: 'unresolved', confidence: 'low' }
+}
+
+// Backstop 1 above: a pasalo total with cash-out wording and no stated full price is equity.
+function applyPasaloEquityBackstop(resolved: ResolvedPrice, tags: RealEstateTag[], text: string): ResolvedPrice {
+  const isEquity =
+    resolved.basis === 'total' &&
+    tags.includes('pasalo') &&
+    PASALO_EQUITY_HINT.test(text) &&
+    !FULL_PRICE_HINT.test(text)
+  if (!isEquity) return resolved
+  return { ...resolved, basis: 'equity', confidence: lowerConfidence(resolved.confidence, 'medium') }
+}
+
 export function normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateCandidate): RealEstateFields | null {
   if (typeof rawItem !== 'object' || rawItem === null) return null
   const r = rawItem as Record<string, unknown>
@@ -160,33 +197,10 @@ export function normalizeRealEstateItem(rawItem: unknown, candidate: RealEstateC
 
   const listingType = oneOf(LISTING_TYPES, r.listing_type)
   const propertyType = oneOf(PROPERTY_TYPES, r.property_type) ?? 'other'
-  let confidence = oneOf(RE_CONFIDENCES, r.confidence) ?? 'low'
-
-  const llmBasis = oneOf(PRICE_BASES, r.price_basis) ?? 'unresolved'
-  const llmPrice = numOrNull(r.price_php)
-  let price: number | null = null
-  let basis: PriceBasis = 'unresolved'
-  if (llmPrice !== null && inBounds(llmBasis, llmPrice)) {
-    price = llmPrice
-    basis = llmBasis
-  } else {
-    const fallbackBasis: PriceBasis = listingType === 'rent' ? 'monthly' : 'total'
-    if (candidate.price_amount !== null && inBounds(fallbackBasis, candidate.price_amount)) {
-      price = candidate.price_amount
-      basis = fallbackBasis
-      confidence = lowerConfidence(confidence, 'medium')
-    } else {
-      confidence = 'low'
-    }
-  }
-
   const tags = Array.isArray(r.tags) ? r.tags.filter((t): t is RealEstateTag => oneOf(RE_TAGS, t) !== null) : []
   const text = `${candidate.title} ${candidate.description ?? ''}`
-
-  if (basis === 'total' && tags.includes('pasalo') && PASALO_EQUITY_HINT.test(text) && !FULL_PRICE_HINT.test(text)) {
-    basis = 'equity'
-    confidence = lowerConfidence(confidence, 'medium')
-  }
+  const { price, basis, confidence } = applyPasaloEquityBackstop(resolvePrice(r, listingType, candidate), tags, text)
+  // Backstop 2 above.
   if (!tags.includes('room_share') && ROOM_SHARE_HINT.test(text)) tags.push('room_share')
 
   return {
