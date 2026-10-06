@@ -1,9 +1,9 @@
 import { existsSync, rmSync } from 'node:fs'
-import { runVerifyDiscountNotifications } from './index'
+import { runVerifyDiscountNotifications } from './run-discount-verification'
 import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { VerificationClients } from '../../modules/pricing'
-import type { DiscountVerificationCandidate } from '../../modules/pricing'
+import type { VerificationClients } from './discount-verification'
+import type { DiscountVerificationCandidate } from './discount-notifications'
 
 const LOG_PATH = 'data/tmp-verify-discount-notifications.log'
 
@@ -69,7 +69,7 @@ test('a verified candidate writes the fresh numbers via markDiscountNotification
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
 
-  await runVerifyDiscountNotifications(clients, db, logger, [candidate()])
+  await runVerifyDiscountNotifications({ clients, db, logger }, [candidate()])
 
   const updateCall = calls.find((c) => c.sql.includes('verified_at = now()'))
   expect(updateCall).toBeDefined()
@@ -90,7 +90,7 @@ test('a rejected candidate is deleted', async () => {
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
 
-  await runVerifyDiscountNotifications(clients, db, logger, [candidate()])
+  await runVerifyDiscountNotifications({ clients, db, logger }, [candidate()])
 
   const deleteCall = calls.find((c) => c.sql.startsWith('DELETE FROM discount_notifications'))
   expect(deleteCall).toBeDefined()
@@ -102,7 +102,7 @@ test('a pending candidate (no fresh data) bumps last_verification_attempt_at, do
   const { db, calls } = fakeDb()
   const logger = createLogger(LOG_PATH)
 
-  await runVerifyDiscountNotifications(clients, db, logger, [candidate()])
+  await runVerifyDiscountNotifications({ clients, db, logger }, [candidate()])
 
   const attemptCall = calls.find((c) => c.sql.includes('last_verification_attempt_at = now()'))
   expect(attemptCall).toBeDefined()
@@ -122,15 +122,13 @@ test('free rejections/pending are processed for the whole batch even when the pa
   const logger = createLogger(LOG_PATH)
 
   await runVerifyDiscountNotifications(
-    clients,
-    db,
-    logger,
+    { clients, db, logger },
     [
       candidate({ id: 1, listing_id: 'a', price_amount: 100 }), // free reject (price floor)
       candidate({ id: 2, listing_id: 'b', is_specific_product: false }), // free reject (non-specific)
       candidate({ id: 3, listing_id: 'c', is_specific_product: null }), // free pending (enrichment)
     ],
-    0, // no paid budget at all this lap
+    { paidLimit: 0 }, // no paid budget at all this lap
   )
 
   // None of these ever touch a client - proven by notImplemented() never throwing.
@@ -146,11 +144,9 @@ test('a paid-eligible candidate beyond the budget is left completely untouched, 
   const logger = createLogger(LOG_PATH)
 
   await runVerifyDiscountNotifications(
-    clients,
-    db,
-    logger,
+    { clients, db, logger },
     [candidate({ id: 1, listing_id: 'a' }), candidate({ id: 2, listing_id: 'b' })],
-    1, // only 1 paid call allowed this lap
+    { paidLimit: 1 }, // only 1 paid call allowed this lap
   )
 
   // Candidate 1 gets the budget and verifies; candidate 2 is untouched - no
@@ -182,7 +178,7 @@ test('one candidate throwing unexpectedly is logged and skipped, not fatal to th
   // verifyDiscountCandidate itself never throws (fails closed to 'pending'),
   // so this exercises the same path as the "no fresh data" test above, just
   // confirming the loop processes every candidate given, not just the first.
-  await runVerifyDiscountNotifications(clients, db, logger, [
+  await runVerifyDiscountNotifications({ clients, db, logger }, [
     candidate({ id: 1, listing_id: 'a' }),
     candidate({ id: 2, listing_id: 'b' }),
   ])
