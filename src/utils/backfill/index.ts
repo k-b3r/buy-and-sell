@@ -3,7 +3,12 @@ import { loadEnvFile } from '../../platform/env'
 import { launchBrowserDriver } from '../../modules/collection/browser'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
-import { backfillListingPhotos, createListingPhotos, getBackfillCandidates } from '../../modules/collection'
+import {
+  backfillListingPhotos,
+  createListingPhotos,
+  getBackfillCandidates,
+  requireBackfillProxy,
+} from '../../modules/collection'
 import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
 import { realDelay } from '../../platform/delay'
 
@@ -32,6 +37,9 @@ async function main() {
 
   const logger = createLogger('data/backfill.log', secretsFromEnv(process.env))
 
+  const proxy = await requireBackfillProxy(process.env)
+  logger.info(`egress confirmed via ${proxy.source} (${proxy.server})`)
+
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
   if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_BASE_URL) {
     logger.error('R2 not fully configured (.env), aborting backfill')
@@ -58,7 +66,7 @@ async function main() {
   const todo = limit !== undefined ? pending.slice(0, limit) : pending
   logger.info(`${pending.length} pending photo backfill, processing ${todo.length} this run`)
 
-  const { driver, close } = await launchBrowserDriver(undefined, { headless: !headed })
+  const { driver, close } = await launchBrowserDriver(proxy, { headless: !headed })
 
   const softWallSkipCount = await backfillListingPhotos(
     { driver, db: pool, photos, logger, delay: realDelay },
