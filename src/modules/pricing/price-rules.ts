@@ -1,5 +1,5 @@
 import { toNullableNumber } from '../../platform/rows'
-import { isMagnitudeOutlier, isPlaceholderPrice, medianCtes, notMagnitudeOutlierSql } from './clean-median'
+import { isJunkPrice, isMagnitudeOutlier, isPlaceholderPrice, medianCtes, notMagnitudeOutlierSql } from './clean-median'
 
 export interface DiscountBand {
   bandFloor: number
@@ -176,7 +176,7 @@ export function computeListingDiscount(
   if (price === null || n === null || n < 2) return NONE
   if (rawMedian === null || rawMedian <= 0 || cleanMedian === null || cleanMedian <= 0) return NONE
   if (isMagnitudeOutlier(price, rawMedian)) return NONE
-  if (isPlaceholderPrice(price)) return NONE
+  if (isJunkPrice(price)) return NONE
 
   return { discountPercent: Math.round(((cleanMedian - price) / cleanMedian) * 100), referencePrice: cleanMedian }
 }

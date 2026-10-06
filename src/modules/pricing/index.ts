@@ -6,8 +6,10 @@
 // price. Everything else is internal (enforced by dependency-cruiser).
 export {
   computeMedians,
+  isJunkPrice,
   isPlaceholderPrice,
   medianCtes,
+  notJunkPriceSql,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
 } from './clean-median'

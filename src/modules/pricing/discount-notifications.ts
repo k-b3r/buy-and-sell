@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
-import { isMagnitudeOutlier, isPlaceholderPrice } from './clean-median'
+import { isJunkPrice, isMagnitudeOutlier } from './clean-median'
 import { getProductCleanMedian } from './queries'
 import { isNewCondition } from './price-rules'
 
@@ -86,9 +86,8 @@ export async function decideListingDiscount(
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
 ): Promise<DiscountNotification | null> {
   const { priceAmount, productId } = listing
-  if (priceAmount === null || priceAmount <= 0) return null
+  if (priceAmount === null || isJunkPrice(priceAmount)) return null
   if (priceAmount < thresholds.minPricePesos) return null
-  if (isPlaceholderPrice(priceAmount)) return null
 
   let referencePrice: number | null
   if (isNewCondition(listing.condition)) {

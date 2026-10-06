@@ -1,6 +1,5 @@
 // The clean-median rule every peer-price reference in this codebase uses:
-// take a product's valid listing prices (positive, not a placeholder digit
-// pattern), compute the raw median, drop prices more than
+// take a product's valid listing prices (not junk, see isJunkPrice), compute the raw median, drop prices more than
 // MAGNITUDE_OUTLIER_RATIO off it in either direction, and take the median of
 // what's left. One implementation per side: computeMedians (JS, for callers
 // that already hold the prices) and medianCtes (SQL, for queries that
@@ -40,6 +39,22 @@ export function notPlaceholderPriceSql(column: string): string {
       OR trunc(${column})::text ~ '012|123|234|345|456|567|678|789'
     )
   )`
+}
+
+// No real listing on this marketplace goes below this - anything under it is
+// a placeholder/joke price ("₱12", "₱20"), not a real ask.
+const JUNK_PRICE_FLOOR = 100
+
+// The one junk-price rule: below the floor or a placeholder digit pattern.
+// Junk never enters a median, a listing-derived price range, or a parsed
+// search-result price.
+export function isJunkPrice(price: number): boolean {
+  return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+}
+
+// SQL equivalent of isJunkPrice above, negated.
+export function notJunkPriceSql(column: string): string {
+  return `${column} >= ${JUNK_PRICE_FLOOR} AND ${notPlaceholderPriceSql(column)}`
 }
 
 // >10x or <0.1x the raw median is almost always a placeholder, scam, or
@@ -82,13 +97,14 @@ function median(values: number[]): number | null {
 
 // JS side of the rule, for getProductDetail, which already has every
 // sibling listing's price in hand from one query and doesn't need a second
-// round trip. Callers pass prices already narrowed to valid ones (positive,
-// not a placeholder) and apply their own minimum sample size.
-export function computeMedians(prices: number[]): {
+// round trip. Takes raw listing prices; junk and missing ones are dropped
+// here, same as medianCtes' `<name>_prices`.
+export function computeMedians(rawPrices: (number | null)[]): {
   rawMedian: number | null
   cleanMedian: number | null
   sampleSize: number
 } {
+  const prices = rawPrices.filter((p): p is number => p !== null && !isJunkPrice(p))
   const rawMedian = median(prices)
   if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
   const clean = prices.filter((p) => !isMagnitudeOutlier(p, rawMedian))
@@ -119,7 +135,7 @@ export function medianCtes({ name, pool, minSample = 1, clean = true }: MedianCt
   const prices = `${name}_prices`
   const pricesCte = `${prices} AS (
     SELECT * FROM (${pool}) pool
-    WHERE price_amount IS NOT NULL AND price_amount > 0 AND ${notPlaceholderPriceSql('price_amount')}
+    WHERE price_amount IS NOT NULL AND ${notJunkPriceSql('price_amount')}
   )`
   const rawSelect = `SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS raw_median_price, count(*) AS sample_size
     FROM ${prices} GROUP BY product_id`

@@ -9,7 +9,6 @@ import {
   getPriceReviewCandidates,
   getSoldComparablePrice,
   insertDiscountNotifications,
-  isPlaceholderPrice,
   medianCtes,
 } from '../../src/modules/pricing'
 import { getProductDetail, getProductSummaries } from '../../src/modules/catalog'
@@ -84,10 +83,7 @@ afterAll(async () => {
 })
 
 function jsMedians(productId: number, scope: (l: (typeof LISTINGS)[number]) => boolean) {
-  const prices = LISTINGS.filter((l) => l.product === productId && scope(l))
-    .map((l) => l.price)
-    .filter((p) => p > 0 && !isPlaceholderPrice(p))
-  return computeMedians(prices)
+  return computeMedians(LISTINGS.filter((l) => l.product === productId && scope(l)).map((l) => l.price))
 }
 
 async function sqlMedians(productId: number, soldClause: string) {

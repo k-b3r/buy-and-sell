@@ -2,11 +2,27 @@ import { expect, test } from 'vitest'
 import {
   computeMedians,
   isMagnitudeOutlier,
+  isJunkPrice,
   isPlaceholderPrice,
   medianCtes,
+  notJunkPriceSql,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
 } from './clean-median'
+
+test('isJunkPrice flags a price below the ₱100 floor or with a placeholder digit pattern', () => {
+  expect(isJunkPrice(0)).toBe(true)
+  expect(isJunkPrice(-5)).toBe(true)
+  expect(isJunkPrice(12)).toBe(true)
+  expect(isJunkPrice(99)).toBe(true)
+  expect(isJunkPrice(12345)).toBe(true)
+  expect(isJunkPrice(100)).toBe(false)
+  expect(isJunkPrice(15000)).toBe(false)
+})
+
+test('notJunkPriceSql bounds the column at the floor and rejects placeholder patterns', () => {
+  expect(notJunkPriceSql('l.price_amount')).toBe(`l.price_amount >= 100 AND ${notPlaceholderPriceSql('l.price_amount')}`)
+})
 
 test('isPlaceholderPrice flags ascending-sequential digit runs', () => {
   expect(isPlaceholderPrice(123)).toBe(true)
@@ -68,12 +84,20 @@ test('computeMedians interpolates the two middle values for an even-sized sample
 })
 
 test('computeMedians drops prices more than 10x off the raw median before taking the clean median', () => {
-  expect(computeMedians([10, 15000, 16000, 17000, 900000])).toEqual({
+  expect(computeMedians([150, 15000, 16000, 17000, 900000])).toEqual({
     rawMedian: 16000,
     cleanMedian: 16000,
     sampleSize: 5,
   })
   expect(computeMedians([1500, 15000, 16000, 17000])).toEqual({ rawMedian: 15500, cleanMedian: 16000, sampleSize: 4 })
+})
+
+test('computeMedians drops junk and missing prices before taking any median', () => {
+  expect(computeMedians([null, 12, 12345, 1000, 2000, 3000, 4000])).toEqual({
+    rawMedian: 2500,
+    cleanMedian: 2500,
+    sampleSize: 4,
+  })
 })
 
 test('computeMedians has no medians for an empty sample', () => {
@@ -91,7 +115,7 @@ test('medianCtes filters the pool to valid prices and gates the clean median on 
 
   expect(sql).toContain('peer_prices AS (')
   expect(sql).toContain('SELECT * FROM (SELECT product_id, price_amount FROM listings) pool')
-  expect(sql).toContain(`price_amount IS NOT NULL AND price_amount > 0 AND ${notPlaceholderPriceSql('price_amount')}`)
+  expect(sql).toContain(`price_amount IS NOT NULL AND ${notJunkPriceSql('price_amount')}`)
   expect(sql).toContain('peer_raw AS (')
   expect(sql).toContain('GROUP BY product_id')
   expect(sql).toContain('peer AS (')

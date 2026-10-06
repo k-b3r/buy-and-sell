@@ -1,6 +1,6 @@
 import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
-import { medianCtes, notPlaceholderPriceSql } from './clean-median'
+import { medianCtes, notJunkPriceSql } from './clean-median'
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
 import { repostKeySql } from './repost'
 import { PEER_MEDIAN_MIN_SAMPLE, SOLD_COMP_MIN_SAMPLE } from './queries'
@@ -232,8 +232,7 @@ export async function getDeals(
        LEFT JOIN llm_estimate le ON le.product_id = prod.id
        LEFT JOIN listing_price_review pr ON pr.listing_id = l.id
        WHERE ${soldClause} AND l.flagged_removed_at IS NULL
-         AND l.price_amount IS NOT NULL AND l.price_amount > 0
-         AND ${notPlaceholderPriceSql('l.price_amount')}
+         AND l.price_amount IS NOT NULL AND ${notJunkPriceSql('l.price_amount')}
      ),
      -- Collapses same-seller reposts (identical title, same product,
      -- different listing ids - confirmed live 2026-09-02: two "IPHONE 14"

@@ -3,14 +3,11 @@ import type { DbClient } from '../../platform/storage'
 import type { ListingPricesForProductCondition } from './price-history'
 import { insertPriceCheck } from './price-history'
 import type { PriceRange } from './price-lookup'
+import { isJunkPrice } from './clean-median'
 
-// No real secondhand electronics listing on this marketplace goes below this
-// — anything under it is a placeholder/joke price ("₱12", "₱20"), not a real
-// ask, and would badly skew a naive min/max.
-const JUNK_PRICE_FLOOR = 100
-
+// Junk prices would badly skew a naive min/max.
 export function computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null {
-  const valid = prices.filter((p) => p >= JUNK_PRICE_FLOOR)
+  const valid = prices.filter((p) => !isJunkPrice(p))
   if (valid.length < 2) return null
   return {
     low: Math.min(...valid),
