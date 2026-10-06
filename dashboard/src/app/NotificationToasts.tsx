@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import InfoTooltip from './InfoTooltip'
+import ListingThumb from './ListingThumb'
 import { useNotifications } from './NotificationsProvider'
 import { selectNewToasts } from '@/lib/notificationToasts'
 import type { DiscountNotification } from '@/lib/queries'
@@ -31,15 +32,6 @@ const toastStyle: CSSProperties = {
   boxShadow: '0 8px 24px var(--color-overlay)',
   textDecoration: 'none',
   color: 'var(--color-text)',
-}
-
-const thumbStyle: CSSProperties = {
-  width: 48,
-  height: 48,
-  borderRadius: 6,
-  objectFit: 'cover',
-  flexShrink: 0,
-  background: 'var(--color-border)',
 }
 
 const dismissStyle: CSSProperties = {
@@ -110,8 +102,7 @@ export default function NotificationToasts() {
     <div style={containerStyle}>
       {visible.map((n) => (
         <Link key={n.id} href={`/listings/${n.listing_id}`} style={toastStyle} onClick={() => handleClick(n.id)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured */}
-          <img src={n.primary_photo_url ?? ''} alt="" style={thumbStyle} />
+          <ListingThumb photoUrl={n.primary_photo_url} size={48} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div
               style={{

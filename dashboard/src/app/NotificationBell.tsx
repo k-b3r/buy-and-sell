@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import BellIcon from './BellIcon'
 import InfoTooltip from './InfoTooltip'
+import ListingThumb from './ListingThumb'
 import { useNotifications } from './NotificationsProvider'
 
 const bellButtonStyle: CSSProperties = {
@@ -57,15 +58,6 @@ const itemStyle: CSSProperties = {
   borderBottom: '1px solid var(--color-border)',
   textDecoration: 'none',
   color: 'var(--color-text)',
-}
-
-const thumbStyle: CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: 6,
-  objectFit: 'cover',
-  flexShrink: 0,
-  background: 'var(--color-border)',
 }
 
 // Coarse buckets are enough for a notification list - no need for a
@@ -143,8 +135,7 @@ export default function NotificationBell() {
           )}
           {notifications.map((n) => (
             <Link key={n.id} href={`/listings/${n.listing_id}`} style={itemStyle} onClick={() => markRead(n.id)}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured */}
-              <img src={n.primary_photo_url ?? ''} alt="" style={thumbStyle} />
+              <ListingThumb photoUrl={n.primary_photo_url} size={44} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div
                   style={{
