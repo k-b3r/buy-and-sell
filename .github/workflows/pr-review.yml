@@ -15,4 +15,7 @@ jobs:
       issues: write
       id-token: write
       actions: write
+    with:
+      # Same list pr-upkeep regenerates: a regen push keeps approval.
+      generated-paths: docs-site
     secrets: inherit
