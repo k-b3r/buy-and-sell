@@ -27,9 +27,19 @@ const EXCLUDED = 9002
 const SINGLE = 9003
 const EMPTY = 9004
 const PAIR = 9005
+const REMOVED = 9006
 
-// soldDaysAgo defaults to 0 (sold today) for sold listings.
-const LISTINGS: { id: string; title: string; price: number; product: number; sold: boolean; soldDaysAgo?: number }[] = [
+// soldDaysAgo defaults to 0 (sold today) for sold listings. removedDaysAgo
+// set means the listing is flagged removed that many days ago.
+const LISTINGS: {
+  id: string
+  title: string
+  price: number
+  product: number
+  sold: boolean
+  soldDaysAgo?: number
+  removedDaysAgo?: number
+}[] = [
   { id: 'cm-a1', title: 'Phone A', price: 10000, product: PHONE, sold: false },
   { id: 'cm-a2', title: 'Phone A', price: 12000, product: PHONE, sold: false },
   { id: 'cm-a3', title: 'Phone B', price: 14000, product: PHONE, sold: false },
@@ -50,9 +60,14 @@ const LISTINGS: { id: string; title: string; price: number; product: number; sol
   { id: 'cm-c1', title: 'Single A', price: 8000, product: SINGLE, sold: false },
   { id: 'cm-p1', title: 'Pair A', price: 4000, product: PAIR, sold: false },
   { id: 'cm-p2', title: 'Pair B', price: 10000, product: PAIR, sold: false },
+  { id: 'cm-r1', title: 'Tablet A', price: 10000, product: REMOVED, sold: false },
+  { id: 'cm-r2', title: 'Tablet B', price: 11000, product: REMOVED, sold: false },
+  { id: 'cm-r3', title: 'Tablet C', price: 12000, product: REMOVED, sold: false },
+  { id: 'cm-r4', title: 'Tablet D', price: 13000, product: REMOVED, sold: false, removedDaysAgo: 5 },
+  { id: 'cm-r5', title: 'Tablet E', price: 50000, product: REMOVED, sold: false, removedDaysAgo: 60 },
 ]
 
-const PRODUCT_IDS = [PHONE, EXCLUDED, SINGLE, EMPTY, PAIR]
+const PRODUCT_IDS = [PHONE, EXCLUDED, SINGLE, EMPTY, PAIR, REMOVED]
 const LISTING_IDS = LISTINGS.map((l) => l.id)
 
 async function clearFixtures(): Promise<void> {
@@ -69,6 +84,7 @@ beforeAll(async () => {
     [SINGLE, 'Fixture Single', false],
     [EMPTY, 'Fixture Empty', false],
     [PAIR, 'Fixture Pair', false],
+    [REMOVED, 'Removal Check Tablet', false],
   ] as const) {
     await pool.query(
       `INSERT INTO products (id, base_model, base_model_normalized, price_lookup_excluded) VALUES ($1, $2, lower($2), $3)`,
@@ -77,9 +93,10 @@ beforeAll(async () => {
   }
   for (const l of LISTINGS) {
     await pool.query(
-      `INSERT INTO listings (id, title, price_amount, product_id, sold_at, raw_json)
-       VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() - make_interval(days => $6) END, '{}')`,
-      [l.id, l.title, l.price, l.product, l.sold, l.soldDaysAgo ?? 0],
+      `INSERT INTO listings (id, title, price_amount, product_id, sold_at, flagged_removed_at, raw_json)
+       VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() - make_interval(days => $6) END,
+         now() - make_interval(days => $7), '{}')`,
+      [l.id, l.title, l.price, l.product, l.sold, l.soldDaysAgo ?? 0, l.removedDaysAgo ?? null],
     )
   }
 })
@@ -113,7 +130,11 @@ test('medianCtes and computeMedians agree on every fixture product, for every li
     { sql: 'true', js: () => true },
     { sql: 'sold_at IS NULL', js: (l: (typeof LISTINGS)[number]) => !l.sold },
     { sql: 'sold_at IS NOT NULL', js: (l: (typeof LISTINGS)[number]) => l.sold },
-    { sql: peerListingSql('listings'), js: (l: (typeof LISTINGS)[number]) => !l.sold || (l.soldDaysAgo ?? 0) <= 30 },
+    {
+      sql: peerListingSql('listings'),
+      js: (l: (typeof LISTINGS)[number]) =>
+        (!l.sold || (l.soldDaysAgo ?? 0) <= 30) && (l.removedDaysAgo === undefined || l.removedDaysAgo <= 30),
+    },
   ]
   for (const productId of PRODUCT_IDS) {
     for (const scope of scopes) {
@@ -150,6 +171,11 @@ test('sold-comp and peer reference prices use the clean median, gated on sample 
       },
     }
   `)
+})
+
+test('peer median keeps a listing flagged removed within the window and drops one flagged removed longer ago', async () => {
+  // With the stale ₱50,000 takedown counted the median would be ₱12,000.
+  expect(await getPeerMedianPrice(pool, REMOVED)).toEqual({ medianPrice: 11500, sampleSize: 4 })
 })
 
 test('comparable listings are the in-band rows behind the median, excluding the listing itself', async () => {

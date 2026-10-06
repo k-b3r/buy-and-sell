@@ -97,13 +97,20 @@ export const MIN_PEER_SAMPLE = 3
 // A sold listing stays a peer this long after selling: recent sales are
 // still the market, older ones are stale asks.
 const PEER_SOLD_WINDOW_DAYS = 30
+// Same idea for a listing flagged removed (flagged_removed_at): a recent
+// takedown was still a market ask, an old one is stale and stops counting.
+const PEER_REMOVED_WINDOW_DAYS = 30
 
 // The one peer scope for every peer median (discount detection's fallback,
 // the deals page's peer tier, product and listing pages, similar-listings
 // evidence): active listings plus listings sold in the last
-// PEER_SOLD_WINDOW_DAYS. Sold comps (sold listings only) are a separate tier.
+// PEER_SOLD_WINDOW_DAYS, minus listings flagged removed more than
+// PEER_REMOVED_WINDOW_DAYS ago. Sold comps (sold listings only) are a
+// separate tier.
 export function peerListingSql(alias: string): string {
-  return `(${alias}.sold_at IS NULL OR ${alias}.sold_at >= now() - interval '${PEER_SOLD_WINDOW_DAYS} days')`
+  const notStaleSold = `(${alias}.sold_at IS NULL OR ${alias}.sold_at >= now() - interval '${PEER_SOLD_WINDOW_DAYS} days')`
+  const notStaleRemoved = `(${alias}.flagged_removed_at IS NULL OR ${alias}.flagged_removed_at >= now() - interval '${PEER_REMOVED_WINDOW_DAYS} days')`
+  return `(${notStaleSold} AND ${notStaleRemoved})`
 }
 
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
