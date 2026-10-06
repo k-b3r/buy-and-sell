@@ -130,6 +130,31 @@ test('extractRealEstateBatch retries missing listings only once, so a stubborn m
   expect(calls).toBe(2)
 })
 
+test('extractRealEstateBatch halves of a split missing-listing retry do not start another retry of their own', async () => {
+  const singleCalls: string[] = []
+  let calls = 0
+  const groq: JsonModelClient = {
+    generateJson: async (prompt: string) => {
+      calls++
+      const ids = [...prompt.matchAll(/"id":"(\w+)"/g)].map((m) => m[1])
+      // First call answers with nothing, so all 4 go to the missing retry; that
+      // retry keeps failing at size > 1 and splits down to single listings.
+      if (calls === 1) return { results: [] }
+      if (ids.length > 1) throw Object.assign(new Error('bad shape'), { status: 400 })
+      singleCalls.push(ids[0])
+      return { results: [] }
+    },
+  }
+  const out = await extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [
+    cand('1'),
+    cand('2'),
+    cand('3'),
+    cand('4'),
+  ])
+  expect(out.size).toBe(0)
+  expect(singleCalls.sort()).toEqual(['1', '2', '3', '4'])
+})
+
 test('the extractor only uses gpt-oss-120b, never the qwen fallbacks that fail its schema', () => {
   expect(EXTRACTOR_MODELS).toEqual(['openai/gpt-oss-120b'])
 })
