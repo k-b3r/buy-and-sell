@@ -17,7 +17,10 @@ interface ProductRow {
 // spacing is still found.
 export async function mergeDuplicateProducts(
   db: DbClient,
-  canonicalMap: Record<string, string> = CANONICAL_BASE_MODEL,
+  {
+    canonicalMap = CANONICAL_BASE_MODEL,
+    dryRun = false,
+  }: { canonicalMap?: Record<string, string>; dryRun?: boolean } = {},
 ): Promise<{ renamed: number; merged: number }> {
   let renamed = 0
   let merged = 0
@@ -35,14 +38,16 @@ export async function mergeDuplicateProducts(
       ).filter((id) => id !== row.id)
 
       if (existing.length > 0) {
-        await mergeDuplicateProduct(db, existing[0], row.id)
+        if (!dryRun) await mergeDuplicateProduct(db, existing[0], row.id)
         merged++
       } else {
-        await db.query(`UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3`, [
-          canonical,
-          normalizeBaseModel(canonical),
-          row.id,
-        ])
+        if (!dryRun) {
+          await db.query(`UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3`, [
+            canonical,
+            normalizeBaseModel(canonical),
+            row.id,
+          ])
+        }
         renamed++
       }
     }

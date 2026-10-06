@@ -110,9 +110,9 @@ describe('reassignModelMismatches', () => {
     expect(lines).toEqual(["skip listing 7: ambiguous mismatch, can't derive a single target base_model"])
   })
 
-  it('silently skips several mismatched prefixes and ignores consistent listings', async () => {
+  it('skips with a reason when several model prefixes mismatch and ignores consistent listings', async () => {
     const { db } = scriptedDb([
-      listing({ title: 'Galaxy S23 A54', base_model: 'Galaxy S26 A15', variant_tier: null }),
+      listing({ listing_id: '7', title: 'Galaxy S23 A54', base_model: 'Galaxy S26 A15', variant_tier: null }),
       listing({ title: 'Samsung S26 Ultra' }),
     ])
     const lines: string[] = []
@@ -120,14 +120,16 @@ describe('reassignModelMismatches', () => {
     const result = await reassignModelMismatches(db, (line) => lines.push(line), false)
 
     expect(result).toEqual({ reassigned: 0, skipped: 1 })
-    expect(lines).toEqual([])
+    expect(lines).toEqual(["skip listing 7: several model prefixes mismatch, can't pick a single target base_model"])
   })
 
-  it('skips a listing whose derived target is the product it already has', async () => {
+  it('skips with a reason a listing whose derived target is the product it already has', async () => {
     const { db } = scriptedDb([listing({ listing_id: '7' })], { 'samsung galaxy s23': [26] })
+    const lines: string[] = []
 
-    const result = await reassignModelMismatches(db, () => {}, false)
+    const result = await reassignModelMismatches(db, (line) => lines.push(line), false)
 
     expect(result).toEqual({ reassigned: 0, skipped: 1 })
+    expect(lines).toEqual(['skip listing 7: derived target "Samsung Galaxy S23" is already its product 26'])
   })
 })

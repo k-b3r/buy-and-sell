@@ -62,6 +62,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/platform/r2-photos.ts
+
+**Interactions:** imports `./images`
+
+### `r2PhotoIoFromEnv(env: Record<string, string | undefined>, createStore: (config: R2Config) => ImageStore = createR2ImageStore): R2PhotoIo | null`
+
+_(undocumented)_
+
 ## src/platform/redact.ts
 
 ### `redact(message: string, secrets: readonly string[]): string`

@@ -105,8 +105,8 @@ test('on a test run, logs each query it would collect and never opens a browser'
   await runCollectLaps(h.deps, { cycle: false, testRun: true })
   expect(h.events).toEqual([])
   expect(h.logs).toEqual([
-    'INFO TEST_RUN: marketplace will call Facebook Marketplace to collect for query "urgent"',
-    'INFO TEST_RUN: marketplace will call Facebook Marketplace to collect for query "moving out"',
+    'INFO TEST_RUN: would collect Facebook Marketplace listings for query "urgent"',
+    'INFO TEST_RUN: would collect Facebook Marketplace listings for query "moving out"',
   ])
 })
 
@@ -142,7 +142,7 @@ test('--cycle on a test run paces itself at a fixed 5s without logging the lap a
   expect(h.logs).toEqual([
     'INFO --cycle: looping indefinitely — Ctrl+C to stop',
     'INFO --cycle: lap 1 starting, 1 motivated-seller keywords',
-    'INFO TEST_RUN: marketplace will call Facebook Marketplace to collect for query "urgent"',
+    'INFO TEST_RUN: would collect Facebook Marketplace listings for query "urgent"',
   ])
 })
 

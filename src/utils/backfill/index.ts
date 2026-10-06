@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { launchBrowserDriver } from '../../modules/collection/browser'
@@ -9,7 +10,7 @@ import {
   getBackfillCandidates,
   requireBackfillProxy,
 } from '../../modules/collection'
-import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
+import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 import { realDelay } from '../../platform/delay'
 
 // One-off backfill for listings collected before the listing_photos extraction
@@ -40,23 +41,12 @@ async function main() {
   const proxy = await requireBackfillProxy(process.env)
   logger.info(`egress confirmed via ${proxy.source} (${proxy.server})`)
 
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
-  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_BASE_URL) {
+  const photoIo = r2PhotoIoFromEnv(process.env)
+  if (!photoIo) {
     logger.error('R2 not fully configured (.env), aborting backfill')
     return
   }
-  const photos = createListingPhotos({
-    store: createR2ImageStore({
-      accountId: R2_ACCOUNT_ID,
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_KEY,
-      bucket: R2_BUCKET_NAME,
-      publicBaseUrl: R2_PUBLIC_BASE_URL,
-    }),
-    fetchBytes: defaultFetchBytes,
-    compress: defaultCompressImage,
-    logger,
-  })
+  const photos = createListingPhotos({ ...photoIo, logger })
 
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — backfill requires Postgres')
@@ -85,7 +75,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}
