@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import { getDeals } from './deals'
 import { notMagnitudeOutlierSql, peerListingSql } from './clean-median'
+import { repostKeySql } from './repost'
 import type { QueryClient } from '../../platform/storage'
 
 const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
@@ -90,10 +91,9 @@ test('getDeals dedupes same-product listings sharing an identical title (repost 
 
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
 
-  expect(capturedSql).toContain('DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id))')
-  expect(capturedSql).toContain(
-    'ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id',
-  )
+  const key = repostKeySql('title', 'listing_id')
+  expect(capturedSql).toContain(`DISTINCT ON (product_id, ${key})`)
+  expect(capturedSql).toContain(`ORDER BY product_id, ${key}, listed_at ASC NULLS LAST, listing_id`)
 })
 
 test('getDeals sorts by tier rank first, profit only breaks ties within a tier', async () => {
