@@ -35,7 +35,7 @@ importers:
         version: 10.0.1(eslint@10.11.0(jiti@2.7.0))
       '@k-b3r/agent-config':
         specifier: github:k-b3r/agent-config
-        version: https://codeload.github.com/k-b3r/agent-config/tar.gz/e37612669797bf0c7bbdc9c2a31bbd66748ccbb8(@eslint-community/eslint-plugin-eslint-comments@4.8.1(eslint@10.11.0(jiti@2.7.0)))(@eslint/js@10.0.1(eslint@10.11.0(jiti@2.7.0)))(dependency-cruiser@18.5.0)(eslint-config-prettier@10.1.8(eslint@10.11.0(jiti@2.7.0)))(eslint@10.11.0(jiti@2.7.0))(globals@17.13.0)(typescript-eslint@8.71.0(eslint@10.11.0(jiti@2.7.0))(typescript@5.9.3))(typescript@5.9.3)
+        version: https://codeload.github.com/k-b3r/agent-config/tar.gz/f1a5537a7755f2214a00317e35f5de417cc27d33(@eslint-community/eslint-plugin-eslint-comments@4.8.1(eslint@10.11.0(jiti@2.7.0)))(@eslint/js@10.0.1(eslint@10.11.0(jiti@2.7.0)))(dependency-cruiser@18.5.0)(eslint-config-prettier@10.1.8(eslint@10.11.0(jiti@2.7.0)))(eslint@10.11.0(jiti@2.7.0))(globals@17.13.0)(typescript-eslint@8.71.0(eslint@10.11.0(jiti@2.7.0))(typescript@5.9.3))(typescript@5.9.3)
       '@next/eslint-plugin-next':
         specifier: ^16.3.8
         version: 16.3.8(eslint@10.11.0(jiti@2.7.0))
@@ -944,8 +944,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@k-b3r/agent-config@https://codeload.github.com/k-b3r/agent-config/tar.gz/e37612669797bf0c7bbdc9c2a31bbd66748ccbb8':
-    resolution: {tarball: https://codeload.github.com/k-b3r/agent-config/tar.gz/e37612669797bf0c7bbdc9c2a31bbd66748ccbb8}
+  '@k-b3r/agent-config@https://codeload.github.com/k-b3r/agent-config/tar.gz/f1a5537a7755f2214a00317e35f5de417cc27d33':
+    resolution: {tarball: https://codeload.github.com/k-b3r/agent-config/tar.gz/f1a5537a7755f2214a00317e35f5de417cc27d33}
     version: 0.1.0
     hasBin: true
     peerDependencies:
@@ -3713,7 +3713,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@k-b3r/agent-config@https://codeload.github.com/k-b3r/agent-config/tar.gz/e37612669797bf0c7bbdc9c2a31bbd66748ccbb8(@eslint-community/eslint-plugin-eslint-comments@4.8.1(eslint@10.11.0(jiti@2.7.0)))(@eslint/js@10.0.1(eslint@10.11.0(jiti@2.7.0)))(dependency-cruiser@18.5.0)(eslint-config-prettier@10.1.8(eslint@10.11.0(jiti@2.7.0)))(eslint@10.11.0(jiti@2.7.0))(globals@17.13.0)(typescript-eslint@8.71.0(eslint@10.11.0(jiti@2.7.0))(typescript@5.9.3))(typescript@5.9.3)':
+  '@k-b3r/agent-config@https://codeload.github.com/k-b3r/agent-config/tar.gz/f1a5537a7755f2214a00317e35f5de417cc27d33(@eslint-community/eslint-plugin-eslint-comments@4.8.1(eslint@10.11.0(jiti@2.7.0)))(@eslint/js@10.0.1(eslint@10.11.0(jiti@2.7.0)))(dependency-cruiser@18.5.0)(eslint-config-prettier@10.1.8(eslint@10.11.0(jiti@2.7.0)))(eslint@10.11.0(jiti@2.7.0))(globals@17.13.0)(typescript-eslint@8.71.0(eslint@10.11.0(jiti@2.7.0))(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.8.1(eslint@10.11.0(jiti@2.7.0))
       '@eslint/js': 10.0.1(eslint@10.11.0(jiti@2.7.0))
