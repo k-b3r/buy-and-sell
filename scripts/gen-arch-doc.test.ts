@@ -1,5 +1,8 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { Project } from 'ts-morph'
-import { extractArchitecture, renderDomainMarkdown, slugify } from './gen-arch-doc.ts'
+import { assertDepsInstalled, extractArchitecture, renderDomainMarkdown, slugify, writeSite } from './gen-arch-doc.ts'
 
 function makeProject() {
   return new Project({ useInMemoryFileSystem: true })
@@ -148,4 +151,50 @@ test('inferred return types from other modules render without machine-specific a
   const signature = domain.modules.find((m) => m.path === 'src/workers/foo/index.ts')!.functions[0].signature
 
   expect(signature).toBe('run(): Promise<Result>')
+})
+
+function makeTmpDir() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'gen-arch-doc-'))
+}
+
+const fooDomain = { name: 'foo', modules: [] }
+
+test('writeSite deletes generated pages for domains that no longer exist', () => {
+  const outDir = makeTmpDir()
+  writeSite([{ name: 'src', domains: [fooDomain, { name: 'gone', modules: [] }] }], outDir)
+  expect(fs.existsSync(path.join(outDir, 'src/gone.md'))).toBe(true)
+
+  writeSite([{ name: 'src', domains: [fooDomain] }], outDir)
+
+  expect(fs.existsSync(path.join(outDir, 'src/gone.md'))).toBe(false)
+  expect(fs.existsSync(path.join(outDir, 'src/foo.md'))).toBe(true)
+})
+
+test('writeSite keeps hand-written pages that lack the generated marker', () => {
+  const outDir = makeTmpDir()
+  fs.mkdirSync(path.join(outDir, 'src'), { recursive: true })
+  fs.writeFileSync(path.join(outDir, 'src/notes.md'), '# Notes\n\nWritten by a human.\n')
+
+  writeSite([{ name: 'src', domains: [fooDomain] }], outDir)
+
+  expect(fs.readFileSync(path.join(outDir, 'src/notes.md'), 'utf-8')).toContain('Written by a human.')
+})
+
+test('assertDepsInstalled throws an error naming the install command when a dependency is missing', () => {
+  const dir = makeTmpDir()
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ dependencies: { next: '1' }, devDependencies: {} }))
+
+  expect(() => assertDepsInstalled(dir, 'pnpm --dir dashboard install')).toThrow(/next.*pnpm --dir dashboard install/s)
+})
+
+test('assertDepsInstalled passes when every dependency is present in node_modules', () => {
+  const dir = makeTmpDir()
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({ dependencies: { next: '1' }, devDependencies: { '@types/react': '1' } }),
+  )
+  fs.mkdirSync(path.join(dir, 'node_modules/next'), { recursive: true })
+  fs.mkdirSync(path.join(dir, 'node_modules/@types/react'), { recursive: true })
+
+  expect(() => assertDepsInstalled(dir, 'pnpm --dir dashboard install')).not.toThrow()
 })
