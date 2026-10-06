@@ -854,6 +854,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `class PriceLookupFailedError`
+
+_(undocumented)_
+
 ### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
 
 _(undocumented)_
@@ -981,6 +985,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `ensureProductPriced(deps: PriceLookupDeps, product: PriceLookupCandidate): Promise<ProductPricingResult>`
+
+_(undocumented)_
+
+### `class PriceLookupFailedError`
 
 _(undocumented)_
 

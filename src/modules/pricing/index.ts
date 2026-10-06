@@ -69,7 +69,7 @@ export {
 } from './price-history'
 export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
-export { ensureProductPriced } from './price-lookup'
+export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
 export { runPriceLookup } from './run-price-lookup'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
 export type { PriceReviewCandidate } from './price-review'
