@@ -156,9 +156,17 @@ test('inferred return types from other modules render without machine-specific a
   expect(signature).toBe('run(): Promise<Result>')
 })
 
+const tmpDirs: string[] = []
+
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'gen-arch-doc-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gen-arch-doc-'))
+  tmpDirs.push(dir)
+  return dir
 }
+
+afterEach(() => {
+  for (const dir of tmpDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
+})
 
 const fooDomain = { name: 'foo', modules: [] }
 
