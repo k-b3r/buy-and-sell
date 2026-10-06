@@ -29,13 +29,6 @@ export interface ProductCleanMedian {
 
 export type SoldComparablePrice = ProductCleanMedian
 
-// Three or more independent sales before treating the median as a real
-// signal rather than noise - one lucky/unlucky sold listing shouldn't
-// anchor a reference price. Also the "sold_comps" confidence tier's bar for
-// the deals page (highest tier; falls back to peer active-listing median,
-// then an LLM estimate, when this returns null - see [deals page] once built).
-export const SOLD_COMP_MIN_SAMPLE = 3
-
 // Which of a product's listings a clean median is taken over: sold ones
 // (what it was asking when it sold), active ones (what competing sellers ask
 // right now), or both.
@@ -48,12 +41,13 @@ const SCOPE_SQL: Record<ListingScope, string> = {
 }
 
 // One product's clean median over its listings in scope, excluded products
-// never priced - null below minSample valid prices. Backs the sold-comp and
-// peer reference prices here and discount detection's peer fallback.
+// never priced - null below MIN_PEER_SAMPLE valid prices (medianCtes). Backs
+// the sold-comp and peer reference prices here and discount detection's peer
+// fallback.
 export async function getProductCleanMedian(
   db: DbClient,
   productId: number,
-  options: { scope: ListingScope; minSample: number },
+  options: { scope: ListingScope },
 ): Promise<ProductCleanMedian | null> {
   const result = (await db.query(
     `WITH ${medianCtes({
@@ -61,7 +55,6 @@ export async function getProductCleanMedian(
       pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
              JOIN products p ON p.id = pl.product_id
              WHERE pl.product_id = $1 AND ${SCOPE_SQL[options.scope]} AND NOT p.price_lookup_excluded`,
-      minSample: options.minSample,
     })}
     SELECT sample_size, clean_median_price FROM product`,
     [productId],
@@ -71,7 +64,7 @@ export async function getProductCleanMedian(
 
   const sampleSize = Number(row.sample_size)
   const medianPrice = toNullableNumber(row.clean_median_price)
-  if (sampleSize < options.minSample || medianPrice === null || medianPrice <= 0) return null
+  if (medianPrice === null || medianPrice <= 0) return null
 
   return { medianPrice, sampleSize }
 }
@@ -81,27 +74,24 @@ export async function getProductCleanMedian(
 // someone's currently hoping to get. Facebook doesn't expose the actual
 // agreed sale price logged-out, so this is "what it was asking when it
 // sold," not a true transaction price - still materially better than an
-// active listing's ask, which nobody has paid yet.
+// active listing's ask, which nobody has paid yet. The deals page's highest
+// "sold_comps" confidence tier.
 export async function getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null> {
-  return getProductCleanMedian(db, productId, { scope: 'sold', minSample: SOLD_COMP_MIN_SAMPLE })
+  return getProductCleanMedian(db, productId, { scope: 'sold' })
 }
 
 export type PeerMedianPrice = ProductCleanMedian
 
 // Deals page's second-tier reference price: median of *active* (still-listed,
 // nobody's paid yet) peer listings of the same product, used when
-// getSoldComparablePrice above has too few actual sales to trust. Two
-// listings is enough here (vs SOLD_COMP_MIN_SAMPLE's 3) since this is already
-// the fallback tier - demanding the same bar as sold comps would just push
-// more products down to the even-less-precise LLM-estimate tier.
-export const PEER_MEDIAN_MIN_SAMPLE = 2
+// getSoldComparablePrice above has too few actual sales to trust.
 
 // Scoped to active listings (sold_at IS NULL) instead of sold ones - "what
 // competing sellers are asking right now" rather than "what last actually
 // sold". Per-product so the deals page can call this once per product
 // instead of once per listing.
 export async function getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null> {
-  return getProductCleanMedian(db, productId, { scope: 'active', minSample: PEER_MEDIAN_MIN_SAMPLE })
+  return getProductCleanMedian(db, productId, { scope: 'active' })
 }
 
 export interface ComparableListing {
@@ -116,10 +106,8 @@ const COMPARABLE_LISTINGS_DEFAULT_LIMIT = 6
 
 // Backs the listing-detail page's "recent sales" / "similar listings"
 // evidence panel - the actual rows behind getSoldComparablePrice/
-// getPeerMedianPrice's clean median, not just the aggregate number. Callers
-// gate on those two functions' own min-sample thresholds first (this
-// function doesn't re-check n>=3/n>=2 itself) so a listing never claims
-// evidence weaker than what actually qualified it for a /deals tier.
+// getPeerMedianPrice's clean median, not just the aggregate number. Empty
+// below MIN_PEER_SAMPLE comparables (no median, nothing to show as evidence).
 export async function getComparableListings(
   db: QueryClient,
   productId: number,
@@ -142,7 +130,7 @@ export async function getComparableListings(
      SELECT pp.id AS listing_id, pp.title, pp.price_amount, pp.primary_photo_url, pp.stored_photo_urls, pp.date
      FROM product_prices pp
      JOIN product m ON m.product_id = pp.product_id
-     WHERE ${notMagnitudeOutlierSql('pp.price_amount', 'm.raw_median_price')}
+     WHERE m.raw_median_price IS NOT NULL AND ${notMagnitudeOutlierSql('pp.price_amount', 'm.raw_median_price')}
      ORDER BY pp.date DESC NULLS LAST
      LIMIT $3`,
     [productId, excludeListingId, limit],

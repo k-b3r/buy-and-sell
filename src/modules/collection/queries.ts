@@ -93,7 +93,7 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const priceAmount = toNullableNumber(row.price_amount)
 
   // Evidence panel: only populated when the tier's own min-sample threshold
-  // (getSoldComparablePrice's n>=3, getPeerMedianPrice's n>=2) is met - same
+  // (MIN_PEER_SAMPLE, n>=3, for both) is met - same
   // bar /deals uses to call something a real tier, so this page never shows
   // weaker evidence than what would've qualified the listing there.
   const productId = toNullableNumber(row.product_id)

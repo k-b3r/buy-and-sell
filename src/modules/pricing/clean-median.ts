@@ -88,6 +88,12 @@ export function notMagnitudeOutlierSql(column: string, medianColumn: string): st
   return `(${medianColumn} IS NULL OR (${medianColumn} > 0 AND ${column} BETWEEN ${medianColumn} / ${MAGNITUDE_OUTLIER_RATIO} AND ${medianColumn} * ${MAGNITUDE_OUTLIER_RATIO}))`
 }
 
+// Fewer valid prices than this and a product has no median at all, raw or
+// clean - one or two listings are noise, not a market. One bar for every
+// peer reference: sold comps, peer median, discount detection, listing and
+// product pages, comparables lists and listing-derived price ranges.
+export const MIN_PEER_SAMPLE = 3
+
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
 // middle values, matching Postgres's median exactly.
 function median(values: number[]): number | null {
@@ -107,8 +113,8 @@ export function computeMedians(rawPrices: (number | null)[]): {
   sampleSize: number
 } {
   const prices = rawPrices.filter((p): p is number => p !== null && !isJunkPrice(p))
-  const rawMedian = median(prices)
-  if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
+  if (prices.length < MIN_PEER_SAMPLE) return { rawMedian: null, cleanMedian: null, sampleSize: prices.length }
+  const rawMedian = median(prices) as number
   const clean = prices.filter((p) => !isMagnitudeOutlier(p, rawMedian))
   return { rawMedian, cleanMedian: median(clean), sampleSize: prices.length }
 }
@@ -121,9 +127,6 @@ export interface MedianCtesOptions {
   // scope (sold/active, one product or all, excluded products or not). Any
   // extra columns carry through to `<name>_prices`.
   pool: string
-  // clean_median_price is NULL for products with fewer valid prices than
-  // this. Default 1: no gate.
-  minSample?: number
   // false emits only the raw median, for callers that just need the outlier
   // band and shouldn't pay for a second percentile pass.
   clean?: boolean
@@ -131,15 +134,18 @@ export interface MedianCtesOptions {
 
 // SQL side of the rule. `<name>_prices` holds the pool's valid rows;
 // `<name>` holds one row per product with raw_median_price and sample_size,
-// plus clean_median_price unless clean is false. Products with no valid
-// price get no row at all.
-export function medianCtes({ name, pool, minSample = 1, clean = true }: MedianCtesOptions): string {
+// plus clean_median_price unless clean is false. Both medians are NULL below
+// MIN_PEER_SAMPLE (sample_size still counts, e.g. for the deals page's
+// low-confidence check). Products with no valid price get no row at all.
+export function medianCtes({ name, pool, clean = true }: MedianCtesOptions): string {
   const prices = `${name}_prices`
   const pricesCte = `${prices} AS (
     SELECT * FROM (${pool}) pool
     WHERE price_amount IS NOT NULL AND ${notJunkPriceSql('price_amount')}
   )`
-  const rawSelect = `SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS raw_median_price, count(*) AS sample_size
+  const rawSelect = `SELECT product_id,
+      CASE WHEN count(*) >= ${MIN_PEER_SAMPLE} THEN percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) END AS raw_median_price,
+      count(*) AS sample_size
     FROM ${prices} GROUP BY product_id`
   if (!clean) return `${pricesCte},\n  ${name} AS (\n    ${rawSelect}\n  )`
 
@@ -151,7 +157,7 @@ export function medianCtes({ name, pool, minSample = 1, clean = true }: MedianCt
     SELECT r.product_id, r.raw_median_price, r.sample_size,
       (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
        FROM ${prices} pp
-       WHERE pp.product_id = r.product_id AND r.sample_size >= ${minSample}
+       WHERE pp.product_id = r.product_id AND r.raw_median_price IS NOT NULL
          AND ${notMagnitudeOutlierSql('pp.price_amount', 'r.raw_median_price')}) AS clean_median_price
     FROM ${name}_raw r
   )`

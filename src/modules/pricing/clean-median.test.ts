@@ -114,8 +114,13 @@ test('notMagnitudeOutlierSql keeps a row with no median, drops it against a non-
   )
 })
 
-test('medianCtes filters the pool to valid prices and gates the clean median on the minimum sample', () => {
-  const sql = medianCtes({ name: 'peer', pool: 'SELECT product_id, price_amount FROM listings', minSample: 3 })
+test('computeMedians has no medians below the 3-price minimum sample, but still reports the sample size', () => {
+  expect(computeMedians([1000, 2000])).toEqual({ rawMedian: null, cleanMedian: null, sampleSize: 2 })
+  expect(computeMedians([1000, 2000, 3000])).toEqual({ rawMedian: 2000, cleanMedian: 2000, sampleSize: 3 })
+})
+
+test('medianCtes filters the pool to valid prices and gates both medians on the minimum sample', () => {
+  const sql = medianCtes({ name: 'peer', pool: 'SELECT product_id, price_amount FROM listings' })
 
   expect(sql).toContain('peer_prices AS (')
   expect(sql).toContain('SELECT * FROM (SELECT product_id, price_amount FROM listings) pool')
@@ -123,7 +128,8 @@ test('medianCtes filters the pool to valid prices and gates the clean median on 
   expect(sql).toContain('peer_raw AS (')
   expect(sql).toContain('GROUP BY product_id')
   expect(sql).toContain('peer AS (')
-  expect(sql).toContain('r.sample_size >= 3')
+  expect(sql).toContain('CASE WHEN count(*) >= 3 THEN percentile_cont(0.5)')
+  expect(sql).toContain('r.raw_median_price IS NOT NULL')
   expect(sql).toContain(notMagnitudeOutlierSql('pp.price_amount', 'r.raw_median_price'))
   expect(sql).toContain('AS clean_median_price')
 })

@@ -210,7 +210,7 @@ test('getSoldComparablePrice scopes to sold listings only, excludes placeholder 
   expect(capturedParams).toEqual([42])
 })
 
-test('getPeerMedianPrice returns the clean median and sample size when at least 2 active peer listings exist', async () => {
+test('getPeerMedianPrice returns the clean median and sample size when at least 3 peer listings exist', async () => {
   const db: QueryClient = {
     query: async () => ({ rows: [{ sample_size: '3', clean_median_price: '12000' }] }),
   }
@@ -220,9 +220,9 @@ test('getPeerMedianPrice returns the clean median and sample size when at least 
   expect(result).toEqual({ medianPrice: 12000, sampleSize: 3 })
 })
 
-test('getPeerMedianPrice returns null when fewer than 2 active peer listings exist', async () => {
+test('getPeerMedianPrice returns null when fewer than 3 peer listings exist', async () => {
   const db: QueryClient = {
-    query: async () => ({ rows: [{ sample_size: '1', clean_median_price: null }] }),
+    query: async () => ({ rows: [{ sample_size: '2', clean_median_price: null }] }),
   }
 
   expect(await getPeerMedianPrice(db, 42)).toBeNull()
@@ -308,4 +308,19 @@ test('getComparableListings scopes to active listings when sold is false', async
   await getComparableListings(db, 42, 'l1', false)
 
   expect(capturedSql).toContain('pl.sold_at IS NULL')
+})
+
+test('getComparableListings returns rows only for a product whose comparables reach the minimum sample', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getComparableListings(db, 42, 'l1', true)
+
+  expect(capturedSql).toContain('m.raw_median_price IS NOT NULL')
+  expect(capturedSql).toContain('count(*) >= 3')
 })

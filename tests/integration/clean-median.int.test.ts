@@ -25,6 +25,7 @@ const PHONE = 9001
 const EXCLUDED = 9002
 const SINGLE = 9003
 const EMPTY = 9004
+const PAIR = 9005
 
 const LISTINGS: { id: string; title: string; price: number; product: number; sold: boolean }[] = [
   { id: 'cm-a1', title: 'Phone A', price: 10000, product: PHONE, sold: false },
@@ -44,9 +45,11 @@ const LISTINGS: { id: string; title: string; price: number; product: number; sol
   { id: 'cm-e4', title: 'Excluded D', price: 6000, product: EXCLUDED, sold: true },
   { id: 'cm-e5', title: 'Excluded E', price: 7000, product: EXCLUDED, sold: true },
   { id: 'cm-c1', title: 'Single A', price: 8000, product: SINGLE, sold: false },
+  { id: 'cm-p1', title: 'Pair A', price: 4000, product: PAIR, sold: false },
+  { id: 'cm-p2', title: 'Pair B', price: 10000, product: PAIR, sold: false },
 ]
 
-const PRODUCT_IDS = [PHONE, EXCLUDED, SINGLE, EMPTY]
+const PRODUCT_IDS = [PHONE, EXCLUDED, SINGLE, EMPTY, PAIR]
 const LISTING_IDS = LISTINGS.map((l) => l.id)
 
 async function clearFixtures(): Promise<void> {
@@ -62,6 +65,7 @@ beforeAll(async () => {
     [EXCLUDED, 'Fixture Excluded', true],
     [SINGLE, 'Fixture Single', false],
     [EMPTY, 'Fixture Empty', false],
+    [PAIR, 'Fixture Pair', false],
   ] as const) {
     await pool.query(
       `INSERT INTO products (id, base_model, base_model_normalized, price_lookup_excluded) VALUES ($1, $2, lower($2), $3)`,
@@ -95,7 +99,7 @@ async function sqlMedians(productId: number, soldClause: string) {
   const row = (result.rows as Record<string, unknown>[])[0]
   if (!row) return { rawMedian: null, cleanMedian: null, sampleSize: 0 }
   return {
-    rawMedian: Number(row.raw_median_price),
+    rawMedian: row.raw_median_price === null ? null : Number(row.raw_median_price),
     cleanMedian: row.clean_median_price === null ? null : Number(row.clean_median_price),
     sampleSize: Number(row.sample_size),
   }
@@ -121,6 +125,7 @@ test('sold-comp and peer reference prices use the clean median, gated on sample 
     peerPhone: await getPeerMedianPrice(pool, PHONE),
     peerExcluded: await getPeerMedianPrice(pool, EXCLUDED),
     peerSingle: await getPeerMedianPrice(pool, SINGLE),
+    peerPair: await getPeerMedianPrice(pool, PAIR),
     peerEmpty: await getPeerMedianPrice(pool, EMPTY),
   }
 
@@ -128,6 +133,7 @@ test('sold-comp and peer reference prices use the clean median, gated on sample 
     {
       "peerEmpty": null,
       "peerExcluded": null,
+      "peerPair": null,
       "peerPhone": {
         "medianPrice": 12000,
         "sampleSize": 6,
@@ -175,8 +181,14 @@ test('listing detail scores a discount against its siblings, never on an exclude
     placeholder: await detail('cm-a6'),
     excludedProduct: await detail('cm-e1'),
     single: await detail('cm-c1'),
+    belowMinimumSample: await detail('cm-p1'),
   }).toMatchInlineSnapshot(`
     {
+      "belowMinimumSample": {
+        "discount": null,
+        "price": 4000,
+        "reference": null,
+      },
       "excludedProduct": {
         "discount": null,
         "price": 5000,
@@ -272,6 +284,14 @@ test('product list and product detail summarize discounts from the same clean me
           "id": 9003,
           "max": 8000,
           "min": 8000,
+        },
+        {
+          "bands": [],
+          "best": null,
+          "count": 0,
+          "id": 9005,
+          "max": 10000,
+          "min": 4000,
         },
       ],
     }

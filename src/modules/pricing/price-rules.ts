@@ -1,5 +1,12 @@
 import { toNullableNumber } from '../../platform/rows'
-import { isJunkPrice, isMagnitudeOutlier, isPlaceholderPrice, medianCtes, notMagnitudeOutlierSql } from './clean-median'
+import {
+  isJunkPrice,
+  isMagnitudeOutlier,
+  isPlaceholderPrice,
+  medianCtes,
+  MIN_PEER_SAMPLE,
+  notMagnitudeOutlierSql,
+} from './clean-median'
 
 export interface DiscountBand {
   bandFloor: number
@@ -121,7 +128,6 @@ export const DISCOUNT_SUMMARY_LATERAL = `
     WITH ${medianCtes({
       name: 'product_median',
       pool: 'SELECT pl.product_id, pl.price_amount FROM listings pl WHERE pl.product_id = p.id AND NOT p.price_lookup_excluded',
-      minSample: 2,
     })},
     discounts AS (
       SELECT round(((m.clean_median_price - pp.price_amount) / m.clean_median_price) * 100) AS discount_percent
@@ -173,7 +179,7 @@ export function computeListingDiscount(
   const cleanMedian = toNullableNumber(cleanMedianPrice)
   const NONE = { discountPercent: null, referencePrice: null }
 
-  if (price === null || n === null || n < 2) return NONE
+  if (price === null || n === null || n < MIN_PEER_SAMPLE) return NONE
   if (rawMedian === null || rawMedian <= 0 || cleanMedian === null || cleanMedian <= 0) return NONE
   if (isMagnitudeOutlier(price, rawMedian)) return NONE
   if (isJunkPrice(price)) return NONE

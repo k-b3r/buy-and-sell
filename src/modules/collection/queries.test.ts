@@ -341,7 +341,7 @@ test('getListingDetail populates recent_sales/similar_listings only for tiers th
       }
       if (call === 2) return { rows: [{ raw_median_price: '12000', sample_size: '5', clean_median_price: '12000' }] } // sibling median
       if (call === 3) return { rows: [{ sample_size: '4', clean_median_price: '11000' }] } // getSoldComparablePrice: clears n>=3
-      if (call === 4) return { rows: [{ sample_size: '1', clean_median_price: null }] } // getPeerMedianPrice: fails n>=2
+      if (call === 4) return { rows: [{ sample_size: '1', clean_median_price: null }] } // getPeerMedianPrice: fails n>=3
       if (call === 5) {
         return {
           rows: [

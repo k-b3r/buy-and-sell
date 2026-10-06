@@ -3,7 +3,6 @@ import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
 import { medianCtes, notJunkPriceSql, notMagnitudeOutlierSql } from './clean-median'
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
 import { repostKeySql } from './repost'
-import { PEER_MEDIAN_MIN_SAMPLE, SOLD_COMP_MIN_SAMPLE } from './queries'
 
 type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
 
@@ -77,7 +76,7 @@ const DEALS_CATEGORY_CAP = 10
 // Reference-price fallback chain, highest confidence first (see
 // getSoldComparablePrice/getPeerMedianPrice in queries.ts for the same clean-median
 // approach applied per-tier): sold comps (n>=3 actual sales) -> active peer
-// listings (n>=2) -> LLM estimate (used_price_low/high, falling back to
+// listings (n>=3, MIN_PEER_SAMPLE) -> LLM estimate (used_price_low/high, falling back to
 // enrichment's trained_price_low/high the same way resolveSecondhandPrice
 // does in price-rules.ts, collapsed to a single point estimate via
 // midpoint since the deals page ranks by one number, not a range).
@@ -147,14 +146,12 @@ export async function getDeals(
       pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
              JOIN products prod ON prod.id = pl.product_id
              WHERE pl.sold_at IS NOT NULL AND NOT prod.price_lookup_excluded`,
-      minSample: SOLD_COMP_MIN_SAMPLE,
     })},
      ${medianCtes({
        name: 'peer_median',
        pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
               JOIN products prod ON prod.id = pl.product_id
               WHERE pl.sold_at IS NULL AND NOT prod.price_lookup_excluded`,
-       minSample: PEER_MEDIAN_MIN_SAMPLE,
      })},
      -- Deduped to one row per product with at least one active listing (not
      -- one LATERAL invocation per listing) - same "evaluate once per

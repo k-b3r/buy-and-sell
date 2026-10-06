@@ -1,5 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceLookupCandidate, PriceRange } from './price-lookup'
+import { MIN_PEER_SAMPLE } from './clean-median'
 
 // Always an INSERT, never an upsert — each price check is a new point in the
 // product's price history, not a replacement of the last one. This is what
@@ -154,7 +155,7 @@ export async function getListingPricesByProduct(db: DbClient): Promise<ListingPr
      JOIN listings l ON l.product_id = p.id
      WHERE l.price_amount IS NOT NULL AND l.condition IS NOT NULL
      GROUP BY p.id, p.base_model, p.variant_tier, l.condition
-     HAVING count(l.id) >= 2
+     HAVING count(l.id) >= ${MIN_PEER_SAMPLE}
      ORDER BY count(l.id) DESC`,
     [],
   )) as { rows: { id: number; base_model: string; variant_tier: string | null; condition: string; prices: string[] }[] }

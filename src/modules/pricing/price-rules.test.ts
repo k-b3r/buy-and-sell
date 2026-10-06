@@ -72,8 +72,9 @@ test('isPriceInvalidated is false for an ordinary in-range, non-placeholder pric
   expect(isPriceInvalidated(12000, 15000)).toBe(false)
 })
 
-test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {
+test('computeListingDiscount is null when fewer than 3 same-product listings exist to compare against', () => {
   expect(computeListingDiscount(15000, 15000, 15000, 1)).toEqual({ discountPercent: null, referencePrice: null })
+  expect(computeListingDiscount(15000, 15000, 15000, 2)).toEqual({ discountPercent: null, referencePrice: null })
 })
 
 test('computeListingDiscount is null when this listing itself is a magnitude outlier (>10x or <0.1x the raw median)', () => {

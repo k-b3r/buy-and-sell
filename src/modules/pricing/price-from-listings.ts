@@ -3,12 +3,12 @@ import type { DbClient } from '../../platform/storage'
 import type { ListingPricesForProductCondition } from './price-history'
 import { insertPriceCheck } from './price-history'
 import type { PriceRange } from './price-lookup'
-import { isJunkPrice } from './clean-median'
+import { isJunkPrice, MIN_PEER_SAMPLE } from './clean-median'
 
 // Junk prices would badly skew a naive min/max.
 export function computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null {
   const valid = prices.filter((p) => !isJunkPrice(p))
-  if (valid.length < 2) return null
+  if (valid.length < MIN_PEER_SAMPLE) return null
   return {
     low: Math.min(...valid),
     high: Math.max(...valid),
@@ -37,7 +37,7 @@ export async function runPriceFromListings(
     if (!range) {
       skipped += 1
       logger.warn(
-        `product ${group.id} (${label}, ${group.condition}): fewer than 2 valid prices after filtering junk, skipping`,
+        `product ${group.id} (${label}, ${group.condition}): fewer than ${MIN_PEER_SAMPLE} valid prices after filtering junk, skipping`,
       )
       continue
     }

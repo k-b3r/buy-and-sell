@@ -40,11 +40,8 @@ export const DEFAULT_DISCOUNT_POLICY: DiscountPolicyThresholds = {
 // decideListingDiscount's fallback reference when real secondhand market data
 // isn't available yet: the clean median over ALL this product's listings,
 // sold and active alike (unlike the deals page's active-only peer median).
-// null when there aren't at least 2 comparable listings.
-const DISCOUNT_PEER_MIN_SAMPLE = 2
-
 async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<number | null> {
-  const median = await getProductCleanMedian(db, productId, { scope: 'all', minSample: DISCOUNT_PEER_MIN_SAMPLE })
+  const median = await getProductCleanMedian(db, productId, { scope: 'all' })
   return median?.medianPrice ?? null
 }
 

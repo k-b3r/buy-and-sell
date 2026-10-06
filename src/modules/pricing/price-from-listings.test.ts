@@ -19,7 +19,8 @@ test('computePriceRangeFromPrices drops placeholder-pattern prices like the shar
   expect(result).toEqual({ low: 14000, high: 16000, currency: 'PHP', usedCount: 3 })
 })
 
-test('computePriceRangeFromPrices returns null when fewer than 2 valid prices remain after filtering', () => {
+test('computePriceRangeFromPrices returns null when fewer than 3 valid prices remain after filtering', () => {
+  expect(computePriceRangeFromPrices([12, 15000, 16000])).toBeNull()
   expect(computePriceRangeFromPrices([12, 20])).toBeNull()
   expect(computePriceRangeFromPrices([15000])).toBeNull()
   expect(computePriceRangeFromPrices([])).toBeNull()
@@ -43,7 +44,7 @@ test('runPriceFromListings inserts one listing_prices row per product/condition 
   const { db, calls } = fakeDb()
   const groups = [
     { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'Used - Good', prices: [12, 14999, 15000, 15000] },
-    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: [18000, 18500] },
+    { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: [18000, 18200, 18500] },
     { id: 2, base_model: 'Obscure Thing', variant_tier: null, condition: 'Used - Fair', prices: [12, 20] }, // all junk, skip
   ]
 
@@ -68,7 +69,7 @@ test('runPriceFromListings inserts one listing_prices row per product/condition 
     18000,
     18500,
     'PHP',
-    'computed from 2 of 2 "New" listings (junk prices excluded)',
+    'computed from 3 of 3 "New" listings (junk prices excluded)',
     'listing_prices',
     'New',
     null,
