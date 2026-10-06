@@ -55,11 +55,10 @@ export async function extractRealEstateBatch(
     // Confirmed on a real run: the model sometimes returns fewer results than it
     // was sent (17 of 25). Ask once more for just the missing ones; anything still
     // missing stays a candidate and is picked up next lap. Once only, so a model
-    // that keeps omitting items cannot loop this. A split half always retries its
-    // missing listings, even under a retryMissing=false call: pre-existing
-    // behavior kept as-is (BUY-8 is refactor only).
+    // that keeps omitting items cannot loop this. Split halves of the retry call
+    // honor its retryMissing=false too, or each would fire another Groq call.
     const missing = part.filter((c) => !out.has(c.id))
-    if ((retryMissing || part !== batch) && missing.length > 0) {
+    if (retryMissing && missing.length > 0) {
       logger.warn(`model returned ${out.size} of ${part.length} listings, retrying the ${missing.length} missing`)
       const retried = await extractRealEstateBatch(deps, missing, false)
       for (const [id, fields] of retried) out.set(id, fields)

@@ -194,14 +194,14 @@ test('round-robin client fires onFallback with the from/to key labels the moment
   }
   const events: [string, string][] = []
   const client = createRoundRobinGroqClient([a, b], {
-    labels: ['GROQ_API_KEY0', 'GROQ_API_KEY1'],
+    labels: ['pool-a', 'pool-b'],
     onFallback: (from, to) => events.push([from, to]),
   })
 
   await client.generateJson('p1', {}) // a
   await client.generateJson('p2', {}) // b 429s -> drops, falls to a
 
-  expect(events).toEqual([['GROQ_API_KEY1', 'GROQ_API_KEY0']])
+  expect(events).toEqual([['pool-b', 'pool-a']])
 })
 
 test('buildGroqRequest without options is the exact request every existing worker sends', () => {
