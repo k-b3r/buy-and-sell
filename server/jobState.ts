@@ -2,7 +2,7 @@ interface RefreshJob {
   productId: number
   total: number
   completed: number
-  status: 'running' | 'completed' | 'cancelled'
+  status: 'running' | 'completed' | 'cancelled' | 'failed'
 }
 
 export interface JobStore {
@@ -11,7 +11,7 @@ export interface JobStore {
   recordCompletion(): void
   requestCancel(): void
   isCancelRequested(): boolean
-  finish(status: 'completed' | 'cancelled'): void
+  finish(status: 'completed' | 'cancelled' | 'failed'): void
 }
 
 // Single in-memory slot, not a map keyed by productId - the shared

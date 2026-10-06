@@ -316,7 +316,9 @@ export async function refreshListingFields(
       setClauses.push(`source_photo_ids = $${params.length}`)
     } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
       logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
-      await photos.deleteAll(f.id)
+      // No deleteAll first: save writes deterministic keys (listings/<id>/<i>),
+      // so new photos overwrite old ones in place, and a re-fetch that gets
+      // nothing leaves the stored photos the DB points at intact.
       const newUrls = await photos.save(f.id, listing.listing_photos)
       if (newUrls.length > 0) {
         params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
