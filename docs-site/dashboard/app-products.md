@@ -52,7 +52,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `filterListings(listings: T[], listedWithinDays: number, hideSold: boolean, negotiableOnly: boolean, selectedBand: number | null): T[]`
+### `filterListings(listings: T[], { listedWithinDays, hideSold, negotiableOnly, selectedBand }: ListingsFilters): T[]`
 
 _(undocumented)_
 

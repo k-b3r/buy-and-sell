@@ -108,9 +108,17 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/app/ProductCard.tsx
+
+**Interactions:** imports `@/lib/queries`
+
+### `default({ p, listQueryString }: { p: ProductSummary; listQueryString: string }): React.JSX.Element`
+
+_(undocumented)_
+
 ## dashboard/src/app/ProductListClient.tsx
 
-**Interactions:** imports `./Skeleton`, `@/lib/queries`, `@/lib/shared.generated`
+**Interactions:** imports `./ProductCard`, `./Skeleton`, `@/lib/queries`, `@/lib/shared.generated`
 
 ### `default({ initialProducts, initialNextOffset, initialSearch, initialCategories, initialSubCategories, subCategoryTree, }: Props): React.JSX.Element`
 
