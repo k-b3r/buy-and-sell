@@ -49,6 +49,12 @@ describe('redact', () => {
     expect(redact('Authorization: Bearer abc123', [])).toBe(`Authorization: Bearer ${REDACTED}`)
   })
 
+  test('masks a short Bearer token in a JSON-quoted or =-separated Authorization header', () => {
+    expect(redact('{"Authorization": "Bearer abc123"}', [])).toBe(`{"Authorization": "Bearer ${REDACTED}"}`)
+    expect(redact("{'authorization':'bearer abc123'}", [])).toBe(`{'authorization':'bearer ${REDACTED}'}`)
+    expect(redact('headers authorization=Bearer abc123', [])).toBe(`headers authorization=Bearer ${REDACTED}`)
+  })
+
   test('masks every occurrence of a known secret value anywhere in the message', () => {
     const secret = 'fake-groq-key-for-tests'
     expect(redact(`Groq 401 for key ${secret} (key ${secret})`, [secret])).toBe(

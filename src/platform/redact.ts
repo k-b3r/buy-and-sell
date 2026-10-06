@@ -33,7 +33,9 @@ const URL_CREDENTIALS_RE = /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@"'<>]+@/gi
 // MIN_BARE_BEARER_TOKEN_LENGTH chars with a digit or punctuation in it.
 const MIN_BARE_BEARER_TOKEN_LENGTH = 16
 const TOKEN_CHAR = '[A-Za-z0-9\\-._~+/]'
-const AUTHORIZATION_BEARER_RE = new RegExp(`\\b(authorization:\\s*bearer\\s+)${TOKEN_CHAR}+=*`, 'gi')
+// Header shapes seen in logged errors: `Authorization: Bearer x`, JSON
+// `"Authorization": "Bearer x"`, and `authorization=Bearer x`.
+const AUTHORIZATION_BEARER_RE = new RegExp(`\\b(authorization["']?\\s*[:=]\\s*["']?bearer\\s+)${TOKEN_CHAR}+=*`, 'gi')
 const BARE_BEARER_RE = new RegExp(
   `\\b(bearer\\s+)(?=${TOKEN_CHAR}*[0-9\\-._~+/])${TOKEN_CHAR}{${MIN_BARE_BEARER_TOKEN_LENGTH},}=*`,
   'gi',
