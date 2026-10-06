@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { shouldRefreshPage } from './RefreshProductButton'
+import { resumableJob, shouldRefreshPage } from './RefreshProductButton'
+
+describe('resumableJob', () => {
+  const job = { productId: 7, total: 3, completed: 1, status: 'running' as const }
+
+  it('resumes a job still running for this product', () => {
+    expect(resumableJob(job, 7)).toEqual(job)
+  })
+
+  it('ignores a job that already finished before the page loaded, so the page is not refreshed on mount', () => {
+    expect(resumableJob({ ...job, status: 'completed' }, 7)).toBeNull()
+    expect(resumableJob({ ...job, status: 'cancelled' }, 7)).toBeNull()
+  })
+
+  it("ignores another product's job and an empty response", () => {
+    expect(resumableJob(job, 8)).toBeNull()
+    expect(resumableJob(null, 7)).toBeNull()
+  })
+})
 
 describe('shouldRefreshPage', () => {
   it('refreshes when a running job completes', () => {
