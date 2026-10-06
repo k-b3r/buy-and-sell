@@ -1,6 +1,7 @@
 import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
+import type { ReviewDecision } from '../../platform/review'
 import { runCollection, resolvePageState } from './run'
 import { createLogger } from '../../platform/logger'
 import { createListingPhotos } from './photos'
@@ -423,6 +424,96 @@ test('tolerates an empty pagination page and recovers real items from the next o
 
   expect(paginationCallIndex).toBe(2)
   expect(upsertCalls.map((c) => c[0])).toEqual(['1', '2'])
+})
+
+const PAGINATED_GRID_HTML = `<script type="application/json">{"results":[{"id":"1","marketplace_listing_title":"Mic A"}]}</script>
+<script type="application/json">{"require":[["LSD",[],{"token":"tok123"}]]}</script>
+<script type="application/json">{"data":{"marketplace_search":{"feed_units":{"edges":[],"page_info":{"end_cursor":"{\\"pg\\":0,\\"c2c\\":{\\"br\\":\\"x\\"}}","has_next_page":true}}}}}</script>`
+
+function paginatedDriver(fetchNextPage: PageDriver['fetchNextPage']): PageDriver {
+  let currentListingId = ''
+  return makeDriver({
+    getGridHtml: async () => PAGINATED_GRID_HTML,
+    openListing: async (listing) => {
+      currentListingId = listing.id
+    },
+    getDetailHtml: async () =>
+      `<script type="application/json">{"id":"${currentListingId}","marketplace_listing_title":"Mic"}</script>`,
+    fetchNextPage,
+  })
+}
+
+test('stops paginating after three pages in a row bring no new items', async () => {
+  let pageNum = 0
+  const driver = paginatedDriver(async () => {
+    pageNum += 1
+    return JSON.stringify({
+      data: {
+        marketplace_search: {
+          feed_units: {
+            edges: [{ node: { story_key: `s${pageNum}`, listing: { id: '1', marketplace_listing_title: 'Mic A' } } }],
+            page_info: { end_cursor: `{"pg":${pageNum},"c2c":{"br":"x"}}`, has_next_page: true },
+          },
+        },
+      },
+    })
+  })
+  const { db, upsertCalls } = fakeDb()
+
+  await runCollection(
+    { driver, db, logger: createLogger(LOG_PATH), delay: noDelay, review: async () => 'approve' },
+    { query: 'headphones', softWallTimeoutMs: 100, maxItems: 5 },
+  )
+
+  expect(pageNum).toBe(3)
+  expect(upsertCalls.map((c) => c[0])).toEqual(['1'])
+})
+
+test('stops paginating on an unrecognized pagination response but keeps what it already saved', async () => {
+  let calls = 0
+  const driver = paginatedDriver(async () => {
+    calls += 1
+    return '{"unexpected":true}'
+  })
+  const { db, upsertCalls } = fakeDb()
+
+  await runCollection(
+    { driver, db, logger: createLogger(LOG_PATH), delay: noDelay, review: async () => 'approve' },
+    { query: 'headphones', softWallTimeoutMs: 100, maxItems: 5 },
+  )
+
+  expect(calls).toBe(1)
+  expect(upsertCalls.map((c) => c[0])).toEqual(['1'])
+})
+
+test('a stop decision on a paginated item ends the run without fetching further pages', async () => {
+  let calls = 0
+  const driver = paginatedDriver(async () => {
+    calls += 1
+    return JSON.stringify({
+      data: {
+        marketplace_search: {
+          feed_units: {
+            edges: [
+              { node: { story_key: `s${calls}`, listing: { id: `p${calls}`, marketplace_listing_title: 'Mic' } } },
+            ],
+            page_info: { end_cursor: `{"pg":${calls},"c2c":{"br":"x"}}`, has_next_page: true },
+          },
+        },
+      },
+    })
+  })
+  const { db, upsertCalls } = fakeDb()
+  const review = async (listing: Record<string, unknown>): Promise<ReviewDecision> =>
+    listing.id === 'p1' ? 'stop' : 'approve'
+
+  await runCollection(
+    { driver, db, logger: createLogger(LOG_PATH), delay: noDelay, review },
+    { query: 'headphones', softWallTimeoutMs: 100, maxItems: 5 },
+  )
+
+  expect(calls).toBe(1)
+  expect(upsertCalls.map((c) => c[0])).toEqual(['1'])
 })
 
 test('skips listings Postgres already has from a prior run', async () => {
