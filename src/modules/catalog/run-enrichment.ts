@@ -5,7 +5,7 @@ import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
-import type { EnrichmentCandidate, RawEnrichmentItem } from './enrichment'
+import type { EnrichmentCandidate } from './enrichment'
 import { upsertProductEnrichment, updateProductCategories } from './product-storage'
 
 // Originally sized at 35 from output-token math alone — wrong, because
@@ -87,7 +87,7 @@ async function requestEnrichment(
 async function saveEnrichments(
   { db, logger }: EnrichmentIo,
   batch: EnrichmentCandidate[],
-  items: RawEnrichmentItem[],
+  items: unknown[],
 ): Promise<void> {
   const categoryAssignments: { id: number; category: string }[] = []
 
@@ -138,6 +138,6 @@ export async function runProductEnrichment(
       io.logger.error(`${label}: unexpected response shape (no results array), skipping batch`)
       continue
     }
-    await saveEnrichments(io, batch, raw.results as RawEnrichmentItem[])
+    await saveEnrichments(io, batch, raw.results)
   }
 }

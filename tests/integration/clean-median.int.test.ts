@@ -1,13 +1,14 @@
 import { testDatabaseUrl } from './global-setup'
 import { createDbPool } from '../../src/platform/storage'
 import {
-  checkListingDiscount,
   computeMedians,
+  decideListingDiscount,
   getComparableListings,
   getDeals,
   getPeerMedianPrice,
   getPriceReviewCandidates,
   getSoldComparablePrice,
+  insertDiscountNotifications,
   isPlaceholderPrice,
   medianCtes,
 } from '../../src/modules/pricing'
@@ -314,17 +315,23 @@ test('deals rank listings against sold comps, then peers, with the outlier guard
 
 test('discount detection falls back to the peer median across sold and active listings', async () => {
   const thresholds = { highDiscountThresholdPercent: 30, minProfitPesos: 1000, minPricePesos: 500 }
-  await checkListingDiscount(
+  const decided = [
+    await decideListingDiscount(
+      pool,
+      { id: 'cm-a7', productId: PHONE, condition: 'Used - Good', priceAmount: 4000 },
+      { retail: null, secondhand: null },
+      thresholds,
+    ),
+    await decideListingDiscount(
+      pool,
+      { id: 'cm-e1', productId: EXCLUDED, condition: 'Used - Good', priceAmount: 5000 },
+      { retail: null, secondhand: null },
+      thresholds,
+    ),
+  ]
+  await insertDiscountNotifications(
     pool,
-    { id: 'cm-a7', productId: PHONE, condition: 'Used - Good', priceAmount: 4000 },
-    { retail: null, secondhand: null },
-    thresholds,
-  )
-  await checkListingDiscount(
-    pool,
-    { id: 'cm-e1', productId: EXCLUDED, condition: 'Used - Good', priceAmount: 5000 },
-    { retail: null, secondhand: null },
-    thresholds,
+    decided.filter((n) => n !== null),
   )
 
   const result = await pool.query(

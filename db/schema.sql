@@ -359,7 +359,7 @@ CREATE TABLE IF NOT EXISTS saved_listings (
 -- Written once, at extraction time, when a listing first crosses the
 -- high-discount bar against its product's reference price: retail for a
 -- "New" listing, otherwise secondhand, falling back to the clean median of
--- the product's own listings (see checkListingDiscount in
+-- the product's own listings (see decideListingDiscount / insertDiscountNotifications in
 -- src/modules/pricing/discount-notifications.ts). Deliberately NOT
 -- re-evaluated later if prices or sibling listings shift afterward - same
 -- "set once" tradeoff this codebase already makes for base_model/category. UNIQUE on listing_id both
