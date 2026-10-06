@@ -17,7 +17,7 @@ interface ProductRow {
 // spacing is still found.
 export async function mergeDuplicateProducts(
   db: DbClient,
-  canonicalMap: Record<string, string> = CANONICAL_BASE_MODEL,
+  { canonicalMap = CANONICAL_BASE_MODEL }: { canonicalMap?: Record<string, string> } = {},
 ): Promise<{ renamed: number; merged: number }> {
   let renamed = 0
   let merged = 0

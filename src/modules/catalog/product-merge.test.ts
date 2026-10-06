@@ -152,7 +152,7 @@ test('mergeDuplicateProducts renames a product with no collision at the canonica
     return { rows: [] }
   })
 
-  const result = await mergeDuplicateProducts(db, { PS4: 'PlayStation 4' })
+  const result = await mergeDuplicateProducts(db, { canonicalMap: { PS4: 'PlayStation 4' } })
 
   expect(result).toEqual({ renamed: 1, merged: 0 })
   const updateCall = calls.find((c) => c.sql.startsWith('UPDATE products SET base_model'))
@@ -166,7 +166,7 @@ test('mergeDuplicateProducts looks up the canonical row by normalized base model
     return { rows: [] }
   })
 
-  await mergeDuplicateProducts(db, { PS4: 'PlayStation  4' })
+  await mergeDuplicateProducts(db, { canonicalMap: { PS4: 'PlayStation  4' } })
 
   const lookup = calls.find((c) => c.sql === FIND_SQL)
   expect(lookup?.params).toEqual(['playstation 4', 'slim'])
@@ -180,7 +180,7 @@ test('mergeDuplicateProducts merges into the existing canonical row instead of r
     return { rows: [] }
   })
 
-  const result = await mergeDuplicateProducts(db, { PS4: 'PlayStation 4' })
+  const result = await mergeDuplicateProducts(db, { canonicalMap: { PS4: 'PlayStation 4' } })
 
   expect(result).toEqual({ renamed: 0, merged: 1 })
   const listingsReassign = calls.find((c) => c.sql.includes('UPDATE listings SET product_id'))
@@ -197,7 +197,7 @@ test('mergeDuplicateProducts does not merge an alias row into itself when it alr
     return { rows: [] }
   })
 
-  const result = await mergeDuplicateProducts(db, { 'playstation 4': 'PlayStation 4' })
+  const result = await mergeDuplicateProducts(db, { canonicalMap: { 'playstation 4': 'PlayStation 4' } })
 
   expect(result).toEqual({ renamed: 1, merged: 0 })
 })
@@ -222,7 +222,7 @@ test('mergeDuplicateProducts processes multiple alias rows for the same canonica
     return { rows: [] }
   })
 
-  const result = await mergeDuplicateProducts(db, { PS4: 'PlayStation 4' })
+  const result = await mergeDuplicateProducts(db, { canonicalMap: { PS4: 'PlayStation 4' } })
 
   expect(result).toEqual({ renamed: 1, merged: 2 })
 })

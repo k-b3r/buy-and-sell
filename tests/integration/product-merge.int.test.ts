@@ -43,7 +43,7 @@ test('mergeDuplicateProducts merges into an existing canonical row that differs 
     [LISTING_ID, aliasId],
   )
 
-  const result = await mergeDuplicateProducts(pool, { [ALIAS]: CANONICAL })
+  const result = await mergeDuplicateProducts(pool, { canonicalMap: { [ALIAS]: CANONICAL } })
 
   expect(result).toEqual({ renamed: 0, merged: 1 })
   const products = await pool.query('SELECT id FROM products WHERE id = ANY($1) ORDER BY id', [[existingId, aliasId]])
