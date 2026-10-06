@@ -29,12 +29,20 @@ export interface ExtractedProject {
 
 const defaultIsInRepoImport = (specifier: string) => specifier.startsWith('.')
 
+export interface ExtractOptions {
+  /** Absolute directory whose files are documented; files outside it are skipped. */
+  rootDir: string
+  /** Prefix for module paths in the output (e.g. `src`). */
+  pathPrefix: string
+  /** Groups a file, given its path relative to rootDir, into a domain page. */
+  domainOf: (relPath: string) => string
+  /** Which import specifiers count as in-repo interactions. Defaults to relative imports. */
+  isInRepoImport?: (specifier: string) => boolean
+}
+
 export function extractArchitecture(
   project: Project,
-  rootDir: string,
-  pathPrefix: string,
-  domainOf: (relPath: string) => string,
-  isInRepoImport: (specifier: string) => boolean = defaultIsInRepoImport,
+  { rootDir, pathPrefix, domainOf, isInRepoImport = defaultIsInRepoImport }: ExtractOptions,
 ): ExtractedDomain[] {
   const modulesByDomain = new Map<string, ExtractedModule[]>()
 
@@ -247,24 +255,31 @@ async function main() {
   const projects: ExtractedProject[] = [
     {
       name: 'src',
-      domains: extractArchitecture(srcProject, path.join(repoRoot, 'src'), 'src', (relPath) => relPath.split('/')[0]),
+      domains: extractArchitecture(srcProject, {
+        rootDir: path.join(repoRoot, 'src'),
+        pathPrefix: 'src',
+        domainOf: (relPath) => relPath.split('/')[0],
+      }),
     },
     {
       name: 'server',
-      domains: extractArchitecture(serverProject, path.join(repoRoot, 'server'), 'server', () => 'server'),
+      domains: extractArchitecture(serverProject, {
+        rootDir: path.join(repoRoot, 'server'),
+        pathPrefix: 'server',
+        domainOf: () => 'server',
+      }),
     },
     {
       name: 'dashboard',
-      domains: extractArchitecture(
-        dashboardProject,
-        path.join(repoRoot, 'dashboard/src'),
-        'dashboard/src',
-        (relPath) => {
+      domains: extractArchitecture(dashboardProject, {
+        rootDir: path.join(repoRoot, 'dashboard/src'),
+        pathPrefix: 'dashboard/src',
+        domainOf: (relPath) => {
           const segments = relPath.split('/')
           return segments[0] === 'app' && segments.length > 2 ? `${segments[0]}/${segments[1]}` : segments[0]
         },
-        (spec) => spec.startsWith('.') || spec.startsWith('@/'),
-      ),
+        isInRepoImport: (spec) => spec.startsWith('.') || spec.startsWith('@/'),
+      }),
     },
   ]
 

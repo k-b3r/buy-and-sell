@@ -15,7 +15,7 @@ test('extracts a documented function with signature and description', () => {
     `/** Enriches one product. */\nexport function enrichProduct(id: number): Promise<void> {\n  return Promise.resolve()\n}\n`,
   )
 
-  const domains = extractArchitecture(project, '/repo/src', 'src', () => 'workers')
+  const domains = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'workers' })
 
   expect(domains).toEqual([
     {
@@ -42,7 +42,7 @@ test('flags an undocumented function with a null description', () => {
   const project = makeProject()
   project.createSourceFile('/repo/src/utils/bar.ts', `export function bar(): void {}\n`)
 
-  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'utils')
+  const [domain] = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'utils' })
 
   expect(domain.modules[0].functions[0].description).toBeNull()
 })
@@ -55,7 +55,11 @@ test('records in-repo relative imports as interactions, skips package imports', 
     `import { getProduct } from '../../modules/catalog/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
   )
 
-  const domains = extractArchitecture(project, '/repo/src', 'src', (relPath) => relPath.split('/')[0])
+  const domains = extractArchitecture(project, {
+    rootDir: '/repo/src',
+    pathPrefix: 'src',
+    domainOf: (relPath) => relPath.split('/')[0],
+  })
   const fooModule = domains.flatMap((d) => d.modules).find((m) => m.path.endsWith('foo/index.ts'))
 
   expect(fooModule?.imports).toEqual(['../../modules/catalog/products'])
@@ -68,13 +72,12 @@ test('treats @/ specifiers as in-repo when isInRepoImport allows it', () => {
     `import { getDeals } from '@/lib/queries'\nimport { NextResponse } from 'next/server'\n\nexport function run(): void {}\n`,
   )
 
-  const domains = extractArchitecture(
-    project,
-    '/repo/dashboard/src',
-    'dashboard/src',
-    () => 'app/api',
-    (spec) => spec.startsWith('.') || spec.startsWith('@/'),
-  )
+  const domains = extractArchitecture(project, {
+    rootDir: '/repo/dashboard/src',
+    pathPrefix: 'dashboard/src',
+    domainOf: () => 'app/api',
+    isInRepoImport: (spec) => spec.startsWith('.') || spec.startsWith('@/'),
+  })
 
   expect(domains[0].modules[0].imports).toEqual(['@/lib/queries'])
 })
@@ -86,7 +89,7 @@ test('excludes class declarations from marking isClass true and captures class n
     `/** Does the thing. */\nexport class Thing {\n  run(): void {}\n}\n`,
   )
 
-  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'platform')
+  const [domain] = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'platform' })
 
   expect(domain.modules[0].functions[0]).toEqual({
     name: 'Thing',
@@ -100,7 +103,7 @@ test('skips test files entirely', () => {
   const project = makeProject()
   project.createSourceFile('/repo/src/utils/bar.test.ts', `export function shouldNotAppear(): void {}\n`)
 
-  const domains = extractArchitecture(project, '/repo/src', 'src', () => 'utils')
+  const domains = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'utils' })
 
   expect(domains).toEqual([])
 })
@@ -147,7 +150,7 @@ test('inferred return types from other modules render without machine-specific a
     `import { type Result } from '../../lib/result'\nexport function run() {\n  const r: Result = { ok: true }\n  return Promise.resolve(r)\n}\n`,
   )
 
-  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'workers')
+  const [domain] = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'workers' })
   const signature = domain.modules.find((m) => m.path === 'src/workers/foo/index.ts')!.functions[0].signature
 
   expect(signature).toBe('run(): Promise<Result>')
