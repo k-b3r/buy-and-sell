@@ -42,6 +42,8 @@ const silentLogger: Logger = { info: () => {}, warn: () => {}, error: () => {} }
 const store: ImageStore = {
   put: async (key) => `https://images.example.com/${key}`,
   deleteAll: async () => {},
+  list: async () => [],
+  delete: async () => {},
 }
 const photos = createListingPhotos({
   store,

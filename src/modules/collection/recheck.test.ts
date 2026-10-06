@@ -50,6 +50,8 @@ function fakeImageStore(): { store: ListingPhotos; deletedPrefixes: string[] } {
         deleteAll: async (prefix: string) => {
           deletedPrefixes.push(prefix)
         },
+        list: async () => [],
+        delete: async () => {},
       },
       fetchBytes: async () => null,
       compress: async (body, contentType) => ({ body, contentType }),

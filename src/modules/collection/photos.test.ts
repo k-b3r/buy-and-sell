@@ -18,20 +18,43 @@ function fakeLogger(): Logger & { warnings: string[] } {
   }
 }
 
-function fakeStore(): ImageStore & { puts: { key: string; contentType: string }[]; deletedPrefixes: string[] } {
+function fakeStore(existingKeys: string[] = []): ImageStore & {
+  puts: { key: string; contentType: string }[]
+  deletedPrefixes: string[]
+  deletedKeys: string[]
+  keys: Set<string>
+} {
   const puts: { key: string; contentType: string }[] = []
   const deletedPrefixes: string[] = []
+  const deletedKeys: string[] = []
+  const keys = new Set(existingKeys)
   return {
     puts,
     deletedPrefixes,
+    deletedKeys,
+    keys,
     async put(key, _body, contentType) {
       puts.push({ key, contentType })
+      keys.add(key)
       return `https://images.example.com/${key}`
     },
     async deleteAll(prefix) {
       deletedPrefixes.push(prefix)
     },
+    async list(prefix) {
+      return [...keys].filter((key) => key.startsWith(prefix))
+    },
+    async delete(key) {
+      deletedKeys.push(key)
+      keys.delete(key)
+    },
   }
+}
+
+const jpegFetchBytes: FetchBytes = async () => ({ body: new Uint8Array([1]), contentType: 'image/jpeg' })
+
+function carousel(count: number): { image: { uri: string } }[] {
+  return Array.from({ length: count }, (_, i) => ({ image: { uri: `https://cdn.example.com/${i}.jpg` } }))
 }
 
 test('downloads and stores each photo in the carousel, returning public URLs in order', async () => {
@@ -116,4 +139,81 @@ test("deleteAll deletes everything under the listing's own key prefix", async ()
   await listingPhotos.deleteAll('111')
 
   expect(store.deletedPrefixes).toEqual(['listings/111/'])
+})
+
+test('replace deletes the stored photos the smaller new set no longer uses', async () => {
+  const store = fakeStore(['listings/111/0.jpg', 'listings/111/1.jpg', 'listings/111/2.jpg', 'listings/222/0.jpg'])
+  const listingPhotos = createListingPhotos({
+    store,
+    fetchBytes: jpegFetchBytes,
+    compress: identityCompress,
+    logger: fakeLogger(),
+  })
+
+  const urls = await listingPhotos.replace('111', carousel(1))
+
+  expect(urls).toEqual(['https://images.example.com/listings/111/0.jpg'])
+  expect(store.deletedKeys).toEqual(['listings/111/1.jpg', 'listings/111/2.jpg'])
+  expect([...store.keys].sort()).toEqual(['listings/111/0.jpg', 'listings/222/0.jpg'])
+})
+
+test('replace deletes the old object when a photo is re-stored under a different extension', async () => {
+  const store = fakeStore(['listings/111/0.png'])
+  const listingPhotos = createListingPhotos({
+    store,
+    fetchBytes: jpegFetchBytes,
+    compress: identityCompress,
+    logger: fakeLogger(),
+  })
+
+  await listingPhotos.replace('111', carousel(1))
+
+  expect(store.deletedKeys).toEqual(['listings/111/0.png'])
+})
+
+test('replace deletes nothing when the new set fails to download entirely', async () => {
+  const store = fakeStore(['listings/111/0.jpg', 'listings/111/1.jpg'])
+  const listingPhotos = createListingPhotos({
+    store,
+    fetchBytes: unusedFetchBytes,
+    compress: identityCompress,
+    logger: fakeLogger(),
+  })
+
+  expect(await listingPhotos.replace('111', carousel(1))).toEqual([])
+  expect(store.deletedKeys).toEqual([])
+})
+
+test('replace logs a failed orphan delete with listing id and key and keeps deleting the rest', async () => {
+  const store = fakeStore(['listings/111/0.jpg', 'listings/111/1.jpg', 'listings/111/2.jpg'])
+  const deleteKey = store.delete
+  store.delete = async (key) => {
+    if (key === 'listings/111/1.jpg') throw new Error('R2 unavailable')
+    await deleteKey(key)
+  }
+  const logger = fakeLogger()
+  const listingPhotos = createListingPhotos({ store, fetchBytes: jpegFetchBytes, compress: identityCompress, logger })
+
+  const urls = await listingPhotos.replace('111', carousel(1))
+
+  expect(urls).toEqual(['https://images.example.com/listings/111/0.jpg'])
+  expect(store.deletedKeys).toEqual(['listings/111/2.jpg'])
+  expect(logger.warnings).toEqual([
+    'failed to delete orphaned photo listings/111/1.jpg for listing 111: R2 unavailable',
+  ])
+})
+
+test('replace still returns the new photos when listing the stored ones fails', async () => {
+  const store = fakeStore(['listings/111/1.jpg'])
+  store.list = async () => {
+    throw new Error('R2 unavailable')
+  }
+  const logger = fakeLogger()
+  const listingPhotos = createListingPhotos({ store, fetchBytes: jpegFetchBytes, compress: identityCompress, logger })
+
+  const urls = await listingPhotos.replace('111', carousel(1))
+
+  expect(urls).toEqual(['https://images.example.com/listings/111/0.jpg'])
+  expect(store.deletedKeys).toEqual([])
+  expect(logger.warnings).toEqual(['failed to list stored photos for listing 111, orphans kept: R2 unavailable'])
 })

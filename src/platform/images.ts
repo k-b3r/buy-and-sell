@@ -1,9 +1,17 @@
-import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+} from '@aws-sdk/client-s3'
 import sharp from 'sharp'
 
 export interface ImageStore {
   put(key: string, body: Uint8Array, contentType: string): Promise<string>
   deleteAll(prefix: string): Promise<void>
+  list(prefix: string): Promise<string[]>
+  delete(key: string): Promise<void>
 }
 
 export interface R2Config {
@@ -30,6 +38,14 @@ export function createR2ImageStore(config: R2Config): ImageStore {
       const keys = (listed.Contents ?? []).flatMap((obj) => (obj.Key ? [{ Key: obj.Key }] : []))
       if (keys.length === 0) return
       await client.send(new DeleteObjectsCommand({ Bucket: config.bucket, Delete: { Objects: keys } }))
+    },
+    // One page (up to 1000 keys) is plenty: callers list a single listing's prefix.
+    async list(prefix) {
+      const listed = await client.send(new ListObjectsV2Command({ Bucket: config.bucket, Prefix: prefix }))
+      return (listed.Contents ?? []).flatMap((obj) => (obj.Key ? [obj.Key] : []))
+    },
+    async delete(key) {
+      await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }))
     },
   }
 }

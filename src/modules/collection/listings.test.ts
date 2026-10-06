@@ -40,18 +40,31 @@ function fakeLogger(): Logger & { warnings: string[] } {
   }
 }
 
-function fakeImageStore(): ImageStore & { puts: { key: string }[]; deletedPrefixes: string[] } {
+function fakeImageStore(
+  existingKeys: string[] = [],
+): ImageStore & { puts: { key: string }[]; deletedPrefixes: string[]; deletedKeys: string[] } {
   const puts: { key: string }[] = []
   const deletedPrefixes: string[] = []
+  const deletedKeys: string[] = []
+  const keys = new Set(existingKeys)
   return {
     puts,
     deletedPrefixes,
+    deletedKeys,
     async put(key) {
       puts.push({ key })
+      keys.add(key)
       return `https://images.example.com/${key}`
     },
     async deleteAll(prefix) {
       deletedPrefixes.push(prefix)
+    },
+    async list(prefix) {
+      return [...keys].filter((key) => key.startsWith(prefix))
+    },
+    async delete(key) {
+      deletedKeys.push(key)
+      keys.delete(key)
     },
   }
 }
@@ -346,9 +359,28 @@ test('refreshListingFields re-fetches and re-uploads photos when the seller swap
   expect(JSON.parse(sourcePhotoIds as string)).toEqual(['photo-c', 'photo-d'])
 })
 
+test('refreshListingFields deletes the stored photo keys a smaller new photo set no longer uses', async () => {
+  const { db } = mockDb()
+  const store = fakeImageStore(['listings/12345/0.jpg', 'listings/12345/1.jpg', 'listings/12345/2.png'])
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    listing_photos: [{ id: 'photo-d', image: { uri: 'https://scontent.example/d.jpg' } }],
+  }
+
+  await refreshListingFields(
+    { db, photos: photosOver(store), logger: fakeLogger() },
+    ['photo-a', 'photo-b', 'photo-c'],
+    listing,
+  )
+
+  expect(store.puts).toEqual([{ key: 'listings/12345/0.jpg' }])
+  expect(store.deletedKeys).toEqual(['listings/12345/1.jpg', 'listings/12345/2.png'])
+})
+
 test('refreshListingFields keeps the existing photos stored and referenced when a detected change fails to re-fetch entirely', async () => {
   const { db, calls } = mockDb()
-  const store = fakeImageStore()
+  const store = fakeImageStore(['listings/12345/0.jpg', 'listings/12345/1.jpg'])
   const logger = fakeLogger()
   const listing = {
     id: '12345',
@@ -363,6 +395,7 @@ test('refreshListingFields keeps the existing photos stored and referenced when 
   )
 
   expect(store.deletedPrefixes).toEqual([])
+  expect(store.deletedKeys).toEqual([])
   expect(store.puts).toEqual([])
   expect(calls[0].sql).not.toContain('primary_photo_url')
   expect(calls[0].sql).not.toContain('stored_photo_urls')
