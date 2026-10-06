@@ -61,6 +61,8 @@ pnpm run backfill-images -- [limit]
 
 Re-visits each already-saved listing live (paced same as a normal run) to pick up its full photo carousel and re-host it to R2 — needed for listings collected before the carousel-extraction fix and R2 storage existed (they only ever got `primary_listing_photo`, no `listing_photos`). Resumable: progress written after every listing, already-backfilled ones (have `stored_photo_urls`) skipped on the next run. Optional `limit` caps how many to process this run. Logs to `data/backfill.log`. Requires R2 and `DATABASE_URL`.
 
+Also needs a reachable `SOCKS_PROXY` or `WEBSHARE_PROXY` and aborts without one (on a laptop too), so it never hits Facebook directly.
+
 ## Testing
 
 ```bash

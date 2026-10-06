@@ -2,7 +2,7 @@ import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import type { ImageStore } from '../../platform/images'
 import type { PageDriver } from './driver'
-import { backfillListingPhotos } from './photo-backfill'
+import { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 import { createListingPhotos } from './photos'
 
 const realDetailHtml = `<script type="application/json">{"id":"1","marketplace_listing_title":"RTX 3060","listing_photos":[]}</script>`
@@ -93,4 +93,31 @@ test('backfillListingPhotos stops at a hard block without touching that listing 
 
   expect(calls).toEqual([])
   expect(driver.opened).toEqual(['1'])
+})
+
+test('requireBackfillProxy refuses when no proxy is configured, so the backfill never hits Facebook directly', async () => {
+  const checker = async () => true
+
+  await expect(requireBackfillProxy({}, checker)).rejects.toThrow(/refusing to hit Facebook directly/)
+})
+
+test('requireBackfillProxy refuses when the configured proxy is unreachable', async () => {
+  const checker = async () => false
+
+  await expect(requireBackfillProxy({ SOCKS_PROXY: 'socks5://127.0.0.1:1080' }, checker)).rejects.toThrow(
+    /tunnel isn't reachable/,
+  )
+})
+
+test('requireBackfillProxy returns the resolved proxy when one is reachable', async () => {
+  const checker = async () => true
+
+  const proxy = await requireBackfillProxy({ SOCKS_PROXY: 'socks5://127.0.0.1:1080' }, checker)
+
+  expect(proxy).toEqual({
+    server: 'socks5://127.0.0.1:1080',
+    username: undefined,
+    password: undefined,
+    source: 'tunnel',
+  })
 })
