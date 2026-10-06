@@ -141,7 +141,7 @@ test("deleteAll deletes everything under the listing's own key prefix", async ()
   expect(store.deletedPrefixes).toEqual(['listings/111/'])
 })
 
-test('replace deletes the stored photos the smaller new set no longer uses', async () => {
+test('replace saves the new set and its pruneUnused deletes the stored photos the smaller set no longer uses', async () => {
   const store = fakeStore(['listings/111/0.jpg', 'listings/111/1.jpg', 'listings/111/2.jpg', 'listings/222/0.jpg'])
   const listingPhotos = createListingPhotos({
     store,
@@ -150,7 +150,9 @@ test('replace deletes the stored photos the smaller new set no longer uses', asy
     logger: fakeLogger(),
   })
 
-  const urls = await listingPhotos.replace('111', carousel(1))
+  const { urls, pruneUnused } = await listingPhotos.replace('111', carousel(1))
+  expect(store.deletedKeys).toEqual([])
+  await pruneUnused()
 
   expect(urls).toEqual(['https://images.example.com/listings/111/0.jpg'])
   expect(store.deletedKeys).toEqual(['listings/111/1.jpg', 'listings/111/2.jpg'])
@@ -166,7 +168,7 @@ test('replace deletes the old object when a photo is re-stored under a different
     logger: fakeLogger(),
   })
 
-  await listingPhotos.replace('111', carousel(1))
+  await (await listingPhotos.replace('111', carousel(1))).pruneUnused()
 
   expect(store.deletedKeys).toEqual(['listings/111/0.png'])
 })
@@ -180,7 +182,10 @@ test('replace deletes nothing when the new set fails to download entirely', asyn
     logger: fakeLogger(),
   })
 
-  expect(await listingPhotos.replace('111', carousel(1))).toEqual([])
+  const { urls, pruneUnused } = await listingPhotos.replace('111', carousel(1))
+  await pruneUnused()
+
+  expect(urls).toEqual([])
   expect(store.deletedKeys).toEqual([])
 })
 
@@ -194,16 +199,15 @@ test('replace logs a failed orphan delete with listing id and key and keeps dele
   const logger = fakeLogger()
   const listingPhotos = createListingPhotos({ store, fetchBytes: jpegFetchBytes, compress: identityCompress, logger })
 
-  const urls = await listingPhotos.replace('111', carousel(1))
+  await (await listingPhotos.replace('111', carousel(1))).pruneUnused()
 
-  expect(urls).toEqual(['https://images.example.com/listings/111/0.jpg'])
   expect(store.deletedKeys).toEqual(['listings/111/2.jpg'])
   expect(logger.warnings).toEqual([
     'failed to delete orphaned photo listings/111/1.jpg for listing 111: R2 unavailable',
   ])
 })
 
-test('replace still returns the new photos when listing the stored ones fails', async () => {
+test('pruneUnused logs and gives up when listing the stored photos fails', async () => {
   const store = fakeStore(['listings/111/1.jpg'])
   store.list = async () => {
     throw new Error('R2 unavailable')
@@ -211,9 +215,8 @@ test('replace still returns the new photos when listing the stored ones fails', 
   const logger = fakeLogger()
   const listingPhotos = createListingPhotos({ store, fetchBytes: jpegFetchBytes, compress: identityCompress, logger })
 
-  const urls = await listingPhotos.replace('111', carousel(1))
+  await (await listingPhotos.replace('111', carousel(1))).pruneUnused()
 
-  expect(urls).toEqual(['https://images.example.com/listings/111/0.jpg'])
   expect(store.deletedKeys).toEqual([])
   expect(logger.warnings).toEqual(['failed to list stored photos for listing 111, orphans kept: R2 unavailable'])
 })

@@ -9,11 +9,18 @@ import type { Logger } from '../../platform/logger'
 export interface ListingPhotos {
   // Returns the public URLs of the photos that made it, in carousel order.
   save(listingId: string, photos: unknown): Promise<string[]>
-  // save, then delete the listing's stored objects the new set no longer uses
-  // (fewer photos, or a photo whose extension changed). Nothing is deleted
-  // when the new set saved nothing, and a failed delete is logged, never thrown.
-  replace(listingId: string, photos: unknown): Promise<string[]>
+  // save, plus pruneUnused to delete the listing's stored objects the new set
+  // no longer uses (fewer photos, or a photo whose extension changed). The
+  // caller runs pruneUnused only once its DB row points at the new urls, so a
+  // failed write never leaves the row pointing at deleted objects. It deletes
+  // nothing when the new set saved nothing; a failed delete is logged, never thrown.
+  replace(listingId: string, photos: unknown): Promise<ReplacedPhotos>
   deleteAll(listingId: string): Promise<void>
+}
+
+interface ReplacedPhotos {
+  urls: string[]
+  pruneUnused(): Promise<void>
 }
 
 export interface ListingPhotosIo {
@@ -92,8 +99,13 @@ export function createListingPhotos({ store, fetchBytes, compress, logger }: Lis
     },
     async replace(listingId, photos) {
       const saved = await storeAll(listingId, photos)
-      if (saved.length > 0) await deleteUnused(listingId, new Set(saved.map((photo) => photo.key)))
-      return saved.map((photo) => photo.url)
+      const keep = new Set(saved.map((photo) => photo.key))
+      return {
+        urls: saved.map((photo) => photo.url),
+        pruneUnused: async () => {
+          if (keep.size > 0) await deleteUnused(listingId, keep)
+        },
+      }
     },
     async deleteAll(listingId) {
       await store.deleteAll(prefixFor(listingId))

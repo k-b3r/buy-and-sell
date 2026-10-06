@@ -378,6 +378,26 @@ test('refreshListingFields deletes the stored photo keys a smaller new photo set
   expect(store.deletedKeys).toEqual(['listings/12345/1.jpg', 'listings/12345/2.png'])
 })
 
+test('refreshListingFields deletes no stored photo keys when the listing UPDATE fails', async () => {
+  const db: DbClient = {
+    query: async () => {
+      throw new Error('db down')
+    },
+  }
+  const store = fakeImageStore(['listings/12345/0.jpg', 'listings/12345/1.jpg'])
+  const listing = {
+    id: '12345',
+    marketplace_listing_title: 'Sony WH-1000XM6',
+    listing_photos: [{ id: 'photo-d', image: { uri: 'https://scontent.example/d.jpg' } }],
+  }
+
+  await expect(
+    refreshListingFields({ db, photos: photosOver(store), logger: fakeLogger() }, ['photo-a', 'photo-b'], listing),
+  ).rejects.toThrow('db down')
+
+  expect(store.deletedKeys).toEqual([])
+})
+
 test('refreshListingFields keeps the existing photos stored and referenced when a detected change fails to re-fetch entirely', async () => {
   const { db, calls } = mockDb()
   const store = fakeImageStore(['listings/12345/0.jpg', 'listings/12345/1.jpg'])

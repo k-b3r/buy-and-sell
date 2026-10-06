@@ -320,6 +320,7 @@ export async function refreshListingFields(
     JSON.stringify(listing),
   ]
 
+  let pruneUnusedPhotos = async (): Promise<void> => {}
   if (currentPhotoIds !== null) {
     if (storedPhotoIds === null) {
       params.push(JSON.stringify(currentPhotoIds))
@@ -327,10 +328,12 @@ export async function refreshListingFields(
     } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
       logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
       // No deleteAll first: replace writes deterministic keys (listings/<id>/<i>),
-      // so new photos overwrite old ones in place and only leftovers are
-      // deleted after, and a re-fetch that gets nothing leaves the stored
-      // photos the DB points at intact.
-      const newUrls = await photos.replace(f.id, listing.listing_photos)
+      // so new photos overwrite old ones in place, leftovers are pruned only
+      // after the UPDATE below succeeded, and a re-fetch that gets nothing
+      // leaves the stored photos the DB points at intact.
+      const replaced = await photos.replace(f.id, listing.listing_photos)
+      const newUrls = replaced.urls
+      pruneUnusedPhotos = replaced.pruneUnused
       if (newUrls.length > 0) {
         params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
         setClauses.push(
@@ -352,6 +355,7 @@ export async function refreshListingFields(
      RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
     params,
   )) as { rows?: PriorPriceRow[] } | undefined
+  await pruneUnusedPhotos()
   await recordRealEstatePriceChange(db, logger, {
     listingId: f.id,
     prior: updated?.rows?.[0],
