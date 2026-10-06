@@ -2,7 +2,22 @@ import type { ListingPageIo } from './driver'
 import { extractDetailFields } from './extract/detail'
 import type { BackfillCandidate } from './listings'
 import { markListingPhotosUnavailable, upsertListing } from './listings'
+import type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
+import { defaultProxyChecker, resolveProxy } from './proxy'
 import { resolveDetailPage } from './run'
+
+// Stricter than collect/check-listings, which skip the egress check when no
+// proxy is configured at all: the backfill is a one-off most likely run on
+// the VPS, where launching direct means hitting Facebook from a walled
+// datacenter IP. So it always fails closed without a working proxy.
+export async function requireBackfillProxy(
+  env: ProxyEnv,
+  checker: ProxyChecker = defaultProxyChecker,
+): Promise<ResolvedProxy> {
+  const resolution = await resolveProxy(env, checker)
+  if (!resolution.ok || !resolution.proxy) throw new Error(resolution.error)
+  return resolution.proxy
+}
 
 // Re-visits each listing live (paced like a normal collection run) to pick up
 // the full photo carousel and re-host it. Returns how many listings were

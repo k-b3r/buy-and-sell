@@ -13,7 +13,7 @@ export {
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
 } from './listings'
-export { backfillListingPhotos } from './photo-backfill'
+export { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 export type { ListingPhotos } from './photos'
 export { createListingPhotos } from './photos'
 export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
