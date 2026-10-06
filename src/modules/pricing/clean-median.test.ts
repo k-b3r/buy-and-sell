@@ -11,8 +11,10 @@ import {
   peerListingSql,
 } from './clean-median'
 
-test('peerListingSql keeps active listings and listings sold in the last 30 days', () => {
-  expect(peerListingSql('pl')).toBe("(pl.sold_at IS NULL OR pl.sold_at >= now() - interval '30 days')")
+test('peerListingSql keeps active listings, listings sold in the last 30 days and listings flagged removed in the last 30 days', () => {
+  expect(peerListingSql('pl')).toBe(
+    "((pl.sold_at IS NULL OR pl.sold_at >= now() - interval '30 days') AND (pl.flagged_removed_at IS NULL OR pl.flagged_removed_at >= now() - interval '30 days'))",
+  )
 })
 
 test('isJunkPrice flags a price below the ₱100 floor or with a placeholder digit pattern', () => {
