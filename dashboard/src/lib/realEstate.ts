@@ -1,6 +1,6 @@
 import type { RealEstateFilters, RealEstateListing } from './shared.generated'
 
-// Types-only import from queries.ts, so this module is safe in client components.
+// Types-only import from the generated shared file, so this module is safe in client components.
 
 export const NCR_AREAS = [
   'Caloocan',

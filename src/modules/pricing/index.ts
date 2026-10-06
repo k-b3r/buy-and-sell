@@ -26,8 +26,9 @@ export {
   toDiscountBands,
   toPriceReview,
 } from './price-rules'
+export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './deals'
 export { getDeals } from './deals'
-export type { ComparableListing } from './queries'
+export type { ComparableListing, DiscountNotification, PeerMedianPrice, SoldComparablePrice } from './queries'
 export {
   getComparableListings,
   getDiscountNotifications,

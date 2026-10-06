@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { formatListingPrice } from './listingPrice'
-import type { ListingPriceReview } from './pricing'
+import type { ListingPriceReview } from './shared.generated'
 
 function priced(price_amount: number | null, price_review: ListingPriceReview | null = null) {
   return { price_amount, price_review }

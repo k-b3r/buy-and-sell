@@ -10,23 +10,9 @@
 //
 // KEEP IN SYNC WITH src/modules/pricing/price-rules.ts and clean-median.ts. A divergence here doesn't throw, it
 // silently shows a different price verdict than the one the server computed.
+// The row types come from ./shared.generated, not by hand.
 
-export interface DiscountBand {
-  bandFloor: number
-  count: number
-}
-
-export interface DiscountSummary {
-  bestDiscountPercent: number | null
-  discountedListingCount: number
-  bands: DiscountBand[]
-}
-
-export interface ListingPriceReview {
-  is_negotiable: boolean
-  price_low: number | null
-  price_high: number | null
-}
+import type { ListingPriceReview } from './shared.generated'
 
 // Ascending-sequential digit runs anywhere in the price (123, 12345, but also
 // embedded runs like the 456 inside 12456 - confirmed live 2026-08-23 against

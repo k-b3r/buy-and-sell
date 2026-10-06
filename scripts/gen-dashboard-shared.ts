@@ -20,7 +20,34 @@ interface SharedSource {
 
 const SHARED_SOURCES: SharedSource[] = [
   { index: 'src/modules/real-estate/index.ts', names: ['RealEstateFilters', 'RealEstateListing'] },
-  { index: 'src/modules/catalog/index.ts', names: ['PRODUCT_CATEGORIES'] },
+  {
+    index: 'src/modules/catalog/index.ts',
+    names: [
+      'PRODUCT_CATEGORIES',
+      'ProductSummary',
+      'SubCategoryTreeEntry',
+      'ProductDetail',
+      'ProductNeedingReview',
+      'CategoryWeeklySoldCounts',
+    ],
+  },
+  { index: 'src/modules/collection/index.ts', names: ['ListingDetail', 'SavedListingSummary', 'CollectKeyword'] },
+  {
+    index: 'src/modules/pricing/index.ts',
+    names: [
+      'DiscountBand',
+      'ListingPriceReview',
+      'SoldComparablePrice',
+      'PeerMedianPrice',
+      'ComparableListing',
+      'DealListing',
+      'DealsDiscountPolicyFloors',
+      'DealsFilters',
+      'DiscountNotification',
+    ],
+  },
+  // Platform has no index; settings.ts is the settings feature's public file.
+  { index: 'src/platform/settings.ts', names: ['SettingRow'] },
 ]
 
 const HEADER = [
@@ -58,7 +85,8 @@ function referencedDeclarations(node: Node): Node[] {
     if (symbol?.isAlias()) symbol = symbol.getAliasedSymbol()
     for (const decl of symbol?.getDeclarations() ?? []) {
       const local = !decl.getSourceFile().isInNodeModules() && !decl.getSourceFile().isDeclarationFile()
-      const isType = Node.isInterfaceDeclaration(decl) || Node.isTypeAliasDeclaration(decl) || Node.isEnumDeclaration(decl)
+      const isType =
+        Node.isInterfaceDeclaration(decl) || Node.isTypeAliasDeclaration(decl) || Node.isEnumDeclaration(decl)
       if (local && isType) found.push(decl)
     }
   }
