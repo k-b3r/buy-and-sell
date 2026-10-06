@@ -86,7 +86,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `setManualPrice(productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
+### `setManualPrice(productId: number, price: { kind: 'new' | 'secondhand'; priceLow: number; priceHigh: number }): Promise<void>`
 
 _(undocumented)_
 
@@ -114,7 +114,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getComparableListings(productId: number, excludeListingId: string, sold: boolean, limit?: number): Promise<ComparableListing[]>`
+### `getComparableListings(query: { productId: number excludeListingId: string sold: boolean limit?: number }): Promise<ComparableListing[]>`
 
 _(undocumented)_
 

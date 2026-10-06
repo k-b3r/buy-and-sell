@@ -210,7 +210,7 @@ _(undocumented)_
 
 ## src/modules/catalog/run-enrichment.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./enrichment`, `./product-storage`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./enrichment`, `./product-storage`
 
 ### `runProductEnrichment(io: EnrichmentIo, candidates: EnrichmentCandidate[], options: EnrichmentOptions = {}): Promise<void>`
 
@@ -218,7 +218,7 @@ _(undocumented)_
 
 ## src/modules/catalog/run-extraction.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `../pricing`, `./extraction`, `./product-storage`, `./products`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `../pricing`, `./extraction`, `./product-storage`, `./products`
 
 ### `runProductExtraction({ clients, db, logger, delay = realDelay }: ExtractionIo, candidates: ExtractionCandidate[], options: ExtractionOptions): Promise<void>`
 
@@ -640,7 +640,7 @@ _(undocumented)_
 
 ## src/modules/pricing/discount-verification.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `./discount-notifications`, `./price-rules`
+**Interactions:** imports `../../platform/llm-clients`, `./discount-notifications`, `./price-rules`
 
 ### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
 
@@ -746,7 +746,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getComparableListings(db: QueryClient, productId: number, excludeListingId: string, sold: boolean, limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT): Promise<ComparableListing[]>`
+### `getComparableListings(db: QueryClient, { productId, excludeListingId, sold, limit = COMPARABLE_LISTINGS_DEFAULT_LIMIT }: ComparableListingsQuery): Promise<ComparableListing[]>`
 
 _(undocumented)_
 
@@ -774,7 +774,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `setManualPrice(db: QueryClient, productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
+### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
 
 _(undocumented)_
 
@@ -946,7 +946,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-lookup.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./generic-products`, `./price-history`
+**Interactions:** imports `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./generic-products`, `./price-history`
 
 ### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
 
@@ -1046,7 +1046,7 @@ _(undocumented)_
 
 **Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`
 
-### `setManualPrice(db: QueryClient, productId: number, kind: 'new' | 'secondhand', priceLow: number, priceHigh: number): Promise<void>`
+### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
 
 _(undocumented)_
 
@@ -1062,7 +1062,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getComparableListings(db: QueryClient, productId: number, excludeListingId: string, sold: boolean, limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT): Promise<ComparableListing[]>`
+### `getComparableListings(db: QueryClient, { productId, excludeListingId, sold, limit = COMPARABLE_LISTINGS_DEFAULT_LIMIT }: ComparableListingsQuery): Promise<ComparableListing[]>`
 
 _(undocumented)_
 
@@ -1106,7 +1106,7 @@ _(undocumented)_
 
 ## src/modules/pricing/run-price-lookup.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `./price-lookup`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `./price-lookup`
 
 ### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
 
@@ -1114,7 +1114,7 @@ _(undocumented)_
 
 ## src/modules/pricing/run-price-review.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./listing-price-review`, `./price-review`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./listing-price-review`, `./price-review`
 
 ### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
@@ -1156,7 +1156,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/extractor.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
 
 ### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
