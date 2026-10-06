@@ -94,7 +94,7 @@ export async function runCollectLaps(deps: CollectLapsDeps, options: CollectLaps
 
     if (options.testRun) {
       for (const { query } of queries) {
-        logger.info(`TEST_RUN: marketplace will call Facebook Marketplace to collect for query "${query}"`)
+        logger.info(`TEST_RUN: would collect Facebook Marketplace listings for query "${query}"`)
       }
     } else {
       const failures = await collectInBrowser(deps, queries, settings, consecutiveFailures)
