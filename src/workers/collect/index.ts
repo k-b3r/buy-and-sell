@@ -5,7 +5,7 @@ import { realDelay } from '../../platform/delay'
 import { runWorkerProcess } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
-import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
+import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 import { createListingPhotos, resolveProxy, runCollection } from '../../modules/collection'
 import { runCollectLaps } from './laps'
 
@@ -70,22 +70,8 @@ async function main() {
       logger.info(`egress confirmed via ${proxy!.source} (${proxy!.server})`)
     }
 
-    const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
-    const r2Configured = R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_KEY && R2_BUCKET_NAME && R2_PUBLIC_BASE_URL
-    const photos = r2Configured
-      ? createListingPhotos({
-          store: createR2ImageStore({
-            accountId: R2_ACCOUNT_ID,
-            accessKeyId: R2_ACCESS_KEY_ID,
-            secretAccessKey: R2_SECRET_KEY,
-            bucket: R2_BUCKET_NAME,
-            publicBaseUrl: R2_PUBLIC_BASE_URL,
-          }),
-          fetchBytes: defaultFetchBytes,
-          compress: defaultCompressImage,
-          logger,
-        })
-      : undefined
+    const photoIo = r2PhotoIoFromEnv(process.env)
+    const photos = photoIo ? createListingPhotos({ ...photoIo, logger }) : undefined
     if (photos) {
       logger.info('R2 configured, photo carousels will be downloaded and re-hosted')
     } else {

@@ -4,7 +4,7 @@ import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
 import { realDelay } from '../src/platform/delay'
-import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../src/platform/images'
+import { r2PhotoIoFromEnv } from '../src/platform/r2-photos'
 import { createListingPhotos } from '../src/modules/collection'
 import { createApp } from './app'
 import { createProxyGuard } from './proxyGuard'
@@ -32,27 +32,14 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — the server requires Postgres')
 
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
-  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_BASE_URL) {
-    throw new Error('R2 not fully configured in .env — the refresh route needs to be able to delete photos')
-  }
+  const photoIo = r2PhotoIoFromEnv(process.env)
+  if (!photoIo) throw new Error('R2 not fully configured in .env — the refresh route needs to be able to delete photos')
 
   const port = Number(process.env.SERVER_PORT ?? 8787)
 
   const logger = createLogger('server.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
-  const photos = createListingPhotos({
-    store: createR2ImageStore({
-      accountId: R2_ACCOUNT_ID,
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_KEY,
-      bucket: R2_BUCKET_NAME,
-      publicBaseUrl: R2_PUBLIC_BASE_URL,
-    }),
-    fetchBytes: defaultFetchBytes,
-    compress: defaultCompressImage,
-    logger,
-  })
+  const photos = createListingPhotos({ ...photoIo, logger })
 
   // Shared across the single-listing and bulk product-refresh handlers -
   // this VPS can't run two concurrent Chromium instances (~2GB RAM), so
