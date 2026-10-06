@@ -1,10 +1,9 @@
 import { existsSync, rmSync } from 'node:fs'
-import { runPriceLookup } from './index'
-import type { PriceLookupClients } from './index'
+import { runPriceLookup } from './run-price-lookup'
+import type { PriceLookupCandidate, PriceLookupClients } from './price-lookup'
 import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../domains/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { PriceLookupCandidate } from '../../modules/pricing'
 
 const LOG_PATH = 'data/tmp-price-lookup.log'
 
@@ -14,7 +13,7 @@ afterEach(() => {
 
 // runPriceLookup is a thin loop now - all provider-chain/exclusion behavior
 // is tested directly against ensureProductPriced in
-// modules/pricing/price-lookup.test.ts. These tests just confirm the
+// price-lookup.test.ts. These tests just confirm the
 // loop calls it once per product, with the right pacing.
 function fakeClients(): PriceLookupClients {
   const gemini: GeminiClient = {
@@ -48,7 +47,7 @@ test('processes every product given, one at a time', async () => {
     { id: 2, base_model: 'RTX 3060', variant_tier: null, description: null, sibling_variants: [] },
   ]
 
-  await runPriceLookup(clients, db, logger, products, async () => {})
+  await runPriceLookup({ clients, db, logger, delay: async () => {} }, products)
 
   const flagCalls = calls.filter((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))
   expect(flagCalls.map((c) => c.params[1])).toEqual([1, 2])
@@ -65,9 +64,17 @@ test('waits between products but not before the first one', async () => {
   ]
   const delays: number[] = []
 
-  await runPriceLookup(clients, db, logger, products, async (ms) => {
-    delays.push(ms)
-  })
+  await runPriceLookup(
+    {
+      clients,
+      db,
+      logger,
+      delay: async (ms) => {
+        delays.push(ms)
+      },
+    },
+    products,
+  )
 
   expect(delays).toEqual([1000, 1000])
 })
