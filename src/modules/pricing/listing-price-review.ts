@@ -13,12 +13,14 @@ const DESCRIPTION_MENTIONS_PRICE_SQL = `(
   OR l.description ~* '[0-9][ ]?k\\y'
 )`
 
-// Tighter than the clean median's MAGNITUDE_OUTLIER_RATIO on purpose (see
-// getPriceReviewCandidates): this only nominates listings for an LLM read.
-const REVIEW_OUTLIER_RATIO = 5
+// "Flag for review" band, NOT the outlier rule (that is the shared 10x
+// isMagnitudeOutlier/notMagnitudeOutlierSql, which hides/excludes prices).
+// Tighter on purpose: it only nominates listings for an LLM read, so a
+// single dropped digit (10x) is caught with margin.
+const REVIEW_FLAG_RATIO = 5
 
-// Cheap SQL pre-filter, no LLM: flags a listing when its price is a magnitude
-// outlier (>5x off its product's own median in either direction), a
+// Cheap SQL pre-filter, no LLM: flags a listing for review when its price is
+// >5x off its product's own median in either direction (review_flag), a
 // placeholder digit-pattern regardless of magnitude, OR names a price in its
 // description that the recorded price is 5x+ off (getPriceReviewCandidates'
 // JS post-filter makes the final divergence call - the SQL branch here just
@@ -49,7 +51,7 @@ export async function getPriceReviewCandidates(db: DbClient): Promise<PriceRevie
     })},
      flagged AS (
        SELECT l.id, l.title, l.description, l.price_amount,
-         COALESCE(l.price_amount < m.raw_median_price / ${REVIEW_OUTLIER_RATIO} OR l.price_amount > m.raw_median_price * ${REVIEW_OUTLIER_RATIO}, false) AS price_outlier,
+         COALESCE(l.price_amount < m.raw_median_price / ${REVIEW_FLAG_RATIO} OR l.price_amount > m.raw_median_price * ${REVIEW_FLAG_RATIO}, false) AS review_flag,
          NOT ${notPlaceholderPriceSql('l.price_amount')} AS placeholder_price,
          ${DESCRIPTION_MENTIONS_PRICE_SQL} AS description_mentions_price
        FROM listings l
@@ -58,9 +60,9 @@ export async function getPriceReviewCandidates(db: DbClient): Promise<PriceRevie
        WHERE l.product_id IS NOT NULL AND l.price_amount IS NOT NULL
          AND (r.listing_id IS NULL OR l.description IS DISTINCT FROM r.reviewed_description)
      )
-     SELECT id, title, description, price_amount, price_outlier, placeholder_price
+     SELECT id, title, description, price_amount, review_flag, placeholder_price
      FROM flagged
-     WHERE price_outlier OR placeholder_price OR description_mentions_price`,
+     WHERE review_flag OR placeholder_price OR description_mentions_price`,
     [],
   )) as { rows: Record<string, unknown>[] }
   return result.rows
@@ -69,7 +71,7 @@ export async function getPriceReviewCandidates(db: DbClient): Promise<PriceRevie
       title: r.title as string,
       description: (r.description as string | null) ?? null,
       price_amount: Number(r.price_amount),
-      priceSuspicious: r.price_outlier === true || r.placeholder_price === true,
+      priceSuspicious: r.review_flag === true || r.placeholder_price === true,
     }))
     .filter((c) => c.priceSuspicious || descriptionPriceDiverges(c.description, c.price_amount))
     .map((c) => ({ id: c.id, title: c.title, description: c.description, price_amount: c.price_amount }))

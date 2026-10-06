@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import { getDeals } from './deals'
+import { notMagnitudeOutlierSql } from './clean-median'
 import type { QueryClient } from '../../platform/storage'
 
 const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
@@ -231,7 +232,7 @@ test('getDeals filters by minimum confidence tier rank', async () => {
   expect(capturedParams).toContain(2)
 })
 
-test('getDeals guards against a decoy ask price magnitudes below its own reference price', async () => {
+test('getDeals guards against a decoy ask price with the shared 10x outlier rule, dropping non-positive reference prices', async () => {
   let capturedSql = ''
   const db: QueryClient = {
     query: async (sql) => {
@@ -242,7 +243,7 @@ test('getDeals guards against a decoy ask price magnitudes below its own referen
 
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
 
-  expect(capturedSql).toContain('ask_price BETWEEN reference_price / 10 AND reference_price * 10')
+  expect(capturedSql).toContain(notMagnitudeOutlierSql('ask_price', 'reference_price'))
 })
 
 test('getDeals uses the price review over the raw recorded price when one exists', async () => {

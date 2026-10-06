@@ -74,9 +74,13 @@ test('isMagnitudeOutlier is false for a price within 10x of the raw median', () 
   expect(isMagnitudeOutlier(150000, 15000)).toBe(false) // exactly 10x, boundary inclusive
 })
 
-test('isMagnitudeOutlier is false when there is no valid raw median to compare against', () => {
+test('isMagnitudeOutlier is false when there is no median to compare against', () => {
   expect(isMagnitudeOutlier(12000, null)).toBe(false)
-  expect(isMagnitudeOutlier(12000, 0)).toBe(false)
+})
+
+test('isMagnitudeOutlier treats every price as an outlier against a non-positive reference', () => {
+  expect(isMagnitudeOutlier(12000, 0)).toBe(true)
+  expect(isMagnitudeOutlier(12000, -500)).toBe(true)
 })
 
 test('computeMedians interpolates the two middle values for an even-sized sample, like percentile_cont', () => {
@@ -104,9 +108,9 @@ test('computeMedians has no medians for an empty sample', () => {
   expect(computeMedians([])).toEqual({ rawMedian: null, cleanMedian: null, sampleSize: 0 })
 })
 
-test('notMagnitudeOutlierSql keeps a row when there is no usable median, otherwise bounds it at 10x either way', () => {
+test('notMagnitudeOutlierSql keeps a row with no median, drops it against a non-positive one, otherwise bounds it at 10x either way', () => {
   expect(notMagnitudeOutlierSql('l.price_amount', 'm.raw_median_price')).toBe(
-    '(m.raw_median_price IS NULL OR m.raw_median_price <= 0 OR l.price_amount BETWEEN m.raw_median_price / 10 AND m.raw_median_price * 10)',
+    '(m.raw_median_price IS NULL OR (m.raw_median_price > 0 AND l.price_amount BETWEEN m.raw_median_price / 10 AND m.raw_median_price * 10))',
   )
 })
 

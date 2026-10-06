@@ -1,6 +1,6 @@
 import type { QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
-import { medianCtes, notJunkPriceSql } from './clean-median'
+import { medianCtes, notJunkPriceSql, notMagnitudeOutlierSql } from './clean-median'
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
 import { repostKeySql } from './repost'
 import { PEER_MEDIAN_MIN_SAMPLE, SOLD_COMP_MIN_SAMPLE } from './queries'
@@ -260,8 +260,9 @@ export async function getDeals(
          -- reference price and would otherwise rank as the single best "deal"
          -- on the page. Skipped only when there's no reference_price at all
          -- (nothing to compare against - those rows are already routed to the
-         -- low-confidence bucket by the tier IS NULL branch below).
-         AND (reference_price IS NULL OR ask_price BETWEEN reference_price / 10 AND reference_price * 10)
+         -- low-confidence bucket by the tier IS NULL branch below); a
+         -- non-positive reference drops the row.
+         AND ${notMagnitudeOutlierSql('ask_price', 'reference_price')}
          AND (tier IS NULL OR (tier = 'llm_estimate' AND COALESCE(peer_sample_size, 0) <= 1)) = ${lowConfidenceOnlyPlaceholder}
          AND (${lowConfidenceOnlyPlaceholder} OR reference_price - ask_price >= ${minProfitPlaceholder})
          AND (${lowConfidenceOnlyPlaceholder} OR ${TIER_RANK_SQL} >= ${minTierPlaceholder})

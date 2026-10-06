@@ -61,18 +61,20 @@ export function notJunkPriceSql(column: string): string {
 // typo, not a real ask.
 const MAGNITUDE_OUTLIER_RATIO = 10
 
-// Same magnitude-outlier heuristic as listing-price-review.ts's
-// getPriceReviewCandidates' pre-filter (which uses a tighter band) -
-// exactly the pre-filter that makes a listing an enrich-listing-prices
-// candidate, independent of whether that worker has actually reviewed it
-// yet. Used two ways: computeListingDiscount excludes it from
-// discount/reference-price analysis, and callers
+// The one outlier rule for hiding/excluding a price (listing-price-review.ts's
+// tighter 5x band only flags a listing for an LLM read). Used two ways:
+// computeListingDiscount excludes it from discount/reference-price
+// analysis, and callers
 // (getProductDetail/getListingDetail) also null out the listing's own
 // price_amount entirely - a mathematically-outlier price isn't shown, not
 // just unscored, since a >10x-median number is almost always a placeholder/
 // scam/typo, not a real ask worth displaying at all.
+// No median (null) means nothing to compare against: not an outlier. A
+// non-positive reference can't be a real price, so nothing is in band
+// against it (the deals filter's original behavior, now the shared rule).
 export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
-  if (rawMedianPrice === null || rawMedianPrice <= 0) return false
+  if (rawMedianPrice === null) return false
+  if (rawMedianPrice <= 0) return true
   return price < rawMedianPrice / MAGNITUDE_OUTLIER_RATIO || price > rawMedianPrice * MAGNITUDE_OUTLIER_RATIO
 }
 
@@ -83,7 +85,7 @@ export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null)
 // by it - confirmed live 2026-09-02: home/product-list page showed price
 // ranges like ₱2-₱123,456,789).
 export function notMagnitudeOutlierSql(column: string, medianColumn: string): string {
-  return `(${medianColumn} IS NULL OR ${medianColumn} <= 0 OR ${column} BETWEEN ${medianColumn} / ${MAGNITUDE_OUTLIER_RATIO} AND ${medianColumn} * ${MAGNITUDE_OUTLIER_RATIO})`
+  return `(${medianColumn} IS NULL OR (${medianColumn} > 0 AND ${column} BETWEEN ${medianColumn} / ${MAGNITUDE_OUTLIER_RATIO} AND ${medianColumn} * ${MAGNITUDE_OUTLIER_RATIO}))`
 }
 
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
