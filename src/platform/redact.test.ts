@@ -40,6 +40,21 @@ describe('redact', () => {
     expect(redact('sent bearer eyJhbGciOi.payload.sig= to exa', [])).toBe(`sent bearer ${REDACTED} to exa`)
   })
 
+  test('leaves prose that uses the word bearer unmasked', () => {
+    const msg = 'seller was the bearer of bad news; Bearer responsibilities apply to the bearer instrument'
+    expect(redact(msg, [])).toBe(msg)
+  })
+
+  test('masks even a short Bearer token inside an Authorization header', () => {
+    expect(redact('Authorization: Bearer abc123', [])).toBe(`Authorization: Bearer ${REDACTED}`)
+  })
+
+  test('masks a short Bearer token in a JSON-quoted or =-separated Authorization header', () => {
+    expect(redact('{"Authorization": "Bearer abc123"}', [])).toBe(`{"Authorization": "Bearer ${REDACTED}"}`)
+    expect(redact("{'authorization':'bearer abc123'}", [])).toBe(`{'authorization':'bearer ${REDACTED}'}`)
+    expect(redact('headers authorization=Bearer abc123', [])).toBe(`headers authorization=Bearer ${REDACTED}`)
+  })
+
   test('masks every occurrence of a known secret value anywhere in the message', () => {
     const secret = 'fake-groq-key-for-tests'
     expect(redact(`Groq 401 for key ${secret} (key ${secret})`, [secret])).toBe(
@@ -82,6 +97,16 @@ describe('secretsFromEnv', () => {
     )
     expect(secrets).not.toContain('listing-photos')
     expect(secrets).not.toContain('8787')
+  })
+
+  test('ignores secret-looking names that hold a path or URL, not a secret (KEY_PATH, TOKEN_URL)', () => {
+    const secrets = secretsFromEnv({
+      KEY_PATH: '/etc/ssl/private/server.pem',
+      SSH_KEY_FILE: '/home/app/.ssh/id_ed25519',
+      TOKEN_URL: 'https://oauth.example.test/token',
+      SECRET_DIR: '/run/secrets/app',
+    })
+    expect(secrets).toEqual([])
   })
 
   test('collects passwords embedded in URL-valued env vars (DATABASE_URL, proxies), raw and decoded', () => {
