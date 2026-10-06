@@ -614,11 +614,11 @@ _(undocumented)_
 
 **Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`, `./price-rules`, `./queries`
 
-### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<DiscountNotification | null>`
+### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<NewDiscountNotification | null>`
 
 _(undocumented)_
 
-### `insertDiscountNotifications(db: DbClient, notifications: DiscountNotification[]): Promise<void>`
+### `insertDiscountNotifications(db: DbClient, notifications: NewDiscountNotification[]): Promise<void>`
 
 _(undocumented)_
 
@@ -778,7 +778,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<DiscountNotification | null>`
+### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<NewDiscountNotification | null>`
 
 _(undocumented)_
 
@@ -786,7 +786,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `insertDiscountNotifications(db: DbClient, notifications: DiscountNotification[]): Promise<void>`
+### `insertDiscountNotifications(db: DbClient, notifications: NewDiscountNotification[]): Promise<void>`
 
 _(undocumented)_
 

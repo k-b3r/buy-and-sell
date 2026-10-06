@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { DiscountBand } from '@/lib/pricing'
+import type { DiscountBand } from '@/lib/shared.generated'
 import { LISTED_WITHIN_OPTIONS, SORT_OPTIONS, type ListingsFilters, type SortKey } from './listingsFilters'
 
 function toggleButtonStyle(active: boolean): CSSProperties {
