@@ -74,6 +74,20 @@ test('lint config keeps size and complexity as warnings outside entry points', a
   }
 }, 60_000)
 
+test('lint config leaves curated data lists out of the size limit but keeps their complexity check', async () => {
+  for (const file of [
+    'src/modules/catalog/variant-alias-rules.ts',
+    'src/modules/pricing/ineligible-categories.ts',
+    'src/modules/pricing/generic-products.ts',
+  ]) {
+    expect([file, severity(await rule(file, 'max-lines')), severity(await rule(file, 'complexity'))]).toEqual([
+      file,
+      0,
+      1,
+    ])
+  }
+}, 60_000)
+
 test('lint config leaves entry-point tests out of the size limit', async () => {
   expect(severity(await rule('server/routes/workerControl.test.ts', 'max-lines'))).toBe(0)
 }, 60_000)
