@@ -48,9 +48,6 @@ export {
   DEFAULT_DISCOUNT_POLICY,
   getUnverifiedDiscountCandidates,
   insertDiscountNotifications,
-  markDiscountNotificationAttempted,
-  markDiscountNotificationVerified,
-  rejectDiscountNotification,
 } from './discount-notifications'
 export type { VerificationClients } from './discount-verification'
 export type { GenericReason } from './generic-products'
@@ -62,8 +59,8 @@ export {
   getUnexcludedBaseModels,
 } from './exclusion'
 export { excludeIneligibleCategories } from './ineligible-categories'
-export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
-export { flagNegotiableFromKeywords, getPriceReviewCandidates, upsertListingPriceReview } from './listing-price-review'
+export { runVerifyDiscountNotifications } from './run-discount-verification'
+export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
 export {
   getListingPricesByProduct,
   getPriceLookupCandidates,
@@ -73,6 +70,7 @@ export {
 export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
 export { ensureProductPriced } from './price-lookup'
+export { runPriceLookup } from './run-price-lookup'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
 export type { PriceReviewCandidate } from './price-review'
-export { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review'
+export { runPriceReview } from './run-price-review'
