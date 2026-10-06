@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
-import type { GroqClient } from '../../domains/llm-clients'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../domains/llm-clients'
+import type { GroqClient } from '../../platform/llm-clients'
+import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'

@@ -14,7 +14,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `acquireBrowserLock(lockPath: string, logger: { info: (msg: string) => void }, deps: BrowserLockDeps = defaultDeps, pollMs = 5000, delay: DelayFn = realDelay): Promise<void>`
+### `acquireBrowserLock(lockPath: string, logger: { info: (msg: string) => void }, { deps = defaultDeps, pollMs = DEFAULT_POLL_MS, delay = realDelay }: AcquireBrowserLockOptions = {}): Promise<void>`
 
 _(undocumented)_
 
@@ -51,6 +51,212 @@ _(undocumented)_
 _(undocumented)_
 
 ### `defaultCompressImage(body): Promise<{ body: Uint8Array<ArrayBuffer>; contentType: string; }>`
+
+_(undocumented)_
+
+## src/platform/llm-clients/client-pool.ts
+
+**Interactions:** imports `./error-classification`
+
+### `createClientPool(clients: C[], options: ClientPoolOptions): PooledCall<C>`
+
+_(undocumented)_
+
+## src/platform/llm-clients/error-classification.ts
+
+### `errorStatus(err: unknown): number | undefined`
+
+_(undocumented)_
+
+### `isQuotaError(err: unknown): boolean`
+
+_(undocumented)_
+
+### `isCreditsError(err: unknown): boolean`
+
+_(undocumented)_
+
+### `class QuotaExhaustedError`
+
+_(undocumented)_
+
+## src/platform/llm-clients/exa.ts
+
+**Interactions:** imports `./client-pool`, `./error-classification`
+
+### `loadExaApiKeys(env: NodeJS.ProcessEnv): string[]`
+
+_(undocumented)_
+
+### `createExaClient(apiKey: string): ExaClient`
+
+_(undocumented)_
+
+### `createFallbackExaClient(clients: ExaClient[]): ExaClient`
+
+_(undocumented)_
+
+## src/platform/llm-clients/gemini-sdk.ts
+
+**Interactions:** imports `./gemini`
+
+### `createGeminiClient(apiKey: string, model = 'gemini-2.5-flash'): GeminiClient`
+
+_(undocumented)_
+
+## src/platform/llm-clients/gemini.ts
+
+**Interactions:** imports `./client-pool`, `./error-classification`
+
+### `createDailyGroundingCap(client: GeminiClient, limit: number | (() => Promise<number>) = DEFAULT_DAILY_GROUNDING_CAP, now: () => Date = () => new Date()): GeminiClient`
+
+_(undocumented)_
+
+### `createQuotaAwareGeminiClient(client: GeminiClient, now: () => Date = () => new Date()): GeminiClient`
+
+_(undocumented)_
+
+### `createFallbackGeminiClient(clients: GeminiClient[]): GeminiClient`
+
+_(undocumented)_
+
+## src/platform/llm-clients/groq-sdk.ts
+
+**Interactions:** imports `./groq`
+
+### `createGroqPool(apiKeys: string[], onFallback?: (fromLabel: string, toLabel: string) => void, models: readonly string[] = GROQ_MODEL_FALLBACK_CHAIN, requestOptions: GroqRequestOptions = {}): GroqClient`
+
+_(undocumented)_
+
+## src/platform/llm-clients/groq.ts
+
+**Interactions:** imports `./client-pool`
+
+### `loadGroqApiKeys(env: NodeJS.ProcessEnv): string[]`
+
+_(undocumented)_
+
+### `buildGroqRequest(model: string, prompt: string, schema: object, options: GroqRequestOptions = {}): { max_completion_tokens?: number | undefined; reasoning_effort?: "low" | "medium" | "high" | undefined; model: string; messages: { role: "user"; content: string; }[]; response_format: { type: "json_schema"; json_schema: { name: string; strict: boolean; schema: Record<string, unknown>; }; }; }`
+
+_(undocumented)_
+
+### `createFallbackGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
+
+_(undocumented)_
+
+### `createRoundRobinGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
+
+_(undocumented)_
+
+## src/platform/llm-clients/index.ts
+
+### `createFallbackGeminiClient(clients: GeminiClient[]): GeminiClient`
+
+_(undocumented)_
+
+### `createDailyGroundingCap(client: GeminiClient, limit: number | (() => Promise<number>) = DEFAULT_DAILY_GROUNDING_CAP, now: () => Date = () => new Date()): GeminiClient`
+
+_(undocumented)_
+
+### `createQuotaAwareGeminiClient(client: GeminiClient, now: () => Date = () => new Date()): GeminiClient`
+
+_(undocumented)_
+
+### `createExaClient(apiKey: string): ExaClient`
+
+_(undocumented)_
+
+### `createFallbackExaClient(clients: ExaClient[]): ExaClient`
+
+_(undocumented)_
+
+### `loadExaApiKeys(env: NodeJS.ProcessEnv): string[]`
+
+_(undocumented)_
+
+### `createFallbackGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
+
+_(undocumented)_
+
+### `createRoundRobinGroqClient(clients: GroqClient[], options: FallbackOptions = {}): GroqClient`
+
+_(undocumented)_
+
+### `loadGroqApiKeys(env: NodeJS.ProcessEnv): string[]`
+
+_(undocumented)_
+
+### `summarizeGroqError(err: unknown, maxLength = 200): string`
+
+_(undocumented)_
+
+### `createTavilyClient(apiKey: string): TavilyClient`
+
+_(undocumented)_
+
+### `createOpenRouterClient(apiKey: string, model = 'deepseek/deepseek-v4-flash-0731'): OpenRouterClient`
+
+_(undocumented)_
+
+### `createFallbackOpenRouterClient(clients: OpenRouterClient[]): OpenRouterClient`
+
+_(undocumented)_
+
+### `class QuotaExhaustedError`
+
+_(undocumented)_
+
+### `isQuotaError(err: unknown): boolean`
+
+_(undocumented)_
+
+### `isCreditsError(err: unknown): boolean`
+
+_(undocumented)_
+
+### `class RetriesExhaustedError`
+
+_(undocumented)_
+
+### `withRetry(request: () => Promise<T>, options: RetryOptions): Promise<T>`
+
+_(undocumented)_
+
+### `withRetryAndSplit(options: RetryAndSplitOptions<Item, Raw, Result>): Promise<Result[]>`
+
+_(undocumented)_
+
+## src/platform/llm-clients/openrouter.ts
+
+**Interactions:** imports `./client-pool`, `./error-classification`
+
+### `createOpenRouterClient(apiKey: string, model = 'deepseek/deepseek-v4-flash-0731'): OpenRouterClient`
+
+_(undocumented)_
+
+### `createFallbackOpenRouterClient(clients: OpenRouterClient[]): OpenRouterClient`
+
+_(undocumented)_
+
+## src/platform/llm-clients/retry.ts
+
+**Interactions:** imports `../delay`, `../errors`, `../logger`, `./error-classification`
+
+### `withRetry(request: () => Promise<T>, options: RetryOptions): Promise<T>`
+
+_(undocumented)_
+
+### `withRetryAndSplit(options: RetryAndSplitOptions<Item, Raw, Result>): Promise<Result[]>`
+
+_(undocumented)_
+
+### `class RetriesExhaustedError`
+
+_(undocumented)_
+
+## src/platform/llm-clients/tavily.ts
+
+### `createTavilyClient(apiKey: string): TavilyClient`
 
 _(undocumented)_
 

@@ -1,6 +1,6 @@
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import { isQuotaError } from '../../domains/llm-clients'
+import { isQuotaError } from '../../platform/llm-clients'
 import type { PriceLookupCandidate, PriceLookupDeps } from './price-lookup'
 import { ensureProductPriced } from './price-lookup'
 

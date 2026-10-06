@@ -146,7 +146,7 @@ test('setManualPrice inserts a manual_new_retail row into product_price_history'
     },
   }
 
-  await setManualPrice(db, 12, 'new', 1500, 2000)
+  await setManualPrice(db, 12, { kind: 'new', priceLow: 1500, priceHigh: 2000 })
 
   expect(capturedSql).toContain('INSERT INTO product_price_history')
   expect(capturedParams).toEqual([12, 1500, 2000, 'manual_new_retail'])
@@ -161,9 +161,29 @@ test('setManualPrice inserts a manual_secondhand row into product_price_history'
     },
   }
 
-  await setManualPrice(db, 12, 'secondhand', 800, 1200)
+  await setManualPrice(db, 12, { kind: 'secondhand', priceLow: 800, priceHigh: 1200 })
 
   expect(capturedParams).toEqual([12, 800, 1200, 'manual_secondhand'])
+})
+
+test('setManualPrice rejects positional wire args from an older dashboard instead of inserting a null-priced row', async () => {
+  let queried = false
+  const db: QueryClient = {
+    query: async () => {
+      queried = true
+      return { rows: [] }
+    },
+  }
+  const setManualPriceOverWire = setManualPrice as (db: QueryClient, ...args: unknown[]) => Promise<void>
+
+  await expect(setManualPriceOverWire(db, 12, 'new', 1500, 2000)).rejects.toThrow('setManualPrice')
+  await expect(setManualPriceOverWire(db, 12, { kind: 'used', priceLow: 1500, priceHigh: 2000 })).rejects.toThrow(
+    'setManualPrice',
+  )
+  await expect(setManualPriceOverWire(db, 12, { kind: 'new', priceLow: '1500', priceHigh: 2000 })).rejects.toThrow(
+    'setManualPrice',
+  )
+  expect(queried).toBe(false)
 })
 
 test('getSoldComparablePrice returns the clean median and sample size when at least 3 sold comps exist', async () => {
@@ -264,7 +284,7 @@ test('getComparableListings maps rows, resolving photo urls and casting numeric/
     }),
   }
 
-  const result = await getComparableListings(db, 42, 'l1', true)
+  const result = await getComparableListings(db, { productId: 42, excludeListingId: 'l1', sold: true })
 
   expect(result).toEqual([
     {
@@ -288,7 +308,7 @@ test('getComparableListings scopes to sold listings, excludes the current listin
     },
   }
 
-  await getComparableListings(db, 42, 'l1', true, 3)
+  await getComparableListings(db, { productId: 42, excludeListingId: 'l1', sold: true, limit: 3 })
 
   expect(capturedSql).toContain('pl.sold_at IS NOT NULL')
   expect(capturedSql).toContain('pl.id != $2')
@@ -306,7 +326,7 @@ test('getComparableListings scopes to the peer listings (active and recently sol
     },
   }
 
-  await getComparableListings(db, 42, 'l1', false)
+  await getComparableListings(db, { productId: 42, excludeListingId: 'l1', sold: false })
 
   expect(capturedSql).toContain(peerListingSql('pl'))
 })
@@ -320,7 +340,7 @@ test('getComparableListings returns rows only for a product whose comparables re
     },
   }
 
-  await getComparableListings(db, 42, 'l1', true)
+  await getComparableListings(db, { productId: 42, excludeListingId: 'l1', sold: true })
 
   expect(capturedSql).toContain('m.raw_median_price IS NOT NULL')
   expect(capturedSql).toContain('count(*) >= 3')

@@ -114,6 +114,10 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/RefreshProductButton.tsx
 
+### `shouldRefreshPage(prev: JobStatus | undefined, next: JobStatus | undefined): boolean`
+
+_(undocumented)_
+
 ### `default({ productId }: { productId: number }): React.JSX.Element`
 
 _(undocumented)_

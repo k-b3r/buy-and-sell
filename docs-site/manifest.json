@@ -4,10 +4,6 @@
       "name": "src",
       "domains": [
         {
-          "name": "domains/llm-clients",
-          "slug": "domains-llm-clients"
-        },
-        {
           "name": "modules",
           "slug": "modules"
         },

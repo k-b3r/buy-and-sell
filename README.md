@@ -88,11 +88,6 @@ CI (`.github/workflows/`) runs every check above on each PR, plus an agent revie
 
 ```
 src/
-  domains/
-    llm-clients/                        # shared LLM/search clients (Gemini, Groq, Exa, Tavily, OpenRouter),
-                                        # fallback pools, retry, error classification
-      index.ts                          # public API, SDK-free
-      gemini-sdk.ts, groq-sdk.ts        # the only files loading @google/genai / groq-sdk; workers import by path
   modules/                              # feature modules (see CONTEXT.md > Architecture)
     catalog/                            # products: extraction, enrichment, categories, dedup/merge,
                                         # model-code mismatches, catalog dashboard queries
@@ -110,6 +105,10 @@ src/
     worker.ts                           # runWorker — every worker's lap loop, pid/log files, pool lifecycle
     settings.ts                         # DB-backed runtime settings with SETTING_DEFAULTS fallback
     images.ts, logger.ts, review.ts, delay.ts, env.ts, errors.ts, rows.ts, redact.ts, browserLock.ts
+    llm-clients/                        # shared LLM/search clients (Gemini, Groq, Exa, Tavily, OpenRouter),
+                                        # fallback pools, retry, error classification
+      index.ts                          # public API, SDK-free
+      gemini-sdk.ts, groq-sdk.ts        # the only files loading @google/genai / groq-sdk; workers import by path
   workers/                              # the 8 looping, continuously-running processes
     collect/, check-listings/           # Group B: collection (independent pacing)
     extract-products/, enrich-products/, price-lookup/,

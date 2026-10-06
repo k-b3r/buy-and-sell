@@ -1,13 +1,23 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
+
+type JobStatus = 'running' | 'completed' | 'cancelled'
 
 interface RefreshJob {
   productId: number
   total: number
   completed: number
-  status: 'running' | 'completed' | 'cancelled'
+  status: JobStatus
+}
+
+// undefined = no job tracked. A running job that the poll loses (server
+// restarted, or another product's job replaced it) goes running -> undefined;
+// it may still have finished its work, so that counts as finishing too.
+export function shouldRefreshPage(prev: JobStatus | undefined, next: JobStatus | undefined): boolean {
+  if (next === 'running') return false
+  return next !== undefined || prev === 'running'
 }
 
 const buttonStyle: CSSProperties = {
@@ -62,12 +72,13 @@ export default function RefreshProductButton({ productId }: { productId: number 
   }, [job?.status, productId])
 
   // router.refresh() re-fetches the listing list once the job leaves
-  // 'running' (completed, cancelled, or the poll lost track of it), so
-  // whatever the batch changed (sold/removed/updated listings) shows up
-  // without a manual reload.
+  // 'running', so whatever the batch changed (sold/removed/updated listings)
+  // shows up without a manual reload.
   const jobStatus = job?.status
+  const prevJobStatus = useRef<JobStatus | undefined>(undefined)
   useEffect(() => {
-    if (jobStatus !== undefined && jobStatus !== 'running') router.refresh()
+    if (shouldRefreshPage(prevJobStatus.current, jobStatus)) router.refresh()
+    prevJobStatus.current = jobStatus
   }, [jobStatus, router])
 
   async function handleStart() {

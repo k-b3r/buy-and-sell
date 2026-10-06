@@ -1,6 +1,6 @@
-import type { Logger } from '../../platform/logger'
-import type { DelayFn } from '../../platform/delay'
-import { summarizeError } from '../../platform/errors'
+import type { Logger } from '../logger'
+import type { DelayFn } from '../delay'
+import { summarizeError } from '../errors'
 import { QuotaExhaustedError, isQuotaError } from './error-classification'
 
 // A request's transient failures used up its attempts. The message is the

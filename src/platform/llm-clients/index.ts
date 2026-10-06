@@ -15,7 +15,7 @@ export {
   loadGroqApiKeys,
   GROQ_MODEL_FALLBACK_CHAIN,
 } from './groq'
-export { summarizeError as summarizeGroqError } from '../../platform/errors'
+export { summarizeError as summarizeGroqError } from '../errors'
 
 export type { TavilyClient, TavilySearchResult } from './tavily'
 export { createTavilyClient } from './tavily'

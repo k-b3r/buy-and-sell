@@ -1,4 +1,4 @@
-import type { Logger } from '../../platform/logger'
+import type { Logger } from '../logger'
 import { QuotaExhaustedError } from './error-classification'
 import { RetriesExhaustedError, withRetry, withRetryAndSplit } from './retry'
 

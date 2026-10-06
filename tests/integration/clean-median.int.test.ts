@@ -180,7 +180,9 @@ test('peer median keeps a listing flagged removed within the window and drops on
 
 test('comparable listings are the in-band rows behind the median, excluding the listing itself', async () => {
   const ids = async (sold: boolean) =>
-    (await getComparableListings(pool, PHONE, 'cm-a1', sold)).map((c) => c.listing_id).sort()
+    (await getComparableListings(pool, { productId: PHONE, excludeListingId: 'cm-a1', sold }))
+      .map((c) => c.listing_id)
+      .sort()
 
   expect({ peer: await ids(false), sold: await ids(true) }).toMatchInlineSnapshot(`
     {
