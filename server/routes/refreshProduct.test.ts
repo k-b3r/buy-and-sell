@@ -50,6 +50,7 @@ function fakeDb(): DbClient {
 function fakePhotos(): ListingPhotos {
   return {
     save: async () => [],
+    replace: async () => ({ urls: [], pruneUnused: async () => {} }),
     deleteAll: async () => {},
   }
 }
