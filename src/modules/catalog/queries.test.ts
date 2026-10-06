@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 import type { QueryClient } from '../../platform/storage'
-import { peerListingSql } from '../pricing'
+import { notJunkPriceSql, peerListingSql } from '../pricing'
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }
@@ -228,6 +228,22 @@ test('getProductSummaries excludes placeholder-pattern prices from the price ran
 
   const occurrences = capturedSql.split("'^(\\d+)\\1+$'").length - 1
   expect(occurrences).toBe(5) // product_median, price_min, price_max, price_avg, and the discount lateral
+})
+
+test('getProductSummaries excludes junk prices below the floor from the price range', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getProductSummaries(db)
+
+  for (const agg of ['min', 'max', 'avg']) {
+    expect(capturedSql).toContain(`${agg}(l.price_amount) FILTER (WHERE ${notJunkPriceSql('l.price_amount')} AND`)
+  }
 })
 
 test('getProductSummaries excludes sold listings from the listing aggregation join', async () => {
@@ -1223,6 +1239,20 @@ test('getSoldCountsBySubCategory excludes placeholder-pattern prices from the we
   await getSoldCountsBySubCategory(db)
 
   expect(capturedSql).toContain("'^(\\d+)\\1+$'")
+})
+
+test('getSoldCountsBySubCategory excludes junk prices below the floor from the weekly average', async () => {
+  let capturedSql = ''
+  const db: QueryClient = {
+    query: async (sql) => {
+      capturedSql = sql
+      return { rows: [] }
+    },
+  }
+
+  await getSoldCountsBySubCategory(db)
+
+  expect(capturedSql).toContain(`WHERE l.price_amount IS NOT NULL AND ${notJunkPriceSql('l.price_amount')}`)
 })
 
 test('getSoldCountsBySubCategory returns an empty array when nothing is sold', async () => {
