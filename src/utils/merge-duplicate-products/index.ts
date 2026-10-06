@@ -11,10 +11,10 @@ async function main() {
 
   const pool = createDbPool(dbUrl)
   try {
-    if (!dryRun) {
-      const { renamed, merged } = await mergeDuplicateProducts(pool)
-      console.log(`[base-model map] renamed ${renamed} products, merged ${merged} duplicate rows`)
-    }
+    const { renamed, merged } = await mergeDuplicateProducts(pool, { dryRun })
+    console.log(
+      `[base-model map]${dryRun ? ' (dry run)' : ''} renamed ${renamed} products, merged ${merged} duplicate rows`,
+    )
 
     const variantResult = await mergeProductVariantAliases(pool, PRODUCT_VARIANT_ALIAS_RULES, { dryRun })
     console.log(

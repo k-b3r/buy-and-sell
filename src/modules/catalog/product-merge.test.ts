@@ -226,3 +226,23 @@ test('mergeDuplicateProducts processes multiple alias rows for the same canonica
 
   expect(result).toEqual({ renamed: 1, merged: 2 })
 })
+
+test('mergeDuplicateProducts in dry run counts the renames and merges it would make without writing anything', async () => {
+  const { db, calls } = scriptedDb((sql, params) => {
+    if (sql.startsWith('SELECT id, variant_tier_normalized')) {
+      return {
+        rows: [
+          { id: 1505, variant_tier_normalized: 'slim' },
+          { id: 433, variant_tier_normalized: 'pro' },
+        ],
+      }
+    }
+    if (sql === FIND_SQL) return { rows: params[1] === 'slim' ? [{ id: 499 }] : [] }
+    return { rows: [] }
+  })
+
+  const result = await mergeDuplicateProducts(db, { canonicalMap: { PS4: 'PlayStation 4' }, dryRun: true })
+
+  expect(result).toEqual({ renamed: 1, merged: 1 })
+  expect(calls.filter((c) => !c.sql.startsWith('SELECT'))).toEqual([])
+})
