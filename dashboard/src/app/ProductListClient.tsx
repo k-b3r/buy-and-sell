@@ -28,9 +28,9 @@ const sortedKey = (values: string[]) => [...values].sort().join(',')
 // pattern as ListingsView's listingCycleIds.
 const FILTER_STORAGE_KEY = 'productFilters'
 
-type StoredFilters = { search: string; category: string | null; subCategories: string[] }
+type ProductFilters = { search: string; category: string | null; subCategories: string[] }
 
-function saveFilters(filters: StoredFilters) {
+function saveFilters(filters: ProductFilters) {
   try {
     sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters))
   } catch {
@@ -38,10 +38,10 @@ function saveFilters(filters: StoredFilters) {
   }
 }
 
-function loadFilters(): StoredFilters | null {
+function loadFilters(): ProductFilters | null {
   try {
     const raw = sessionStorage.getItem(FILTER_STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as StoredFilters) : null
+    return raw ? (JSON.parse(raw) as ProductFilters) : null
   } catch {
     return null
   }
@@ -50,7 +50,7 @@ function loadFilters(): StoredFilters | null {
 // Shared with the card-link `from` param below - one construction so the
 // URL synced into the address bar and the URL a product card remembers to
 // come back to can never drift apart.
-function buildFilterQueryString(search: string, category: string | null, subCategories: string[]): string {
+function buildFilterQueryString({ search, category, subCategories }: ProductFilters): string {
   const params = new URLSearchParams()
   if (search) params.set('q', search)
   if (category) params.append('category', category)
@@ -75,25 +75,20 @@ export default function ProductListClient({
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
-  const fetchPage = useCallback(
-    async (q: string, cat: string | null, subCats: string[], offset: number, replace: boolean) => {
-      setLoading(true)
-      const params = new URLSearchParams({ offset: String(offset) })
-      if (q) params.set('q', q)
-      if (cat) params.append('category', cat)
-      for (const sc of subCats) params.append('subCategory', sc)
-      const res = await fetch(`/api/products?${params}`)
-      const data: ProductsPage = await res.json()
-      setProducts((prev) => {
-        if (replace) return data.products
-        const seen = new Set(prev.map((p) => p.id))
-        return [...prev, ...data.products.filter((p) => !seen.has(p.id))]
-      })
-      setNextOffset(data.nextOffset)
-      setLoading(false)
-    },
-    [],
-  )
+  const fetchPage = useCallback(async (filters: ProductFilters, offset: number, replace: boolean) => {
+    setLoading(true)
+    const params = new URLSearchParams(buildFilterQueryString(filters))
+    params.set('offset', String(offset))
+    const res = await fetch(`/api/products?${params}`)
+    const data: ProductsPage = await res.json()
+    setProducts((prev) => {
+      if (replace) return data.products
+      const seen = new Set(prev.map((p) => p.id))
+      return [...prev, ...data.products.filter((p) => !seen.has(p.id))]
+    })
+    setNextOffset(data.nextOffset)
+    setLoading(false)
+  }, [])
 
   // Tracks the filters this component itself last pushed into the URL (via
   // router.replace below). Distinguishes "the URL changed because we just
@@ -103,7 +98,7 @@ export default function ProductListClient({
   // props without local state ever having moved). In the latter case local
   // state is stale and must adopt the new URL, not fight it back to the old
   // filters - see the sync effect below.
-  const appliedFiltersRef = useRef<{ search: string; category: string | null; subCategories: string[] }>({
+  const appliedFiltersRef = useRef<ProductFilters>({
     search: initialSearch,
     category: initialCategories[0] ?? null,
     subCategories: initialSubCategories,
@@ -120,9 +115,10 @@ export default function ProductListClient({
     )
       return
     const timeout = setTimeout(() => {
-      appliedFiltersRef.current = { search, category, subCategories }
-      saveFilters({ search, category, subCategories })
-      void fetchPage(search, category, subCategories, 0, true)
+      const filters = { search, category, subCategories }
+      appliedFiltersRef.current = filters
+      saveFilters(filters)
+      void fetchPage(filters, 0, true)
       // Mirror filters into the URL via next/navigation's router, not raw
       // history.replaceState - Next's client router keeps its own history/
       // cache stack separate from the browser's, keyed off entries it
@@ -130,7 +126,7 @@ export default function ProductListClient({
       // stack pointing at the old (filter-less) entry, so browser back
       // restores Next's stale cached render instead of the filtered one.
       // router.replace re-syncs both.
-      const qs = buildFilterQueryString(search, category, subCategories)
+      const qs = buildFilterQueryString(filters)
       router.replace(qs ? `/?${qs}` : '/', { scroll: false })
     }, 300)
     return () => clearTimeout(timeout)
@@ -150,16 +146,13 @@ export default function ProductListClient({
       sortedKey(initialSubCategories) === sortedKey(applied.subCategories)
     )
       return
-    appliedFiltersRef.current = {
-      search: initialSearch,
-      category: initialCategory,
-      subCategories: initialSubCategories,
-    }
-    saveFilters({ search: initialSearch, category: initialCategory, subCategories: initialSubCategories })
+    const filters = { search: initialSearch, category: initialCategory, subCategories: initialSubCategories }
+    appliedFiltersRef.current = filters
+    saveFilters(filters)
     setSearch(initialSearch)
     setCategory(initialCategory)
     setSubCategories(initialSubCategories)
-    void fetchPage(initialSearch, initialCategory, initialSubCategories, 0, true)
+    void fetchPage(filters, 0, true)
   }, [initialSearch, initialCategories, initialSubCategories, fetchPage])
 
   // Restore session-persisted filters when landing on a completely
@@ -178,8 +171,8 @@ export default function ProductListClient({
     setSearch(stored.search)
     setCategory(stored.category)
     setSubCategories(stored.subCategories)
-    void fetchPage(stored.search, stored.category, stored.subCategories, 0, true)
-    const qs = buildFilterQueryString(stored.search, stored.category, stored.subCategories)
+    void fetchPage(stored, 0, true)
+    const qs = buildFilterQueryString(stored)
     router.replace(qs ? `/?${qs}` : '/', { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount to restore saved filters
   }, [])
@@ -189,7 +182,8 @@ export default function ProductListClient({
     if (!sentinel || nextOffset === null) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) void fetchPage(search, category, subCategories, nextOffset, false)
+        if (entries[0].isIntersecting && !loading)
+          void fetchPage({ search, category, subCategories }, nextOffset, false)
       },
       { rootMargin: '200px' },
     )
@@ -207,7 +201,7 @@ export default function ProductListClient({
   // "Back to products" button returns to this exact filtered view instead
   // of a bare "/" - confirmed live 2026-08-29: without it, going back from
   // a product wiped the category/sub-category filters.
-  const listQueryString = buildFilterQueryString(search, category, subCategories)
+  const listQueryString = buildFilterQueryString({ search, category, subCategories })
 
   return (
     <div>
