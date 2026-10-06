@@ -33,48 +33,58 @@ interface ParsedListingFields {
 // refreshListingFields (text/price-only refresh) so the two can't drift on
 // how a raw Facebook listing object gets parsed.
 function parseListingFields(listing: Record<string, unknown>): ParsedListingFields {
-  const id = String(listing.id)
-  const title = extractField(listing, 'marketplace_listing_title', 'custom_title') as string | null
+  const creationTime = listing.creation_time as number | undefined
+  return {
+    id: String(listing.id),
+    title: extractField(listing, 'marketplace_listing_title', 'custom_title') as string | null,
+    ...parsePrice(listing),
+    ...parseDetails(listing),
+    ...parseLocation(listing),
+    ...parsePhotos(listing),
+    listedAt: creationTime ? new Date(creationTime * 1000) : null,
+  }
+}
 
+function parsePrice(listing: Record<string, unknown>): Pick<ParsedListingFields, 'priceAmount' | 'priceCurrency'> {
   const priceObj = listing.listing_price as { amount?: string; currency?: string } | undefined
-  const priceAmount = priceObj?.amount !== undefined ? Number(priceObj.amount) : null
-  const priceCurrency = priceObj?.currency ?? null
+  return {
+    priceAmount: priceObj?.amount !== undefined ? Number(priceObj.amount) : null,
+    priceCurrency: priceObj?.currency ?? null,
+  }
+}
 
-  const description = (listing.redacted_description as { text?: string } | undefined)?.text ?? null
+function parseDetails(
+  listing: Record<string, unknown>,
+): Pick<ParsedListingFields, 'description' | 'condition' | 'categoryId'> {
   // Facebook nests condition inside attribute_data (an array of {label, value,
   // attribute_name} entries covering Condition, Brand, etc.), not a top-level
   // "condition" field — confirmed live, 97% of real listings have it here.
   const attributeData = listing.attribute_data as { label?: string; attribute_name?: string }[] | undefined
-  const condition = attributeData?.find((a) => a.attribute_name === 'Condition')?.label ?? null
-  const categoryId = (listing.marketplace_listing_category_id as string | undefined) ?? null
+  return {
+    description: (listing.redacted_description as { text?: string } | undefined)?.text ?? null,
+    condition: attributeData?.find((a) => a.attribute_name === 'Condition')?.label ?? null,
+    categoryId: (listing.marketplace_listing_category_id as string | undefined) ?? null,
+  }
+}
 
+function parseLocation(
+  listing: Record<string, unknown>,
+): Pick<ParsedListingFields, 'locationLat' | 'locationLng' | 'locationCity'> {
   const location = listing.location as
     { latitude?: number; longitude?: number; reverse_geocode?: { city?: string } } | undefined
-  const locationLat = location?.latitude ?? null
-  const locationLng = location?.longitude ?? null
-  const locationCity = location?.reverse_geocode?.city ?? null
-
-  const primaryPhotoUrl =
-    (listing.primary_listing_photo as { image?: { uri?: string } } | undefined)?.image?.uri ?? null
-  const storedPhotoUrls = (listing.stored_photo_urls as string[] | undefined) ?? null
-
-  const creationTime = listing.creation_time as number | undefined
-  const listedAt = creationTime ? new Date(creationTime * 1000) : null
-
   return {
-    id,
-    title,
-    priceAmount,
-    priceCurrency,
-    description,
-    condition,
-    categoryId,
-    locationLat,
-    locationLng,
-    locationCity,
-    primaryPhotoUrl,
-    storedPhotoUrls,
-    listedAt,
+    locationLat: location?.latitude ?? null,
+    locationLng: location?.longitude ?? null,
+    locationCity: location?.reverse_geocode?.city ?? null,
+  }
+}
+
+function parsePhotos(
+  listing: Record<string, unknown>,
+): Pick<ParsedListingFields, 'primaryPhotoUrl' | 'storedPhotoUrls'> {
+  return {
+    primaryPhotoUrl: (listing.primary_listing_photo as { image?: { uri?: string } } | undefined)?.image?.uri ?? null,
+    storedPhotoUrls: (listing.stored_photo_urls as string[] | undefined) ?? null,
   }
 }
 
