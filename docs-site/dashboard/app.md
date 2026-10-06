@@ -110,7 +110,7 @@ _(undocumented)_
 
 ## dashboard/src/app/ProductListClient.tsx
 
-**Interactions:** imports `./Skeleton`, `@/lib/categories`, `@/lib/queries`
+**Interactions:** imports `./Skeleton`, `@/lib/queries`, `@/lib/shared.generated`
 
 ### `default({ initialProducts, initialNextOffset, initialSearch, initialCategories, initialSubCategories, subCategoryTree, }: Props): React.JSX.Element`
 

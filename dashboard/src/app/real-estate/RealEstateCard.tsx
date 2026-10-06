@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import type { RealEstateListing } from '@/lib/queries'
+import type { RealEstateListing } from '@/lib/shared.generated'
 import { formatAreaLine, formatPrice, formatReviewReason, PROPERTY_TYPE_LABELS } from '@/lib/realEstate'
 
 const muted = { color: 'var(--color-text-muted)', fontSize: '0.8em', marginTop: 2 } as const

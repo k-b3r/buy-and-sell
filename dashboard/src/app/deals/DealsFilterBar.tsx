@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { PRODUCT_CATEGORIES } from '@/lib/categories'
+import { PRODUCT_CATEGORIES } from '@/lib/shared.generated'
 import type { DealsConfidenceTier } from '@/lib/queries'
 import type { DealsFilters } from './dealsFilters'
 

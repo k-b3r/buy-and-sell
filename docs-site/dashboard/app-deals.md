@@ -20,7 +20,7 @@ _(undocumented)_
 
 ## dashboard/src/app/deals/DealsFilterBar.tsx
 
-**Interactions:** imports `./dealsFilters`, `@/lib/categories`, `@/lib/queries`
+**Interactions:** imports `./dealsFilters`, `@/lib/queries`, `@/lib/shared.generated`
 
 ### `default({ filters, setFilters, }: { filters: DealsFilters setFilters: Dispatch<SetStateAction<DealsFilters>> }): React.JSX.Element`
 

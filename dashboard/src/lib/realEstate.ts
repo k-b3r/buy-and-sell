@@ -1,4 +1,4 @@
-import type { RealEstateFilters, RealEstateListing } from './queries'
+import type { RealEstateFilters, RealEstateListing } from './shared.generated'
 
 // Types-only import from queries.ts, so this module is safe in client components.
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { PRODUCT_CATEGORIES } from '@/lib/categories'
+import { PRODUCT_CATEGORIES } from '@/lib/shared.generated'
 import type { ProductSummary, SubCategoryTreeEntry } from '@/lib/queries'
 import { Spinner } from './Skeleton'
 

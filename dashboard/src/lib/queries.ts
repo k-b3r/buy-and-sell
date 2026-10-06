@@ -14,10 +14,12 @@
 // needs live in ./pricing.ts, which is safe to import anywhere.
 //
 // Adding a query means adding it to its module's queries.ts AND to that route's
-// REGISTRY, then adding the wrapper here. Types below are duplicated from
-// the modules' queries.ts by hand - the two packages share no import path.
+// REGISTRY, then adding the wrapper here. The two packages share no import
+// path: shared types come from ./shared.generated (scripts/gen-dashboard-shared.ts);
+// the rest below are still duplicated from the modules' queries.ts by hand.
 
 import type { DiscountBand, ListingPriceReview } from './pricing'
+import type { RealEstateFilters, RealEstateListing } from './shared.generated'
 
 export type { DiscountBand, DiscountSummary, ListingPriceReview } from './pricing'
 
@@ -406,45 +408,6 @@ export function replaceCollectKeywords(keywords: CollectKeyword[]): Promise<void
 
 export function getListingProductId(listingId: string): Promise<number | null> {
   return rpc('getListingProductId', [listingId])
-}
-
-// Duplicated from src/modules/real-estate/queries.ts by hand (no shared import path).
-export interface RealEstateFilters {
-  listingType?: 'sale' | 'rent'
-  propertyType?: string
-  area?: string
-  project?: string
-  minPrice?: number
-  maxPrice?: number
-  minSqm?: number
-  sort?: 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
-  view?: 'main' | 'review'
-  includeRoomShares?: boolean
-  limit?: number
-  offset?: number
-}
-
-export interface RealEstateListing {
-  id: string
-  title: string
-  primary_photo_url: string | null
-  listed_at: string | null
-  first_seen_at: string
-  listed_price: number | null
-  listing_type: 'sale' | 'rent' | null
-  property_type: string
-  price_php: number | null
-  price_basis: string
-  lot_sqm: number | null
-  floor_sqm: number | null
-  bedrooms: number | null
-  bathrooms: number | null
-  project_name: string | null
-  area_text: string | null
-  tags: string[]
-  confidence: string
-  price_per_sqm: number | null
-  needs_review: boolean
 }
 
 export function getRealEstateListings(filters: RealEstateFilters = {}): Promise<RealEstateListing[]> {
