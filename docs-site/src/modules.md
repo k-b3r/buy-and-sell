@@ -790,18 +790,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
-
-_(undocumented)_
-
-### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
 ### `detectGenericBaseModel(baseModel: string): { reason: GenericReason; matched: string } | null`
 
 _(undocumented)_
@@ -830,11 +818,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
-
-_(undocumented)_
-
-### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
+### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
 
 _(undocumented)_
 
@@ -843,10 +827,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
-
-_(undocumented)_
-
-### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
 
 _(undocumented)_
 
@@ -874,6 +854,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
+
+_(undocumented)_
+
 ### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
 
 _(undocumented)_
@@ -886,7 +870,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
+### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
 _(undocumented)_
 
@@ -1101,6 +1085,30 @@ _(undocumented)_
 _(undocumented)_
 
 ### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
+
+_(undocumented)_
+
+## src/modules/pricing/run-discount-verification.ts
+
+**Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./discount-notifications`, `./discount-verification`
+
+### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/run-price-lookup.ts
+
+**Interactions:** imports `../../platform/delay`, `./price-lookup`
+
+### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/run-price-review.ts
+
+**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./listing-price-review`, `./price-review`
+
+### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
 _(undocumented)_
 
