@@ -474,7 +474,7 @@ _(undocumented)_
 
 ## src/modules/collection/photos.ts
 
-**Interactions:** imports `../../platform/images`, `../../platform/logger`
+**Interactions:** imports `../../platform/errors`, `../../platform/images`, `../../platform/logger`
 
 ### `createListingPhotos({ store, fetchBytes, compress, logger }: ListingPhotosIo): ListingPhotos`
 

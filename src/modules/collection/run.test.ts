@@ -618,6 +618,8 @@ test('when an image store is provided, downloads and re-hosts the photo carousel
       return `https://images.example.com/${key}`
     },
     deleteAll: async () => {},
+    list: async () => [],
+    delete: async () => {},
   }
   const photos = createListingPhotos({
     store: imageStore,
