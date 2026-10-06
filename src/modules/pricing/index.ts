@@ -18,6 +18,7 @@ export type { DiscountBand, ListingPriceReview } from './price-rules'
 export {
   computeListingDiscount,
   DISCOUNT_SUMMARY_LATERAL,
+  isListingPriceNegotiable,
   isPriceInvalidated,
   NEW_PRICE_LATERAL,
   resolveSecondhandPrice,

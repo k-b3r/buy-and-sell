@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { isListingPriceNegotiable } from '@/lib/pricing'
+import { isListingPriceNegotiable } from '@/lib/shared.generated'
 import SaveButton from '../../SaveButton'
 import { DiscountBadge, NegotiableBadge, RepostBadge, SoldBadge } from './ListingBadges'
 import { formatListingPrice } from '@/lib/listingPrice'
