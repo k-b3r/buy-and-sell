@@ -247,10 +247,7 @@ async function main() {
   const projects: ExtractedProject[] = [
     {
       name: 'src',
-      domains: extractArchitecture(srcProject, path.join(repoRoot, 'src'), 'src', (relPath) => {
-        const segments = relPath.split('/')
-        return segments[0] === 'domains' && segments.length > 2 ? `${segments[0]}/${segments[1]}` : segments[0]
-      }),
+      domains: extractArchitecture(srcProject, path.join(repoRoot, 'src'), 'src', (relPath) => relPath.split('/')[0]),
     },
     {
       name: 'server',

@@ -49,16 +49,16 @@ test('flags an undocumented function with a null description', () => {
 
 test('records in-repo relative imports as interactions, skips package imports', () => {
   const project = makeProject()
-  project.createSourceFile('/repo/src/domains/marketplace/products.ts', `export function getProduct(): void {}\n`)
+  project.createSourceFile('/repo/src/modules/catalog/products.ts', `export function getProduct(): void {}\n`)
   project.createSourceFile(
     '/repo/src/workers/foo/index.ts',
-    `import { getProduct } from '../../domains/marketplace/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
+    `import { getProduct } from '../../modules/catalog/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
   )
 
   const domains = extractArchitecture(project, '/repo/src', 'src', (relPath) => relPath.split('/')[0])
   const fooModule = domains.flatMap((d) => d.modules).find((m) => m.path.endsWith('foo/index.ts'))
 
-  expect(fooModule?.imports).toEqual(['../../domains/marketplace/products'])
+  expect(fooModule?.imports).toEqual(['../../modules/catalog/products'])
 })
 
 test('treats @/ specifiers as in-repo when isInRepoImport allows it', () => {
@@ -111,7 +111,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
     modules: [
       {
         path: 'src/workers/foo/index.ts',
-        imports: ['../../domains/marketplace/products'],
+        imports: ['../../modules/catalog/products'],
         functions: [
           { name: 'run', signature: 'run(): void', description: null, isClass: false },
           {
@@ -127,7 +127,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
 
   expect(md).toContain('# workers')
   expect(md).toContain('## src/workers/foo/index.ts')
-  expect(md).toContain('**Interactions:** imports `../../domains/marketplace/products`')
+  expect(md).toContain('**Interactions:** imports `../../modules/catalog/products`')
   expect(md).toContain('### `run(): void`')
   expect(md).toContain('_(undocumented)_')
   expect(md).toContain('### `enrichProduct(id: number): Promise<void>`')
@@ -135,7 +135,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
 })
 
 test('slugify converts a domain name to a filesystem-safe file slug', () => {
-  expect(slugify('domains/llm-clients')).toBe('domains-llm-clients')
+  expect(slugify('app/api')).toBe('app-api')
   expect(slugify('workers')).toBe('workers')
 })
 
