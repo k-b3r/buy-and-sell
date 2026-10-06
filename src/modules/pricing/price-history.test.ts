@@ -131,7 +131,7 @@ test('getPriceLookupCandidates skips a product with a price row from ANY source'
   expect(calls[0].sql).toContain('sibling_variants')
 })
 
-test('getListingPricesByProduct groups by product AND condition, excludes unlabeled-condition listings, requires 2+ per group', async () => {
+test('getListingPricesByProduct groups by product AND condition, excludes unlabeled-condition listings, requires 3+ per group', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {
     query: async (sql: string, params: unknown[]) => {
@@ -147,11 +147,27 @@ test('getListingPricesByProduct groups by product AND condition, excludes unlabe
 
   const result = await getListingPricesByProduct(db)
 
-  expect(calls[0].sql).toContain('HAVING count(l.id) >= 2')
+  expect(calls[0].sql).toContain('HAVING count(l.id) >= 3')
   expect(calls[0].sql).toContain('l.condition IS NOT NULL')
   expect(calls[0].sql).toContain('p.id, p.base_model, p.variant_tier, l.condition')
   expect(result).toEqual([
     { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'Used - Good', prices: [14999, 15000] },
     { id: 1, base_model: 'RTX 3060', variant_tier: null, condition: 'New', prices: [18000, 18500] },
   ])
+})
+
+test('getListingPricesByProduct skips price-lookup-excluded products and flagged-removed listings, keeping sold ones', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
+
+  await getListingPricesByProduct(db)
+
+  expect(calls[0].sql).toContain('NOT p.price_lookup_excluded')
+  expect(calls[0].sql).toContain('l.flagged_removed_at IS NULL')
+  expect(calls[0].sql).not.toContain('sold_at')
 })

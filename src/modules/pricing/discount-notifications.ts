@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
-import { isMagnitudeOutlier, isPlaceholderPrice } from './clean-median'
+import { isJunkPrice, isMagnitudeOutlier } from './clean-median'
 import { getProductCleanMedian } from './queries'
 import { isNewCondition } from './price-rules'
 
@@ -38,13 +38,9 @@ export const DEFAULT_DISCOUNT_POLICY: DiscountPolicyThresholds = {
 }
 
 // decideListingDiscount's fallback reference when real secondhand market data
-// isn't available yet: the clean median over ALL this product's listings,
-// sold and active alike (unlike the deals page's active-only peer median).
-// null when there aren't at least 2 comparable listings.
-const DISCOUNT_PEER_MIN_SAMPLE = 2
-
+// isn't available yet: the same peer median the deals page uses.
 async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<number | null> {
-  const median = await getProductCleanMedian(db, productId, { scope: 'all', minSample: DISCOUNT_PEER_MIN_SAMPLE })
+  const median = await getProductCleanMedian(db, productId, { scope: 'peer' })
   return median?.medianPrice ?? null
 }
 
@@ -86,9 +82,8 @@ export async function decideListingDiscount(
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
 ): Promise<DiscountNotification | null> {
   const { priceAmount, productId } = listing
-  if (priceAmount === null || priceAmount <= 0) return null
+  if (priceAmount === null || isJunkPrice(priceAmount)) return null
   if (priceAmount < thresholds.minPricePesos) return null
-  if (isPlaceholderPrice(priceAmount)) return null
 
   let referencePrice: number | null
   if (isNewCondition(listing.condition)) {

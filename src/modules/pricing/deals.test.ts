@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest'
 import { getDeals } from './deals'
+import { notMagnitudeOutlierSql, peerListingSql } from './clean-median'
+import { repostKeySql } from './repost'
 import type { QueryClient } from '../../platform/storage'
 
 const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
@@ -71,6 +73,7 @@ test('getDeals excludes sold/removed listings by default, applies the discount-p
 
   expect(capturedSql).toContain('sold_at IS NULL')
   expect(capturedSql).toContain('flagged_removed_at IS NULL')
+  expect(capturedSql).toContain(peerListingSql('pl'))
   expect(capturedSql).toContain('ORDER BY')
   expect(capturedSql).toContain('DESC, profit_pesos DESC NULLS LAST')
   expect(capturedParams).toContain(1000) // minProfitPesos floor
@@ -88,10 +91,9 @@ test('getDeals dedupes same-product listings sharing an identical title (repost 
 
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
 
-  expect(capturedSql).toContain('DISTINCT ON (product_id, COALESCE(lower(trim(title)), listing_id))')
-  expect(capturedSql).toContain(
-    'ORDER BY product_id, COALESCE(lower(trim(title)), listing_id), listed_at ASC NULLS LAST, listing_id',
-  )
+  const key = repostKeySql('title', 'listing_id')
+  expect(capturedSql).toContain(`DISTINCT ON (product_id, ${key})`)
+  expect(capturedSql).toContain(`ORDER BY product_id, ${key}, listed_at ASC NULLS LAST, listing_id`)
 })
 
 test('getDeals sorts by tier rank first, profit only breaks ties within a tier', async () => {
@@ -231,7 +233,7 @@ test('getDeals filters by minimum confidence tier rank', async () => {
   expect(capturedParams).toContain(2)
 })
 
-test('getDeals guards against a decoy ask price magnitudes below its own reference price', async () => {
+test('getDeals guards against a decoy ask price with the shared 10x outlier rule, dropping non-positive reference prices', async () => {
   let capturedSql = ''
   const db: QueryClient = {
     query: async (sql) => {
@@ -242,7 +244,7 @@ test('getDeals guards against a decoy ask price magnitudes below its own referen
 
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS)
 
-  expect(capturedSql).toContain('ask_price BETWEEN reference_price / 10 AND reference_price * 10')
+  expect(capturedSql).toContain(notMagnitudeOutlierSql('ask_price', 'reference_price'))
 })
 
 test('getDeals uses the price review over the raw recorded price when one exists', async () => {

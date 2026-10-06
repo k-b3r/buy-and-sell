@@ -49,6 +49,13 @@ test('repostKey keys an untitled listing on its own id so untitled listings neve
   ).toEqual(new Set())
 })
 
-test('repostKeySql normalizes the title column and falls back to the id column', () => {
-  expect(repostKeySql('title', 'listing_id')).toBe('COALESCE(lower(trim(title)), listing_id)')
+test('repostKey strips surrounding tabs, newlines and non-breaking spaces, not just plain spaces', () => {
+  expect(repostKey({ id: 'a', title: '\t\u00a0iPhone 13\u3000\n ' })).toBe('iphone 13')
+  expect(repostKey({ id: 'a', title: 'iPhone\u00a013' })).toBe('iphone\u00a013')
+})
+
+test('repostKeySql strips surrounding whitespace with a regex, lowercases, and falls back to the id column', () => {
+  const sql = repostKeySql('title', 'listing_id')
+  expect(sql).toMatch(/^COALESCE\(lower\(regexp_replace\(title, '.+', '', 'g'\)\), listing_id\)$/)
+  expect(sql).toContain('\\u00a0')
 })

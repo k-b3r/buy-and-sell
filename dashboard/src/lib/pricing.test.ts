@@ -2,14 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from 'vitest'
-import {
-  summarizeDiscounts,
-  isPlaceholderPrice,
-  isMagnitudeOutlier,
-  isPriceInvalidated,
-  computeListingDiscount,
-  isListingPriceNegotiable,
-} from './pricing'
+import { isPlaceholderPrice, isListingPriceNegotiable } from './pricing'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 // The server splits these across price-rules.ts and clean-median.ts.
@@ -36,14 +29,7 @@ function bodyOf(source: string, name: string): string {
     .trim()
 }
 
-test.each([
-  'summarizeDiscounts',
-  'isPlaceholderPrice',
-  'isMagnitudeOutlier',
-  'isPriceInvalidated',
-  'computeListingDiscount',
-  'isListingPriceNegotiable',
-])('%s stays identical to the server copy', (name) => {
+test.each(['isPlaceholderPrice', 'isListingPriceNegotiable'])('%s stays identical to the server copy', (name) => {
   const serverSource = SERVER_PRICE_RULES.map((f) => readFileSync(f, 'utf8')).join('\n')
   const localSource = readFileSync(path.join(HERE, 'pricing.ts'), 'utf8')
 
@@ -57,37 +43,6 @@ test('placeholder prices are caught by pattern, not magnitude', () => {
   expect(isPlaceholderPrice(6969)).toBe(true)
   expect(isPlaceholderPrice(99)).toBe(false)
   expect(isPlaceholderPrice(15000)).toBe(false)
-})
-
-test('magnitude outliers are relative to the raw median', () => {
-  expect(isMagnitudeOutlier(200000, 15000)).toBe(true)
-  expect(isMagnitudeOutlier(100, 15000)).toBe(true)
-  expect(isMagnitudeOutlier(14000, 15000)).toBe(false)
-  expect(isMagnitudeOutlier(14000, null)).toBe(false)
-})
-
-test('a price can be invalidated by pattern despite a sane magnitude', () => {
-  expect(isMagnitudeOutlier(123456, 150000)).toBe(false)
-  expect(isPriceInvalidated(123456, 150000)).toBe(true)
-})
-
-test('discount needs at least 2 samples and a clean median', () => {
-  expect(computeListingDiscount(8000, 10000, 10000, 5)).toEqual({ discountPercent: 20, referencePrice: 10000 })
-  expect(computeListingDiscount(8000, 10000, 10000, 1).discountPercent).toBeNull()
-  expect(computeListingDiscount(8000, null, null, 5).discountPercent).toBeNull()
-  expect(computeListingDiscount(123, 10000, 10000, 5).discountPercent).toBeNull()
-})
-
-test('summarize buckets discounts into descending decade bands above 10%', () => {
-  expect(summarizeDiscounts([5, 12, 15, 34, null])).toEqual({
-    bestDiscountPercent: 34,
-    discountedListingCount: 3,
-    bands: [
-      { bandFloor: 30, count: 1 },
-      { bandFloor: 10, count: 2 },
-    ],
-  })
-  expect(summarizeDiscounts([null, 5]).bands).toEqual([])
 })
 
 test('negotiable falls back to "no signal to show"', () => {

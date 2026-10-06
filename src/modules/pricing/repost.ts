@@ -10,15 +10,21 @@
 // One rule, two sides: repostKey (JS, the product page's repost badge) and
 // repostKeySql (the deals page's collapse to one row per repost group).
 // tests/integration/repost.int.test.ts checks they agree on shared fixtures.
-// Known edge where they can't: Postgres trim() strips only spaces, JS trim()
-// all whitespace (tabs, newlines, non-breaking spaces).
+// Both strip surrounding whitespace with the same regex (Postgres trim()
+// strips plain spaces only, so it can't be used).
+
+// JS's \s set spelled out (tabs, newlines, NBSP, Unicode spaces), so the one
+// pattern means the same thing to both regex engines.
+const WHITESPACE_CLASS = '[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]'
+const EDGE_WHITESPACE = `^${WHITESPACE_CLASS}+|${WHITESPACE_CLASS}+$`
+const EDGE_WHITESPACE_RE = new RegExp(EDGE_WHITESPACE, 'g')
 
 export function repostKey(listing: { id: string; title: string | null }): string {
-  return listing.title === null ? listing.id : listing.title.trim().toLowerCase()
+  return listing.title === null ? listing.id : listing.title.replace(EDGE_WHITESPACE_RE, '').toLowerCase()
 }
 
 export function repostKeySql(titleColumn: string, idColumn: string): string {
-  return `COALESCE(lower(trim(${titleColumn})), ${idColumn})`
+  return `COALESCE(lower(regexp_replace(${titleColumn}, '${EDGE_WHITESPACE}', '', 'g')), ${idColumn})`
 }
 
 // Every listing that shares its repost key with another one in the set -

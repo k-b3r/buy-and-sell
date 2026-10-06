@@ -3,9 +3,8 @@ import { createDbPool } from '../../src/platform/storage'
 import { computeRepostIds, repostKey, repostKeySql } from '../../src/modules/pricing'
 
 // repostKeySql (deals page) and repostKey (product page) are the two sides
-// of one rule; this checks they agree on shared fixtures. Plain spaces only:
-// tabs/newlines/non-breaking spaces are the documented edge where Postgres
-// trim() and JS trim() differ (see repost.ts).
+// of one rule; this checks they agree on shared fixtures, including titles
+// padded with tabs, newlines and non-breaking spaces.
 
 const pool = createDbPool(testDatabaseUrl())
 
@@ -14,6 +13,9 @@ const LISTINGS: { id: string; title: string | null }[] = [
   { id: 'rp-2', title: '  iphone 13 256gb  ' },
   { id: 'rp-3', title: 'IPHONE 13 256GB' },
   { id: 'rp-4', title: 'iPhone 13 128GB' },
+  { id: 'rp-7', title: '\t iPhone 13 256GB\u00a0\n' },
+  { id: 'rp-8', title: '\u3000iPhone 13 128GB\r\n' },
+  { id: 'rp-9', title: 'iPhone\u00a013 64GB' },
   { id: 'rp-5', title: null },
   { id: 'rp-6', title: null },
 ]

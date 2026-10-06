@@ -137,6 +137,11 @@ test('parseTavilyPriceAnswer ignores small numbers that are unlikely to be price
   expect(parseTavilyPriceAnswer(text)).toBeNull()
 })
 
+test('parseTavilyPriceAnswer drops junk amounts (below ₱100 or a placeholder pattern) by the shared rule', () => {
+  const text = 'Prices start at ₱99 or PHP 12,345 but most go for ₱20,000.'
+  expect(parseTavilyPriceAnswer(text)).toEqual({ low: 20000, high: 20000, currency: 'PHP' })
+})
+
 test('parseTavilyPriceAnswer returns null for null or empty text', () => {
   expect(parseTavilyPriceAnswer(null)).toBeNull()
   expect(parseTavilyPriceAnswer('')).toBeNull()

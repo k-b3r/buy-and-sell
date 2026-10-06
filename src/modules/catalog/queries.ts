@@ -7,12 +7,12 @@ import {
   computeMedians,
   computeRepostIds,
   DISCOUNT_SUMMARY_LATERAL,
-  isPlaceholderPrice,
   isPriceInvalidated,
   medianCtes,
   NEW_PRICE_LATERAL,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
+  peerListingSql,
   resolveSecondhandPrice,
   SECONDHAND_PRICE_LATERAL,
   summarizeDiscounts,
@@ -269,6 +269,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     ),
     db.query(
       `SELECT l.id, l.title, l.price_amount, l.primary_photo_url, l.stored_photo_urls, l.condition, l.sold_at, l.listed_at,
+              ${peerListingSql('l')} AS is_peer,
               pr.is_negotiable as price_review_is_negotiable,
               pr.price_low as price_review_low, pr.price_high as price_review_high,
               sv.listing_id IS NOT NULL as is_saved,
@@ -311,18 +312,18 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     is_saved: r.is_saved as boolean,
     verification_reasoning: r.verification_reasoning as string | null,
   }))
+  const peerPrices = (listingsResult.rows as Record<string, unknown>[])
+    .filter((r) => r.is_peer === true)
+    .map((r) => toNullableNumber(r.price_amount))
 
   // price_lookup_excluded products (real_estate/too_generic/etc) bundle
   // unrelated real items under one fake "product" - a median across them is
   // meaningless. Forcing an empty price set here makes computeListingDiscount
-  // return null for every listing (sampleSize < 2), same effect as
+  // return null for every listing (below MIN_PEER_SAMPLE), same effect as
   // DISCOUNT_SUMMARY_LATERAL's exclusion on the products-list page. Confirmed
   // live 2026-08-23: navigating directly to an excluded product's detail page
   // still showed 6 fake discount badges before this fix.
-  const validPrices = productRow.price_lookup_excluded
-    ? []
-    : rawListings.map((l) => l.price_amount).filter((p): p is number => p !== null && p > 0 && !isPlaceholderPrice(p))
-  const { rawMedian, cleanMedian, sampleSize } = computeMedians(validPrices)
+  const { rawMedian, cleanMedian, sampleSize } = computeMedians(productRow.price_lookup_excluded ? [] : peerPrices)
 
   const repostIds = computeRepostIds(rawListings)
   const listings = rawListings.map((l) => {

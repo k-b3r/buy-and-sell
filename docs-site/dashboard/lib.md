@@ -62,23 +62,7 @@ _(undocumented)_
 
 ## dashboard/src/lib/pricing.ts
 
-### `summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary`
-
-_(undocumented)_
-
 ### `isPlaceholderPrice(price: number): boolean`
-
-_(undocumented)_
-
-### `isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean`
-
-_(undocumented)_
-
-### `isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean`
-
-_(undocumented)_
-
-### `computeListingDiscount(priceAmount: unknown, rawMedianPrice: unknown, cleanMedianPrice: unknown, sampleSize: unknown): { discountPercent: number | null; referencePrice: number | null }`
 
 _(undocumented)_
 

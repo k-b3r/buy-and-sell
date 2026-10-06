@@ -39,7 +39,7 @@ test('getPriceReviewCandidates returns listings the SQL flagged as a magnitude o
       title: 'RTX 2060 6GB FOR SWAP ONLY',
       description: 'FOR SWAP SA RTX 3060, ADD AKO. REBALLED PO BUT WORKING AS INTENDED.',
       price_amount: '999999999',
-      price_outlier: true,
+      review_flag: true,
       placeholder_price: false,
     },
   ])
@@ -49,6 +49,7 @@ test('getPriceReviewCandidates returns listings the SQL flagged as a magnitude o
   expect(calls[0].sql).toContain('percentile_cont(0.5)')
   expect(calls[0].sql).toContain('median_price / 5')
   expect(calls[0].sql).toContain('median_price * 5')
+  expect(calls[0].sql).toContain('AS review_flag')
   expect(calls[0].sql).toContain('listing_price_review')
   expect(result).toEqual([
     {
@@ -80,7 +81,7 @@ test('getPriceReviewCandidates keeps a description-price divergence the SQL flag
       title: 'I phone 16 used',
       description: 'iphone 16 128gb\nprice 39k',
       price_amount: '3900',
-      price_outlier: false,
+      review_flag: false,
       placeholder_price: false,
     },
     // description mentions "45k" and the recorded price is ₱44,000 - the loose
@@ -90,7 +91,7 @@ test('getPriceReviewCandidates keeps a description-price divergence the SQL flag
       title: 'iPhone 15',
       description: 'selling 45k slight nego',
       price_amount: '44000',
-      price_outlier: false,
+      review_flag: false,
       placeholder_price: false,
     },
   ])
@@ -206,4 +207,13 @@ test('flagNegotiableFromKeywords returns null and makes no db call when nothing 
   expect(await flagNegotiableFromKeywords(db, '1', 'Sony WH-1000XM6, barely used', 'clean unit no issues')).toBeNull()
 
   expect(calls).toHaveLength(0)
+})
+
+test('getPriceReviewCandidates takes no median over a price-lookup-excluded product, but still checks its listings for placeholder and description prices', async () => {
+  const { db, calls } = mockDbWithRows([])
+
+  await getPriceReviewCandidates(db)
+
+  expect(calls[0].sql).toContain('NOT p.price_lookup_excluded')
+  expect(calls[0].sql).toContain('LEFT JOIN product_medians m')
 })

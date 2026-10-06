@@ -8,16 +8,18 @@ import {
   unsaveListing,
 } from './queries'
 import type { QueryClient } from '../../platform/storage'
+import { peerListingSql } from '../pricing'
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }
 }
 
-test('getListingDetail excludes placeholder-pattern prices from the sibling median query', async () => {
+test('getListingDetail takes the sibling median over peer listings only, excluding placeholder prices and price-lookup-excluded products', async () => {
+  let siblingSql = ''
   const db: QueryClient = {
     query: async (sql: string) => {
       if (sql.includes('product_prices')) {
-        expect(sql).toContain("'^(\\d+)\\1+$'")
+        if (sql.includes('(SELECT product_id FROM listings WHERE id = $1)')) siblingSql = sql
         return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       }
       return {
@@ -48,6 +50,10 @@ test('getListingDetail excludes placeholder-pattern prices from the sibling medi
   }
 
   await getListingDetail(db, '123')
+
+  expect(siblingSql).toContain("'^(\\d+)\\1+$'")
+  expect(siblingSql).toContain('NOT p.price_lookup_excluded')
+  expect(siblingSql).toContain(peerListingSql('l'))
 })
 
 test('getListingDetail hides price_amount entirely when it is a magnitude outlier vs. the sibling median', async () => {
@@ -340,7 +346,7 @@ test('getListingDetail populates recent_sales/similar_listings only for tiers th
       }
       if (call === 2) return { rows: [{ raw_median_price: '12000', sample_size: '5', clean_median_price: '12000' }] } // sibling median
       if (call === 3) return { rows: [{ sample_size: '4', clean_median_price: '11000' }] } // getSoldComparablePrice: clears n>=3
-      if (call === 4) return { rows: [{ sample_size: '1', clean_median_price: null }] } // getPeerMedianPrice: fails n>=2
+      if (call === 4) return { rows: [{ sample_size: '1', clean_median_price: null }] } // getPeerMedianPrice: fails n>=3
       if (call === 5) {
         return {
           rows: [

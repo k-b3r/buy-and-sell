@@ -8,6 +8,7 @@ import {
   getSoldComparablePrice,
   isPriceInvalidated,
   medianCtes,
+  peerListingSql,
   toPriceReview,
 } from '../pricing'
 
@@ -42,13 +43,15 @@ export interface ListingDetail {
 // waiting on its result. A listing with no product_id (or that doesn't
 // exist) makes the subquery NULL, which the `product_id = NULL` filter
 // never matches - no row comes back, the "no siblings" case getListingDetail
-// already handles.
-// No price_lookup_excluded gate here, unlike the product page/list (known
-// gap, kept as-is by the pricing-module refactor).
+// already handles. Excluded products never get a median, same as the
+// product page/list; same peer scope as every peer median.
 const SIBLING_MEDIAN_SQL = `
   WITH ${medianCtes({
     name: 'product',
-    pool: 'SELECT product_id, price_amount FROM listings WHERE product_id = (SELECT product_id FROM listings WHERE id = $1)',
+    pool: `SELECT l.product_id, l.price_amount FROM listings l
+           JOIN products p ON p.id = l.product_id
+           WHERE l.product_id = (SELECT product_id FROM listings WHERE id = $1) AND NOT p.price_lookup_excluded
+             AND ${peerListingSql('l')}`,
   })}
   SELECT raw_median_price, sample_size, clean_median_price FROM product
 `
@@ -92,7 +95,7 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
   const priceAmount = toNullableNumber(row.price_amount)
 
   // Evidence panel: only populated when the tier's own min-sample threshold
-  // (getSoldComparablePrice's n>=3, getPeerMedianPrice's n>=2) is met - same
+  // (MIN_PEER_SAMPLE, n>=3, for both) is met - same
   // bar /deals uses to call something a real tier, so this page never shows
   // weaker evidence than what would've qualified the listing there.
   const productId = toNullableNumber(row.product_id)

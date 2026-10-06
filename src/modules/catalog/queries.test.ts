@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 import type { QueryClient } from '../../platform/storage'
+import { peerListingSql } from '../pricing'
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }
@@ -681,6 +682,7 @@ test("getProductDetail computes each listing's discount against the outlier-excl
             primary_photo_url: null,
             condition: null,
             sold_at: null,
+            is_peer: true,
             price_review_is_negotiable: null,
             price_review_low: null,
             price_review_high: null,
@@ -692,6 +694,7 @@ test("getProductDetail computes each listing's discount against the outlier-excl
             primary_photo_url: null,
             condition: null,
             sold_at: null,
+            is_peer: true,
             price_review_is_negotiable: null,
             price_review_low: null,
             price_review_high: null,
@@ -703,6 +706,7 @@ test("getProductDetail computes each listing's discount against the outlier-excl
             primary_photo_url: null,
             condition: null,
             sold_at: null,
+            is_peer: true,
             price_review_is_negotiable: null,
             price_review_low: null,
             price_review_high: null,
@@ -714,6 +718,7 @@ test("getProductDetail computes each listing's discount against the outlier-excl
             primary_photo_url: null,
             condition: null,
             sold_at: null,
+            is_peer: true,
             price_review_is_negotiable: null,
             price_review_low: null,
             price_review_high: null,
@@ -725,6 +730,7 @@ test("getProductDetail computes each listing's discount against the outlier-excl
             primary_photo_url: null,
             condition: null,
             sold_at: null,
+            is_peer: true,
             price_review_is_negotiable: null,
             price_review_low: null,
             price_review_high: null,
@@ -754,6 +760,50 @@ test("getProductDetail computes each listing's discount against the outlier-excl
     ['c', 18000],
     ['d', null],
     ['e', null],
+  ])
+})
+
+test('getProductDetail takes the median over peer listings only, still scoring and showing a long-sold listing against it', async () => {
+  let call = 0
+  const listing = (id: string, price: string, isPeer: boolean) => ({
+    id,
+    title: id,
+    price_amount: price,
+    primary_photo_url: null,
+    condition: null,
+    sold_at: isPeer ? null : '2026-01-01T00:00:00Z',
+    is_peer: isPeer,
+    price_review_is_negotiable: null,
+    price_review_low: null,
+    price_review_high: null,
+  })
+  const db: QueryClient = {
+    query: async (sql) => {
+      call += 1
+      if (call === 1) return { rows: [{ id: 1, base_model: 'RTX 3060', price_lookup_excluded: false }] }
+      expect(sql).toContain(`${peerListingSql('l')} AS is_peer`)
+      return {
+        rows: [
+          listing('a', '10000', true),
+          listing('b', '10000', true),
+          listing('c', '10000', true),
+          listing('old1', '40000', false),
+          listing('old2', '40000', false),
+          listing('old3', '40000', false),
+        ],
+      }
+    },
+  }
+
+  const result = await getProductDetail(db, 1)
+
+  expect(result?.listings.map((l) => [l.id, l.discount_percent, l.reference_price])).toEqual([
+    ['a', 0, 10000],
+    ['b', 0, 10000],
+    ['c', 0, 10000],
+    ['old1', -300, 10000],
+    ['old2', -300, 10000],
+    ['old3', -300, 10000],
   ])
 })
 

@@ -574,6 +574,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `isJunkPrice(price: number): boolean`
+
+_(undocumented)_
+
+### `notJunkPriceSql(column: string): string`
+
+_(undocumented)_
+
 ### `isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean`
 
 _(undocumented)_
@@ -582,17 +590,21 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `computeMedians(prices: number[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+### `peerListingSql(alias: string): string`
 
 _(undocumented)_
 
-### `medianCtes({ name, pool, minSample = 1, clean = true }: MedianCtesOptions): string`
+### `computeMedians(rawPrices: (number | null)[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+
+_(undocumented)_
+
+### `medianCtes({ name, pool, clean = true }: MedianCtesOptions): string`
 
 _(undocumented)_
 
 ## src/modules/pricing/deals.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./queries`, `./repost`
+**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./repost`
 
 ### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
 
@@ -674,7 +686,11 @@ _(undocumented)_
 
 ## src/modules/pricing/index.ts
 
-### `computeMedians(prices: number[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+### `computeMedians(rawPrices: (number | null)[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+
+_(undocumented)_
+
+### `isJunkPrice(price: number): boolean`
 
 _(undocumented)_
 
@@ -682,7 +698,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `medianCtes({ name, pool, minSample = 1, clean = true }: MedianCtesOptions): string`
+### `medianCtes({ name, pool, clean = true }: MedianCtesOptions): string`
+
+_(undocumented)_
+
+### `notJunkPriceSql(column: string): string`
 
 _(undocumented)_
 
@@ -691,6 +711,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `notPlaceholderPriceSql(column: string): string`
+
+_(undocumented)_
+
+### `peerListingSql(alias: string): string`
 
 _(undocumented)_
 
@@ -902,7 +926,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-from-listings.ts
 
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./price-history`, `./price-lookup`
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./price-history`, `./price-lookup`
 
 ### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
 
@@ -914,7 +938,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-history.ts
 
-**Interactions:** imports `../../platform/storage`, `./price-lookup`
+**Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`
 
 ### `insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void>`
 
@@ -934,7 +958,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-lookup.ts
 
-**Interactions:** imports `../../domains/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./exclusion`, `./generic-products`, `./price-history`
+**Interactions:** imports `../../domains/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./generic-products`, `./price-history`
 
 ### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
 
@@ -1034,7 +1058,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getProductCleanMedian(db: DbClient, productId: number, options: { scope: ListingScope; minSample: number }): Promise<ProductCleanMedian | null>`
+### `getProductCleanMedian(db: DbClient, productId: number, options: { scope: ListingScope }): Promise<ProductCleanMedian | null>`
 
 _(undocumented)_
 

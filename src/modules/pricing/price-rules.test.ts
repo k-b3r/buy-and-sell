@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import {
+  DISCOUNT_SUMMARY_LATERAL,
   computeListingDiscount,
   isListingPriceNegotiable,
   isNewCondition,
@@ -7,6 +8,7 @@ import {
   resolveSecondhandPrice,
   summarizeDiscounts,
 } from './price-rules'
+import { peerListingSql } from './clean-median'
 
 test('summarizeDiscounts groups qualifying discounts into descending decade bands', () => {
   const result = summarizeDiscounts([73, 68, 41, 22, 5, null, -10])
@@ -72,8 +74,9 @@ test('isPriceInvalidated is false for an ordinary in-range, non-placeholder pric
   expect(isPriceInvalidated(12000, 15000)).toBe(false)
 })
 
-test('computeListingDiscount is null when fewer than 2 same-product listings exist to compare against', () => {
+test('computeListingDiscount is null when fewer than 3 same-product listings exist to compare against', () => {
   expect(computeListingDiscount(15000, 15000, 15000, 1)).toEqual({ discountPercent: null, referencePrice: null })
+  expect(computeListingDiscount(15000, 15000, 15000, 2)).toEqual({ discountPercent: null, referencePrice: null })
 })
 
 test('computeListingDiscount is null when this listing itself is a magnitude outlier (>10x or <0.1x the raw median)', () => {
@@ -140,4 +143,9 @@ test('resolveSecondhandPrice falls back to the trained guess only when the model
     high: null,
     source: null,
   })
+})
+
+test('DISCOUNT_SUMMARY_LATERAL takes the product median over peer listings only, never for an excluded product', () => {
+  expect(DISCOUNT_SUMMARY_LATERAL).toContain(peerListingSql('pl'))
+  expect(DISCOUNT_SUMMARY_LATERAL).toContain('NOT p.price_lookup_excluded')
 })

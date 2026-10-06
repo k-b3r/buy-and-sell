@@ -1,6 +1,5 @@
 // The clean-median rule every peer-price reference in this codebase uses:
-// take a product's valid listing prices (positive, not a placeholder digit
-// pattern), compute the raw median, drop prices more than
+// take a product's valid listing prices (not junk, see isJunkPrice), compute the raw median, drop prices more than
 // MAGNITUDE_OUTLIER_RATIO off it in either direction, and take the median of
 // what's left. One implementation per side: computeMedians (JS, for callers
 // that already hold the prices) and medianCtes (SQL, for queries that
@@ -42,22 +41,40 @@ export function notPlaceholderPriceSql(column: string): string {
   )`
 }
 
+// No real listing on this marketplace goes below this - anything under it is
+// a placeholder/joke price ("₱12", "₱20"), not a real ask.
+const JUNK_PRICE_FLOOR = 100
+
+// The one junk-price rule: below the floor or a placeholder digit pattern.
+// Junk never enters a median, a listing-derived price range, or a parsed
+// search-result price.
+export function isJunkPrice(price: number): boolean {
+  return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+}
+
+// SQL equivalent of isJunkPrice above, negated.
+export function notJunkPriceSql(column: string): string {
+  return `${column} >= ${JUNK_PRICE_FLOOR} AND ${notPlaceholderPriceSql(column)}`
+}
+
 // >10x or <0.1x the raw median is almost always a placeholder, scam, or
 // typo, not a real ask.
 const MAGNITUDE_OUTLIER_RATIO = 10
 
-// Same magnitude-outlier heuristic as listing-price-review.ts's
-// getPriceReviewCandidates' pre-filter (which uses a tighter band) -
-// exactly the pre-filter that makes a listing an enrich-listing-prices
-// candidate, independent of whether that worker has actually reviewed it
-// yet. Used two ways: computeListingDiscount excludes it from
-// discount/reference-price analysis, and callers
+// The one outlier rule for hiding/excluding a price (listing-price-review.ts's
+// tighter 5x band only flags a listing for an LLM read). Used two ways:
+// computeListingDiscount excludes it from discount/reference-price
+// analysis, and callers
 // (getProductDetail/getListingDetail) also null out the listing's own
 // price_amount entirely - a mathematically-outlier price isn't shown, not
 // just unscored, since a >10x-median number is almost always a placeholder/
 // scam/typo, not a real ask worth displaying at all.
+// No median (null) means nothing to compare against: not an outlier. A
+// non-positive reference can't be a real price, so nothing is in band
+// against it (the deals filter's original behavior, now the shared rule).
 export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
-  if (rawMedianPrice === null || rawMedianPrice <= 0) return false
+  if (rawMedianPrice === null) return false
+  if (rawMedianPrice <= 0) return true
   return price < rawMedianPrice / MAGNITUDE_OUTLIER_RATIO || price > rawMedianPrice * MAGNITUDE_OUTLIER_RATIO
 }
 
@@ -68,7 +85,25 @@ export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null)
 // by it - confirmed live 2026-09-02: home/product-list page showed price
 // ranges like ₱2-₱123,456,789).
 export function notMagnitudeOutlierSql(column: string, medianColumn: string): string {
-  return `(${medianColumn} IS NULL OR ${medianColumn} <= 0 OR ${column} BETWEEN ${medianColumn} / ${MAGNITUDE_OUTLIER_RATIO} AND ${medianColumn} * ${MAGNITUDE_OUTLIER_RATIO})`
+  return `(${medianColumn} IS NULL OR (${medianColumn} > 0 AND ${column} BETWEEN ${medianColumn} / ${MAGNITUDE_OUTLIER_RATIO} AND ${medianColumn} * ${MAGNITUDE_OUTLIER_RATIO}))`
+}
+
+// Fewer valid prices than this and a product has no median at all, raw or
+// clean - one or two listings are noise, not a market. One bar for every
+// peer reference: sold comps, peer median, discount detection, listing and
+// product pages, comparables lists and listing-derived price ranges.
+export const MIN_PEER_SAMPLE = 3
+
+// A sold listing stays a peer this long after selling: recent sales are
+// still the market, older ones are stale asks.
+const PEER_SOLD_WINDOW_DAYS = 30
+
+// The one peer scope for every peer median (discount detection's fallback,
+// the deals page's peer tier, product and listing pages, similar-listings
+// evidence): active listings plus listings sold in the last
+// PEER_SOLD_WINDOW_DAYS. Sold comps (sold listings only) are a separate tier.
+export function peerListingSql(alias: string): string {
+  return `(${alias}.sold_at IS NULL OR ${alias}.sold_at >= now() - interval '${PEER_SOLD_WINDOW_DAYS} days')`
 }
 
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
@@ -82,15 +117,16 @@ function median(values: number[]): number | null {
 
 // JS side of the rule, for getProductDetail, which already has every
 // sibling listing's price in hand from one query and doesn't need a second
-// round trip. Callers pass prices already narrowed to valid ones (positive,
-// not a placeholder) and apply their own minimum sample size.
-export function computeMedians(prices: number[]): {
+// round trip. Takes raw listing prices; junk and missing ones are dropped
+// here, same as medianCtes' `<name>_prices`.
+export function computeMedians(rawPrices: (number | null)[]): {
   rawMedian: number | null
   cleanMedian: number | null
   sampleSize: number
 } {
-  const rawMedian = median(prices)
-  if (rawMedian === null || rawMedian <= 0) return { rawMedian, cleanMedian: null, sampleSize: prices.length }
+  const prices = rawPrices.filter((p): p is number => p !== null && !isJunkPrice(p))
+  if (prices.length < MIN_PEER_SAMPLE) return { rawMedian: null, cleanMedian: null, sampleSize: prices.length }
+  const rawMedian = median(prices) as number
   const clean = prices.filter((p) => !isMagnitudeOutlier(p, rawMedian))
   return { rawMedian, cleanMedian: median(clean), sampleSize: prices.length }
 }
@@ -103,9 +139,6 @@ export interface MedianCtesOptions {
   // scope (sold/active, one product or all, excluded products or not). Any
   // extra columns carry through to `<name>_prices`.
   pool: string
-  // clean_median_price is NULL for products with fewer valid prices than
-  // this. Default 1: no gate.
-  minSample?: number
   // false emits only the raw median, for callers that just need the outlier
   // band and shouldn't pay for a second percentile pass.
   clean?: boolean
@@ -113,15 +146,18 @@ export interface MedianCtesOptions {
 
 // SQL side of the rule. `<name>_prices` holds the pool's valid rows;
 // `<name>` holds one row per product with raw_median_price and sample_size,
-// plus clean_median_price unless clean is false. Products with no valid
-// price get no row at all.
-export function medianCtes({ name, pool, minSample = 1, clean = true }: MedianCtesOptions): string {
+// plus clean_median_price unless clean is false. Both medians are NULL below
+// MIN_PEER_SAMPLE (sample_size still counts, e.g. for the deals page's
+// low-confidence check). Products with no valid price get no row at all.
+export function medianCtes({ name, pool, clean = true }: MedianCtesOptions): string {
   const prices = `${name}_prices`
   const pricesCte = `${prices} AS (
     SELECT * FROM (${pool}) pool
-    WHERE price_amount IS NOT NULL AND price_amount > 0 AND ${notPlaceholderPriceSql('price_amount')}
+    WHERE price_amount IS NOT NULL AND ${notJunkPriceSql('price_amount')}
   )`
-  const rawSelect = `SELECT product_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) AS raw_median_price, count(*) AS sample_size
+  const rawSelect = `SELECT product_id,
+      CASE WHEN count(*) >= ${MIN_PEER_SAMPLE} THEN percentile_cont(0.5) WITHIN GROUP (ORDER BY price_amount) END AS raw_median_price,
+      count(*) AS sample_size
     FROM ${prices} GROUP BY product_id`
   if (!clean) return `${pricesCte},\n  ${name} AS (\n    ${rawSelect}\n  )`
 
@@ -133,7 +169,7 @@ export function medianCtes({ name, pool, minSample = 1, clean = true }: MedianCt
     SELECT r.product_id, r.raw_median_price, r.sample_size,
       (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY pp.price_amount)
        FROM ${prices} pp
-       WHERE pp.product_id = r.product_id AND r.sample_size >= ${minSample}
+       WHERE pp.product_id = r.product_id AND r.raw_median_price IS NOT NULL
          AND ${notMagnitudeOutlierSql('pp.price_amount', 'r.raw_median_price')}) AS clean_median_price
     FROM ${name}_raw r
   )`

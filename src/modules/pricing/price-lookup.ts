@@ -5,6 +5,7 @@ import type { PriceCheckSource } from './price-history'
 import { insertPriceCheck } from './price-history'
 import { excludeFromPricing } from './exclusion'
 import { detectGenericBaseModel } from './generic-products'
+import { isJunkPrice } from './clean-median'
 
 export interface PriceRange {
   low: number
@@ -157,7 +158,7 @@ export function parseTavilyPriceAnswer(text: string | null): PriceRange | null {
   const amounts: number[] = []
   for (const match of text.matchAll(PRICE_AMOUNT_PATTERN)) {
     const n = Number(match[1].replace(/,/g, ''))
-    if (Number.isFinite(n) && n >= 100 && n <= 10_000_000) amounts.push(n)
+    if (Number.isFinite(n) && !isJunkPrice(n) && n <= 10_000_000) amounts.push(n)
   }
   if (amounts.length === 0) return null
   return { low: Math.min(...amounts), high: Math.max(...amounts), currency: 'PHP' }

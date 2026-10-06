@@ -6,10 +6,13 @@
 // price. Everything else is internal (enforced by dependency-cruiser).
 export {
   computeMedians,
+  isJunkPrice,
   isPlaceholderPrice,
   medianCtes,
+  notJunkPriceSql,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
+  peerListingSql,
 } from './clean-median'
 export type { DiscountBand, ListingPriceReview } from './price-rules'
 export {
