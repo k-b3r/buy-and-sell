@@ -48,6 +48,12 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/app/ListingThumb.tsx
+
+### `default({ photoUrl, size }: { photoUrl: string | null; size: number }): React.JSX.Element`
+
+_(undocumented)_
+
 ## dashboard/src/app/loading.tsx
 
 **Interactions:** imports `./Skeleton`
@@ -74,7 +80,7 @@ _(undocumented)_
 
 ## dashboard/src/app/NotificationBell.tsx
 
-**Interactions:** imports `./BellIcon`, `./InfoTooltip`, `./NotificationsProvider`
+**Interactions:** imports `./BellIcon`, `./InfoTooltip`, `./ListingThumb`, `./NotificationsProvider`
 
 ### `default(): React.JSX.Element`
 
@@ -94,7 +100,7 @@ _(undocumented)_
 
 ## dashboard/src/app/NotificationToasts.tsx
 
-**Interactions:** imports `./InfoTooltip`, `./NotificationsProvider`, `@/lib/notificationToasts`, `@/lib/queries`
+**Interactions:** imports `./InfoTooltip`, `./ListingThumb`, `./NotificationsProvider`, `@/lib/notificationToasts`, `@/lib/queries`
 
 ### `default(): React.JSX.Element | null`
 
@@ -108,9 +114,17 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/app/ProductCard.tsx
+
+**Interactions:** imports `@/lib/queries`
+
+### `default({ p, listQueryString }: { p: ProductSummary; listQueryString: string }): React.JSX.Element`
+
+_(undocumented)_
+
 ## dashboard/src/app/ProductListClient.tsx
 
-**Interactions:** imports `./Skeleton`, `@/lib/categories`, `@/lib/queries`
+**Interactions:** imports `./ProductCard`, `./Skeleton`, `@/lib/queries`, `@/lib/shared.generated`
 
 ### `default({ initialProducts, initialNextOffset, initialSearch, initialCategories, initialSubCategories, subCategoryTree, }: Props): React.JSX.Element`
 

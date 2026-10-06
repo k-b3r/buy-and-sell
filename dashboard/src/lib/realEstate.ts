@@ -1,4 +1,4 @@
-import type { RealEstateFilters, RealEstateListing } from './queries'
+import type { RealEstateFilters, RealEstateListing } from './shared.generated'
 
 // Types-only import from queries.ts, so this module is safe in client components.
 
@@ -33,6 +33,13 @@ export const PROPERTY_TYPE_LABELS: Record<string, string> = {
 export const REAL_ESTATE_PAGE_SIZE = 30
 
 const SORTS = ['newest', 'price_asc', 'price_desc', 'ppsqm_asc'] as const
+const TEXT_FILTERS = ['area', 'project'] as const
+// URL param -> filter field.
+const NUMBER_FILTERS = [
+  ['min', 'minPrice'],
+  ['max', 'maxPrice'],
+  ['sqm', 'minSqm'],
+] as const
 
 function positiveNumber(value: string | undefined): number | undefined {
   if (value === undefined || value.trim() === '') return undefined
@@ -40,26 +47,30 @@ function positiveNumber(value: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
+function pageNumber(value: string | undefined): number {
+  const n = Number(value)
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
 export function parseRealEstateFilters(params: Record<string, string | undefined>): {
   filters: RealEstateFilters
   page: number
 } {
-  const pageNumber = Number(params.page)
-  const page = Number.isInteger(pageNumber) && pageNumber >= 1 ? pageNumber : 1
+  const page = pageNumber(params.page)
   const filters: RealEstateFilters = {
     limit: REAL_ESTATE_PAGE_SIZE,
     offset: (page - 1) * REAL_ESTATE_PAGE_SIZE,
   }
   if (params.kind === 'sale' || params.kind === 'rent') filters.listingType = params.kind
   if (params.type && params.type in PROPERTY_TYPE_LABELS) filters.propertyType = params.type
-  if (params.area?.trim()) filters.area = params.area.trim()
-  if (params.project?.trim()) filters.project = params.project.trim()
-  const min = positiveNumber(params.min)
-  const max = positiveNumber(params.max)
-  const sqm = positiveNumber(params.sqm)
-  if (min !== undefined) filters.minPrice = min
-  if (max !== undefined) filters.maxPrice = max
-  if (sqm !== undefined) filters.minSqm = sqm
+  for (const key of TEXT_FILTERS) {
+    const text = params[key]?.trim()
+    if (text) filters[key] = text
+  }
+  for (const [param, key] of NUMBER_FILTERS) {
+    const n = positiveNumber(params[param])
+    if (n !== undefined) filters[key] = n
+  }
   if (params.sort && (SORTS as readonly string[]).includes(params.sort))
     filters.sort = params.sort as RealEstateFilters['sort']
   if (params.view === 'review') filters.view = 'review'

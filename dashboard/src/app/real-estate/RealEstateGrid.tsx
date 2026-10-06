@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { RealEstateListing } from '@/lib/queries'
+import type { RealEstateListing } from '@/lib/shared.generated'
 import { realEstatePageQuery } from '@/lib/realEstate'
 import RealEstateCard from './RealEstateCard'
 

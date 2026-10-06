@@ -65,9 +65,10 @@ export default function RefreshProductButton({ productId }: { productId: number 
   // 'running' (completed, cancelled, or the poll lost track of it), so
   // whatever the batch changed (sold/removed/updated listings) shows up
   // without a manual reload.
+  const jobStatus = job?.status
   useEffect(() => {
-    if (job && job.status !== 'running') router.refresh()
-  }, [job?.status, router])
+    if (jobStatus !== undefined && jobStatus !== 'running') router.refresh()
+  }, [jobStatus, router])
 
   async function handleStart() {
     setStarting(true)

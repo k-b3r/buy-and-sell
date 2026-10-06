@@ -7,7 +7,7 @@ import {
   realEstatePageQuery,
   NCR_AREAS,
 } from './realEstate'
-import type { RealEstateListing } from './queries'
+import type { RealEstateListing } from './shared.generated'
 
 const listing = (over: Partial<RealEstateListing> = {}): RealEstateListing => ({
   id: '1',

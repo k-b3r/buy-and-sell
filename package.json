@@ -23,6 +23,7 @@
     "detect-model-mismatches": "tsx src/utils/detect-model-mismatches/index.ts",
     "reassign-model-mismatches": "tsx src/utils/reassign-model-mismatches/index.ts",
     "gen-arch-doc": "tsx scripts/gen-arch-doc.ts",
+    "gen-dashboard-shared": "tsx scripts/gen-dashboard-shared.ts",
     "docs:dev": "vitepress dev docs-site",
     "docs:build": "vitepress build docs-site",
     "docs:publish": "pnpm gen-arch-doc && pnpm docs:build && rm -rf dashboard/public/docs && mkdir -p dashboard/public && cp -r docs-site/.vitepress/dist dashboard/public/docs",

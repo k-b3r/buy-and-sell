@@ -12,7 +12,7 @@ _(undocumented)_
 
 ## dashboard/src/app/real-estate/RealEstateCard.tsx
 
-**Interactions:** imports `@/lib/queries`, `@/lib/realEstate`
+**Interactions:** imports `@/lib/realEstate`, `@/lib/shared.generated`
 
 ### `default({ l }: { l: RealEstateListing }): React.JSX.Element`
 
@@ -20,7 +20,7 @@ _(undocumented)_
 
 ## dashboard/src/app/real-estate/RealEstateGrid.tsx
 
-**Interactions:** imports `./RealEstateCard`, `@/lib/queries`, `@/lib/realEstate`
+**Interactions:** imports `./RealEstateCard`, `@/lib/realEstate`, `@/lib/shared.generated`
 
 ### `default({ initialListings, initialNextPage, params, emptyText, }: { initialListings: RealEstateListing[] initialNextPage: number | null params: Record<string, string | undefined> emptyText: string }): React.JSX.Element`
 
