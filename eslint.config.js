@@ -8,7 +8,7 @@ import globals from 'globals'
 // complexity; here they block, so logic can't creep back into an entry point.
 const ENTRY_POINT_FILES = ['src/workers/*/index.ts', 'src/utils/*/index.ts', 'server/routes/*.ts']
 const ENTRY_POINT_MAX_LINES = 200
-const ENTRY_POINT_MAX_COMPLEXITY = 15
+const ENTRY_POINT_MAX_COMPLEXITY = 13
 
 export default [
   ...baseConfig({
