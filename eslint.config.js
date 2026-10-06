@@ -10,6 +10,15 @@ const ENTRY_POINT_FILES = ['src/workers/*/index.ts', 'src/utils/*/index.ts', 'se
 const ENTRY_POINT_MAX_LINES = 200
 const ENTRY_POINT_MAX_COMPLEXITY = 15
 
+// Hand-curated lookup tables, some with the small function that applies
+// them (one concern each). Length grows with the curated data, not with
+// logic, so max-lines says nothing useful here; complexity still applies.
+const CURATED_DATA_FILES = [
+  'src/modules/catalog/variant-alias-rules.ts',
+  'src/modules/pricing/ineligible-categories.ts',
+  'src/modules/pricing/generic-products.ts',
+]
+
 export default [
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
@@ -50,6 +59,10 @@ export default [
       'max-lines': ['error', { max: ENTRY_POINT_MAX_LINES, skipBlankLines: true, skipComments: true }],
       complexity: ['error', ENTRY_POINT_MAX_COMPLEXITY],
     },
+  },
+  {
+    files: CURATED_DATA_FILES,
+    rules: { 'max-lines': 'off' },
   },
   {
     files: ['dashboard/**/*.{ts,tsx}'],
