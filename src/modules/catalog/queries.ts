@@ -319,7 +319,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
   // price_lookup_excluded products (real_estate/too_generic/etc) bundle
   // unrelated real items under one fake "product" - a median across them is
   // meaningless. Forcing an empty price set here makes computeListingDiscount
-  // return null for every listing (sampleSize < 2), same effect as
+  // return null for every listing (below MIN_PEER_SAMPLE), same effect as
   // DISCOUNT_SUMMARY_LATERAL's exclusion on the products-list page. Confirmed
   // live 2026-08-23: navigating directly to an excluded product's detail page
   // still showed 6 fake discount badges before this fix.
