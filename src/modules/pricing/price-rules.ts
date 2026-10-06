@@ -6,6 +6,7 @@ import {
   medianCtes,
   MIN_PEER_SAMPLE,
   notMagnitudeOutlierSql,
+  peerListingSql,
 } from './clean-median'
 
 export interface DiscountBand {
@@ -127,7 +128,8 @@ export const DISCOUNT_SUMMARY_LATERAL = `
     -- PC" all still showed real band arrays despite being flagged excluded.
     WITH ${medianCtes({
       name: 'product_median',
-      pool: 'SELECT pl.product_id, pl.price_amount FROM listings pl WHERE pl.product_id = p.id AND NOT p.price_lookup_excluded',
+      pool: `SELECT pl.product_id, pl.price_amount FROM listings pl
+             WHERE pl.product_id = p.id AND NOT p.price_lookup_excluded AND ${peerListingSql('pl')}`,
     })},
     discounts AS (
       SELECT round(((m.clean_median_price - pp.price_amount) / m.clean_median_price) * 100) AS discount_percent

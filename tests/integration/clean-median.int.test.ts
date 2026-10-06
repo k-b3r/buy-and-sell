@@ -10,6 +10,7 @@ import {
   getSoldComparablePrice,
   insertDiscountNotifications,
   medianCtes,
+  peerListingSql,
 } from '../../src/modules/pricing'
 import { getProductDetail, getProductSummaries } from '../../src/modules/catalog'
 import { getListingDetail } from '../../src/modules/collection'
@@ -27,7 +28,8 @@ const SINGLE = 9003
 const EMPTY = 9004
 const PAIR = 9005
 
-const LISTINGS: { id: string; title: string; price: number; product: number; sold: boolean }[] = [
+// soldDaysAgo defaults to 0 (sold today) for sold listings.
+const LISTINGS: { id: string; title: string; price: number; product: number; sold: boolean; soldDaysAgo?: number }[] = [
   { id: 'cm-a1', title: 'Phone A', price: 10000, product: PHONE, sold: false },
   { id: 'cm-a2', title: 'Phone A', price: 12000, product: PHONE, sold: false },
   { id: 'cm-a3', title: 'Phone B', price: 14000, product: PHONE, sold: false },
@@ -39,6 +41,7 @@ const LISTINGS: { id: string; title: string; price: number; product: number; sol
   { id: 'cm-s2', title: 'Phone H', price: 11000, product: PHONE, sold: true },
   { id: 'cm-s3', title: 'Phone I', price: 13000, product: PHONE, sold: true },
   { id: 'cm-s4', title: 'Phone J', price: 200000, product: PHONE, sold: true },
+  { id: 'cm-s5', title: 'Phone K', price: 30000, product: PHONE, sold: true, soldDaysAgo: 60 },
   { id: 'cm-e1', title: 'Excluded A', price: 5000, product: EXCLUDED, sold: false },
   { id: 'cm-e2', title: 'Excluded B', price: 6000, product: EXCLUDED, sold: false },
   { id: 'cm-e3', title: 'Excluded C', price: 5000, product: EXCLUDED, sold: true },
@@ -75,8 +78,8 @@ beforeAll(async () => {
   for (const l of LISTINGS) {
     await pool.query(
       `INSERT INTO listings (id, title, price_amount, product_id, sold_at, raw_json)
-       VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END, '{}')`,
-      [l.id, l.title, l.price, l.product, l.sold],
+       VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() - make_interval(days => $6) END, '{}')`,
+      [l.id, l.title, l.price, l.product, l.sold, l.soldDaysAgo ?? 0],
     )
   }
 })
@@ -110,6 +113,7 @@ test('medianCtes and computeMedians agree on every fixture product, for every li
     { sql: 'true', js: () => true },
     { sql: 'sold_at IS NULL', js: (l: (typeof LISTINGS)[number]) => !l.sold },
     { sql: 'sold_at IS NOT NULL', js: (l: (typeof LISTINGS)[number]) => l.sold },
+    { sql: peerListingSql('listings'), js: (l: (typeof LISTINGS)[number]) => !l.sold || (l.soldDaysAgo ?? 0) <= 30 },
   ]
   for (const productId of PRODUCT_IDS) {
     for (const scope of scopes) {
@@ -135,14 +139,14 @@ test('sold-comp and peer reference prices use the clean median, gated on sample 
       "peerExcluded": null,
       "peerPair": null,
       "peerPhone": {
-        "medianPrice": 12000,
-        "sampleSize": 6,
+        "medianPrice": 11500,
+        "sampleSize": 10,
       },
       "peerSingle": null,
       "soldExcluded": null,
       "soldPhone": {
-        "medianPrice": 11000,
-        "sampleSize": 4,
+        "medianPrice": 12000,
+        "sampleSize": 5,
       },
     }
   `)
@@ -152,18 +156,21 @@ test('comparable listings are the in-band rows behind the median, excluding the 
   const ids = async (sold: boolean) =>
     (await getComparableListings(pool, PHONE, 'cm-a1', sold)).map((c) => c.listing_id).sort()
 
-  expect({ active: await ids(false), sold: await ids(true) }).toMatchInlineSnapshot(`
+  expect({ peer: await ids(false), sold: await ids(true) }).toMatchInlineSnapshot(`
     {
-      "active": [
+      "peer": [
         "cm-a2",
         "cm-a3",
         "cm-a4",
         "cm-a7",
+        "cm-s1",
+        "cm-s2",
       ],
       "sold": [
         "cm-s1",
         "cm-s2",
         "cm-s3",
+        "cm-s5",
       ],
     }
   `)
@@ -246,6 +253,7 @@ test('product list and product detail summarize discounts from the same clean me
         "cm-s2": 4,
         "cm-s3": -13,
         "cm-s4": null,
+        "cm-s5": -161,
       },
       "summaries": [
         {
@@ -312,24 +320,24 @@ test('deals rank listings against sold comps, then peers, with the outlier guard
   expect(deals).toMatchInlineSnapshot(`
     [
       {
-        "comps": 4,
-        "discount": 9,
+        "comps": 5,
+        "discount": 17,
         "id": "cm-a1",
-        "reference": 11000,
+        "reference": 12000,
         "tier": "sold_comps",
       },
       {
-        "comps": 4,
-        "discount": 64,
+        "comps": 5,
+        "discount": 67,
         "id": "cm-a7",
-        "reference": 11000,
+        "reference": 12000,
         "tier": "sold_comps",
       },
     ]
   `)
 })
 
-test('discount detection falls back to the peer median across sold and active listings', async () => {
+test('discount detection falls back to the peer median over active and recently sold listings', async () => {
   const thresholds = { highDiscountThresholdPercent: 30, minProfitPesos: 1000, minPricePesos: 500 }
   const decided = [
     await decideListingDiscount(

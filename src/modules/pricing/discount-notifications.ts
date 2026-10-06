@@ -38,10 +38,9 @@ export const DEFAULT_DISCOUNT_POLICY: DiscountPolicyThresholds = {
 }
 
 // decideListingDiscount's fallback reference when real secondhand market data
-// isn't available yet: the clean median over ALL this product's listings,
-// sold and active alike (unlike the deals page's active-only peer median).
+// isn't available yet: the same peer median the deals page uses.
 async function getDiscountPeerMedian(db: DbClient, productId: number): Promise<number | null> {
-  const median = await getProductCleanMedian(db, productId, { scope: 'all' })
+  const median = await getProductCleanMedian(db, productId, { scope: 'peer' })
   return median?.medianPrice ?? null
 }
 

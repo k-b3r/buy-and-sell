@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { getDeals } from './deals'
-import { notMagnitudeOutlierSql } from './clean-median'
+import { notMagnitudeOutlierSql, peerListingSql } from './clean-median'
 import type { QueryClient } from '../../platform/storage'
 
 const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
@@ -72,6 +72,7 @@ test('getDeals excludes sold/removed listings by default, applies the discount-p
 
   expect(capturedSql).toContain('sold_at IS NULL')
   expect(capturedSql).toContain('flagged_removed_at IS NULL')
+  expect(capturedSql).toContain(peerListingSql('pl'))
   expect(capturedSql).toContain('ORDER BY')
   expect(capturedSql).toContain('DESC, profit_pesos DESC NULLS LAST')
   expect(capturedParams).toContain(1000) // minProfitPesos floor

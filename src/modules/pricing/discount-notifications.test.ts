@@ -1,4 +1,5 @@
 import type { DbClient } from '../../platform/storage'
+import { peerListingSql } from './clean-median'
 import {
   decideListingDiscount,
   insertDiscountNotifications,
@@ -92,6 +93,7 @@ test('decideListingDiscount falls back to peer-comparison median when secondhand
 
   expect(calls).toHaveLength(1)
   expect(calls[0].sql).toContain('percentile_cont')
+  expect(calls[0].sql).toContain(peerListingSql('pl'))
   expect(calls[0].params).toEqual([10])
   expect(decided).toEqual({ listingId: '1', productId: 10, discountPercent: 30, referencePrice: 10000 })
 })

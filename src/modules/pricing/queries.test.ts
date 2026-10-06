@@ -10,6 +10,7 @@ import {
   setManualPrice,
 } from './queries'
 import type { QueryClient } from '../../platform/storage'
+import { peerListingSql } from './clean-median'
 
 test('getDiscountNotifications maps joined rows into DiscountNotification shape, most recent first, capped by limit', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -228,7 +229,7 @@ test('getPeerMedianPrice returns null when fewer than 3 peer listings exist', as
   expect(await getPeerMedianPrice(db, 42)).toBeNull()
 })
 
-test('getPeerMedianPrice scopes to active (unsold) listings only, excludes placeholder prices and price-lookup-excluded products', async () => {
+test('getPeerMedianPrice scopes to active and recently sold listings, excludes placeholder prices and price-lookup-excluded products', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []
   const db: QueryClient = {
@@ -241,7 +242,7 @@ test('getPeerMedianPrice scopes to active (unsold) listings only, excludes place
 
   await getPeerMedianPrice(db, 42)
 
-  expect(capturedSql).toContain('sold_at IS NULL')
+  expect(capturedSql).toContain(peerListingSql('pl'))
   expect(capturedSql).toContain('NOT p.price_lookup_excluded')
   expect(capturedSql).toContain("'^(\\d+)\\1+$'")
   expect(capturedParams).toEqual([42])
@@ -296,7 +297,7 @@ test('getComparableListings scopes to sold listings, excludes the current listin
   expect(capturedParams).toEqual([42, 'l1', 3])
 })
 
-test('getComparableListings scopes to active listings when sold is false', async () => {
+test('getComparableListings scopes to the peer listings (active and recently sold) when sold is false', async () => {
   let capturedSql = ''
   const db: QueryClient = {
     query: async (sql) => {
@@ -307,7 +308,7 @@ test('getComparableListings scopes to active listings when sold is false', async
 
   await getComparableListings(db, 42, 'l1', false)
 
-  expect(capturedSql).toContain('pl.sold_at IS NULL')
+  expect(capturedSql).toContain(peerListingSql('pl'))
 })
 
 test('getComparableListings returns rows only for a product whose comparables reach the minimum sample', async () => {

@@ -94,6 +94,18 @@ export function notMagnitudeOutlierSql(column: string, medianColumn: string): st
 // product pages, comparables lists and listing-derived price ranges.
 export const MIN_PEER_SAMPLE = 3
 
+// A sold listing stays a peer this long after selling: recent sales are
+// still the market, older ones are stale asks.
+const PEER_SOLD_WINDOW_DAYS = 30
+
+// The one peer scope for every peer median (discount detection's fallback,
+// the deals page's peer tier, product and listing pages, similar-listings
+// evidence): active listings plus listings sold in the last
+// PEER_SOLD_WINDOW_DAYS. Sold comps (sold listings only) are a separate tier.
+export function peerListingSql(alias: string): string {
+  return `(${alias}.sold_at IS NULL OR ${alias}.sold_at >= now() - interval '${PEER_SOLD_WINDOW_DAYS} days')`
+}
+
 // percentile_cont(0.5)-equivalent: linear interpolation between the two
 // middle values, matching Postgres's median exactly.
 function median(values: number[]): number | null {

@@ -8,7 +8,12 @@ import {
   notJunkPriceSql,
   notMagnitudeOutlierSql,
   notPlaceholderPriceSql,
+  peerListingSql,
 } from './clean-median'
+
+test('peerListingSql keeps active listings and listings sold in the last 30 days', () => {
+  expect(peerListingSql('pl')).toBe("(pl.sold_at IS NULL OR pl.sold_at >= now() - interval '30 days')")
+})
 
 test('isJunkPrice flags a price below the ₱100 floor or with a placeholder digit pattern', () => {
   expect(isJunkPrice(0)).toBe(true)

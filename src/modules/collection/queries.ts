@@ -8,6 +8,7 @@ import {
   getSoldComparablePrice,
   isPriceInvalidated,
   medianCtes,
+  peerListingSql,
   toPriceReview,
 } from '../pricing'
 
@@ -43,13 +44,14 @@ export interface ListingDetail {
 // exist) makes the subquery NULL, which the `product_id = NULL` filter
 // never matches - no row comes back, the "no siblings" case getListingDetail
 // already handles. Excluded products never get a median, same as the
-// product page/list.
+// product page/list; same peer scope as every peer median.
 const SIBLING_MEDIAN_SQL = `
   WITH ${medianCtes({
     name: 'product',
     pool: `SELECT l.product_id, l.price_amount FROM listings l
            JOIN products p ON p.id = l.product_id
-           WHERE l.product_id = (SELECT product_id FROM listings WHERE id = $1) AND NOT p.price_lookup_excluded`,
+           WHERE l.product_id = (SELECT product_id FROM listings WHERE id = $1) AND NOT p.price_lookup_excluded
+             AND ${peerListingSql('l')}`,
   })}
   SELECT raw_median_price, sample_size, clean_median_price FROM product
 `

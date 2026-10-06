@@ -1,6 +1,6 @@
 import type { DbClient, QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
-import { medianCtes, notMagnitudeOutlierSql } from './clean-median'
+import { medianCtes, notMagnitudeOutlierSql, peerListingSql } from './clean-median'
 
 // Human-entered price for a needs_review product - outranks every automated
 // source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
@@ -30,14 +30,12 @@ export interface ProductCleanMedian {
 export type SoldComparablePrice = ProductCleanMedian
 
 // Which of a product's listings a clean median is taken over: sold ones
-// (what it was asking when it sold), active ones (what competing sellers ask
-// right now), or both.
-export type ListingScope = 'sold' | 'active' | 'all'
+// (what it was asking when it sold) or peers (see peerListingSql).
+export type ListingScope = 'sold' | 'peer'
 
 const SCOPE_SQL: Record<ListingScope, string> = {
   sold: 'pl.sold_at IS NOT NULL',
-  active: 'pl.sold_at IS NULL',
-  all: 'true',
+  peer: peerListingSql('pl'),
 }
 
 // One product's clean median over its listings in scope, excluded products
@@ -82,16 +80,14 @@ export async function getSoldComparablePrice(db: QueryClient, productId: number)
 
 export type PeerMedianPrice = ProductCleanMedian
 
-// Deals page's second-tier reference price: median of *active* (still-listed,
-// nobody's paid yet) peer listings of the same product, used when
+// Deals page's second-tier reference price: median of the same product's peer
+// listings (active plus recently sold, see peerListingSql), used when
 // getSoldComparablePrice above has too few actual sales to trust.
 
-// Scoped to active listings (sold_at IS NULL) instead of sold ones - "what
-// competing sellers are asking right now" rather than "what last actually
-// sold". Per-product so the deals page can call this once per product
-// instead of once per listing.
+// Per-product so the deals page can call this once per product instead of
+// once per listing.
 export async function getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null> {
-  return getProductCleanMedian(db, productId, { scope: 'active' })
+  return getProductCleanMedian(db, productId, { scope: 'peer' })
 }
 
 export interface ComparableListing {
@@ -115,7 +111,7 @@ export async function getComparableListings(
   sold: boolean,
   limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT,
 ): Promise<ComparableListing[]> {
-  const soldClause = sold ? 'pl.sold_at IS NOT NULL' : 'pl.sold_at IS NULL'
+  const scopeClause = SCOPE_SQL[sold ? 'sold' : 'peer']
   const dateColumn = sold ? 'pl.sold_at' : 'pl.listed_at'
 
   const result = await db.query(
@@ -124,7 +120,7 @@ export async function getComparableListings(
       pool: `SELECT pl.product_id, pl.id, pl.title, pl.price_amount, pl.primary_photo_url, pl.stored_photo_urls, ${dateColumn} AS date
              FROM listings pl
              JOIN products p ON p.id = pl.product_id
-             WHERE pl.product_id = $1 AND pl.id != $2 AND ${soldClause} AND NOT p.price_lookup_excluded`,
+             WHERE pl.product_id = $1 AND pl.id != $2 AND ${scopeClause} AND NOT p.price_lookup_excluded`,
       clean: false,
     })}
      SELECT pp.id AS listing_id, pp.title, pp.price_amount, pp.primary_photo_url, pp.stored_photo_urls, pp.date

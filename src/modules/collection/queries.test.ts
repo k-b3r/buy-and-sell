@@ -8,17 +8,18 @@ import {
   unsaveListing,
 } from './queries'
 import type { QueryClient } from '../../platform/storage'
+import { peerListingSql } from '../pricing'
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }
 }
 
-test('getListingDetail excludes placeholder-pattern prices and price-lookup-excluded products from the sibling median query', async () => {
+test('getListingDetail takes the sibling median over peer listings only, excluding placeholder prices and price-lookup-excluded products', async () => {
+  let siblingSql = ''
   const db: QueryClient = {
     query: async (sql: string) => {
       if (sql.includes('product_prices')) {
-        expect(sql).toContain("'^(\\d+)\\1+$'")
-        expect(sql).toContain('NOT p.price_lookup_excluded')
+        if (sql.includes('(SELECT product_id FROM listings WHERE id = $1)')) siblingSql = sql
         return { rows: [{ raw_median_price: null, sample_size: '0', clean_median_price: null }] }
       }
       return {
@@ -49,6 +50,10 @@ test('getListingDetail excludes placeholder-pattern prices and price-lookup-excl
   }
 
   await getListingDetail(db, '123')
+
+  expect(siblingSql).toContain("'^(\\d+)\\1+$'")
+  expect(siblingSql).toContain('NOT p.price_lookup_excluded')
+  expect(siblingSql).toContain(peerListingSql('l'))
 })
 
 test('getListingDetail hides price_amount entirely when it is a magnitude outlier vs. the sibling median', async () => {

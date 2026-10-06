@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import {
+  DISCOUNT_SUMMARY_LATERAL,
   computeListingDiscount,
   isListingPriceNegotiable,
   isNewCondition,
@@ -7,6 +8,7 @@ import {
   resolveSecondhandPrice,
   summarizeDiscounts,
 } from './price-rules'
+import { peerListingSql } from './clean-median'
 
 test('summarizeDiscounts groups qualifying discounts into descending decade bands', () => {
   const result = summarizeDiscounts([73, 68, 41, 22, 5, null, -10])
@@ -141,4 +143,9 @@ test('resolveSecondhandPrice falls back to the trained guess only when the model
     high: null,
     source: null,
   })
+})
+
+test('DISCOUNT_SUMMARY_LATERAL takes the product median over peer listings only, never for an excluded product', () => {
+  expect(DISCOUNT_SUMMARY_LATERAL).toContain(peerListingSql('pl'))
+  expect(DISCOUNT_SUMMARY_LATERAL).toContain('NOT p.price_lookup_excluded')
 })
