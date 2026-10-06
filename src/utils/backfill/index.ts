@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
 import { launchBrowserDriver } from '../../modules/collection/browser'
@@ -74,7 +75,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}
