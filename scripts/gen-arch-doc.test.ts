@@ -15,7 +15,7 @@ test('extracts a documented function with signature and description', () => {
     `/** Enriches one product. */\nexport function enrichProduct(id: number): Promise<void> {\n  return Promise.resolve()\n}\n`,
   )
 
-  const domains = extractArchitecture(project, '/repo/src', 'src', () => 'workers')
+  const domains = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'workers' })
 
   expect(domains).toEqual([
     {
@@ -42,23 +42,27 @@ test('flags an undocumented function with a null description', () => {
   const project = makeProject()
   project.createSourceFile('/repo/src/utils/bar.ts', `export function bar(): void {}\n`)
 
-  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'utils')
+  const [domain] = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'utils' })
 
   expect(domain.modules[0].functions[0].description).toBeNull()
 })
 
 test('records in-repo relative imports as interactions, skips package imports', () => {
   const project = makeProject()
-  project.createSourceFile('/repo/src/domains/marketplace/products.ts', `export function getProduct(): void {}\n`)
+  project.createSourceFile('/repo/src/modules/catalog/products.ts', `export function getProduct(): void {}\n`)
   project.createSourceFile(
     '/repo/src/workers/foo/index.ts',
-    `import { getProduct } from '../../domains/marketplace/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
+    `import { getProduct } from '../../modules/catalog/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
   )
 
-  const domains = extractArchitecture(project, '/repo/src', 'src', (relPath) => relPath.split('/')[0])
+  const domains = extractArchitecture(project, {
+    rootDir: '/repo/src',
+    pathPrefix: 'src',
+    domainOf: (relPath) => relPath.split('/')[0],
+  })
   const fooModule = domains.flatMap((d) => d.modules).find((m) => m.path.endsWith('foo/index.ts'))
 
-  expect(fooModule?.imports).toEqual(['../../domains/marketplace/products'])
+  expect(fooModule?.imports).toEqual(['../../modules/catalog/products'])
 })
 
 test('treats @/ specifiers as in-repo when isInRepoImport allows it', () => {
@@ -68,13 +72,12 @@ test('treats @/ specifiers as in-repo when isInRepoImport allows it', () => {
     `import { getDeals } from '@/lib/queries'\nimport { NextResponse } from 'next/server'\n\nexport function run(): void {}\n`,
   )
 
-  const domains = extractArchitecture(
-    project,
-    '/repo/dashboard/src',
-    'dashboard/src',
-    () => 'app/api',
-    (spec) => spec.startsWith('.') || spec.startsWith('@/'),
-  )
+  const domains = extractArchitecture(project, {
+    rootDir: '/repo/dashboard/src',
+    pathPrefix: 'dashboard/src',
+    domainOf: () => 'app/api',
+    isInRepoImport: (spec) => spec.startsWith('.') || spec.startsWith('@/'),
+  })
 
   expect(domains[0].modules[0].imports).toEqual(['@/lib/queries'])
 })
@@ -86,7 +89,7 @@ test('excludes class declarations from marking isClass true and captures class n
     `/** Does the thing. */\nexport class Thing {\n  run(): void {}\n}\n`,
   )
 
-  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'platform')
+  const [domain] = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'platform' })
 
   expect(domain.modules[0].functions[0]).toEqual({
     name: 'Thing',
@@ -100,7 +103,7 @@ test('skips test files entirely', () => {
   const project = makeProject()
   project.createSourceFile('/repo/src/utils/bar.test.ts', `export function shouldNotAppear(): void {}\n`)
 
-  const domains = extractArchitecture(project, '/repo/src', 'src', () => 'utils')
+  const domains = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'utils' })
 
   expect(domains).toEqual([])
 })
@@ -111,7 +114,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
     modules: [
       {
         path: 'src/workers/foo/index.ts',
-        imports: ['../../domains/marketplace/products'],
+        imports: ['../../modules/catalog/products'],
         functions: [
           { name: 'run', signature: 'run(): void', description: null, isClass: false },
           {
@@ -127,7 +130,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
 
   expect(md).toContain('# workers')
   expect(md).toContain('## src/workers/foo/index.ts')
-  expect(md).toContain('**Interactions:** imports `../../domains/marketplace/products`')
+  expect(md).toContain('**Interactions:** imports `../../modules/catalog/products`')
   expect(md).toContain('### `run(): void`')
   expect(md).toContain('_(undocumented)_')
   expect(md).toContain('### `enrichProduct(id: number): Promise<void>`')
@@ -135,7 +138,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
 })
 
 test('slugify converts a domain name to a filesystem-safe file slug', () => {
-  expect(slugify('domains/llm-clients')).toBe('domains-llm-clients')
+  expect(slugify('app/api')).toBe('app-api')
   expect(slugify('workers')).toBe('workers')
 })
 
@@ -147,15 +150,23 @@ test('inferred return types from other modules render without machine-specific a
     `import { type Result } from '../../lib/result'\nexport function run() {\n  const r: Result = { ok: true }\n  return Promise.resolve(r)\n}\n`,
   )
 
-  const [domain] = extractArchitecture(project, '/repo/src', 'src', () => 'workers')
+  const [domain] = extractArchitecture(project, { rootDir: '/repo/src', pathPrefix: 'src', domainOf: () => 'workers' })
   const signature = domain.modules.find((m) => m.path === 'src/workers/foo/index.ts')!.functions[0].signature
 
   expect(signature).toBe('run(): Promise<Result>')
 })
 
+const tmpDirs: string[] = []
+
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'gen-arch-doc-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gen-arch-doc-'))
+  tmpDirs.push(dir)
+  return dir
 }
+
+afterEach(() => {
+  for (const dir of tmpDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
+})
 
 const fooDomain = { name: 'foo', modules: [] }
 
