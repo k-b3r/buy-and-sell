@@ -469,3 +469,32 @@ test('an invalid category is logged and skipped without affecting the enrichment
   expect(categoryUpdates).toHaveLength(0)
   expect(readFileSync(LOG_PATH, 'utf-8')).toContain('[WARN]')
 })
+
+test('a null item in the results array is logged and skipped, while the well-formed item still gets upserted', async () => {
+  const groq = fakeGroq({
+    results: [
+      null,
+      {
+        id: '1',
+        description: 'Good description.',
+        value_drivers: 'Good drivers.',
+        has_trained_price_knowledge: false,
+        trained_price_low: null,
+        trained_price_high: null,
+        category: 'Other',
+        is_specific_product: true,
+        confidence: 'high',
+      },
+    ],
+  })
+  const { db, upserts } = fakeDb()
+  const logger = createLogger(LOG_PATH)
+  const candidates: EnrichmentCandidate[] = [
+    { id: 1, base_model: 'A', variant_tier: null, sibling_variants: [], category: null },
+  ]
+
+  await runProductEnrichment({ groq, db, logger }, candidates)
+
+  expect(upserts).toHaveLength(1)
+  expect(readFileSync(LOG_PATH, 'utf-8')).toContain('item (missing/invalid id): malformed fields')
+})

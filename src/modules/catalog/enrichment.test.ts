@@ -131,6 +131,10 @@ test('parseEnrichmentItem reports a malformed item with its id when the id itsel
   })
 })
 
+test('parseEnrichmentItem reports a null item as malformed instead of throwing', () => {
+  expect(parseEnrichmentItem(null, [uncategorized])).toEqual({ kind: 'malformed', idHint: '(missing/invalid id)' })
+})
+
 test('parseEnrichmentItem reports an id that matches no candidate in the batch', () => {
   expect(parseEnrichmentItem({ ...validItem, id: '999' }, [uncategorized])).toEqual({
     kind: 'unknown-candidate',

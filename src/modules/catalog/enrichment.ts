@@ -101,8 +101,8 @@ export const ENRICHMENT_RESPONSE_SCHEMA = {
   additionalProperties: false,
 } as const
 
-// One item of the model's `results` array, unvalidated.
-export interface RawEnrichmentItem {
+// Fields of one item of the model's `results` array, unvalidated.
+interface RawEnrichmentItem {
   id?: unknown
   description?: unknown
   value_drivers?: unknown
@@ -128,8 +128,10 @@ type EnrichmentItemOutcome =
 // best-effort, unlike the enrichment fields: a malformed category doesn't
 // invalidate the enrichment itself. It only ever fills a gap: a candidate
 // that already has a category (assigned at creation by product extraction)
-// keeps it as-is.
-export function parseEnrichmentItem(item: RawEnrichmentItem, batch: EnrichmentCandidate[]): EnrichmentItemOutcome {
+// keeps it as-is. Any value is accepted (the model can return null or
+// non-object entries) and reported as malformed rather than thrown.
+export function parseEnrichmentItem(raw: unknown, batch: EnrichmentCandidate[]): EnrichmentItemOutcome {
+  const item: RawEnrichmentItem = typeof raw === 'object' && raw !== null ? raw : {}
   if (
     typeof item.id !== 'string' ||
     typeof item.description !== 'string' ||

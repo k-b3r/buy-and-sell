@@ -7,8 +7,8 @@ import {
   isSubCategory,
 } from './products'
 
-// One item of the model's `results` array, unvalidated.
-export interface RawExtractionItem {
+// Fields of one item of the model's `results` array, unvalidated.
+interface RawExtractionItem {
   id?: unknown
   base_model?: unknown
   variant?: unknown
@@ -26,12 +26,21 @@ export interface ExtractedListing {
   productKey: string
 }
 
-// Validates one response item against the batch it answers. Returns null for
-// an item without a string id/base_model or whose id matches no candidate.
-export function parseExtractionItem(item: RawExtractionItem, batch: ExtractionCandidate[]): ExtractedListing | null {
-  if (typeof item.id !== 'string' || typeof item.base_model !== 'string') return null
+type ExtractionItemOutcome =
+  | { kind: 'malformed'; idHint: string }
+  | { kind: 'unknown-candidate'; id: string }
+  | { kind: 'extracted'; listing: ExtractedListing }
+
+// Validates one response item against the batch it answers. Any value is
+// accepted (the model can return null or non-object entries) and reported as
+// malformed rather than thrown, same shape as parseEnrichmentItem.
+export function parseExtractionItem(raw: unknown, batch: ExtractionCandidate[]): ExtractionItemOutcome {
+  const item: RawExtractionItem = typeof raw === 'object' && raw !== null ? raw : {}
+  if (typeof item.id !== 'string' || typeof item.base_model !== 'string') {
+    return { kind: 'malformed', idHint: typeof item.id === 'string' ? item.id : '(missing/invalid id)' }
+  }
   const candidate = batch.find((c) => c.id === item.id)
-  if (!candidate) return null
+  if (!candidate) return { kind: 'unknown-candidate', id: item.id }
 
   const variant = typeof item.variant === 'string' && item.variant.trim() !== '' ? item.variant : null
   // Canonicalize known aliases (e.g. "PS5" -> "PlayStation 5") before the
@@ -44,14 +53,17 @@ export function parseExtractionItem(item: RawExtractionItem, batch: ExtractionCa
   // remains the manual retroactive fix for whatever slips through.
   const baseModel = CANONICAL_BASE_MODEL[item.base_model] ?? item.base_model
   return {
-    candidate,
-    baseModel,
-    variant,
-    // Dashboard browsing/filtering aid only - a missing/invalid category
-    // falls back to null rather than skipping the whole item, since
-    // base_model assignment matters far more than category.
-    category: isProductCategory(item.category) ? item.category : null,
-    subCategory: isSubCategory(item.sub_category) ? item.sub_category : null,
-    productKey: `${normalizeBaseModel(baseModel)}::${variant ? normalizeVariantTier(variant) : ''}`,
+    kind: 'extracted',
+    listing: {
+      candidate,
+      baseModel,
+      variant,
+      // Dashboard browsing/filtering aid only - a missing/invalid category
+      // falls back to null rather than skipping the whole item, since
+      // base_model assignment matters far more than category.
+      category: isProductCategory(item.category) ? item.category : null,
+      subCategory: isSubCategory(item.sub_category) ? item.sub_category : null,
+      productKey: `${normalizeBaseModel(baseModel)}::${variant ? normalizeVariantTier(variant) : ''}`,
+    },
   }
 }
