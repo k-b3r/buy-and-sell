@@ -59,3 +59,262 @@ export const PRODUCT_CATEGORIES = [
   'Furniture & Home',
   'Other',
 ] as const
+
+export interface ProductSummary {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  category: string | null
+  sub_category: string | null
+  listing_count: number
+  price_min: number | null
+  price_max: number | null
+  price_avg: number | null
+  sample_photo_url: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  secondhand_price_source: string | null
+  best_discount_percent: number | null
+  discounted_listing_count: number
+  discount_bands: DiscountBand[]
+}
+
+export interface DiscountBand {
+  bandFloor: number
+  count: number
+}
+
+export interface SubCategoryTreeEntry {
+  subCategory: string
+  parentCategory: string
+}
+
+export interface ProductDetail {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  secondhand_price_source: string | null
+  best_discount_percent: number | null
+  discounted_listing_count: number
+  discount_bands: DiscountBand[]
+  enrichment: ProductEnrichment | null
+  listings: ProductListingSummary[]
+}
+
+export interface ProductEnrichment {
+  description: string
+  value_drivers: string
+  has_trained_price_knowledge: boolean
+  trained_price_low: number | null
+  trained_price_high: number | null
+  trained_price_currency: string | null
+  model: string
+  checked_at: string
+}
+
+export interface ProductListingSummary {
+  id: string
+  title: string
+  price_amount: number | null
+  primary_photo_url: string | null
+  condition: string | null
+  sold_at: string | null
+  listed_at: string | null
+  price_review: ListingPriceReview | null
+  discount_percent: number | null
+  reference_price: number | null
+  is_saved: boolean
+  // Shares its normalized title with another listing of this product
+  // (pricing's computeRepostIds over the full set, before any dashboard
+  // filtering or paging).
+  is_repost: boolean
+  // The model's own reasoning for why this exact listing cleared the
+  // verification gate (discount-verification.ts's VerificationOutcome,
+  // 'verified' case) - null for any listing that never got a verified
+  // discount_notifications row, not just an unflagged one.
+  verification_reasoning: string | null
+}
+
+export interface ListingPriceReview {
+  is_negotiable: boolean
+  price_low: number | null
+  price_high: number | null
+}
+
+export interface ProductNeedingReview {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  category: string | null
+  sub_category: string | null
+  sample_photo_url: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  price_history: ProductPriceHistoryEntry[]
+  enrichment: ProductReviewEnrichment | null
+}
+
+export interface ProductPriceHistoryEntry {
+  id: number
+  kind: 'new' | 'secondhand'
+  price_low: number | null
+  price_high: number | null
+  price_currency: string | null
+  source: string
+  condition: string | null
+  checked_at: string
+}
+
+export interface ProductReviewEnrichment {
+  description: string
+  value_drivers: string
+  has_trained_price_knowledge: boolean
+  trained_price_low: number | null
+  trained_price_high: number | null
+  trained_price_currency: string | null
+  model: string
+  checked_at: string
+  confidence: string | null
+  is_specific_product: boolean | null
+}
+
+export interface CategoryWeeklySoldCounts {
+  category: string
+  subCategory: string
+  totalSold: number
+  weeklyCounts: { weekStart: string; count: number; avgPrice: number | null }[]
+}
+
+// From src/modules/collection/index.ts
+
+export interface ListingDetail {
+  id: string
+  title: string
+  price_amount: number | null
+  price_currency: string | null
+  description: string | null
+  condition: string | null
+  location_city: string | null
+  listed_at: string | null
+  last_seen_at: string | null
+  photo_urls: string[]
+  product_id: number | null
+  base_model: string | null
+  variant_tier: string | null
+  sold_at: string | null
+  price_review: ListingPriceReview | null
+  discount_percent: number | null
+  reference_price: number | null
+  is_saved: boolean
+  verification_reasoning: string | null
+  recent_sales: ComparableListing[]
+  similar_listings: ComparableListing[]
+}
+
+export interface ComparableListing {
+  listing_id: string
+  title: string
+  price_amount: number
+  photo_url: string | null
+  date: string | null
+}
+
+export interface SavedListingSummary {
+  id: string
+  title: string
+  price_amount: number | null
+  primary_photo_url: string | null
+  condition: string | null
+  sold_at: string | null
+  product_id: number | null
+  base_model: string | null
+  variant_tier: string | null
+  saved_at: string
+}
+
+export interface CollectKeyword {
+  keyword: string
+  enabled: boolean
+}
+
+// From src/modules/pricing/index.ts
+
+export type SoldComparablePrice = ProductCleanMedian
+
+export interface ProductCleanMedian {
+  medianPrice: number
+  sampleSize: number
+}
+
+export type PeerMedianPrice = ProductCleanMedian
+
+export interface DealListing {
+  listing_id: string
+  title: string
+  ask_price: number
+  photo_url: string | null
+  product_id: number | null
+  base_model: string | null
+  variant_tier: string | null
+  category: string | null
+  sub_category: string | null
+  reference_price: number | null
+  tier: DealsConfidenceTier | null
+  // Count of comparable listings behind the winning tier - sold listings for
+  // sold_comps, active peer listings for peer_listings, null for
+  // llm_estimate (nothing to count) or no tier at all.
+  comp_count: number | null
+  profit_pesos: number | null
+  discount_percent: number | null
+  days_listed: number | null
+  is_saved: boolean
+  is_low_confidence: boolean
+}
+
+export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
+
+export interface DealsDiscountPolicyFloors {
+  minProfitPesos: number
+  minPricePesos: number
+}
+
+export interface DealsFilters {
+  search?: string
+  categories?: string[]
+  minProfitPesos?: number
+  minConfidenceTier?: DealsConfidenceTier
+  maxDaysListed?: number
+  soldOnly?: boolean
+  lowConfidenceOnly?: boolean
+  offset?: number
+  limit?: number
+}
+
+export interface DiscountNotification {
+  id: number
+  listing_id: string
+  product_id: number
+  title: string | null
+  primary_photo_url: string | null
+  discount_percent: number
+  reference_price: number
+  created_at: string
+  read_at: string | null
+  verification_reasoning: string | null
+}
+
+// From src/platform/settings.ts
+
+export interface SettingRow {
+  key: string
+  value: number
+  updatedAt: string
+}

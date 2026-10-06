@@ -3,11 +3,12 @@
 // lockfile, deployed from dashboard/ as its root), so it can't import from
 // src/ at build time without dragging the modules' SDK dependencies into its
 // typecheck; a generated copy keeps one source of truth and the dashboard
-// self-contained. Sources are read through each module's public index.
+// self-contained. Sources are read through each module's public index; the
+// local types they reference come along even when the module keeps them internal.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Node, Project } from 'ts-morph'
+import { Node, Project, SyntaxKind } from 'ts-morph'
 import prettier from 'prettier'
 
 export const DASHBOARD_SHARED_PATH = 'dashboard/src/lib/shared.generated.ts'
@@ -19,7 +20,34 @@ interface SharedSource {
 
 const SHARED_SOURCES: SharedSource[] = [
   { index: 'src/modules/real-estate/index.ts', names: ['RealEstateFilters', 'RealEstateListing'] },
-  { index: 'src/modules/catalog/index.ts', names: ['PRODUCT_CATEGORIES'] },
+  {
+    index: 'src/modules/catalog/index.ts',
+    names: [
+      'PRODUCT_CATEGORIES',
+      'ProductSummary',
+      'SubCategoryTreeEntry',
+      'ProductDetail',
+      'ProductNeedingReview',
+      'CategoryWeeklySoldCounts',
+    ],
+  },
+  { index: 'src/modules/collection/index.ts', names: ['ListingDetail', 'SavedListingSummary', 'CollectKeyword'] },
+  {
+    index: 'src/modules/pricing/index.ts',
+    names: [
+      'DiscountBand',
+      'ListingPriceReview',
+      'SoldComparablePrice',
+      'PeerMedianPrice',
+      'ComparableListing',
+      'DealListing',
+      'DealsDiscountPolicyFloors',
+      'DealsFilters',
+      'DiscountNotification',
+    ],
+  },
+  // Platform has no index; settings.ts is the settings feature's public file.
+  { index: 'src/platform/settings.ts', names: ['SettingRow'] },
 ]
 
 const HEADER = [
@@ -43,11 +71,46 @@ function declarationText(node: Node): string {
   return text.startsWith('export ') ? text : `export ${text}`
 }
 
+function declarationName(node: Node): string {
+  return Node.hasName(node) ? node.getName() : node.getText()
+}
+
+// Local interfaces/type aliases/enums a declaration's type references point at,
+// resolved through imports. Library types (Date, Record, ...) live outside the
+// project's own files and stay out.
+function referencedDeclarations(node: Node): Node[] {
+  const found: Node[] = []
+  for (const ref of node.getDescendantsOfKind(SyntaxKind.TypeReference)) {
+    let symbol = ref.getTypeName().getSymbol()
+    if (symbol?.isAlias()) symbol = symbol.getAliasedSymbol()
+    for (const decl of symbol?.getDeclarations() ?? []) {
+      const local = !decl.getSourceFile().isInNodeModules() && !decl.getSourceFile().isDeclarationFile()
+      const isType =
+        Node.isInterfaceDeclaration(decl) || Node.isTypeAliasDeclaration(decl) || Node.isEnumDeclaration(decl)
+      if (local && isType) found.push(decl)
+    }
+  }
+  return found
+}
+
 export async function renderDashboardShared(
   project: Project,
   sources: SharedSource[] = SHARED_SOURCES,
 ): Promise<string> {
   const sections: string[] = [HEADER.join('\n')]
+  const emitted = new Map<string, Node>()
+  // Depth-first so each type is followed by the ones it references (unless
+  // already emitted); the dashboard gets one self-contained file. Two distinct
+  // declarations under one name would silently shadow each other, so that fails.
+  const emit = (node: Node) => {
+    const name = declarationName(node)
+    const existing = emitted.get(name)
+    if (existing === node) return
+    if (existing) throw new Error(`two declarations named ${name} would collide in ${DASHBOARD_SHARED_PATH}`)
+    emitted.set(name, node)
+    sections.push(declarationText(node))
+    for (const dep of referencedDeclarations(node)) emit(dep)
+  }
   for (const source of sources) {
     const indexFile = project.getSourceFileOrThrow((f) => f.getFilePath().endsWith(source.index.replace(/^\/?/, '/')))
     const exported = indexFile.getExportedDeclarations()
@@ -55,7 +118,7 @@ export async function renderDashboardShared(
     for (const name of source.names) {
       const [node] = exported.get(name) ?? []
       if (!node) throw new Error(`${source.index} does not export ${name}`)
-      sections.push(declarationText(node))
+      emit(node)
     }
   }
   const options = await prettier.resolveConfig(DASHBOARD_SHARED_PATH)

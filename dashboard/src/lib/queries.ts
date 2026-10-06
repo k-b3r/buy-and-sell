@@ -15,250 +15,46 @@
 //
 // Adding a query means adding it to its module's queries.ts AND to that route's
 // REGISTRY, then adding the wrapper here. The two packages share no import
-// path: shared types come from ./shared.generated (scripts/gen-dashboard-shared.ts);
-// the rest below are still duplicated from the modules' queries.ts by hand.
+// path: the row types come from ./shared.generated (scripts/gen-dashboard-shared.ts),
+// re-exported here next to the calls that return them.
 
-import type { DiscountBand, ListingPriceReview } from './pricing'
-import type { RealEstateFilters, RealEstateListing } from './shared.generated'
+import type {
+  CategoryWeeklySoldCounts,
+  CollectKeyword,
+  DealListing,
+  DealsDiscountPolicyFloors,
+  DealsFilters,
+  DiscountNotification,
+  ListingDetail,
+  PeerMedianPrice,
+  ProductDetail,
+  ProductNeedingReview,
+  ProductSummary,
+  RealEstateFilters,
+  RealEstateListing,
+  SavedListingSummary,
+  SettingRow,
+  SoldComparablePrice,
+  SubCategoryTreeEntry,
+} from './shared.generated'
 
-export type { DiscountBand, DiscountSummary, ListingPriceReview } from './pricing'
-
-export interface ProductSummary {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  category: string | null
-  sub_category: string | null
-  listing_count: number
-  price_min: number | null
-  price_max: number | null
-  price_avg: number | null
-  sample_photo_url: string | null
-  new_price_low: number | null
-  new_price_high: number | null
-  secondhand_price_low: number | null
-  secondhand_price_high: number | null
-  secondhand_price_source: string | null
-  best_discount_percent: number | null
-  discounted_listing_count: number
-  discount_bands: DiscountBand[]
-}
-
-export interface SubCategoryTreeEntry {
-  subCategory: string
-  parentCategory: string
-}
-
-export interface ProductReviewEnrichment {
-  description: string
-  value_drivers: string
-  has_trained_price_knowledge: boolean
-  trained_price_low: number | null
-  trained_price_high: number | null
-  trained_price_currency: string | null
-  model: string
-  checked_at: string
-  confidence: string | null
-  is_specific_product: boolean | null
-}
-
-export interface ProductPriceHistoryEntry {
-  id: number
-  kind: 'new' | 'secondhand'
-  price_low: number | null
-  price_high: number | null
-  price_currency: string | null
-  source: string
-  condition: string | null
-  checked_at: string
-}
-
-export interface ProductNeedingReview {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  category: string | null
-  sub_category: string | null
-  sample_photo_url: string | null
-  new_price_low: number | null
-  new_price_high: number | null
-  secondhand_price_low: number | null
-  secondhand_price_high: number | null
-  price_history: ProductPriceHistoryEntry[]
-  enrichment: ProductReviewEnrichment | null
-}
-
-export interface ProductListingSummary {
-  id: string
-  title: string
-  price_amount: number | null
-  primary_photo_url: string | null
-  condition: string | null
-  sold_at: string | null
-  listed_at: string | null
-  price_review: ListingPriceReview | null
-  discount_percent: number | null
-  reference_price: number | null
-  is_saved: boolean
-  // Shares its normalized title with another listing of the same product
-  // (pricing's computeRepostIds, run over the full listing set).
-  is_repost: boolean
-  // The model's own reasoning for why this exact listing cleared the
-  // verification gate (discount-verification.ts's VerificationOutcome,
-  // 'verified' case) - null for any listing that never got a verified
-  // discount_notifications row, not just an unflagged one.
-  verification_reasoning: string | null
-}
-
-export interface ProductEnrichment {
-  description: string
-  value_drivers: string
-  has_trained_price_knowledge: boolean
-  trained_price_low: number | null
-  trained_price_high: number | null
-  trained_price_currency: string | null
-  model: string
-  checked_at: string
-}
-
-export interface ProductDetail {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  new_price_low: number | null
-  new_price_high: number | null
-  secondhand_price_low: number | null
-  secondhand_price_high: number | null
-  secondhand_price_source: string | null
-  best_discount_percent: number | null
-  discounted_listing_count: number
-  discount_bands: DiscountBand[]
-  enrichment: ProductEnrichment | null
-  listings: ProductListingSummary[]
-}
-
-export interface ListingDetail {
-  id: string
-  title: string
-  price_amount: number | null
-  price_currency: string | null
-  description: string | null
-  condition: string | null
-  location_city: string | null
-  listed_at: string | null
-  last_seen_at: string | null
-  photo_urls: string[]
-  product_id: number | null
-  base_model: string | null
-  variant_tier: string | null
-  sold_at: string | null
-  price_review: ListingPriceReview | null
-  discount_percent: number | null
-  reference_price: number | null
-  is_saved: boolean
-  verification_reasoning: string | null
-  recent_sales: ComparableListing[]
-  similar_listings: ComparableListing[]
-}
-
-export interface SoldComparablePrice {
-  medianPrice: number
-  sampleSize: number
-}
-
-export interface PeerMedianPrice {
-  medianPrice: number
-  sampleSize: number
-}
-
-export interface ComparableListing {
-  listing_id: string
-  title: string
-  price_amount: number
-  photo_url: string | null
-  date: string | null
-}
-
-export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
-
-export interface DealListing {
-  listing_id: string
-  title: string
-  ask_price: number
-  photo_url: string | null
-  product_id: number | null
-  base_model: string | null
-  variant_tier: string | null
-  category: string | null
-  sub_category: string | null
-  reference_price: number | null
-  tier: DealsConfidenceTier | null
-  // Count of comparable listings behind the winning tier - sold listings for
-  // sold_comps, active peer listings for peer_listings, null for
-  // llm_estimate (nothing to count) or no tier at all.
-  comp_count: number | null
-  profit_pesos: number | null
-  discount_percent: number | null
-  days_listed: number | null
-  is_saved: boolean
-  is_low_confidence: boolean
-}
-
-export interface DealsDiscountPolicyFloors {
-  minProfitPesos: number
-  minPricePesos: number
-}
-
-export interface DealsFilters {
-  search?: string
-  categories?: string[]
-  minProfitPesos?: number
-  minConfidenceTier?: DealsConfidenceTier
-  maxDaysListed?: number
-  soldOnly?: boolean
-  lowConfidenceOnly?: boolean
-  offset?: number
-  limit?: number
-}
-
-export interface SavedListingSummary {
-  id: string
-  title: string
-  price_amount: number | null
-  primary_photo_url: string | null
-  condition: string | null
-  sold_at: string | null
-  product_id: number | null
-  base_model: string | null
-  variant_tier: string | null
-  saved_at: string
-}
-
-export interface CategoryWeeklySoldCounts {
-  category: string
-  subCategory: string
-  totalSold: number
-  weeklyCounts: { weekStart: string; count: number; avgPrice: number | null }[]
-}
-
-export interface DiscountNotification {
-  id: number
-  listing_id: string
-  product_id: number
-  title: string | null
-  primary_photo_url: string | null
-  discount_percent: number
-  reference_price: number
-  created_at: string
-  read_at: string | null
-  verification_reasoning: string | null
-}
-
-export interface SettingRow {
-  key: string
-  value: number
-  updatedAt: string
-}
+export type {
+  CategoryWeeklySoldCounts,
+  CollectKeyword,
+  ComparableListing,
+  DealListing,
+  DealsConfidenceTier,
+  DiscountNotification,
+  ListingDetail,
+  ProductDetail,
+  ProductListingSummary,
+  ProductNeedingReview,
+  ProductPriceHistoryEntry,
+  ProductReviewEnrichment,
+  ProductSummary,
+  SavedListingSummary,
+  SubCategoryTreeEntry,
+} from './shared.generated'
 
 // One round trip per call. Most page loads never reach here - lib/
 // cachedQueries.ts wraps the read paths in unstable_cache with a 300s TTL
@@ -332,15 +128,6 @@ export function getPeerMedianPrice(productId: number): Promise<PeerMedianPrice |
   return rpc('getPeerMedianPrice', [productId])
 }
 
-export function getComparableListings(query: {
-  productId: number
-  excludeListingId: string
-  sold: boolean
-  limit?: number
-}): Promise<ComparableListing[]> {
-  return rpc('getComparableListings', [query])
-}
-
 export function getDeals(
   discountPolicy: DealsDiscountPolicyFloors,
   filters: DealsFilters = {},
@@ -386,11 +173,6 @@ export function getAllSettings(): Promise<SettingRow[]> {
 
 export function updateSettings(updates: { key: string; value: number }[]): Promise<void> {
   return rpc('updateSettings', [updates])
-}
-
-export interface CollectKeyword {
-  keyword: string
-  enabled: boolean
 }
 
 export function getCollectKeywords(): Promise<CollectKeyword[]> {

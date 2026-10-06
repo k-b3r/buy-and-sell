@@ -51,7 +51,7 @@ export interface DiscountCheckListing {
   priceAmount: number | null
 }
 
-export interface DiscountNotification {
+export interface NewDiscountNotification {
   listingId: string
   productId: number
   discountPercent: number
@@ -80,7 +80,7 @@ export async function decideListingDiscount(
   listing: DiscountCheckListing,
   pricing: { retail: PriceRange | null; secondhand: PriceRange | null },
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
-): Promise<DiscountNotification | null> {
+): Promise<NewDiscountNotification | null> {
   const { priceAmount, productId } = listing
   if (priceAmount === null || isJunkPrice(priceAmount)) return null
   if (priceAmount < thresholds.minPricePesos) return null
@@ -107,7 +107,10 @@ export async function decideListingDiscount(
 // One multi-row statement, so a batch's notifications land all or nothing.
 // ON CONFLICT (listing_id) DO NOTHING enforces "at most one notification per
 // listing ever", so re-inserting a decided notification is a no-op.
-export async function insertDiscountNotifications(db: DbClient, notifications: DiscountNotification[]): Promise<void> {
+export async function insertDiscountNotifications(
+  db: DbClient,
+  notifications: NewDiscountNotification[],
+): Promise<void> {
   if (notifications.length === 0) return
 
   const valuesSql = notifications

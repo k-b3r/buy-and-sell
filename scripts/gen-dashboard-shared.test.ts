@@ -23,6 +23,40 @@ test('renderDashboardShared copies the named exports from a module index, follow
   expect(out).not.toContain('internal note')
 })
 
+test('renderDashboardShared also copies the types a requested type references, even unexported ones, once each', async () => {
+  const project = projectWith({
+    '/m/index.ts': "export type { Row, Other } from './rows'\n",
+    '/m/rows.ts':
+      "import type { Band } from './bands'\n" +
+      'interface Inner {\n  band: Band\n}\n' +
+      'type Tier = "a" | "b"\n' +
+      'export interface Row {\n  inner: Inner\n  tier: Tier | null\n  when: Date\n}\n' +
+      'export interface Other {\n  bands: Band[]\n}\n',
+    '/m/bands.ts': 'export interface Band {\n  floor: number\n}\n',
+  })
+
+  const out = await renderDashboardShared(project, [{ index: '/m/index.ts', names: ['Row', 'Other'] }])
+
+  expect(out).toContain('export interface Inner {')
+  expect(out).toContain("export type Tier = 'a' | 'b'")
+  expect(out.match(/export interface Band \{/g)).toHaveLength(1)
+  expect(out).not.toContain('interface Date')
+})
+
+test('renderDashboardShared fails when two different declarations would share one name', async () => {
+  const project = projectWith({
+    '/a/index.ts': 'export interface Thing {\n  a: string\n}\n',
+    '/b/index.ts': 'export interface Thing {\n  b: string\n}\n',
+  })
+
+  await expect(
+    renderDashboardShared(project, [
+      { index: '/a/index.ts', names: ['Thing'] },
+      { index: '/b/index.ts', names: ['Thing'] },
+    ]),
+  ).rejects.toThrow(/Thing/)
+})
+
 test('renderDashboardShared fails when a module index does not export a requested name', async () => {
   const project = projectWith({ '/m/index.ts': 'export const OTHER = 1\n' })
 
