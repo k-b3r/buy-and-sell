@@ -62,6 +62,8 @@ _(undocumented)_
 
 ## dashboard/src/lib/pricing.ts
 
+**Interactions:** imports `./shared.generated`
+
 ### `isPlaceholderPrice(price: number): boolean`
 
 _(undocumented)_
@@ -72,7 +74,7 @@ _(undocumented)_
 
 ## dashboard/src/lib/queries.ts
 
-**Interactions:** imports `./pricing`, `./shared.generated`
+**Interactions:** imports `./shared.generated`
 
 ### `getProductSummaries(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
 
@@ -111,10 +113,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getPeerMedianPrice(productId: number): Promise<PeerMedianPrice | null>`
-
-_(undocumented)_
-
-### `getComparableListings(query: { productId: number excludeListingId: string sold: boolean limit?: number }): Promise<ComparableListing[]>`
 
 _(undocumented)_
 

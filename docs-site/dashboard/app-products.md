@@ -78,7 +78,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/ListingsToolbar.tsx
 
-**Interactions:** imports `./listingsFilters`, `@/lib/pricing`
+**Interactions:** imports `./listingsFilters`, `@/lib/shared.generated`
 
 ### `DiscountBandFilter({ discountBands, selectedBand, onToggleBand, }: { discountBands: DiscountBand[] selectedBand: number | null onToggleBand: (bandFloor: number) => void }): React.JSX.Element | null`
 
@@ -90,7 +90,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/ListingsView.tsx
 
-**Interactions:** imports `../../Skeleton`, `../../listings/[id]/cycle`, `./ListingsGrid`, `./ListingsTable`, `./ListingsToolbar`, `./listingsFilters`, `./useListingsPages`, `@/lib/pricing`
+**Interactions:** imports `../../Skeleton`, `../../listings/[id]/cycle`, `./ListingsGrid`, `./ListingsTable`, `./ListingsToolbar`, `./listingsFilters`, `./useListingsPages`, `@/lib/shared.generated`
 
 ### `default({ initialListings, initialNextOffset, initialMatchedCount, initialAllIds, totalListingCount, discountBands, productId, initialFilters, }: { initialListings: PaginatedListingSummary[] initialNextOffset: number | null initialMatchedCount: number initialAllIds: string[] totalListingCount: number discountBands: DiscountBand[] productId: number initialFilters?: ListingsFilters }): React.JSX.Element`
 

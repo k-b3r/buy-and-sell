@@ -20,10 +20,6 @@ export interface SettingsCategory {
   subgroups: SettingsSubgroup[]
 }
 
-export interface SettingRow {
-  key: string
-  value: number
-  updatedAt: string
-}
+export type { SettingRow } from '@/lib/shared.generated'
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error'

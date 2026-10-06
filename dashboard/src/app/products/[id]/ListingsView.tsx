@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import type { DiscountBand } from '@/lib/pricing'
+import type { DiscountBand } from '@/lib/shared.generated'
 import { getActiveListingId } from '../../listings/[id]/cycle'
 import { Spinner } from '../../Skeleton'
 import ListingsGrid from './ListingsGrid'
