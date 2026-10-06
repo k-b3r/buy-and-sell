@@ -15,7 +15,7 @@ const modules = readdirSync(path.join(__dirname, 'src/modules'), { withFileTypes
 module.exports = {
   forbidden: [
     ...baseRules({
-      publicApis: ['src/domains/llm-clients', ...modules],
+      publicApis: ['src/platform/llm-clients', ...modules],
       heavyDeps: [
         // Only collection/browser.ts launches a browser; everything else imports it from there.
         { packages: ['playwright', 'playwright-core'], owner: 'src/modules/collection/browser.ts' },
@@ -25,10 +25,10 @@ module.exports = {
         { packages: ['pg'], owner: 'src/platform/storage.ts' },
         // LLM SDKs: the llm-clients index and the modules importing it stay SDK-free;
         // workers import the SDK-backed constructors from these files by path.
-        { packages: ['groq-sdk'], owner: 'src/domains/llm-clients/groq-sdk.ts' },
-        { packages: ['@google/genai'], owner: 'src/domains/llm-clients/gemini-sdk.ts' },
+        { packages: ['groq-sdk'], owner: 'src/platform/llm-clients/groq-sdk.ts' },
+        { packages: ['@google/genai'], owner: 'src/platform/llm-clients/gemini-sdk.ts' },
       ],
-      inner: ['src/domains', 'src/modules', 'src/platform'],
+      inner: ['src/modules', 'src/platform'],
       entryPoints: ['src/workers', 'src/utils', 'server'],
     }),
   ],

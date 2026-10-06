@@ -1,6 +1,6 @@
 import { verifyDiscountCandidate, precheckDiscountCandidate, buildPriceQuery } from './discount-verification'
 import type { DiscountVerificationCandidate } from './discount-notifications'
-import type { TavilyClient, ExaClient, GeminiClient, OpenRouterClient } from '../../domains/llm-clients'
+import type { TavilyClient, ExaClient, GeminiClient, OpenRouterClient } from '../../platform/llm-clients'
 
 function candidate(overrides: Partial<DiscountVerificationCandidate> = {}): DiscountVerificationCandidate {
   return {
