@@ -1,9 +1,10 @@
 // Pure pricing/display predicates - no database access, no network.
 //
-// DUPLICATED, BY NECESSITY, from src/modules/pricing/price-rules.ts and clean-median.ts. These same functions run
-// server-side inside the SQL-backed queries there, and client-side here (
-// ListingsView, ListingDetailContent and listingsFilters all filter/badge
-// already-fetched rows in the browser, so they cannot be an RPC call). The
+// DUPLICATED, BY NECESSITY, from src/modules/pricing/price-rules.ts and
+// clean-median.ts: only the predicates the browser needs (listingsFilters,
+// ListingsGrid/Table and ListingPriceSummary badge already-fetched rows, so
+// they cannot be an RPC call). Every other pricing rule (medians, outliers,
+// discounts) is server-only; the dashboard gets their results over RPC. The
 // two packages have no shared import path - same hand-sync constraint as the
 // WORKERS list in app/admin/logs/page.tsx.
 //
@@ -27,28 +28,6 @@ export interface ListingPriceReview {
   price_high: number | null
 }
 
-function toNullableNumber(value: unknown): number | null {
-  return value === null || value === undefined ? null : Number(value)
-}
-
-// Single-digit discounts (1-9%) aren't a real deal signal worth surfacing -
-// floor is 10%, per direct instruction (2026-08-23). Bands are decade-wide
-// (10-19%, 20-29%, ...), only non-empty bands included, descending order -
-// the actual spread of what a product has, not a fixed pre-declared list.
-export function summarizeDiscounts(discountPercents: (number | null)[]): DiscountSummary {
-  const qualifying = discountPercents.filter((d): d is number => d !== null && d >= 10)
-  if (qualifying.length === 0) return { bestDiscountPercent: null, discountedListingCount: 0, bands: [] }
-
-  const counts = new Map<number, number>()
-  for (const d of qualifying) {
-    const bandFloor = Math.floor(d / 10) * 10
-    counts.set(bandFloor, (counts.get(bandFloor) ?? 0) + 1)
-  }
-  const bands = [...counts.entries()].sort((a, b) => b[0] - a[0]).map(([bandFloor, count]) => ({ bandFloor, count }))
-
-  return { bestDiscountPercent: Math.max(...qualifying), discountedListingCount: qualifying.length, bands }
-}
-
 // Ascending-sequential digit runs anywhere in the price (123, 12345, but also
 // embedded runs like the 456 inside 12456 - confirmed live 2026-08-23 against
 // a real ₱12,456 listing that the old start-only-at-1 prefix check missed),
@@ -63,48 +42,6 @@ export function isPlaceholderPrice(price: number): boolean {
   if (digits.length < 3) return false
   if (/^(\d+)\1+$/.test(digits)) return true
   return ASCENDING_RUN_RE.test(digits)
-}
-
-// >10x or <0.1x the raw median - the same pre-filter that makes a listing an
-// enrich-listing-prices candidate, independent of whether that worker has
-// reviewed it yet.
-const MAGNITUDE_OUTLIER_RATIO = 10
-
-export function isMagnitudeOutlier(price: number, rawMedianPrice: number | null): boolean {
-  if (rawMedianPrice === null || rawMedianPrice <= 0) return false
-  return price < rawMedianPrice / MAGNITUDE_OUTLIER_RATIO || price > rawMedianPrice * MAGNITUDE_OUTLIER_RATIO
-}
-
-// Magnitude outlier OR a placeholder digit pattern, independent of magnitude
-// (e.g. "123"/"999" can sit well within 10x of a real median and still not be
-// a real ask). Either condition means the price gets hidden entirely, not
-// just excluded from discount scoring.
-export function isPriceInvalidated(price: number, rawMedianPrice: number | null): boolean {
-  return isMagnitudeOutlier(price, rawMedianPrice) || isPlaceholderPrice(price)
-}
-
-// rawMedianPrice decides whether THIS listing is an outlier; cleanMedianPrice
-// (computed with outliers already excluded) is the actual reference used for
-// the percentage, so the reference isn't itself skewed by the outliers it's
-// meant to be filtering out.
-export function computeListingDiscount(
-  priceAmount: unknown,
-  rawMedianPrice: unknown,
-  cleanMedianPrice: unknown,
-  sampleSize: unknown,
-): { discountPercent: number | null; referencePrice: number | null } {
-  const price = toNullableNumber(priceAmount)
-  const n = toNullableNumber(sampleSize)
-  const rawMedian = toNullableNumber(rawMedianPrice)
-  const cleanMedian = toNullableNumber(cleanMedianPrice)
-  const NONE = { discountPercent: null, referencePrice: null }
-
-  if (price === null || n === null || n < 2) return NONE
-  if (rawMedian === null || rawMedian <= 0 || cleanMedian === null || cleanMedian <= 0) return NONE
-  if (isMagnitudeOutlier(price, rawMedian)) return NONE
-  if (isPlaceholderPrice(price)) return NONE
-
-  return { discountPercent: Math.round(((cleanMedian - price) / cleanMedian) * 100), referencePrice: cleanMedian }
 }
 
 // Three independent sources of "don't trust this as a firm price": the LLM
