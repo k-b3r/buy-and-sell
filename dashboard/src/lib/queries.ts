@@ -303,11 +303,9 @@ export function getProductsNeedingReview(): Promise<ProductNeedingReview[]> {
 
 export function setManualPrice(
   productId: number,
-  kind: 'new' | 'secondhand',
-  priceLow: number,
-  priceHigh: number,
+  price: { kind: 'new' | 'secondhand'; priceLow: number; priceHigh: number },
 ): Promise<void> {
-  return rpc('setManualPrice', [productId, kind, priceLow, priceHigh])
+  return rpc('setManualPrice', [productId, price])
 }
 
 export function markProductReviewed(productId: number): Promise<void> {
@@ -334,16 +332,13 @@ export function getPeerMedianPrice(productId: number): Promise<PeerMedianPrice |
   return rpc('getPeerMedianPrice', [productId])
 }
 
-export function getComparableListings(
-  productId: number,
-  excludeListingId: string,
-  sold: boolean,
-  limit?: number,
-): Promise<ComparableListing[]> {
-  return rpc(
-    'getComparableListings',
-    limit === undefined ? [productId, excludeListingId, sold] : [productId, excludeListingId, sold, limit],
-  )
+export function getComparableListings(query: {
+  productId: number
+  excludeListingId: string
+  sold: boolean
+  limit?: number
+}): Promise<ComparableListing[]> {
+  return rpc('getComparableListings', [query])
 }
 
 export function getDeals(

@@ -7,13 +7,30 @@ import { medianCtes, notMagnitudeOutlierSql, peerListingSql } from './clean-medi
 // just until the next automated run. Append-only like every other
 // product_price_history writer; doesn't touch price_lookup_review_status
 // itself (the API route pairs this with markProductReviewed).
-export async function setManualPrice(
-  db: QueryClient,
-  productId: number,
-  kind: 'new' | 'secondhand',
-  priceLow: number,
-  priceHigh: number,
-): Promise<void> {
+interface ManualPrice {
+  kind: 'new' | 'secondhand'
+  priceLow: number
+  priceHigh: number
+}
+
+// price arrives over the dashboard RPC as untrusted JSON. Checked here so a
+// dashboard still sending the old positional args (kind, low, high) during a
+// deploy fails loudly instead of inserting a null-priced manual row.
+function isManualPrice(price: unknown): price is ManualPrice {
+  if (typeof price !== 'object' || price === null) return false
+  const { kind, priceLow, priceHigh } = price as Record<string, unknown>
+  return (
+    (kind === 'new' || kind === 'secondhand') &&
+    typeof priceLow === 'number' &&
+    Number.isFinite(priceLow) &&
+    typeof priceHigh === 'number' &&
+    Number.isFinite(priceHigh)
+  )
+}
+
+export async function setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void> {
+  if (!isManualPrice(price)) throw new Error('setManualPrice: expected { kind, priceLow, priceHigh }')
+  const { kind, priceLow, priceHigh } = price
   const source = kind === 'new' ? 'manual_new_retail' : 'manual_secondhand'
   await db.query(
     `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, source)
@@ -103,12 +120,16 @@ const COMPARABLE_LISTINGS_DEFAULT_LIMIT = 6
 // evidence panel - the actual rows behind getSoldComparablePrice/
 // getPeerMedianPrice's clean median, not just the aggregate number. Empty
 // below MIN_PEER_SAMPLE comparables (no median, nothing to show as evidence).
+interface ComparableListingsQuery {
+  productId: number
+  excludeListingId: string
+  sold: boolean
+  limit?: number
+}
+
 export async function getComparableListings(
   db: QueryClient,
-  productId: number,
-  excludeListingId: string,
-  sold: boolean,
-  limit: number = COMPARABLE_LISTINGS_DEFAULT_LIMIT,
+  { productId, excludeListingId, sold, limit = COMPARABLE_LISTINGS_DEFAULT_LIMIT }: ComparableListingsQuery,
 ): Promise<ComparableListing[]> {
   const scopeClause = SCOPE_SQL[sold ? 'sold' : 'peer']
   const dateColumn = sold ? 'pl.sold_at' : 'pl.listed_at'
