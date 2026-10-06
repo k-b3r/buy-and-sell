@@ -328,7 +328,9 @@ test('refreshListingFields re-fetches and re-uploads photos when the seller swap
 
   await refreshListingFields({ db, photos: photosOver(store), logger: fakeLogger() }, ['photo-a', 'photo-b'], listing)
 
-  expect(store.deletedPrefixes).toEqual(['listings/12345/'])
+  // Overwrites the deterministic keys in place rather than wiping the
+  // prefix first, so the old photos never vanish before new ones exist.
+  expect(store.deletedPrefixes).toEqual([])
   expect(store.puts).toEqual([{ key: 'listings/12345/0.jpg' }, { key: 'listings/12345/1.jpg' }])
   expect(calls[0].sql).toContain('primary_photo_url')
   expect(calls[0].sql).toContain('stored_photo_urls')
@@ -344,7 +346,7 @@ test('refreshListingFields re-fetches and re-uploads photos when the seller swap
   expect(JSON.parse(sourcePhotoIds as string)).toEqual(['photo-c', 'photo-d'])
 })
 
-test('refreshListingFields keeps the existing photos when a detected change fails to re-fetch entirely', async () => {
+test('refreshListingFields keeps the existing photos stored and referenced when a detected change fails to re-fetch entirely', async () => {
   const { db, calls } = mockDb()
   const store = fakeImageStore()
   const logger = fakeLogger()
@@ -360,7 +362,7 @@ test('refreshListingFields keeps the existing photos when a detected change fail
     listing,
   )
 
-  expect(store.deletedPrefixes).toEqual(['listings/12345/'])
+  expect(store.deletedPrefixes).toEqual([])
   expect(store.puts).toEqual([])
   expect(calls[0].sql).not.toContain('primary_photo_url')
   expect(calls[0].sql).not.toContain('stored_photo_urls')

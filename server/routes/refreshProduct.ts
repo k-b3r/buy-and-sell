@@ -52,8 +52,13 @@ export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHand
     // Detached on purpose - see the function doc comment above. Errors are
     // logged, not thrown, since nothing is awaiting this promise.
     void (async () => {
-      const { driver, close } = await driverFactory(tunnel.proxy)
+      // Launch inside the try: a browser that fails to start must still
+      // release the lock and end the job, or both stay stuck until restart.
+      let close: (() => Promise<void>) | undefined
       try {
+        const launched = await driverFactory(tunnel.proxy)
+        close = launched.close
+        const { driver } = launched
         // Same human-paced gap as the CLI's batch loop (src/workers/check-listings.ts's
         // runCheckListings) - this hits live Facebook, so a dashboard-triggered bulk
         // job gets no less pacing than the scheduled one does. Loaded once per job
@@ -87,7 +92,7 @@ export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHand
         jobs.finish('completed')
       } catch (err) {
         logger.error(`bulk refresh for product ${productId} failed: ${err}`)
-        jobs.finish('completed')
+        jobs.finish('failed')
       } finally {
         // Release before closing, not after - a new request needs the lock
         // free to launch its own separate browser; it doesn't need to wait
@@ -97,7 +102,7 @@ export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHand
         // recent action and skip its own pacing gap entirely.
         lock.release()
         pacer.recordActionComplete()
-        await close()
+        await close?.()
       }
     })()
 

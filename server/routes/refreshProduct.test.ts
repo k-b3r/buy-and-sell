@@ -285,3 +285,62 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
   expect(jobs.current()).toEqual({ productId: 42, total: 2, completed: 1, status: 'completed' })
   expect(lock.isBusy()).toBe(false)
 })
+
+test('a browser launch that throws releases the lock and marks the job failed, not stuck running', async () => {
+  const logger = createLogger(LOG_PATH)
+  const lock = createRefreshLock()
+  const jobs = createJobStore()
+  let rejectLaunch: (err: Error) => void = () => {}
+  const launch = new Promise<never>((_, reject) => {
+    rejectLaunch = reject
+  })
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    lock,
+    jobs,
+    pacer: createRefreshPacer(lock),
+    driverFactory: () => launch,
+    tunnelCheck: okTunnel,
+  })
+
+  const res = await handle({ productId: 42 })
+  expect(res.statusCode).toBe(200)
+  expect(lock.isBusy()).toBe(true)
+
+  rejectLaunch(new Error('chromium failed to launch'))
+  await vi.waitFor(() => expect(lock.isBusy()).toBe(false))
+
+  expect(jobs.current()).toEqual({ productId: 42, total: 2, completed: 0, status: 'failed' })
+})
+
+test('an error mid-loop marks the job failed and still releases the lock', async () => {
+  const logger = createLogger(LOG_PATH)
+  const driver = makeDriver({
+    openListing: async () => {
+      throw new Error('navigation crashed')
+    },
+  })
+  const { factory, closed } = driverFactory(driver)
+  const lock = createRefreshLock()
+  const jobs = createJobStore()
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    lock,
+    jobs,
+    pacer: createRefreshPacer(lock),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+  })
+
+  await handle({ productId: 42 })
+  await closed
+
+  expect(jobs.current()?.status).toBe('failed')
+  expect(lock.isBusy()).toBe(false)
+})
