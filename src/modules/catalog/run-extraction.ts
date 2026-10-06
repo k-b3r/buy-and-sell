@@ -5,7 +5,7 @@ import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import type {
-  DiscountNotification,
+  NewDiscountNotification,
   DiscountPolicyThresholds,
   PriceLookupClients,
   ProductPricingResult,
@@ -183,7 +183,7 @@ async function decideDiscount(
   run: ExtractionRun,
   productId: number,
   listing: ExtractedListing,
-): Promise<DiscountNotification | null> {
+): Promise<NewDiscountNotification | null> {
   let pricing = run.pricing.get(productId)
   if (pricing === undefined) {
     pricing = await ensureProductPricing(run, productId, listing)
@@ -211,7 +211,7 @@ async function assignBatch(
   items: unknown[],
 ): Promise<{ assigned: number; skipped: number }> {
   const assigned: { listing: ExtractedListing; productId: number }[] = []
-  const notifications: DiscountNotification[] = []
+  const notifications: NewDiscountNotification[] = []
   let skipped = 0
 
   for (const item of items) {

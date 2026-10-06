@@ -39,7 +39,7 @@ export {
   setManualPrice,
 } from './queries'
 export type {
-  DiscountNotification,
+  NewDiscountNotification,
   DiscountPolicyThresholds,
   DiscountVerificationCandidate,
 } from './discount-notifications'
