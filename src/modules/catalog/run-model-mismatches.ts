@@ -51,6 +51,7 @@ export async function reassignModelMismatches(
     const plan = planMismatchReassignment(row)
     if (plan.kind === 'consistent') continue
     if (plan.kind === 'multiple') {
+      log(`skip listing ${row.listing_id}: several model prefixes mismatch, can't pick a single target base_model`)
       skipped++
       continue
     }
@@ -72,6 +73,9 @@ export async function reassignModelMismatches(
       continue
     }
     if (targetProductId === row.product_id) {
+      log(
+        `skip listing ${row.listing_id}: derived target "${targetBaseModel}" is already its product ${targetProductId}`,
+      )
       skipped++
       continue
     }

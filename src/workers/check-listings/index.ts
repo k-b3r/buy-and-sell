@@ -11,17 +11,15 @@ import {
   resolveProxy,
   runCheckListings,
 } from '../../modules/collection'
-import { createR2ImageStore, defaultCompressImage, defaultFetchBytes } from '../../platform/images'
+import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 
 async function main() {
   loadEnvFile()
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — check-listings requires Postgres')
 
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = process.env
-  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_BASE_URL) {
-    throw new Error('R2 not fully configured in .env — check-listings needs to be able to delete photos')
-  }
+  const photoIo = r2PhotoIoFromEnv(process.env)
+  if (!photoIo) throw new Error('R2 not fully configured in .env — check-listings needs to be able to delete photos')
 
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const limitArg = args[0]
@@ -49,18 +47,7 @@ async function main() {
     ],
     loopDelayKey: 'check_listings.loop_delay_ms',
     setup: async ({ logger, db }) => {
-      const photos = createListingPhotos({
-        store: createR2ImageStore({
-          accountId: R2_ACCOUNT_ID,
-          accessKeyId: R2_ACCESS_KEY_ID,
-          secretAccessKey: R2_SECRET_KEY,
-          bucket: R2_BUCKET_NAME,
-          publicBaseUrl: R2_PUBLIC_BASE_URL,
-        }),
-        fetchBytes: defaultFetchBytes,
-        compress: defaultCompressImage,
-        logger,
-      })
+      const photos = createListingPhotos({ ...photoIo, logger })
 
       // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
       // local run already on a residential IP, no egress check needed. Either
