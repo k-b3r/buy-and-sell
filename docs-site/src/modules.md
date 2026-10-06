@@ -24,7 +24,7 @@ _(undocumented)_
 
 ## src/modules/catalog/index.ts
 
-### `mergeDuplicateProducts(db: DbClient, canonicalMap: Record<string, string> = CANONICAL_BASE_MODEL): Promise<{ renamed: number; merged: number }>`
+### `mergeDuplicateProducts(db: DbClient, { canonicalMap = CANONICAL_BASE_MODEL, dryRun = false, }: { canonicalMap?: Record<string, string>; dryRun?: boolean } = {}): Promise<{ renamed: number; merged: number }>`
 
 _(undocumented)_
 
@@ -106,7 +106,7 @@ _(undocumented)_
 
 **Interactions:** imports `../../platform/storage`, `./product-storage`, `./products`
 
-### `mergeDuplicateProducts(db: DbClient, canonicalMap: Record<string, string> = CANONICAL_BASE_MODEL): Promise<{ renamed: number; merged: number }>`
+### `mergeDuplicateProducts(db: DbClient, { canonicalMap = CANONICAL_BASE_MODEL, dryRun = false, }: { canonicalMap?: Record<string, string>; dryRun?: boolean } = {}): Promise<{ renamed: number; merged: number }>`
 
 _(undocumented)_
 
