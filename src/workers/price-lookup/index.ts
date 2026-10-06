@@ -1,5 +1,4 @@
 import { fileURLToPath } from 'node:url'
-import type { Logger } from '../../platform/logger'
 import {
   createQuotaAwareGeminiClient,
   createExaClient,
@@ -8,42 +7,12 @@ import {
   createTavilyClient,
 } from '../../domains/llm-clients'
 import { createGeminiClient } from '../../domains/llm-clients/gemini-sdk'
-import type { DbClient } from '../../platform/storage'
-import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import type { PriceLookupCandidate, PriceLookupClients } from '../../modules/pricing'
-import { ensureProductPriced } from '../../modules/pricing'
-import { getPriceLookupCandidates } from '../../modules/pricing'
-
-export type { PriceLookupClients } from '../../modules/pricing'
-
-// Each product is independent - a failure on one doesn't stop the lap.
-// All the actual provider-chain/exclusion logic lives in
-// ensureProductPriced (modules/pricing/price-lookup.ts), shared with
-// extract-products.ts's inline per-listing trigger - this loop is just the
-// backfill pass over whatever getPriceLookupCandidates still finds
-// unpriced (extraction's own inline attempt is now the primary path for
-// brand-new products; this worker mainly catches anything that slipped
-// through - a failed inline attempt, a listing extracted before this
-// worker existed, etc).
-export async function runPriceLookup(
-  clients: PriceLookupClients,
-  db: DbClient,
-  logger: Logger,
-  products: PriceLookupCandidate[],
-  delay: DelayFn = realDelay,
-  pacingDelayMs = 1000,
-): Promise<void> {
-  logger.info(`${products.length} products to check for retail/secondhand price`)
-
-  for (let i = 0; i < products.length; i++) {
-    if (i > 0) await delay(pacingDelayMs)
-    await ensureProductPriced({ clients, db, logger }, products[i])
-  }
-}
+import type { PriceLookupClients } from '../../modules/pricing'
+import { getPriceLookupCandidates, runPriceLookup } from '../../modules/pricing'
 
 async function main() {
   loadEnvFile()
@@ -101,7 +70,12 @@ async function main() {
         logger.info(`${pending.length} pending price lookup, processing ${products.length} this lap`)
         return {
           dryRun: `would call Gemini/Exa/Tavily for retail/secondhand price-lookup on ${products.length} products this lap`,
-          run: () => runPriceLookup(clients, db, logger, products, realDelay, settings['price_lookup.pacing_delay_ms']),
+          run: () =>
+            runPriceLookup(
+              { clients, db, logger, delay: realDelay },
+              products,
+              settings['price_lookup.pacing_delay_ms'],
+            ),
         }
       }
     },
