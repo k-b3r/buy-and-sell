@@ -1,5 +1,6 @@
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
+import { isQuotaError } from '../../domains/llm-clients'
 import type { PriceLookupCandidate, PriceLookupDeps } from './price-lookup'
 import { ensureProductPriced } from './price-lookup'
 
@@ -9,7 +10,9 @@ export interface PriceLookupRunDeps extends PriceLookupDeps {
   delay?: DelayFn
 }
 
-// Each product is independent - a failure on one doesn't stop the lap.
+// Each product is independent - a failure on one is logged and skipped (it
+// stays unpriced, so it's a candidate again next lap); only a quota error
+// unwinds the whole lap.
 // All the actual provider-chain/exclusion logic lives in
 // ensureProductPriced (price-lookup.ts), shared with catalog extraction's
 // inline per-listing trigger - this loop is just the backfill pass over
@@ -27,6 +30,14 @@ export async function runPriceLookup(
 
   for (let i = 0; i < products.length; i++) {
     if (i > 0) await delay(pacingDelayMs)
-    await ensureProductPriced({ clients, db, logger }, products[i])
+    const product = products[i]
+    try {
+      await ensureProductPriced({ clients, db, logger }, product)
+    } catch (err) {
+      // Fatal-vs-transient rule from llm-clients' error-classification.ts.
+      if (isQuotaError(err)) throw err
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error(`product ${product.id} (${product.base_model}): unexpected error (${message}), skipping this lap`)
+    }
   }
 }
