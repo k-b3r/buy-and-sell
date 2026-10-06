@@ -146,8 +146,9 @@ test('processes multiple alias rows sharing the same canonical target independen
 
 test('mergeDuplicateProducts renames a product with no collision at the canonical name', async () => {
   const { db, calls } = scriptedDb((sql) => {
-    if (sql.startsWith('SELECT id, variant_tier')) return { rows: [{ id: 1698, variant_tier: null }] }
-    if (sql.startsWith('SELECT id FROM products WHERE base_model = $1')) return { rows: [] } // no collision
+    if (sql.startsWith('SELECT id, variant_tier_normalized'))
+      return { rows: [{ id: 1698, variant_tier_normalized: null }] }
+    if (sql === FIND_SQL) return { rows: [] } // no collision
     return { rows: [] }
   })
 
@@ -158,10 +159,24 @@ test('mergeDuplicateProducts renames a product with no collision at the canonica
   expect(updateCall?.params).toEqual(['PlayStation 4', 'playstation 4', 1698])
 })
 
+test('mergeDuplicateProducts looks up the canonical row by normalized base model and the alias row normalized variant', async () => {
+  const { db, calls } = scriptedDb((sql) => {
+    if (sql.startsWith('SELECT id, variant_tier_normalized'))
+      return { rows: [{ id: 1698, variant_tier_normalized: 'slim' }] }
+    return { rows: [] }
+  })
+
+  await mergeDuplicateProducts(db, { PS4: 'PlayStation  4' })
+
+  const lookup = calls.find((c) => c.sql === FIND_SQL)
+  expect(lookup?.params).toEqual(['playstation 4', 'slim'])
+})
+
 test('mergeDuplicateProducts merges into the existing canonical row instead of renaming when one already exists with the same variant', async () => {
   const { db, calls } = scriptedDb((sql) => {
-    if (sql.startsWith('SELECT id, variant_tier')) return { rows: [{ id: 1698, variant_tier: null }] }
-    if (sql.startsWith('SELECT id FROM products WHERE base_model = $1')) return { rows: [{ id: 532 }] } // collision: PlayStation 4 / null already exists as id 532
+    if (sql.startsWith('SELECT id, variant_tier_normalized'))
+      return { rows: [{ id: 1698, variant_tier_normalized: null }] }
+    if (sql === FIND_SQL) return { rows: [{ id: 532 }] } // collision: PlayStation 4 / null already exists as id 532
     return { rows: [] }
   })
 
@@ -174,20 +189,33 @@ test('mergeDuplicateProducts merges into the existing canonical row instead of r
   expect(deleteLoser?.params).toEqual([1698])
 })
 
+test('mergeDuplicateProducts does not merge an alias row into itself when it already has the canonical normalized name', async () => {
+  const { db } = scriptedDb((sql) => {
+    if (sql.startsWith('SELECT id, variant_tier_normalized'))
+      return { rows: [{ id: 1698, variant_tier_normalized: null }] }
+    if (sql === FIND_SQL) return { rows: [{ id: 1698 }] }
+    return { rows: [] }
+  })
+
+  const result = await mergeDuplicateProducts(db, { 'playstation 4': 'PlayStation 4' })
+
+  expect(result).toEqual({ renamed: 1, merged: 0 })
+})
+
 test('mergeDuplicateProducts processes multiple alias rows for the same canonical independently', async () => {
   const { db } = scriptedDb((sql, params) => {
-    if (sql.startsWith('SELECT id, variant_tier')) {
+    if (sql.startsWith('SELECT id, variant_tier_normalized')) {
       return {
         rows: [
-          { id: 1505, variant_tier: 'Slim' },
-          { id: 1698, variant_tier: null },
-          { id: 433, variant_tier: 'Pro' },
+          { id: 1505, variant_tier_normalized: 'slim' },
+          { id: 1698, variant_tier_normalized: null },
+          { id: 433, variant_tier_normalized: 'pro' },
         ],
       }
     }
-    if (sql.startsWith('SELECT id FROM products WHERE base_model = $1')) {
+    if (sql === FIND_SQL) {
       const variant = params[1]
-      if (variant === 'Slim') return { rows: [{ id: 499 }] } // collides with PlayStation 4 / Slim
+      if (variant === 'slim') return { rows: [{ id: 499 }] } // collides with PlayStation 4 / Slim
       if (variant === null) return { rows: [{ id: 532 }] } // collides with PlayStation 4 / null
       return { rows: [] } // Pro: no collision, safe rename
     }
