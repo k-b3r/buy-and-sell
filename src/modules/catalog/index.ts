@@ -3,6 +3,7 @@
 // catalog dashboard queries. Only what callers outside this folder use;
 // everything else is internal (enforced by dependency-cruiser).
 export { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
+export { PRODUCT_CATEGORIES } from './products'
 export { getEnrichmentCandidates, getExtractionCandidates } from './product-storage'
 export { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 export { getProductsNeedingReview, markProductReviewed } from './review-queue'

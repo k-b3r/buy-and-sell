@@ -72,7 +72,7 @@ _(undocumented)_
 
 ## dashboard/src/lib/queries.ts
 
-**Interactions:** imports `./pricing`
+**Interactions:** imports `./pricing`, `./shared.generated`
 
 ### `getProductSummaries(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
 
@@ -180,7 +180,7 @@ _(undocumented)_
 
 ## dashboard/src/lib/realEstate.ts
 
-**Interactions:** imports `./queries`
+**Interactions:** imports `./shared.generated`
 
 ### `parseRealEstateFilters(params: Record<string, string | undefined>): { filters: RealEstateFilters page: number }`
 

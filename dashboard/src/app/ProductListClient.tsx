@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { PRODUCT_CATEGORIES } from '@/lib/categories'
+import { PRODUCT_CATEGORIES } from '@/lib/shared.generated'
 import type { ProductSummary, SubCategoryTreeEntry } from '@/lib/queries'
+import ProductCard from './ProductCard'
 import { Spinner } from './Skeleton'
 
 interface ProductsPage {
@@ -28,9 +28,9 @@ const sortedKey = (values: string[]) => [...values].sort().join(',')
 // pattern as ListingsView's listingCycleIds.
 const FILTER_STORAGE_KEY = 'productFilters'
 
-type StoredFilters = { search: string; category: string | null; subCategories: string[] }
+type ProductFilters = { search: string; category: string | null; subCategories: string[] }
 
-function saveFilters(filters: StoredFilters) {
+function saveFilters(filters: ProductFilters) {
   try {
     sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters))
   } catch {
@@ -38,10 +38,10 @@ function saveFilters(filters: StoredFilters) {
   }
 }
 
-function loadFilters(): StoredFilters | null {
+function loadFilters(): ProductFilters | null {
   try {
     const raw = sessionStorage.getItem(FILTER_STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as StoredFilters) : null
+    return raw ? (JSON.parse(raw) as ProductFilters) : null
   } catch {
     return null
   }
@@ -50,7 +50,7 @@ function loadFilters(): StoredFilters | null {
 // Shared with the card-link `from` param below - one construction so the
 // URL synced into the address bar and the URL a product card remembers to
 // come back to can never drift apart.
-function buildFilterQueryString(search: string, category: string | null, subCategories: string[]): string {
+function buildFilterQueryString({ search, category, subCategories }: ProductFilters): string {
   const params = new URLSearchParams()
   if (search) params.set('q', search)
   if (category) params.append('category', category)
@@ -75,25 +75,20 @@ export default function ProductListClient({
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
-  const fetchPage = useCallback(
-    async (q: string, cat: string | null, subCats: string[], offset: number, replace: boolean) => {
-      setLoading(true)
-      const params = new URLSearchParams({ offset: String(offset) })
-      if (q) params.set('q', q)
-      if (cat) params.append('category', cat)
-      for (const sc of subCats) params.append('subCategory', sc)
-      const res = await fetch(`/api/products?${params}`)
-      const data: ProductsPage = await res.json()
-      setProducts((prev) => {
-        if (replace) return data.products
-        const seen = new Set(prev.map((p) => p.id))
-        return [...prev, ...data.products.filter((p) => !seen.has(p.id))]
-      })
-      setNextOffset(data.nextOffset)
-      setLoading(false)
-    },
-    [],
-  )
+  const fetchPage = useCallback(async (filters: ProductFilters, offset: number, replace: boolean) => {
+    setLoading(true)
+    const params = new URLSearchParams(buildFilterQueryString(filters))
+    params.set('offset', String(offset))
+    const res = await fetch(`/api/products?${params}`)
+    const data: ProductsPage = await res.json()
+    setProducts((prev) => {
+      if (replace) return data.products
+      const seen = new Set(prev.map((p) => p.id))
+      return [...prev, ...data.products.filter((p) => !seen.has(p.id))]
+    })
+    setNextOffset(data.nextOffset)
+    setLoading(false)
+  }, [])
 
   // Tracks the filters this component itself last pushed into the URL (via
   // router.replace below). Distinguishes "the URL changed because we just
@@ -103,7 +98,7 @@ export default function ProductListClient({
   // props without local state ever having moved). In the latter case local
   // state is stale and must adopt the new URL, not fight it back to the old
   // filters - see the sync effect below.
-  const appliedFiltersRef = useRef<{ search: string; category: string | null; subCategories: string[] }>({
+  const appliedFiltersRef = useRef<ProductFilters>({
     search: initialSearch,
     category: initialCategories[0] ?? null,
     subCategories: initialSubCategories,
@@ -120,9 +115,10 @@ export default function ProductListClient({
     )
       return
     const timeout = setTimeout(() => {
-      appliedFiltersRef.current = { search, category, subCategories }
-      saveFilters({ search, category, subCategories })
-      void fetchPage(search, category, subCategories, 0, true)
+      const filters = { search, category, subCategories }
+      appliedFiltersRef.current = filters
+      saveFilters(filters)
+      void fetchPage(filters, 0, true)
       // Mirror filters into the URL via next/navigation's router, not raw
       // history.replaceState - Next's client router keeps its own history/
       // cache stack separate from the browser's, keyed off entries it
@@ -130,7 +126,7 @@ export default function ProductListClient({
       // stack pointing at the old (filter-less) entry, so browser back
       // restores Next's stale cached render instead of the filtered one.
       // router.replace re-syncs both.
-      const qs = buildFilterQueryString(search, category, subCategories)
+      const qs = buildFilterQueryString(filters)
       router.replace(qs ? `/?${qs}` : '/', { scroll: false })
     }, 300)
     return () => clearTimeout(timeout)
@@ -150,16 +146,13 @@ export default function ProductListClient({
       sortedKey(initialSubCategories) === sortedKey(applied.subCategories)
     )
       return
-    appliedFiltersRef.current = {
-      search: initialSearch,
-      category: initialCategory,
-      subCategories: initialSubCategories,
-    }
-    saveFilters({ search: initialSearch, category: initialCategory, subCategories: initialSubCategories })
+    const filters = { search: initialSearch, category: initialCategory, subCategories: initialSubCategories }
+    appliedFiltersRef.current = filters
+    saveFilters(filters)
     setSearch(initialSearch)
     setCategory(initialCategory)
     setSubCategories(initialSubCategories)
-    void fetchPage(initialSearch, initialCategory, initialSubCategories, 0, true)
+    void fetchPage(filters, 0, true)
   }, [initialSearch, initialCategories, initialSubCategories, fetchPage])
 
   // Restore session-persisted filters when landing on a completely
@@ -178,8 +171,8 @@ export default function ProductListClient({
     setSearch(stored.search)
     setCategory(stored.category)
     setSubCategories(stored.subCategories)
-    void fetchPage(stored.search, stored.category, stored.subCategories, 0, true)
-    const qs = buildFilterQueryString(stored.search, stored.category, stored.subCategories)
+    void fetchPage(stored, 0, true)
+    const qs = buildFilterQueryString(stored)
     router.replace(qs ? `/?${qs}` : '/', { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount to restore saved filters
   }, [])
@@ -189,7 +182,8 @@ export default function ProductListClient({
     if (!sentinel || nextOffset === null) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) void fetchPage(search, category, subCategories, nextOffset, false)
+        if (entries[0].isIntersecting && !loading)
+          void fetchPage({ search, category, subCategories }, nextOffset, false)
       },
       { rootMargin: '200px' },
     )
@@ -207,7 +201,7 @@ export default function ProductListClient({
   // "Back to products" button returns to this exact filtered view instead
   // of a bare "/" - confirmed live 2026-08-29: without it, going back from
   // a product wiped the category/sub-category filters.
-  const listQueryString = buildFilterQueryString(search, category, subCategories)
+  const listQueryString = buildFilterQueryString({ search, category, subCategories })
 
   return (
     <div>
@@ -277,160 +271,7 @@ export default function ProductListClient({
         }}
       >
         {products.map((p) => (
-          <Link
-            key={p.id}
-            href={
-              listQueryString ? `/products/${p.id}?from=${encodeURIComponent(listQueryString)}` : `/products/${p.id}`
-            }
-            style={{
-              display: 'block',
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 8,
-              overflow: 'hidden',
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--color-bg)', position: 'relative' }}>
-              {p.sample_photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- listing photos are remote CDN URLs; next/image has no remotePatterns configured
-                <img
-                  src={p.sample_photo_url}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              ) : null}
-              <span
-                className="mono"
-                style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: 8,
-                  padding: '2px 8px',
-                  borderRadius: 12,
-                  fontSize: '0.75em',
-                  background: 'var(--color-overlay-strong)',
-                  color: '#fff',
-                }}
-              >
-                {p.listing_count} listings
-              </span>
-              {p.discount_bands.length > 0 && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    alignItems: 'flex-end',
-                  }}
-                >
-                  {p.discount_bands.map((band) => (
-                    <div
-                      key={band.bandFloor}
-                      className="mono"
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        fontSize: '0.75em',
-                        fontWeight: 'bold',
-                        background: 'var(--color-signal)',
-                        color: 'var(--color-bg)',
-                      }}
-                    >
-                      {band.bandFloor}-{band.bandFloor + 9}% {band.count}x
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div style={{ padding: 12 }}>
-              <div>
-                <div style={{ fontWeight: 'bold' }}>{p.base_model}</div>
-                {p.variant_tier && (
-                  <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9em' }}>{p.variant_tier}</div>
-                )}
-                {p.sub_category && (
-                  <span
-                    className="mono"
-                    style={{
-                      display: 'inline-block',
-                      marginTop: 4,
-                      padding: '1px 6px',
-                      borderRadius: 8,
-                      fontSize: '0.65em',
-                      background: 'var(--color-bg)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-muted)',
-                    }}
-                  >
-                    {p.sub_category}
-                  </span>
-                )}
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="mono" style={{ fontSize: '0.9em' }}>
-                  {p.price_min !== null && p.price_max !== null
-                    ? `₱${p.price_min.toLocaleString()}–₱${p.price_max.toLocaleString()}`
-                    : 'No price data'}
-                </div>
-                <div
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 6 }}
-                >
-                  {p.price_avg !== null && (
-                    <span
-                      className="mono"
-                      style={{
-                        padding: '1px 6px',
-                        borderRadius: 8,
-                        fontSize: '0.65em',
-                        background: 'var(--color-bg)',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-text-muted)',
-                      }}
-                    >
-                      Avg ₱{Math.round(p.price_avg).toLocaleString()}
-                    </span>
-                  )}
-                  {p.secondhand_price_low !== null && p.secondhand_price_high !== null && (
-                    <span
-                      className="mono"
-                      style={{
-                        padding: '1px 6px',
-                        borderRadius: 8,
-                        fontSize: '0.65em',
-                        fontWeight: 'bold',
-                        background: 'var(--color-signal)',
-                        color: 'var(--color-bg)',
-                      }}
-                    >
-                      Used ₱{p.secondhand_price_low.toLocaleString()}–₱{p.secondhand_price_high.toLocaleString()}
-                    </span>
-                  )}
-                  {p.new_price_low !== null && p.new_price_high !== null && (
-                    <span
-                      className="mono"
-                      style={{
-                        padding: '1px 6px',
-                        borderRadius: 8,
-                        fontSize: '0.65em',
-                        // Fixed light blue, not var(--color-accent) - that
-                        // swaps hue per theme, and black text needs a light
-                        // fill regardless of theme to stay readable.
-                        background: '#60a5fa',
-                        color: '#000',
-                      }}
-                    >
-                      New ₱{p.new_price_low.toLocaleString()}–₱{p.new_price_high.toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Link>
+          <ProductCard key={p.id} p={p} listQueryString={listQueryString} />
         ))}
       </div>
       <div ref={sentinelRef} style={{ height: 1 }} />

@@ -158,10 +158,7 @@ export function sortListings<T extends ProductListingSummary>(listings: T[], sor
 
 export function filterListings<T extends ProductListingSummary>(
   listings: T[],
-  listedWithinDays: number,
-  hideSold: boolean,
-  negotiableOnly: boolean,
-  selectedBand: number | null,
+  { listedWithinDays, hideSold, negotiableOnly, selectedBand }: ListingsFilters,
 ): T[] {
   return listings.filter((l) => {
     if (hideSold && l.sold_at) return false
@@ -197,10 +194,7 @@ export function paginateListings(
   filters: ListingsFilters,
   offset: number,
 ): ListingsPage {
-  const visible = sortListings(
-    filterListings(listings, filters.listedWithinDays, filters.hideSold, filters.negotiableOnly, filters.selectedBand),
-    filters.sortKey,
-  )
+  const visible = sortListings(filterListings(listings, filters), filters.sortKey)
   const page = visible.slice(offset, offset + LISTINGS_PAGE_SIZE)
   const nextOffset = offset + LISTINGS_PAGE_SIZE < visible.length ? offset + LISTINGS_PAGE_SIZE : null
   return { listings: page, nextOffset, matchedCount: visible.length, allIds: visible.map((l) => l.id) }
