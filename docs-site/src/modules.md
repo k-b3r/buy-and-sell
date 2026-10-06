@@ -1098,7 +1098,7 @@ _(undocumented)_
 
 ## src/modules/pricing/run-price-lookup.ts
 
-**Interactions:** imports `../../platform/delay`, `./price-lookup`
+**Interactions:** imports `../../domains/llm-clients`, `../../platform/delay`, `./price-lookup`
 
 ### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
 
