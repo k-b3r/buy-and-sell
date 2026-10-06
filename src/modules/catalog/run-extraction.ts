@@ -4,12 +4,23 @@ import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../dom
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import type { DiscountPolicyThresholds, PriceLookupClients, ProductPricingResult } from '../pricing'
-import { checkListingDiscount, DEFAULT_DISCOUNT_POLICY, ensureProductPriced, getProductPricingStatus } from '../pricing'
+import type {
+  DiscountNotification,
+  DiscountPolicyThresholds,
+  PriceLookupClients,
+  ProductPricingResult,
+} from '../pricing'
+import {
+  decideListingDiscount,
+  DEFAULT_DISCOUNT_POLICY,
+  ensureProductPriced,
+  getProductPricingStatus,
+  insertDiscountNotifications,
+} from '../pricing'
 import type { ExtractionCandidate } from './product-storage'
 import { findOrCreateProduct, updateListingProductIds } from './product-storage'
 import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from './products'
-import type { ExtractedListing, RawExtractionItem } from './extraction'
+import type { ExtractedListing } from './extraction'
 import { parseExtractionItem } from './extraction'
 
 export interface ExtractionClients {
@@ -154,18 +165,22 @@ async function resolveProductId(run: ExtractionRun, listing: ExtractedListing): 
 }
 
 // Ensures the listing's product has retail/secondhand pricing (fetching only
-// if genuinely missing), then checks this listing's own discount against that
+// if genuinely missing), then decides this listing's own discount against that
 // pricing (or peer-comparison, if secondhand isn't in yet) - see
-// ensureProductPricing/checkListingDiscount for the full reasoning.
-async function checkDiscount(run: ExtractionRun, productId: number, listing: ExtractedListing): Promise<void> {
+// ensureProductPricing/decideListingDiscount for the full reasoning.
+async function decideDiscount(
+  run: ExtractionRun,
+  productId: number,
+  listing: ExtractedListing,
+): Promise<DiscountNotification | null> {
   let pricing = run.pricing.get(productId)
   if (pricing === undefined) {
     pricing = await ensureProductPricing(run, productId, listing)
     run.pricing.set(productId, pricing)
   }
-  if (pricing.excluded) return
+  if (pricing.excluded) return null
   const { candidate } = listing
-  await checkListingDiscount(
+  return decideListingDiscount(
     run.db,
     { id: candidate.id, productId, condition: candidate.condition, priceAmount: candidate.price_amount },
     { retail: pricing.retail, secondhand: pricing.secondhand },
@@ -174,31 +189,51 @@ async function checkDiscount(run: ExtractionRun, productId: number, listing: Ext
 }
 
 // Assigns each extracted listing in one batch to its product (one batched
-// UPDATE), checking its discount before the batch is saved.
+// UPDATE). Discounts are decided before that UPDATE, so the peer median never
+// counts the batch's own listings and a failure while pricing/deciding leaves
+// the whole batch unassigned for the next run. Notifications are inserted only
+// after the UPDATE succeeds, so a failed save leaves none for listings without
+// a product_id. Skipped items keep product_id null and stay candidates too.
 async function assignBatch(
   run: ExtractionRun,
   batch: ExtractionCandidate[],
-  items: RawExtractionItem[],
+  items: unknown[],
 ): Promise<{ assigned: number; skipped: number }> {
-  const assignments: { id: string; productId: number }[] = []
+  const assigned: { listing: ExtractedListing; productId: number }[] = []
+  const notifications: DiscountNotification[] = []
   let skipped = 0
 
   for (const item of items) {
-    const listing = parseExtractionItem(item, batch)
-    if (!listing) {
+    const outcome = parseExtractionItem(item, batch)
+    if (outcome.kind === 'malformed') {
+      run.logger.warn(`item ${outcome.idHint}: malformed fields in model response, skipping`)
       skipped += 1
       continue
     }
+    if (outcome.kind === 'unknown-candidate') {
+      run.logger.warn(`item ${outcome.id}: no matching listing in this batch, skipping`)
+      skipped += 1
+      continue
+    }
+    const { listing } = outcome
     const productId = await resolveProductId(run, listing)
-    assignments.push({ id: listing.candidate.id, productId })
+    assigned.push({ listing, productId })
     run.logger.info(
       `listing ${listing.candidate.id} -> product ${productId} (${listing.baseModel}${listing.variant ? `, ${listing.variant}` : ''})`,
     )
-    await checkDiscount(run, productId, listing)
+    const notification = await decideDiscount(run, productId, listing)
+    if (notification) notifications.push(notification)
   }
 
-  await updateListingProductIds(run.db, assignments)
-  return { assigned: assignments.length, skipped }
+  await updateListingProductIds(
+    run.db,
+    assigned.map(({ listing, productId }) => ({ id: listing.candidate.id, productId })),
+  )
+  // No transaction on DbClient: a failure between these two statements loses
+  // this batch's notifications (listings already assigned, not retried).
+  // Accepted 2026-10-06 (BUY-37); the one-statement insert keeps it all or nothing.
+  await insertDiscountNotifications(run.db, notifications)
+  return { assigned: assigned.length, skipped }
 }
 
 // Extracts products from listings in model-sized batches, pacing between
@@ -248,7 +283,7 @@ export async function runProductExtraction(
     if (!raw || !Array.isArray(raw.results)) {
       logger.error(`${label}: unexpected response shape (no results array), skipping batch`)
     } else {
-      const { assigned, skipped } = await assignBatch(run, batch, raw.results as RawExtractionItem[])
+      const { assigned, skipped } = await assignBatch(run, batch, raw.results)
       logger.info(
         `${label} done: ${assigned} assigned, ${skipped} skipped, ` +
           `${run.productIds.size} distinct products seen so far`,
