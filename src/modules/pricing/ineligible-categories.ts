@@ -51,7 +51,7 @@ const PRICE_INELIGIBLE_CATEGORIES: Partial<Record<PriceExclusionReason, string[]
     // estate problem, wider net (word-boundary matched on condo/tower/
     // residences/lot/apartment/etc, manually reviewed to drop false
     // positives like "Goat House"/"Toy Lot" where the matched word wasn't
-    // actually real estate).
+    // actually real estate; those went to too_generic below instead).
     '1-Bedroom Apartment',
     '1-Bedroom Condo Unit',
     '1BR Unit',
@@ -77,7 +77,6 @@ const PRICE_INELIGIBLE_CATEGORIES: Partial<Record<PriceExclusionReason, string[]
     'GA Tower 2',
     'Glam Residences Condo Unit',
     'Harbour Park Residences Condo Unit',
-    'House',
     'House with Private Pool',
     'Infina Tower Condominium',
     'Jazz Residences 1 BR Unit',
