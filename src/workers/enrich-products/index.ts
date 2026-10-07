@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { loadGroqApiKeys } from '../../platform/llm-clients'
+import { loadGatewayConfig, loadGroqApiKeys, withGateway } from '../../platform/llm-clients'
 import { createGroqPool } from '../../platform/llm-clients/groq-sdk'
 import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
@@ -12,6 +12,7 @@ async function main() {
   loadEnvFile()
   const groqApiKeys = loadGroqApiKeys(process.env)
   if (groqApiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
+  const gatewayConfig = loadGatewayConfig(process.env)
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
@@ -30,8 +31,12 @@ async function main() {
     setup: ({ logger, db }) => {
       // Per-key model fallback (best model first) round-robined across keys -
       // see createGroqPool. Logs every hop so a stuck key/model is visible.
-      const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
-        logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+      const groq = withGateway(
+        createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
+          logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+        ),
+        gatewayConfig,
+        { db, logger },
       )
       logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
       return async ({ settings }) => {
