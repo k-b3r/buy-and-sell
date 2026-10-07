@@ -47,12 +47,6 @@ function harness(
       delays.push(ms)
       if (opts.maxDelays !== undefined && delays.length >= opts.maxDelays) throw new StopLoop()
     },
-    browserLock: {
-      acquire: async () => {
-        events.push('lock')
-      },
-      release: () => events.push('unlock'),
-    },
     openBrowser: async () => {
       const id = ++browsers
       events.push(`open ${id}`)
@@ -73,10 +67,10 @@ function harness(
   return { deps, logs, events, delays }
 }
 
-test('without --cycle, runs one lap over the explicit query inside the browser lock, then returns without sleeping', async () => {
+test('without --cycle, runs one lap over the explicit query in one browser session, then returns without sleeping', async () => {
   const h = harness({ settings: { 'collect.max_items_default': 40 } })
   await runCollectLaps(h.deps, { cycle: false, testRun: false, explicitQuery: 'gaming chair' })
-  expect(h.events).toEqual(['lock', 'open 1', 'collect gaming chair 40 on 1', 'close 1', 'unlock'])
+  expect(h.events).toEqual(['open 1', 'collect gaming chair 40 on 1', 'close 1'])
   expect(h.delays).toEqual([])
   expect(h.logs).toEqual([])
 })
@@ -90,14 +84,7 @@ test('an explicit maxItems overrides the collect.max_items_default setting', asy
 test('without an explicit query, collects every enabled keyword', async () => {
   const h = harness({ keywords: ['urgent', 'moving out'], settings: { 'collect.max_items_default': 5 } })
   await runCollectLaps(h.deps, { cycle: false, testRun: false })
-  expect(h.events).toEqual([
-    'lock',
-    'open 1',
-    'collect urgent 5 on 1',
-    'collect moving out 5 on 1',
-    'close 1',
-    'unlock',
-  ])
+  expect(h.events).toEqual(['open 1', 'collect urgent 5 on 1', 'collect moving out 5 on 1', 'close 1'])
 })
 
 test('on a test run, logs each query it would collect and never opens a browser', async () => {
@@ -122,16 +109,12 @@ test('--cycle logs each lap and sleeps collect.loop_delay_ms with the browser cl
   ])
   expect(h.delays).toEqual([900, 900])
   expect(h.events).toEqual([
-    'lock',
     'open 1',
     'collect urgent 100 on 1',
     'close 1',
-    'unlock',
-    'lock',
     'open 2',
     'collect urgent 100 on 2',
     'close 2',
-    'unlock',
   ])
 })
 
@@ -170,19 +153,17 @@ test('a crashed page gets a fresh browser before the next keyword', async () => 
   })
   await runCollectLaps(h.deps, { cycle: false, testRun: false })
   expect(h.events).toEqual([
-    'lock',
     'open 1',
     'collect crash 100 on 1',
     'close 1',
     'open 2',
     'collect next 100 on 2',
     'close 2',
-    'unlock',
   ])
   expect(h.logs).toContain('WARN browser is unusable, relaunching before continuing')
 })
 
-test('five consecutive keyword failures stop the worker, still closing the browser and releasing the lock', async () => {
+test('five consecutive keyword failures stop the worker, still closing the browser', async () => {
   const h = harness({
     keywords: ['a', 'b', 'c', 'd', 'e', 'f'],
     maxDelays: 99,
@@ -192,7 +173,7 @@ test('five consecutive keyword failures stop the worker, still closing the brows
   })
   await runCollectLaps(h.deps, { cycle: true, testRun: false })
   expect(h.events.filter((e) => e.startsWith('collect'))).toHaveLength(5)
-  expect(h.events.slice(-2)).toEqual(['close 1', 'unlock'])
+  expect(h.events.at(-1)).toEqual('close 1')
   expect(h.delays).toEqual([5000, 10000, 15000, 20000])
   expect(h.logs.at(-1)).toMatch(/^ERROR 5 consecutive keyword failures, stopping/)
 })

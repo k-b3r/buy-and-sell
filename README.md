@@ -104,7 +104,7 @@ src/
     storage.ts                          # DbClient/createDbPool — Postgres connection, sole entry point
     worker.ts                           # runWorker — every worker's lap loop, pid/log files, pool lifecycle
     settings.ts                         # DB-backed runtime settings with SETTING_DEFAULTS fallback
-    images.ts, logger.ts, review.ts, delay.ts, env.ts, errors.ts, rows.ts, redact.ts, browserLock.ts
+    images.ts, logger.ts, review.ts, delay.ts, env.ts, errors.ts, rows.ts, redact.ts
     llm-clients/                        # shared LLM/search clients (Gemini, Groq, Exa, Tavily, OpenRouter),
                                         # fallback pools, retry, error classification
       index.ts                          # public API, SDK-free
