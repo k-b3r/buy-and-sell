@@ -1,4 +1,3 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
 import type { PageIo } from './driver'
 import type { ReviewDecision } from '../../platform/review'
 import { detectPageState } from './wall'
@@ -9,21 +8,6 @@ import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './location'
 import type { DbClient } from '../../platform/storage'
 import { upsertListing, getCollectedListingIds } from './listings'
 import type { ListingPhotos } from './photos'
-
-// Diagnostic-only, never allowed to take down the caller - confirmed live
-// 2026-08-24: the server (server/index.ts) runs with CWD=server/ (no data/ dir there,
-// unlike the root CLI scripts' convention), and the missing directory
-// crashed the entire long-lived HTTP process uncaught, not just this one
-// request. mkdir handles the expected case; the catch is defense-in-depth
-// for anything else (disk full, permissions) that shouldn't be fatal either.
-function dumpDebugHtml(html: string): void {
-  try {
-    mkdirSync('data', { recursive: true })
-    writeFileSync(`data/debug-${Date.now()}.html`, html)
-  } catch (err) {
-    console.error('dumpDebugHtml failed, continuing without the debug dump:', err)
-  }
-}
 
 export interface RunOptions {
   query: string
@@ -70,16 +54,12 @@ export async function resolvePageState(
     state = detectPageState(html)
     if (state === 'normal') return { status: 'ok', html }
     if (state === 'soft-wall') {
-      dumpDebugHtml(html)
-      logger.error(
-        'soft login-wall persisted after refresh, failing closed and stopping run — html dumped for inspection',
-      )
+      logger.error('soft login-wall persisted after refresh, failing closed and stopping run')
       return { status: 'stop', reason: 'soft-wall-persisted' }
     }
   }
 
-  dumpDebugHtml(html)
-  logger.error(`unrecognized page state "${state}", failing closed and stopping run — html dumped for inspection`)
+  logger.error(`unrecognized page state "${state}", failing closed and stopping run`)
   return { status: 'stop', reason: state === 'hard-block' ? 'hard-block' : 'unrecognized' }
 }
 

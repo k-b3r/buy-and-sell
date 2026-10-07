@@ -1,12 +1,11 @@
 // Nightly Postgres backup to R2.
 //
 // Neon used to handle this. Since the database moved onto this VPS (see the
-// migration off Neon), nothing else does - a lost disk means a lost dataset,
-// and the scrape history is not reproducible.
+// migration off Neon), nothing else does - a lost disk means a lost dataset.
 //
 // Runs from cron on the VPS as the scraper user. Dumps to /var/backups, keeps
-// KEEP_LOCAL there for a fast restore, uploads to R2 under db-backups/ and
-// prunes objects older than KEEP_REMOTE.
+// the newest KEEP_LOCAL there for a fast restore, uploads to R2 under
+// db-backups/ and keeps the newest KEEP_REMOTE there.
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs'
@@ -15,8 +14,10 @@ import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand 
 
 const BACKUP_DIR = process.env.BACKUP_DIR ?? '/var/backups/buy-and-sell'
 const PREFIX = 'db-backups/'
-const KEEP_LOCAL = 7
-const KEEP_REMOTE = 14
+// No history is wanted, only disaster recovery, and the VPS disk is small.
+// R2 keeps one spare so a corrupt nightly dump can't replace the only good copy.
+const KEEP_LOCAL = 1
+const KEEP_REMOTE = 2
 
 function loadEnv(file) {
   const out = {}
