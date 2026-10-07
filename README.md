@@ -133,5 +133,5 @@ docs/superpowers/plans/                 # implementation plans this was built fr
 ## Safety notes
 
 - Never introduces login/cookies/session — if you're extending this, keep it that way; that's the whole risk-mitigation strategy.
-- If Facebook shows a CAPTCHA or unrecognized page state, the collector stops and logs it rather than guessing or retrying — check `data/collector.log` and any `data/debug-*.html` dumps.
+- If Facebook shows a CAPTCHA or unrecognized page state, the collector stops and logs it rather than guessing or retrying — check `data/collector.log`.
 - Don't remove the pacing delays or run this unattended/scheduled — manual, human-paced runs are part of what keeps this low-risk.
