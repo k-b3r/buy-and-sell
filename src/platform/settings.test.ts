@@ -43,6 +43,10 @@ test('loadSettings queries only the requested keys via = ANY($1)', async () => {
   expect(calls[0].params).toEqual([['collect.pacing_min_ms', 'collect.pacing_max_ms']])
 })
 
+test('the LLM gateway is off by default so workers keep calling providers directly', () => {
+  expect(SETTING_DEFAULTS['llm.gateway_enabled']).toBe(0)
+})
+
 test("real estate settings default to today's behavior (collection off, no recheck skipping)", () => {
   expect(SETTING_DEFAULTS['collect.re_keywords_enabled']).toBe(0)
   expect(SETTING_DEFAULTS['check_listings.re_recheck_min_days']).toBe(0)

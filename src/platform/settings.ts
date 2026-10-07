@@ -52,6 +52,8 @@ export const SETTING_DEFAULTS: Record<string, number> = {
   'discount_policy.min_profit_pesos': 1000,
   'discount_policy.min_price_pesos': 500,
   'discount_policy.gemini_daily_grounding_cap': 1000,
+
+  'llm.gateway_enabled': 0,
 }
 
 // Workers call this fresh every lap (not once at startup) so an operator's

@@ -535,6 +535,12 @@ INSERT INTO settings (key, value) VALUES
   ('check_listings.re_recheck_min_days', 0)
 ON CONFLICT (key) DO NOTHING;
 
+-- 1 = workers' JSON LLM calls go to the self-hosted gateway first
+-- (src/platform/llm-clients/gateway.ts), direct keys as fallback. 0 = direct only.
+INSERT INTO settings (key, value) VALUES
+  ('llm.gateway_enabled', 0)
+ON CONFLICT (key) DO NOTHING;
+
 -- 'general' = today's motivated-seller list (default, so every existing row is
 -- unchanged). 'real_estate' phrases run in their own capped pass every Nth lap
 -- (see planLapQueries) so property searches never lengthen the general lap.

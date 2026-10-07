@@ -327,5 +327,20 @@ export const WORKER_SETTINGS: SettingsCategory = {
         },
       ],
     },
+    {
+      id: 'llm',
+      title: 'LLM gateway',
+      fields: [
+        {
+          key: 'llm.gateway_enabled',
+          label: 'Use LLM gateway',
+          description:
+            '1 = JSON LLM calls go to the self-hosted gateway (llm.kber.dev) first, direct keys as fallback; 0 = direct keys only (default).',
+          unit: 'count',
+          min: 0,
+          defaultValue: 0,
+        },
+      ],
+    },
   ],
 }
