@@ -51,7 +51,6 @@ export interface CollectLapsDeps {
   db: DbClient
   logger: Logger
   delay: DelayFn
-  browserLock: { acquire: () => Promise<void>; release: () => void }
   openBrowser: () => Promise<BrowserDriver>
   // One keyword's collection run (runCollection), with this lap's settings.
   collectQuery: (driver: PageDriver, query: LapQuery, settings: Record<string, number>) => Promise<void>
@@ -119,63 +118,55 @@ export async function runCollectLaps(deps: CollectLapsDeps, options: CollectLaps
 // One lap's browser session. Returns the running consecutive-failure count, or
 // null once it reaches MAX_CONSECUTIVE_FAILURES and the worker should stop.
 async function collectInBrowser(
-  { logger, delay, browserLock, openBrowser, collectQuery }: CollectLapsDeps,
+  { logger, delay, openBrowser, collectQuery }: CollectLapsDeps,
   queries: LapQuery[],
   settings: Record<string, number>,
   failuresSoFar: number,
 ): Promise<number | null> {
   let consecutiveFailures = failuresSoFar
-  // Browser (and the cross-process lock guarding it) only lives for
-  // this one lap - check-listings shares the same lock and the VPS
-  // can't run both Chromiums at once without swapping hard (see
-  // browserLock.ts). Closing here, not just at process exit, is also
-  // what actually lowers collect's request cadence: the pause between laps
-  // (collect.loop_delay_ms) now happens with no browser open at all,
-  // not just a paused-but-still-resident one.
-  await browserLock.acquire()
+  // Browser only lives for this one lap. Closing here, not just at process
+  // exit, is what actually lowers collect's request cadence: the pause
+  // between laps (collect.loop_delay_ms) happens with no browser open at
+  // all, not just a paused-but-still-resident one.
+  let browser = await openBrowser()
   try {
-    let browser = await openBrowser()
-    try {
-      for (const lapQuery of queries) {
-        // One keyword's transient error (network blip, FB rate limit, a
-        // DB write failure) used to propagate all the way up through
-        // main()'s catch and kill the whole --cycle process - confirmed
-        // live 2026-09-01: a single query failure ended a run meant to
-        // loop keywords forever. Isolate per-keyword so --cycle
-        // actually survives one bad query and moves on to the next.
-        try {
-          await collectQuery(browser.driver, lapQuery, settings)
-          consecutiveFailures = 0
-        } catch (err) {
-          consecutiveFailures += 1
-          logger.error(
-            `query "${lapQuery.query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
-          )
-          if (isBrowserUnusableError(err)) {
-            logger.warn('browser is unusable, relaunching before continuing')
-            try {
-              await browser.close()
-            } catch (closeErr) {
-              logger.warn(
-                `error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`,
-              )
-            }
-            browser = await openBrowser()
-          }
-          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-            logger.error(
-              `${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`,
+    for (const lapQuery of queries) {
+      // One keyword's transient error (network blip, FB rate limit, a
+      // DB write failure) used to propagate all the way up through
+      // main()'s catch and kill the whole --cycle process - confirmed
+      // live 2026-09-01: a single query failure ended a run meant to
+      // loop keywords forever. Isolate per-keyword so --cycle
+      // actually survives one bad query and moves on to the next.
+      try {
+        await collectQuery(browser.driver, lapQuery, settings)
+        consecutiveFailures = 0
+      } catch (err) {
+        consecutiveFailures += 1
+        logger.error(
+          `query "${lapQuery.query}" failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive), skipping to next keyword: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
+        )
+        if (isBrowserUnusableError(err)) {
+          logger.warn('browser is unusable, relaunching before continuing')
+          try {
+            await browser.close()
+          } catch (closeErr) {
+            logger.warn(
+              `error closing crashed browser, continuing anyway: ${closeErr instanceof Error ? closeErr.message : String(closeErr)}`,
             )
-            return null
           }
-          await delay(Math.min(FAILURE_BACKOFF_MS * consecutiveFailures, MAX_FAILURE_BACKOFF_MS))
+          browser = await openBrowser()
         }
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          logger.error(
+            `${consecutiveFailures} consecutive keyword failures, stopping — this looks like a persistent problem (dead proxy, FB blocking this IP, etc), not a transient blip`,
+          )
+          return null
+        }
+        await delay(Math.min(FAILURE_BACKOFF_MS * consecutiveFailures, MAX_FAILURE_BACKOFF_MS))
       }
-    } finally {
-      await browser.close()
     }
   } finally {
-    browserLock.release()
+    await browser.close()
   }
   return consecutiveFailures
 }

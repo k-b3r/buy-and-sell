@@ -4,7 +4,6 @@ import { loadEnvFile, isTestRun } from '../../platform/env'
 import { realDelay } from '../../platform/delay'
 import { runWorkerProcess } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 import { createListingPhotos, resolveProxy, runCollection } from '../../modules/collection'
 import { runCollectLaps } from './laps'
@@ -83,10 +82,6 @@ async function main() {
         db,
         logger,
         delay: realDelay,
-        browserLock: {
-          acquire: () => acquireBrowserLock(BROWSER_LOCK_PATH, logger),
-          release: () => releaseBrowserLock(BROWSER_LOCK_PATH),
-        },
         openBrowser: () => launchBrowserDriver(proxy),
         collectQuery: (driver, { query, maxItems }, settings) =>
           runCollection(

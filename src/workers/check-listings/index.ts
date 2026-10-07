@@ -4,7 +4,6 @@ import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { realDelay } from '../../platform/delay'
 import { secretsFromEnv } from '../../platform/redact'
-import { acquireBrowserLock, releaseBrowserLock, BROWSER_LOCK_PATH } from '../../platform/browserLock'
 import {
   createListingPhotos,
   getCheckListingsCandidates,
@@ -75,25 +74,16 @@ async function main() {
               return
             }
             // Browser only exists for the lifetime of this lap's batch, not the
-            // whole process - collect (the only other browser-launching worker)
-            // shares this same lock, and the VPS can't run both Chromiums at
-            // once without swapping hard (see browserLock.ts). Skipped entirely
-            // when there's nothing to check, same effect a min-batch gate would
-            // have had, for free.
-            await acquireBrowserLock(BROWSER_LOCK_PATH, logger)
+            // whole process. Skipped entirely when there's nothing to check.
+            const { driver, close } = await launchBrowserDriver(proxy)
             try {
-              const { driver, close } = await launchBrowserDriver(proxy)
-              try {
-                await runCheckListings({ driver, db, photos, logger, delay: realDelay }, candidates, {
-                  softWallTimeoutMs: settings['check_listings.soft_wall_timeout_ms'],
-                  pacingMinMs: settings['check_listings.pacing_min_ms'],
-                  pacingMaxMs: settings['check_listings.pacing_max_ms'],
-                })
-              } finally {
-                await close()
-              }
+              await runCheckListings({ driver, db, photos, logger, delay: realDelay }, candidates, {
+                softWallTimeoutMs: settings['check_listings.soft_wall_timeout_ms'],
+                pacingMinMs: settings['check_listings.pacing_min_ms'],
+                pacingMaxMs: settings['check_listings.pacing_max_ms'],
+              })
             } finally {
-              releaseBrowserLock(BROWSER_LOCK_PATH)
+              await close()
             }
           },
         }
