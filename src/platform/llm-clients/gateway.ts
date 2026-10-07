@@ -24,6 +24,9 @@ export interface JsonClient {
 }
 
 const SETTING_KEY = 'llm.gateway_enabled'
+// A gateway that accepts the connection but never answers would otherwise
+// hang the worker, since the direct-client fallback only runs on an error.
+const GATEWAY_TIMEOUT_MS = 120_000
 
 export function loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null {
   const baseUrl = env.LLM_GATEWAY_URL
@@ -35,6 +38,7 @@ export function loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null 
 interface GatewayClientOptions {
   fetchFn?: (url: string, init: RequestInit) => Promise<Response>
   requestOptions?: GroqRequestOptions
+  timeoutMs?: number
   // Called with the X-Routed-Via header ("<platform>/<model>") whenever it
   // differs from the previous answered call's, so a log shows each switch, not every call.
   onRoute?: (route: string) => void
@@ -48,6 +52,7 @@ export function createGatewayClient(config: GatewayConfig, options: GatewayClien
     async generateJson(prompt: string, schema: object): Promise<unknown> {
       const response = await fetchFn(`${config.baseUrl}/chat/completions`, {
         method: 'POST',
+        signal: AbortSignal.timeout(options.timeoutMs ?? GATEWAY_TIMEOUT_MS),
         headers: { authorization: `Bearer ${config.apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           model: config.model,
@@ -92,6 +97,7 @@ export function withGateway<C extends JsonClient>(
   const gateway = createGatewayClient(config, {
     fetchFn: deps.fetchFn,
     requestOptions: deps.requestOptions,
+    timeoutMs: deps.timeoutMs,
     onRoute: (route) => deps.logger.info(`LLM gateway now served by ${route}`),
   })
   return {

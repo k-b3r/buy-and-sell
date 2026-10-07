@@ -165,3 +165,15 @@ test('withGateway leaves every other method of the direct client in place', asyn
 
   expect(await client.generateGroundedText('q')).toBe('grounded q')
 })
+
+test('withGateway falls back to the direct client when the gateway never answers within the timeout', async () => {
+  const hangingFetch = (_url: string, init: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+    })
+  const logger = fakeLogger()
+  const client = withGateway(direct, config, { db: settingsDb(1), logger, fetchFn: hangingFetch, timeoutMs: 10 })
+
+  expect(await client.generateJson('p', {})).toEqual({ from: 'direct' })
+  expect(logger.lines).toEqual([expect.stringMatching(/^warn LLM gateway failed/)])
+})
