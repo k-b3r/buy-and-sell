@@ -15,8 +15,10 @@ import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand 
 
 const BACKUP_DIR = process.env.BACKUP_DIR ?? '/var/backups/buy-and-sell'
 const PREFIX = 'db-backups/'
-const KEEP_LOCAL = 7
-const KEEP_REMOTE = 14
+// One of each: no scrape history is kept, the dumps only guard against a
+// lost disk, and the VPS disk is small.
+const KEEP_LOCAL = 1
+const KEEP_REMOTE = 1
 
 function loadEnv(file) {
   const out = {}
