@@ -80,6 +80,22 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/platform/llm-clients/gateway.ts
+
+**Interactions:** imports `../errors`, `../logger`, `../settings`, `../storage`, `./groq`
+
+### `loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null`
+
+_(undocumented)_
+
+### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): JsonClient`
+
+_(undocumented)_
+
+### `withGateway(direct: C, config: GatewayConfig | null, deps: { db: DbClient; logger: Logger } & Omit<GatewayClientOptions, 'onRoute'>): C`
+
+_(undocumented)_
+
 ## src/platform/llm-clients/gemini-sdk.ts
 
 **Interactions:** imports `./gemini`
@@ -183,6 +199,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `createFallbackOpenRouterClient(clients: OpenRouterClient[]): OpenRouterClient`
+
+_(undocumented)_
+
+### `loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null`
+
+_(undocumented)_
+
+### `withGateway(direct: C, config: GatewayConfig | null, deps: { db: DbClient; logger: Logger } & Omit<GatewayClientOptions, 'onRoute'>): C`
 
 _(undocumented)_
 
