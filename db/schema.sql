@@ -592,3 +592,22 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON price_exclusion_overrides TO server_serv
 INSERT INTO settings (key, value) VALUES
   ('pricing.exclusions_ui_enabled', 0)
 ON CONFLICT (key) DO NOTHING;
+
+-- LLM triage log for excluded products (BUY-60, src/modules/pricing/price-triage.ts).
+-- Written by `pnpm triage-excluded-products`; read by a human before
+-- `--apply` sends "retry" verdicts through includeInPricing. applied_at
+-- marks what was applied. price_low/high: the model's own new-retail
+-- estimate (PHP), logged only, never used as a price.
+CREATE TABLE IF NOT EXISTS product_pricing_triage (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+  previous_reason TEXT NOT NULL,
+  verdict TEXT NOT NULL CHECK (verdict IN ('retry', 'keep_excluded')),
+  is_specific_product BOOLEAN NOT NULL,
+  confidence TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low')),
+  price_low NUMERIC,
+  price_high NUMERIC,
+  reasoning TEXT NOT NULL,
+  triaged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  applied_at TIMESTAMPTZ
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON product_pricing_triage TO server_service;
