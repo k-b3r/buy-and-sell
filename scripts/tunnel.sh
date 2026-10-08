@@ -8,7 +8,10 @@
 # before starting a fresh one instead of hunting the stale pid by hand.
 set -euo pipefail
 
-TUNNEL_HOST="tunnel@203.0.113.10"
+# The VPS address comes from the `hetzner` alias in ~/.ssh/config, never this
+# public repo. TUNNEL_HOST overrides it.
+VPS_ADDR=$(ssh -G hetzner 2>/dev/null | awk '/^hostname /{print $2}')
+TUNNEL_HOST="${TUNNEL_HOST:-tunnel@$VPS_ADDR}"
 TUNNEL_KEY="$HOME/.ssh/vps_tunnel"
 # ServerAliveInterval/CountMax: without these the tunnel can sit half-dead
 # after a network blip (wifi switch, sleep/wake) and silently exit later with
