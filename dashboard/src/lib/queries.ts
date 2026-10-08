@@ -25,6 +25,8 @@ import type {
   DealsDiscountPolicyFloors,
   DealsFilters,
   DiscountNotification,
+  ExcludedProduct,
+  ExclusionReasonCount,
   ListingDetail,
   PeerMedianPrice,
   ProductDetail,
@@ -45,6 +47,8 @@ export type {
   DealListing,
   DealsConfidenceTier,
   DiscountNotification,
+  ExcludedProduct,
+  ExclusionReasonCount,
   ListingDetail,
   ProductDetail,
   ProductListingSummary,
@@ -110,6 +114,28 @@ export function markProductReviewed(productId: number): Promise<void> {
 
 export function excludeProductFromReview(productId: number, reason: string): Promise<void> {
   return rpc('excludeProductFromReview', [productId, reason])
+}
+
+export function includeInPricing(productId: number): Promise<void> {
+  return rpc('includeInPricing', [productId])
+}
+
+export function getExclusionSummary(): Promise<ExclusionReasonCount[]> {
+  return rpc('getExclusionSummary')
+}
+
+export function getExcludedProducts(
+  reason: string,
+  options: { offset?: number; limit?: number } = {},
+): Promise<ExcludedProduct[]> {
+  return rpc('getExcludedProducts', [reason, options])
+}
+
+// pricing.exclusions_ui_enabled (BUY-36): off hides every exclusion badge,
+// page and button, today's behavior.
+export async function isExclusionsUiEnabled(): Promise<boolean> {
+  const settings = await getAllSettings()
+  return settings.some((s) => s.key === 'pricing.exclusions_ui_enabled' && s.value === 1)
 }
 
 export function getProductDetail(productId: number): Promise<ProductDetail | null> {

@@ -46,6 +46,7 @@ const SHARED_SOURCES: SharedSource[] = [
       'DiscountNotification',
       'ExclusionReasonCount',
       'ExcludedProduct',
+      'LOOKUP_OUTCOME_REASONS',
       'isPlaceholderPrice',
       'isListingPriceNegotiable',
     ],

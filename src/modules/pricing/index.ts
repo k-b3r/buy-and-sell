@@ -69,6 +69,7 @@ export {
   excludeProductFromReview,
   getUnexcludedBaseModels,
   includeInPricing,
+  LOOKUP_OUTCOME_REASONS,
 } from './exclusion'
 export { excludeIneligibleCategories } from './ineligible-categories'
 export { runVerifyDiscountNotifications } from './run-discount-verification'

@@ -328,6 +328,14 @@ export interface ExcludedProduct {
   listing_count: number
 }
 
+export const LOOKUP_OUTCOME_REASONS = [
+  'retail_not_found',
+  'exa_no_result',
+  'exa_wide_spread',
+  'exa_low_confidence',
+  'claude_no_result',
+] as const
+
 export function isPlaceholderPrice(price: number): boolean {
   const digits = String(Math.trunc(Math.abs(price)))
   if (digits.length < 3) return false
