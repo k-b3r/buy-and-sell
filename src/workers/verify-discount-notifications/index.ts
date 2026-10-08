@@ -8,6 +8,8 @@ import {
   loadExaApiKeys,
   createDailyGroundingCap,
   createOpenRouterClient,
+  loadGatewayConfig,
+  withGateway,
 } from '../../platform/llm-clients'
 import { createGeminiClient } from '../../platform/llm-clients/gemini-sdk'
 import { realDelay } from '../../platform/delay'
@@ -27,6 +29,7 @@ async function main() {
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const openRouterApiKey = process.env.OPEN_ROUTER_PRODUCT_JUDGE_API_KEY
   if (!openRouterApiKey) throw new Error('OPEN_ROUTER_PRODUCT_JUDGE_API_KEY not set in .env')
+  const gatewayConfig = loadGatewayConfig(process.env)
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — verification requires Postgres')
 
@@ -77,7 +80,7 @@ async function main() {
           const settings = await loadSettings(db, ['discount_policy.gemini_daily_grounding_cap'])
           return settings['discount_policy.gemini_daily_grounding_cap']
         }),
-        openrouter: createOpenRouterClient(openRouterApiKey),
+        openrouter: withGateway(createOpenRouterClient(openRouterApiKey), gatewayConfig, { db, logger }),
       }
 
       return async ({ settings }) => {

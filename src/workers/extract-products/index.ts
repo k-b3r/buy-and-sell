@@ -3,6 +3,8 @@ import {
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
   loadGroqApiKeys,
+  loadGatewayConfig,
+  withGateway,
   createExaClient,
   createFallbackExaClient,
   loadExaApiKeys,
@@ -29,6 +31,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
   const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
+  const gatewayConfig = loadGatewayConfig(process.env)
 
   await runWorker({
     name: 'extract-products',
@@ -49,8 +52,12 @@ async function main() {
     setup: ({ logger, db }) => {
       // Same shape as enrich-products.ts - see createGroqPool. Logs every
       // model/key hop so a stuck one is visible.
-      const groq = createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
-        logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+      const groq = withGateway(
+        createGroqPool(groqApiKeys, (fromLabel, toLabel) =>
+          logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
+        ),
+        gatewayConfig,
+        { db, logger },
       )
       logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
 

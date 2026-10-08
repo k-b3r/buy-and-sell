@@ -15,3 +15,7 @@ REPO_MAP.md
 dashboard/next-env.d.ts
 test-results
 playwright-report
+
+# Local handoff and held-findings files (in .git/info/exclude, never committed)
+SESSION_RESUME.md
+TODOS.md
