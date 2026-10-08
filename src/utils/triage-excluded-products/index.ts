@@ -39,7 +39,9 @@ async function main() {
       const config = loadGatewayConfig(process.env)
       if (!config) throw new Error('LLM_GATEWAY_URL / LLM_GATEWAY_API_KEY not set in .env')
       const llm = createGatewayClient(config, { onRoute: (route) => logger.info(`served by ${route}`) })
-      const candidates = await getTriageCandidates(pool, Number(flagValue('--limit') ?? ALL_PRODUCTS))
+      const limit = Number(flagValue('--limit') ?? ALL_PRODUCTS)
+      if (!Number.isInteger(limit) || limit <= 0) throw new Error('--limit must be a positive whole number')
+      const candidates = await getTriageCandidates(pool, limit)
       await runPriceTriage({ llm, saveRows: (rows) => saveTriageRows(pool, rows), logger }, candidates)
     }
   } finally {
