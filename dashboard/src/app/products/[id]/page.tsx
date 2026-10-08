@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation'
 import { getProductDetailCached } from '@/lib/cachedQueries'
+import { isExclusionsUiEnabled } from '@/lib/queries'
 import ListingsView from './ListingsView'
 import { paginateListings, parseListingsFilters } from './listingsFilters'
 import RefreshProductButton from './RefreshProductButton'
+import PricingExclusion from './PricingExclusion'
 import BackLink from '../../BackLink'
 
 // Live data - prerendering would pin it to build time, and would also make
@@ -21,7 +23,7 @@ export default async function ProductDetailPage({
   const sp = await searchParams
   const from = sp.from
   const productId = Number(id)
-  const product = await getProductDetailCached(productId)
+  const [product, showExclusions] = await Promise.all([getProductDetailCached(productId), isExclusionsUiEnabled()])
   if (!product) notFound()
 
   // A listing link back here (see ListingsView's `back` param) carries the
@@ -49,6 +51,7 @@ export default async function ProductDetailPage({
         {product.base_model}
         {product.variant_tier ? ` — ${product.variant_tier}` : ''}
       </h1>
+      <PricingExclusion productId={product.id} reason={product.pricing_excluded_reason} show={showExclusions} />
       {product.secondhand_price_low !== null && product.secondhand_price_high !== null && (
         <p className="mono" style={{ color: 'var(--color-signal)' }}>
           Secondhand price: ₱{product.secondhand_price_low.toLocaleString()}–₱

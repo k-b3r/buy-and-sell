@@ -6,6 +6,7 @@
 - [app/analytics](./app-analytics.md)
 - [app/api](./app-api.md)
 - [app/deals](./app-deals.md)
+- [app/excluded](./app-excluded.md)
 - [app/listings](./app-listings.md)
 - [app/login](./app-login.md)
 - [app/needs-review](./app-needs-review.md)

@@ -74,6 +74,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       best_discount_percent: null,
       discounted_listing_count: 0,
       discount_bands: [],
+      pricing_excluded_reason: null,
     },
     {
       id: 2,
@@ -93,6 +94,7 @@ test('getProductSummaries maps rows into ProductSummary shape with numeric field
       best_discount_percent: null,
       discounted_listing_count: 0,
       discount_bands: [],
+      pricing_excluded_reason: null,
     },
   ])
 })
@@ -498,6 +500,7 @@ test('getProductDetail returns the product, its new/secondhand prices, and its l
     best_discount_percent: null,
     discounted_listing_count: 0,
     discount_bands: [],
+    pricing_excluded_reason: null,
     enrichment: null,
     listings: [
       {

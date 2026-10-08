@@ -44,5 +44,20 @@ export const LISTING_SETTINGS: SettingsCategory = {
         },
       ],
     },
+    {
+      id: 'pricing',
+      title: 'Pricing',
+      fields: [
+        {
+          key: 'pricing.exclusions_ui_enabled',
+          label: 'Show pricing exclusions',
+          description:
+            '1 = show why a product is excluded from price lookup, the Excluded page, and the Include in pricing button; 0 = hidden (default).',
+          unit: 'count',
+          min: 0,
+          defaultValue: 0,
+        },
+      ],
+    },
   ],
 }

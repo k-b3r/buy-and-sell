@@ -1,4 +1,5 @@
 import { getProductSummariesCached, getSubCategoryTreeCached } from '@/lib/cachedQueries'
+import { isExclusionsUiEnabled } from '@/lib/queries'
 import ProductListClient from './ProductListClient'
 
 // Live data - prerendering would pin it to build time, and would also make
@@ -17,9 +18,10 @@ export default async function HomePage({
   const search = q ?? ''
   const categories = category === undefined ? [] : Array.isArray(category) ? category : [category]
   const subCategories = subCategory === undefined ? [] : Array.isArray(subCategory) ? subCategory : [subCategory]
-  const [products, subCategoryTree] = await Promise.all([
+  const [products, subCategoryTree, showExclusions] = await Promise.all([
     getProductSummariesCached({ search, categories, subCategories, offset: 0, limit: PAGE_SIZE }),
     getSubCategoryTreeCached(),
+    isExclusionsUiEnabled(),
   ])
   const nextOffset = products.length === PAGE_SIZE ? PAGE_SIZE : null
 
@@ -33,6 +35,7 @@ export default async function HomePage({
         initialCategories={categories}
         initialSubCategories={subCategories}
         subCategoryTree={subCategoryTree}
+        showExclusions={showExclusions}
       />
     </div>
   )

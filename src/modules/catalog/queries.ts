@@ -39,6 +39,8 @@ export interface ProductSummary {
   best_discount_percent: number | null
   discounted_listing_count: number
   discount_bands: DiscountBand[]
+  // Why price lookup skips this product; null when it doesn't (BUY-36).
+  pricing_excluded_reason: string | null
 }
 
 const DEFAULT_LIMIT = 30
@@ -102,6 +104,7 @@ export async function getProductSummaries(
     })},
      p AS (
        SELECT p.id, p.base_model, p.variant_tier, c.name AS category, sc.name AS sub_category, p.price_lookup_excluded,
+              p.price_lookup_excluded_reason,
               count(l.id) as listing_count,
               min(l.price_amount) FILTER (WHERE ${notJunkPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_min,
               max(l.price_amount) FILTER (WHERE ${notJunkPriceSql('l.price_amount')} AND ${notMagnitudeOutlierSql('l.price_amount', 'pm.raw_median_price')}) as price_max,
@@ -113,9 +116,11 @@ export async function getProductSummaries(
        LEFT JOIN categories c ON c.id = p.category_id
        LEFT JOIN categories sc ON sc.id = p.sub_category_id
        WHERE l.sold_at IS NULL AND ($1::text IS NULL OR p.base_model ILIKE $1) ${categoryClause} ${subCategoryClause}
-       GROUP BY p.id, p.base_model, p.variant_tier, c.name, sc.name, p.price_lookup_excluded
+       GROUP BY p.id, p.base_model, p.variant_tier, c.name, sc.name, p.price_lookup_excluded,
+                p.price_lookup_excluded_reason
      )
      SELECT p.id, p.base_model, p.variant_tier, p.category, p.sub_category,
+            p.price_lookup_excluded, p.price_lookup_excluded_reason,
             p.listing_count, p.price_min, p.price_max, p.price_avg, p.sample_photo_url,
             np.price_low as new_price_low,
             np.price_high as new_price_high,
@@ -162,8 +167,15 @@ export async function getProductSummaries(
       best_discount_percent: toNullableNumber(r.best_discount_percent),
       discounted_listing_count: Number(r.discounted_listing_count ?? 0),
       discount_bands: toDiscountBands(r.discount_bands),
+      pricing_excluded_reason: exclusionReason(r),
     }
   })
+}
+
+// Legacy rows can be excluded with no reason recorded.
+function exclusionReason(row: Record<string, unknown>): string | null {
+  if (!row.price_lookup_excluded) return null
+  return (row.price_lookup_excluded_reason as string | null) ?? 'unknown'
 }
 
 export interface SubCategoryTreeEntry {
@@ -241,6 +253,7 @@ export interface ProductDetail {
   best_discount_percent: number | null
   discounted_listing_count: number
   discount_bands: DiscountBand[]
+  pricing_excluded_reason: string | null
   enrichment: ProductEnrichment | null
   listings: ProductListingSummary[]
 }
@@ -251,7 +264,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
   // pay two round trips back-to-back.
   const [productResult, listingsResult] = await Promise.all([
     db.query(
-      `SELECT p.id, p.base_model, p.variant_tier, p.price_lookup_excluded,
+      `SELECT p.id, p.base_model, p.variant_tier, p.price_lookup_excluded, p.price_lookup_excluded_reason,
               np.price_low as new_price_low, np.price_high as new_price_high,
               up.price_low as used_price_low, up.price_high as used_price_high, up.source as used_price_source,
               e.description as enrichment_description, e.value_drivers as enrichment_value_drivers,
@@ -361,6 +374,7 @@ export async function getProductDetail(db: QueryClient, productId: number): Prom
     best_discount_percent: discountSummary.bestDiscountPercent,
     discounted_listing_count: discountSummary.discountedListingCount,
     discount_bands: discountSummary.bands,
+    pricing_excluded_reason: exclusionReason(productRow),
     enrichment,
     listings,
   }

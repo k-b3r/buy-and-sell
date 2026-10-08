@@ -79,6 +79,8 @@ export interface ProductSummary {
   best_discount_percent: number | null
   discounted_listing_count: number
   discount_bands: DiscountBand[]
+  // Why price lookup skips this product; null when it doesn't (BUY-36).
+  pricing_excluded_reason: string | null
 }
 
 export interface DiscountBand {
@@ -103,6 +105,7 @@ export interface ProductDetail {
   best_discount_percent: number | null
   discounted_listing_count: number
   discount_bands: DiscountBand[]
+  pricing_excluded_reason: string | null
   enrichment: ProductEnrichment | null
   listings: ProductListingSummary[]
 }
@@ -310,6 +313,28 @@ export interface DiscountNotification {
   read_at: string | null
   verification_reasoning: string | null
 }
+
+export interface ExclusionReasonCount {
+  reason: string
+  count: number
+  // true: a failed price search, so including the product retries the lookup.
+  retry: boolean
+}
+
+export interface ExcludedProduct {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  listing_count: number
+}
+
+export const LOOKUP_OUTCOME_REASONS = [
+  'retail_not_found',
+  'exa_no_result',
+  'exa_wide_spread',
+  'exa_low_confidence',
+  'claude_no_result',
+] as const
 
 export function isPlaceholderPrice(price: number): boolean {
   const digits = String(Math.trunc(Math.abs(price)))

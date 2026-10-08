@@ -57,6 +57,8 @@ const SETTING_FLOORS: Record<string, number> = {
   'discount_policy.gemini_daily_grounding_cap': 1,
 
   'llm.gateway_enabled': 0,
+
+  'pricing.exclusions_ui_enabled': 0,
 }
 
 const PERCENT_KEYS = new Set(['discount_policy.high_discount_threshold_percent'])

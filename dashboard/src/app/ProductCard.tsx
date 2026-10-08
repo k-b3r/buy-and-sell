@@ -1,9 +1,19 @@
 import Link from 'next/link'
 import type { ProductSummary } from '@/lib/queries'
+import { exclusionLabel } from '@/lib/exclusionReasons'
 
 // listQueryString rides along as `?from=` so the product page's "Back to
-// products" button returns to the filtered list it came from.
-export default function ProductCard({ p, listQueryString }: { p: ProductSummary; listQueryString: string }) {
+// products" button returns to the filtered list it came from. showExclusion
+// is pricing.exclusions_ui_enabled (BUY-36).
+export default function ProductCard({
+  p,
+  listQueryString,
+  showExclusion = false,
+}: {
+  p: ProductSummary
+  listQueryString: string
+  showExclusion?: boolean
+}) {
   return (
     <Link
       href={listQueryString ? `/products/${p.id}?from=${encodeURIComponent(listQueryString)}` : `/products/${p.id}`}
@@ -103,6 +113,7 @@ export default function ProductCard({ p, listQueryString }: { p: ProductSummary;
               : 'No price data'}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 6 }}>
+            <ExclusionBadge reason={p.pricing_excluded_reason} show={showExclusion} />
             {p.price_avg !== null && (
               <span
                 className="mono"
@@ -154,5 +165,24 @@ export default function ProductCard({ p, listQueryString }: { p: ProductSummary;
         </div>
       </div>
     </Link>
+  )
+}
+
+function ExclusionBadge({ reason, show }: { reason: string | null; show: boolean }) {
+  if (!show || !reason) return null
+  return (
+    <span
+      className="mono"
+      title={`Pricing excluded: ${exclusionLabel(reason)}`}
+      style={{
+        padding: '1px 6px',
+        borderRadius: 8,
+        fontSize: '0.65em',
+        background: 'var(--color-danger-bg)',
+        color: 'var(--color-danger)',
+      }}
+    >
+      No pricing: {exclusionLabel(reason)}
+    </span>
   )
 }

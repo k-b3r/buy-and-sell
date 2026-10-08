@@ -88,6 +88,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/app/api/products/[id]/include/route.ts
+
+**Interactions:** imports `@/lib/queries`
+
+### `POST(_request: Request, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<{ error: string; }> | NextResponse<{ ok: boolean; }>>`
+
+_(undocumented)_
+
 ## dashboard/src/app/api/products/[id]/listings/route.ts
 
 **Interactions:** imports `../../../../products/[id]/listingsFilters`, `@/lib/cachedQueries`

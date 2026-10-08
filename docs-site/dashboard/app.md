@@ -108,7 +108,7 @@ _(undocumented)_
 
 ## dashboard/src/app/page.tsx
 
-**Interactions:** imports `./ProductListClient`, `@/lib/cachedQueries`
+**Interactions:** imports `./ProductListClient`, `@/lib/cachedQueries`, `@/lib/queries`
 
 ### `default({ searchParams, }: { searchParams: Promise<{ q?: string; category?: string | string[]; subCategory?: string | string[] }> }): Promise<React.JSX.Element>`
 
@@ -116,9 +116,9 @@ _(undocumented)_
 
 ## dashboard/src/app/ProductCard.tsx
 
-**Interactions:** imports `@/lib/queries`
+**Interactions:** imports `@/lib/exclusionReasons`, `@/lib/queries`
 
-### `default({ p, listQueryString }: { p: ProductSummary; listQueryString: string }): React.JSX.Element`
+### `default({ p, listQueryString, showExclusion = false, }: { p: ProductSummary listQueryString: string showExclusion?: boolean }): React.JSX.Element`
 
 _(undocumented)_
 
@@ -126,7 +126,7 @@ _(undocumented)_
 
 **Interactions:** imports `./ProductCard`, `./Skeleton`, `@/lib/queries`, `@/lib/shared.generated`
 
-### `default({ initialProducts, initialNextOffset, initialSearch, initialCategories, initialSubCategories, subCategoryTree, }: Props): React.JSX.Element`
+### `default({ initialProducts, initialNextOffset, initialSearch, initialCategories, initialSubCategories, subCategoryTree, showExclusions = false, }: Props): React.JSX.Element`
 
 _(undocumented)_
 

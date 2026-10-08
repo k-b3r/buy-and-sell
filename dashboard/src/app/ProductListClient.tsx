@@ -19,6 +19,7 @@ interface Props {
   initialCategories: string[]
   initialSubCategories: string[]
   subCategoryTree: SubCategoryTreeEntry[]
+  showExclusions?: boolean
 }
 
 const sortedKey = (values: string[]) => [...values].sort().join(',')
@@ -65,6 +66,7 @@ export default function ProductListClient({
   initialCategories,
   initialSubCategories,
   subCategoryTree,
+  showExclusions = false,
 }: Props) {
   const [search, setSearch] = useState(initialSearch)
   const [category, setCategory] = useState<string | null>(initialCategories[0] ?? null)
@@ -271,7 +273,7 @@ export default function ProductListClient({
         }}
       >
         {products.map((p) => (
-          <ProductCard key={p.id} p={p} listQueryString={listQueryString} />
+          <ProductCard key={p.id} p={p} listQueryString={listQueryString} showExclusion={showExclusions} />
         ))}
       </div>
       <div ref={sentinelRef} style={{ height: 1 }} />
