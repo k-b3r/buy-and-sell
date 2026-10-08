@@ -575,3 +575,20 @@ INSERT INTO settings (key, value) VALUES
   ('extract_real_estate.batch_size', 10),
   ('extract_real_estate.loop_delay_ms', 300000)
 ON CONFLICT (key) DO NOTHING;
+
+-- A human's "include in pricing" over a judgment exclusion (BUY-36, see
+-- docs/superpowers/specs/2026-10-08-pricing-exclusions.md). Every automatic
+-- exclusion write in src/modules/pricing/exclusion.ts skips products listed
+-- here, so the LLM lap, the live heuristic and the curated lists can't
+-- re-exclude what a human included. A manual exclusion deletes the row.
+-- Lookup-outcome undos (retail_not_found etc.) are retries and never land here.
+CREATE TABLE IF NOT EXISTS price_exclusion_overrides (
+  product_id INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+  previous_reason TEXT NOT NULL,
+  overridden_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON price_exclusion_overrides TO server_service;
+
+INSERT INTO settings (key, value) VALUES
+  ('pricing.exclusions_ui_enabled', 0)
+ON CONFLICT (key) DO NOTHING;

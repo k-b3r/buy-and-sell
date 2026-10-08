@@ -29,10 +29,19 @@ export {
 } from './price-rules'
 export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './deals'
 export { getDeals } from './deals'
-export type { ComparableListing, DiscountNotification, PeerMedianPrice, SoldComparablePrice } from './queries'
+export type {
+  ComparableListing,
+  DiscountNotification,
+  ExcludedProduct,
+  ExclusionReasonCount,
+  PeerMedianPrice,
+  SoldComparablePrice,
+} from './queries'
 export {
   getComparableListings,
   getDiscountNotifications,
+  getExcludedProducts,
+  getExclusionSummary,
   getPeerMedianPrice,
   getSoldComparablePrice,
   getUnreadDiscountNotificationCount,
@@ -59,6 +68,7 @@ export {
   excludeFromPricing,
   excludeProductFromReview,
   getUnexcludedBaseModels,
+  includeInPricing,
 } from './exclusion'
 export { excludeIneligibleCategories } from './ineligible-categories'
 export { runVerifyDiscountNotifications } from './run-discount-verification'

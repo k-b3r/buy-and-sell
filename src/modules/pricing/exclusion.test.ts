@@ -25,7 +25,8 @@ test('excludeFromPricing updates a single product by id', async () => {
   await excludeFromPricing(db, { productId: 42 }, 'retail_not_found')
 
   expect(calls[0].sql).toBe(
-    'UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2',
+    'UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE id = $2' +
+      ' AND NOT EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = products.id)',
   )
   expect(calls[0].params).toEqual(['retail_not_found', 42])
 })
@@ -36,20 +37,23 @@ test('excludeFromPricing updates products matching any of the given base_model v
   await excludeFromPricing(db, { baseModels: ['Condo', 'House and Lot'] }, 'real_estate')
 
   expect(calls[0].sql).toBe(
-    'UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE base_model = ANY($2)',
+    'UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1 WHERE base_model = ANY($2)' +
+      ' AND NOT EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = products.id)',
   )
   expect(calls[0].params).toEqual(['real_estate', ['Condo', 'House and Lot']])
 })
 
-test('excludeProductFromReview sets price_lookup_excluded with a reason and clears the review flag', async () => {
+test('excludeProductFromReview drops any override, then excludes with a reason and clears the review flag', async () => {
   const { db, calls } = mockDb()
 
   await excludeProductFromReview(db, 12, 'manual_review')
 
-  expect(calls[0].sql).toBe(
-    'UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1, price_lookup_review_status = NULL WHERE id = $2',
+  expect(calls[0]).toEqual({ sql: 'DELETE FROM price_exclusion_overrides WHERE product_id = $1', params: [12] })
+  expect(calls[1].sql).toBe(
+    'UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1, price_lookup_review_status = NULL WHERE id = $2' +
+      ' AND NOT EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = products.id)',
   )
-  expect(calls[0].params).toEqual(['manual_review', 12])
+  expect(calls[1].params).toEqual(['manual_review', 12])
 })
 
 test('excludeProductFromReview rejects a reason outside the known exclusion reasons without writing', async () => {
