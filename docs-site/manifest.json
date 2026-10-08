@@ -54,6 +54,10 @@
           "slug": "app-deals"
         },
         {
+          "name": "app/excluded",
+          "slug": "app-excluded"
+        },
+        {
           "name": "app/listings",
           "slug": "app-listings"
         },

@@ -44,6 +44,22 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/lib/exclusionReasons.ts
+
+**Interactions:** imports `./shared.generated`
+
+### `exclusionLabel(reason: string): string`
+
+_(undocumented)_
+
+### `isRetryReason(reason: string): boolean`
+
+_(undocumented)_
+
+### `includeExplanation(reason: string): string`
+
+_(undocumented)_
+
 ## dashboard/src/lib/listingPrice.ts
 
 **Interactions:** imports `./queries`
@@ -85,6 +101,22 @@ _(undocumented)_
 _(undocumented)_
 
 ### `excludeProductFromReview(productId: number, reason: string): Promise<void>`
+
+_(undocumented)_
+
+### `includeInPricing(productId: number): Promise<void>`
+
+_(undocumented)_
+
+### `getExclusionSummary(): Promise<ExclusionReasonCount[]>`
+
+_(undocumented)_
+
+### `getExcludedProducts(reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
+
+_(undocumented)_
+
+### `isExclusionsUiEnabled(): Promise<boolean>`
 
 _(undocumented)_
 

@@ -670,6 +670,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `includeInPricing(db: DbClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
 ### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
 
 _(undocumented)_
@@ -758,6 +762,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getExcludedProducts(db: QueryClient, reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
+
+_(undocumented)_
+
+### `getExclusionSummary(db: QueryClient): Promise<ExclusionReasonCount[]>`
+
+_(undocumented)_
+
 ### `getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null>`
 
 _(undocumented)_
@@ -815,6 +827,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getUnexcludedBaseModels(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `includeInPricing(db: DbClient, productId: number): Promise<void>`
 
 _(undocumented)_
 
@@ -1048,7 +1064,7 @@ _(undocumented)_
 
 ## src/modules/pricing/queries.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`
+**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./exclusion`
 
 ### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
 
@@ -1083,6 +1099,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `markAllDiscountNotificationsRead(db: QueryClient): Promise<void>`
+
+_(undocumented)_
+
+### `getExclusionSummary(db: QueryClient): Promise<ExclusionReasonCount[]>`
+
+_(undocumented)_
+
+### `getExcludedProducts(db: QueryClient, reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
 
 _(undocumented)_
 
