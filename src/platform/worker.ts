@@ -55,6 +55,8 @@ interface WorkerPool extends DbClient {
 export interface WorkerDeps {
   createLogger: (path: string, secrets: readonly string[]) => Logger
   writePidFile: (path: string) => void
+  // Runs beforeExit, then exits, on SIGTERM (workerControl's stop).
+  exitOnStopSignal: (beforeExit: () => void) => void
   createDbPool: (connectionString: string) => WorkerPool
   delay: DelayFn
 }
@@ -69,7 +71,19 @@ export function writePidFile(path: string): void {
   writeFileSync(path, String(process.pid))
 }
 
-const realDeps: WorkerDeps = { createLogger, writePidFile, createDbPool, delay: realDelay }
+// Playwright installs its own SIGTERM listener (chromium.launch's default
+// handleSIGTERM) that only closes the browser, and any listener cancels Node's
+// default exit-on-SIGTERM. Confirmed live 2026-10-07 (BUY-58): a stopped
+// collect kept running, saw its browser die and relaunched it. Exiting here
+// lets Playwright's own exit hook kill Chromium, so nothing is orphaned.
+function exitOnStopSignal(beforeExit: () => void): void {
+  process.once('SIGTERM', () => {
+    beforeExit()
+    process.exit(0)
+  })
+}
+
+const realDeps: WorkerDeps = { createLogger, writePidFile, exitOnStopSignal, createDbPool, delay: realDelay }
 
 // The process-lifetime half of runWorker, for a worker whose loop doesn't fit
 // the standard lap shape (collect). The pool is ended however body finishes.
@@ -82,6 +96,7 @@ export async function runWorkerProcess(
 ): Promise<void> {
   const logger = deps.createLogger(`data/${name}.log`, secrets)
   deps.writePidFile(`data/${name}.pid`)
+  deps.exitOnStopSignal(() => logger.info('SIGTERM received, exiting'))
   const pool = deps.createDbPool(databaseUrl)
   try {
     await body({ logger, db: pool })

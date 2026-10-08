@@ -9,6 +9,7 @@ class StopLoop extends Error {}
 interface Harness {
   deps: WorkerDeps
   logs: string[]
+  stopSignal: () => void
   events: string[]
   delays: number[]
   settingQueries: unknown[][]
@@ -23,6 +24,7 @@ function harness(settings: Record<string, number> = {}, laps = 1): Harness {
   const delays: number[] = []
   const settingQueries: unknown[][] = []
   const loggerSecrets: (readonly string[])[] = []
+  let onStop = () => {}
   const deps: WorkerDeps = {
     createLogger: (logPath, secrets) => {
       events.push(`logger ${logPath}`)
@@ -34,6 +36,12 @@ function harness(settings: Record<string, number> = {}, laps = 1): Harness {
       }
     },
     writePidFile: (pidPath) => events.push(`pid ${pidPath}`),
+    exitOnStopSignal: (beforeExit) => {
+      onStop = () => {
+        beforeExit()
+        events.push('exit')
+      }
+    },
     createDbPool: (url) => {
       events.push(`pool ${url}`)
       return {
@@ -52,7 +60,7 @@ function harness(settings: Record<string, number> = {}, laps = 1): Harness {
       if (delays.length >= laps) throw new StopLoop()
     },
   }
-  return { deps, logs, events, delays, settingQueries, loggerSecrets }
+  return { deps, logs, events, delays, settingQueries, loggerSecrets, stopSignal: () => onStop() }
 }
 
 function config(overrides: Partial<WorkerConfig> = {}): WorkerConfig {
@@ -216,6 +224,19 @@ test('runWorkerProcess gives the body a logger and pool, and ends the pool once 
   expect(h.events).toEqual(['logger data/collector.log', 'pid data/collector.pid', 'pool postgres://demo', 'pool end'])
   expect(h.logs).toEqual(['INFO body ran'])
   expect(h.loggerSecrets).toEqual([['demo-secret-value']])
+})
+
+test('runWorkerProcess exits on a stop signal and logs why, so a browser library cannot swallow the stop', async () => {
+  const h = harness()
+  await runWorkerProcess(
+    { name: 'collector', databaseUrl: 'postgres://demo', secrets: [] },
+    async () => {
+      h.stopSignal()
+    },
+    h.deps,
+  )
+  expect(h.logs).toEqual(['INFO SIGTERM received, exiting'])
+  expect(h.events).toContain('exit')
 })
 
 test('writePidFile writes the current process id as a string', () => {

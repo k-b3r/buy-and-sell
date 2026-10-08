@@ -98,7 +98,7 @@ _(undocumented)_
 
 ## server/routes/workerControl.ts
 
-**Interactions:** imports `../app`, `./logs`
+**Interactions:** imports `../../src/platform/delay`, `../app`, `./logs`
 
 ### `createWorkerControlHandler(dataDir: string = defaultDataDir, deps: WorkerControlDeps = defaultDeps, repoRoot: string = defaultRepoRoot): RouteHandler`
 

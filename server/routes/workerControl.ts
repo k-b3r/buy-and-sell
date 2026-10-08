@@ -2,8 +2,15 @@ import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from 'no
 import { spawn as spawnProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { DelayFn } from '../../src/platform/delay'
+import { realDelay } from '../../src/platform/delay'
 import type { RouteHandler, RouteResult } from '../app'
 import { WORKER_LOG_FILES } from './logs'
+
+// How long a stop waits for the worker to actually exit before reporting.
+// Workers exit on SIGTERM within a second or two (runWorkerProcess's handler).
+const STOP_WAIT_MS = 10_000
+const STOP_POLL_MS = 250
 
 // Same worker-key allowlist as logs.ts, extended with the pid-file name each
 // worker writes on startup (src/platform/worker.ts's writePidFile) - matches
@@ -45,6 +52,7 @@ export interface WorkerControlDeps {
     unref?: () => void
     on: (event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void) => void
   }
+  delay: DelayFn
 }
 
 const defaultDeps: WorkerControlDeps = {
@@ -58,6 +66,7 @@ const defaultDeps: WorkerControlDeps = {
   },
   kill: (pid, signal) => process.kill(pid, signal),
   spawn: (command, args, options) => spawnProcess(command, args, options),
+  delay: realDelay,
 }
 
 // server/routes/ -> .. = server/ -> ../.. = repo root, same resolution as
@@ -136,20 +145,16 @@ export function createWorkerControlHandler(
     }
 
     if (action === 'stop') {
-      // Most of these worker loops have no signal handler, so SIGTERM
-      // terminates them immediately (confirmed live) - same as SIGKILL would,
-      // no graceful-shutdown plumbing exists or is needed here (see the
-      // corruption-risk discussion this route followed from). check-listings
-      // is the one exception: playwright-core installs its own SIGTERM
-      // handler for browser cleanup, so that one takes a few seconds to
-      // actually exit (confirmed live, ~1-3s) rather than dying instantly -
-      // the UI's status poll just needs to catch up, no code-level fix
-      // needed for that.
+      // Reports the real state after waiting for the exit, never an assumed
+      // "stopped": confirmed live 2026-10-07 (BUY-58), this answered
+      // running:false while collect kept scraping.
+      let running = false
       if (currentPid !== null) {
         stoppedIntentionally.add(worker)
         deps.kill(currentPid, 'SIGTERM')
+        running = await waitForExit(currentPid)
       }
-      return { statusCode: 200, body: { running: false, lastRunErrored: lastRunErrored.get(worker) ?? false } }
+      return { statusCode: 200, body: { running, lastRunErrored: lastRunErrored.get(worker) ?? false } }
     }
 
     if (currentPid !== null) {
@@ -157,6 +162,15 @@ export function createWorkerControlHandler(
     }
     startWorker(worker, pidFile)
     return { statusCode: 200, body: { running: true, lastRunErrored: lastRunErrored.get(worker) ?? false } }
+  }
+
+  // Returns whether the pid is still alive once the wait is over.
+  async function waitForExit(pid: number): Promise<boolean> {
+    for (let waited = 0; waited < STOP_WAIT_MS; waited += STOP_POLL_MS) {
+      if (!deps.isAlive(pid)) return false
+      await deps.delay(STOP_POLL_MS)
+    }
+    return deps.isAlive(pid)
   }
 
   function startWorker(worker: string, pidFile: string): void {
