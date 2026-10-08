@@ -117,7 +117,7 @@ src/
   utils/                                # one-off scripts, run by hand, not looped/deployed — no domain
     backfill/, detect-generic-products/,  # logic of their own, everything domain-shaped lives in modules/
     detect-model-mismatches/, reassign-model-mismatches/, flag-price-ineligible/,
-    merge-duplicate-products/, price-from-listings/
+    merge-duplicate-products/, price-from-listings/, triage-excluded-products/
   each worker/util dir: index.ts entrypoint, wiring only (ESLint blocks oversized or complex ones);
   workers loop via runWorker, collect via its own laps.ts
 server/                                 # VPS HTTP server: auth, named-query whitelist, refresh, worker control
