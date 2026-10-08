@@ -882,6 +882,26 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence): Promise<number>`
+
+_(undocumented)_
+
+### `getTriageCandidates(db: DbClient, limit: number): Promise<TriageCandidate[]>`
+
+_(undocumented)_
+
+### `getTriageSummary(db: DbClient): Promise<TriageSummaryRow[]>`
+
+_(undocumented)_
+
+### `runPriceTriage({ llm, saveRows, logger, delay = realDelay }: TriageIo, candidates: TriageCandidate[], { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {}): Promise<void>`
+
+_(undocumented)_
+
+### `saveTriageRows(db: DbClient, rows: TriageRow[]): Promise<void>`
+
+_(undocumented)_
+
 ### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
 
 _(undocumented)_
@@ -1059,6 +1079,38 @@ _(undocumented)_
 _(undocumented)_
 
 ### `isNewCondition(condition: string | null): boolean`
+
+_(undocumented)_
+
+## src/modules/pricing/price-triage.ts
+
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/rows`, `../../platform/storage`, `./exclusion`
+
+### `buildTriagePrompt(batch: TriageCandidate[]): string`
+
+_(undocumented)_
+
+### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
+
+_(undocumented)_
+
+### `runPriceTriage({ llm, saveRows, logger, delay = realDelay }: TriageIo, candidates: TriageCandidate[], { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {}): Promise<void>`
+
+_(undocumented)_
+
+### `getTriageCandidates(db: DbClient, limit: number): Promise<TriageCandidate[]>`
+
+_(undocumented)_
+
+### `saveTriageRows(db: DbClient, rows: TriageRow[]): Promise<void>`
+
+_(undocumented)_
+
+### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence): Promise<number>`
+
+_(undocumented)_
+
+### `getTriageSummary(db: DbClient): Promise<TriageSummaryRow[]>`
 
 _(undocumented)_
 

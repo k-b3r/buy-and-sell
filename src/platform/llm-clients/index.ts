@@ -24,7 +24,7 @@ export type { OpenRouterClient } from './openrouter'
 export { createOpenRouterClient, createFallbackOpenRouterClient } from './openrouter'
 
 export type { GatewayConfig } from './gateway'
-export { loadGatewayConfig, withGateway } from './gateway'
+export { createGatewayClient, loadGatewayConfig, withGateway } from './gateway'
 
 export { QuotaExhaustedError, isQuotaError, isCreditsError } from './error-classification'
 export type { RetryOptions } from './retry'

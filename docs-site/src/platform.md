@@ -202,6 +202,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): JsonClient`
+
+_(undocumented)_
+
 ### `loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null`
 
 _(undocumented)_

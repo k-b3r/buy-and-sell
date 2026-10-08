@@ -84,6 +84,14 @@ export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
 export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
 export { runPriceLookup } from './run-price-lookup'
+export type { TriageCandidate, TriageConfidence, TriageRow, TriageSummaryRow } from './price-triage'
+export {
+  applyTriageVerdicts,
+  getTriageCandidates,
+  getTriageSummary,
+  runPriceTriage,
+  saveTriageRows,
+} from './price-triage'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
 export type { PriceReviewCandidate } from './price-review'
 export { runPriceReview } from './run-price-review'
