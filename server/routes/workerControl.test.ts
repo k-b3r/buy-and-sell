@@ -44,6 +44,7 @@ function fakeDeps(
     isAlive: overrides.isAlive ?? (() => false),
     kill: overrides.kill ?? vi.fn(),
     spawn: overrides.spawn ?? vi.fn(() => fakeChild()),
+    delay: async () => {},
   }
 }
 
@@ -108,14 +109,27 @@ test(
 )
 
 test(
-  'stop: sends SIGTERM to the live pid',
+  'stop: sends SIGTERM to the live pid and reports stopped once it has exited',
   withTmpDir(async (dir) => {
     writeFileSync(path.join(dir, 'collector.pid'), '999')
-    const kill = vi.fn()
-    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: (pid) => pid === 999, kill }))
+    let alive = true
+    const kill = vi.fn(() => {
+      alive = false
+    })
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: (pid) => pid === 999 && alive, kill }))
     const result = await handle({ worker: 'collect', action: 'stop' })
     expect(kill).toHaveBeenCalledWith(999, 'SIGTERM')
     expect(result).toEqual({ statusCode: 200, body: { running: false, lastRunErrored: false } })
+  }),
+)
+
+test(
+  'stop: reports still running when the process outlives the wait, instead of claiming it stopped',
+  withTmpDir(async (dir) => {
+    writeFileSync(path.join(dir, 'collector.pid'), '999')
+    const handle = createWorkerControlHandler(dir, fakeDeps({ isAlive: (pid) => pid === 999 }))
+    const result = await handle({ worker: 'collect', action: 'stop' })
+    expect(result).toEqual({ statusCode: 200, body: { running: true, lastRunErrored: false } })
   }),
 )
 
