@@ -63,7 +63,7 @@ All in `src/modules/pricing` (`exclusion.ts` owns the writes, `queries.ts` the r
 ### Dashboard
 
 - Product page and `ProductCard`: badge "Pricing excluded: <reason>", tooltip with what the reason means.
-- Product list: an "Excluded" filter/tab, grouped by reason with counts.
+- Excluded view: a `/excluded` page (reasons with counts, then products per reason, most listings first), linked from the badge rather than the nav bar, so no page pays an extra settings lookup.
 - Product page: "Include in pricing" button.
 - Copy for curated reasons: "Curated list: re-applied by flag-price-ineligible unless overridden here" is no longer true once overrides exist; say "Overridden: the curated list won't re-apply it."
 
