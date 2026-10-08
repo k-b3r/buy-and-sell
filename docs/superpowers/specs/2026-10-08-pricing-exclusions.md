@@ -4,21 +4,21 @@
 
 `products.price_lookup_excluded` hides a product from price lookup forever, with no trace in the dashboard and no undo short of a DB edit. Live 2026-10-08: **6,829 of 10,584 products (65%) are excluded**, under 15 reasons:
 
-| Reason | Count | Kind |
-|---|---|---|
-| retail_not_found | 1,935 | lookup outcome |
-| groq_generic | 1,901 | judgment (LLM) |
-| exa_no_result | 1,360 | lookup outcome, retired |
-| too_generic | 511 | judgment (heuristic / curated) |
-| exa_wide_spread | 481 | lookup outcome, retired |
-| real_estate | 207 | judgment |
-| generic_category | 175 | judgment, retired |
-| parts_accessory | 163 | judgment |
-| service | 32 | judgment |
-| claude_no_result | 26 | lookup outcome, retired |
-| needs_component_pricing | 26 | judgment (curated) |
-| manual_review | 6 | judgment (human) |
-| exa_low_confidence + 2 dated one-offs | 6 | lookup outcome / manual, retired |
+| Reason                                | Count | Kind                             |
+| ------------------------------------- | ----- | -------------------------------- |
+| retail_not_found                      | 1,935 | lookup outcome                   |
+| groq_generic                          | 1,901 | judgment (LLM)                   |
+| exa_no_result                         | 1,360 | lookup outcome, retired          |
+| too_generic                           | 511   | judgment (heuristic / curated)   |
+| exa_wide_spread                       | 481   | lookup outcome, retired          |
+| real_estate                           | 207   | judgment                         |
+| generic_category                      | 175   | judgment, retired                |
+| parts_accessory                       | 163   | judgment                         |
+| service                               | 32    | judgment                         |
+| claude_no_result                      | 26    | lookup outcome, retired          |
+| needs_component_pricing               | 26    | judgment (curated)               |
+| manual_review                         | 6     | judgment (human)                 |
+| exa_low_confidence + 2 dated one-offs | 6     | lookup outcome / manual, retired |
 
 The "lookup outcome" rows (about 3,800) are the likely false exclusions: many were written while Gemini (20/day) or Exa credits were exhausted, so "no price found" says more about quota than about the product.
 
