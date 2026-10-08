@@ -262,7 +262,9 @@ const CONFIDENCE_RANK: Record<TriageConfidence, number> = { low: 1, medium: 2, h
 
 // The reviewed step: every unapplied "retry" verdict at or above minConfidence
 // goes through includeInPricing (BUY-36: retry for failed searches, override
-// for judgments). Idempotent: applied_at marks what's done. Returns the count.
+// for judgments). Idempotent: applied_at marks what's done. A crash between
+// the include and the applied_at write is safe: the next run re-includes, and
+// includeInPricing leaves an already-included product alone. Returns the count.
 export async function applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence): Promise<number> {
   const result = (await db.query(
     `SELECT product_id FROM product_pricing_triage
