@@ -265,13 +265,22 @@ const CONFIDENCE_RANK: Record<TriageConfidence, number> = { low: 1, medium: 2, h
 // for judgments). Idempotent: applied_at marks what's done. A crash between
 // the include and the applied_at write is safe: the next run re-includes, and
 // includeInPricing leaves an already-included product alone. Returns the count.
-export async function applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence): Promise<number> {
+// `reasons` limits it to products whose old exclusion reason is listed (the
+// reviewed groups); omitted means every reason. A human's manual_review
+// exclusion is never overturned, listed or not.
+export async function applyTriageVerdicts(
+  db: DbClient,
+  minConfidence: TriageConfidence,
+  reasons?: string[],
+): Promise<number> {
   const result = (await db.query(
     `SELECT product_id FROM product_pricing_triage
      WHERE verdict = 'retry' AND applied_at IS NULL
        AND CASE confidence WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END >= $1
+       AND previous_reason <> 'manual_review'
+       AND ($2::text[] IS NULL OR previous_reason = ANY($2))
      ORDER BY product_id`,
-    [CONFIDENCE_RANK[minConfidence]],
+    [CONFIDENCE_RANK[minConfidence], reasons ?? null],
   )) as { rows: { product_id: number }[] }
   for (const { product_id } of result.rows) {
     await includeInPricing(db, product_id)

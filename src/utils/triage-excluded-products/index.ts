@@ -13,7 +13,8 @@ import {
 
 // BUY-60. Default: triage excluded products via the LLM gateway into
 // product_pricing_triage (resumable). --summary: verdict split for review.
-// --apply [--min-confidence high|medium|low]: act on reviewed retry verdicts.
+// --apply [--min-confidence high|medium|low] [--reasons a,b]: act on reviewed retry
+// verdicts, optionally only for products excluded for those old reasons.
 const ALL_PRODUCTS = 100_000
 const CONFIDENCES: TriageConfidence[] = ['high', 'medium', 'low']
 
@@ -34,7 +35,11 @@ async function main() {
     } else if (process.argv.includes('--apply')) {
       const min = (flagValue('--min-confidence') ?? 'high') as TriageConfidence
       if (!CONFIDENCES.includes(min)) throw new Error(`--min-confidence must be one of ${CONFIDENCES.join(', ')}`)
-      logger.info(`included ${await applyTriageVerdicts(pool, min)} products in pricing (min confidence: ${min})`)
+      const reasons = flagValue('--reasons')?.split(',').filter(Boolean)
+      const count = await applyTriageVerdicts(pool, min, reasons)
+      logger.info(
+        `included ${count} products in pricing (min confidence: ${min}, reasons: ${reasons?.join(', ') ?? 'all'})`,
+      )
     } else {
       const config = loadGatewayConfig(process.env)
       if (!config) throw new Error('LLM_GATEWAY_URL / LLM_GATEWAY_API_KEY not set in .env')

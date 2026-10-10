@@ -23,9 +23,14 @@ async function state(id: number): Promise<{ excluded: boolean; applied: boolean 
   return rows[0]
 }
 
-const row = (productId: number, verdict: 'retry' | 'keep_excluded', confidence: 'high' | 'medium' | 'low') => ({
+const row = (
+  productId: number,
+  verdict: 'retry' | 'keep_excluded',
+  confidence: 'high' | 'medium' | 'low',
+  previousReason = 'retail_not_found',
+) => ({
   productId,
-  previousReason: 'retail_not_found',
+  previousReason,
   verdict,
   isSpecificProduct: verdict === 'retry',
   confidence,
@@ -92,4 +97,25 @@ test('applying verdicts includes only retry verdicts at or above the confidence 
   expect(await state(UNSURE)).toEqual({ excluded: true, applied: false })
   expect(first).toBeGreaterThanOrEqual(1)
   expect(second).toBe(0)
+})
+
+test('applying with a reasons list includes only retries whose old reason is listed', async () => {
+  await saveTriageRows(pool, [
+    row(SPECIFIC, 'retry', 'high', 'retail_not_found'),
+    row(GENERIC, 'retry', 'high', 'groq_generic'),
+  ])
+
+  await applyTriageVerdicts(pool, 'high', ['retail_not_found'])
+
+  expect(await state(SPECIFIC)).toEqual({ excluded: false, applied: true })
+  expect(await state(GENERIC)).toEqual({ excluded: true, applied: false })
+})
+
+test('applying never overturns a human manual_review exclusion, even when it is listed', async () => {
+  await saveTriageRows(pool, [row(UNSURE, 'retry', 'high', 'manual_review')])
+
+  await applyTriageVerdicts(pool, 'high', ['manual_review'])
+  await applyTriageVerdicts(pool, 'high')
+
+  expect(await state(UNSURE)).toEqual({ excluded: true, applied: false })
 })
