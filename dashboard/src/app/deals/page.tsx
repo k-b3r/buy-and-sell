@@ -1,14 +1,6 @@
 import { getDeals, getAllSettings } from '@/lib/queries'
 import DealsClient from './DealsClient'
 
-// Without this, Next statically generates this page once at build time (it
-// takes no searchParams/cookies, the only signals Next otherwise uses to
-// infer a page needs per-request rendering) and freezes today's ranking
-// forever until the next deploy - the exact opposite of "what's a good deal
-// right now" this page exists for. Confirmed live 2026-09-02: `next build`
-// marked /deals "○ (Static)" without this.
-export const dynamic = 'force-dynamic'
-
 const PAGE_SIZE = 30
 
 async function getDiscountPolicyFloors() {
