@@ -14,7 +14,7 @@ import { includeInPricing } from './exclusion'
 // Confirmed live 2026-10-08: a 20-product batch on the gateway's `auto` route
 // hit a 60s provider timeout (and Cloudflare's 100s cap in front of
 // llm.kber.dev); 10 per batch ran 40 products in 16s via gpt-oss-120b.
-const DEFAULT_BATCH_SIZE = 10
+const DEFAULT_BATCH_SIZE = 8
 const DEFAULT_MAX_ATTEMPTS = 3
 const DEFAULT_RETRY_DELAY_MS = 5000
 const MAX_SAMPLE_TITLES = 3

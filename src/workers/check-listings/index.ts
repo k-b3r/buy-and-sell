@@ -16,7 +16,7 @@ import { getDealListingIds } from '../../modules/pricing'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 
 // How many top-ranked /deals listings are considered for priority checking.
-const DEALS_PRIORITY_POOL = 200
+const DEALS_PRIORITY_POOL = 150
 
 async function main() {
   loadEnvFile()
