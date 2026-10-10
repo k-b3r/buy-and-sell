@@ -89,25 +89,25 @@ test('runPriceTriage saves each parsed verdict and skips malformed items', async
   expect(logs.some((l) => l.startsWith('WARN') && l.includes('8'))).toBe(true)
 })
 
-test('runPriceTriage stops the run cleanly when the gateway is rate limited', async () => {
-  const logs: string[] = []
+test('runPriceTriage rethrows when the gateway is rate limited', async () => {
   let calls = 0
-  await runPriceTriage(
-    {
-      llm: {
-        generateJson: async () => {
-          calls++
-          throw Object.assign(new Error('All models rate-limited'), { status: 429 })
+  await expect(
+    runPriceTriage(
+      {
+        llm: {
+          generateJson: async () => {
+            calls++
+            throw Object.assign(new Error('All models rate-limited'), { status: 429 })
+          },
         },
+        saveRows: async () => {},
+        logger: { info: () => {}, warn: () => {}, error: () => {} },
+        delay: async () => {},
       },
-      saveRows: async () => {},
-      logger: { info: (m) => logs.push(m), warn: (m) => logs.push(m), error: (m) => logs.push(`ERROR ${m}`) },
-      delay: async () => {},
-    },
-    [candidate(), candidate({ id: 8 })],
-    { batchSize: 1 },
-  )
+      [candidate(), candidate({ id: 8 })],
+      { batchSize: 1 },
+    ),
+  ).rejects.toThrow('All models rate-limited')
 
   expect(calls).toBe(1)
-  expect(logs.some((l) => l.startsWith('ERROR') && l.includes('stopping'))).toBe(true)
 })
