@@ -12,10 +12,11 @@ import type { ProductAliasRule } from './product-merge'
 // cellular, screen-size-as-variant, generic plural buckets like Bag/Bags,
 // genuine trailing-s model numbers like iPhone 6 vs 6s) - those need a human
 // call, not a blind merge.
-// Still needed: `merge-duplicate-products --dry-run` on 2026-10-08 found 24 of
-// the 318 rules matching live rows again (e.g. PS4 Slim, Aircon, Galaxy A54
-// 5G), because extraction keeps producing the alias names. Keep the list and
-// rerun the merge until extraction stops emitting them.
+// Applied twice: by parseExtractionItem (extraction.ts) as listings are
+// extracted, and by merge-duplicate-products for rows created before that.
+// `--dry-run` on 2026-10-08 found 24 of the 318 rules matching live rows (e.g.
+// PS4 Slim, Aircon, Galaxy A54 5G) because extraction did not apply them yet;
+// rerun the merge only if a dry run shows matches created before that fix.
 export const PRODUCT_VARIANT_ALIAS_RULES: ProductAliasRule[] = [
   // ---- Apple: iPhone ----
   { aliasBase: 'iPhone 11 Pro', aliasVariant: null, canonicalBase: 'iPhone 11', canonicalVariant: 'Pro' },

@@ -66,3 +66,32 @@ test('parseExtractionItem reports an id that matches no listing in the batch', (
     id: 'other',
   })
 })
+
+test('parseExtractionItem applies a variant alias rule so the alias lands on the canonical product', () => {
+  const parsed = extracted({ id: 'l1', base_model: 'Samsung Galaxy A54', variant: '5G' })
+
+  expect(parsed.baseModel).toBe('Samsung Galaxy A54')
+  expect(parsed.variant).toBeNull()
+  expect(parsed.productKey).toBe(extracted({ id: 'l1', base_model: 'Samsung Galaxy A54' }).productKey)
+})
+
+test('parseExtractionItem matches alias rules on normalized text, ignoring case and spacing', () => {
+  const parsed = extracted({ id: 'l1', base_model: '  samsung galaxy   a54 ', variant: ' 5g ' })
+
+  expect(parsed.baseModel).toBe('Samsung Galaxy A54')
+  expect(parsed.variant).toBeNull()
+})
+
+test('parseExtractionItem renames the base model and the variant together when a rule changes both', () => {
+  const parsed = extracted({ id: 'l1', base_model: 'PS4 Slim' })
+
+  expect(parsed.baseModel).toBe('PlayStation 4')
+  expect(parsed.variant).toBe('Slim')
+})
+
+test('parseExtractionItem leaves a name no rule covers untouched', () => {
+  const parsed = extracted({ id: 'l1', base_model: 'Sony WH-1000XM4', variant: 'Black' })
+
+  expect(parsed.baseModel).toBe('Sony WH-1000XM4')
+  expect(parsed.variant).toBe('Black')
+})
