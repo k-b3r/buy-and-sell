@@ -304,11 +304,19 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getDealCheckCandidates(db: DbClient, ids: string[], minHoursSinceCheck: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
 ### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
 
 _(undocumented)_
 
 ### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `putDealsFirst(deals: CheckListingsCandidate[], backlog: CheckListingsCandidate[], limit: number): CheckListingsCandidate[]`
 
 _(undocumented)_
 
@@ -397,6 +405,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getDealCheckCandidates(db: DbClient, ids: string[], minHoursSinceCheck: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `putDealsFirst(deals: CheckListingsCandidate[], backlog: CheckListingsCandidate[], limit: number): CheckListingsCandidate[]`
 
 _(undocumented)_
 
@@ -610,6 +626,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getDealListingIds(db: DbClient, discountPolicy: DealsDiscountPolicyFloors, limit: number): Promise<string[]>`
+
+_(undocumented)_
+
 ## src/modules/pricing/discount-notifications.ts
 
 **Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`, `./price-rules`, `./queries`
@@ -747,6 +767,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `toPriceReview(r: Record<string, unknown>): ListingPriceReview | null`
+
+_(undocumented)_
+
+### `getDealListingIds(db: DbClient, discountPolicy: DealsDiscountPolicyFloors, limit: number): Promise<string[]>`
 
 _(undocumented)_
 
