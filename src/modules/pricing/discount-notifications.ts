@@ -98,6 +98,7 @@ export async function decideListingDiscount(
   if (isMagnitudeOutlier(priceAmount, referencePrice)) return null
 
   const discountPercent = Math.round(((referencePrice - priceAmount) / referencePrice) * 100)
+  if (discountPercent > 92) return null
   const profitPesos = referencePrice - priceAmount
   if (discountPercent < thresholds.highDiscountThresholdPercent || profitPesos < thresholds.minProfitPesos) return null
 
