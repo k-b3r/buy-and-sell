@@ -10,8 +10,10 @@ export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './k
 export {
   getBackfillCandidates,
   getCheckListingsCandidates,
+  getDealCheckCandidates,
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
+  putDealsFirst,
 } from './listings'
 export { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 export type { ListingPhotos } from './photos'

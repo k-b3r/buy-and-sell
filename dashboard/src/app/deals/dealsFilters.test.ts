@@ -13,12 +13,13 @@ test('buildDealsParams sends every set filter plus the low-confidence flag', () 
       minProfit: '1000',
       minTier: 'peer_listings',
       maxDaysListed: '7',
+      addedWithinHours: '24',
       soldOnly: true,
     },
     30,
     true,
   )
   expect(params.toString()).toBe(
-    'offset=30&search=iphone&category=Phones&minProfit=1000&minTier=peer_listings&maxDaysListed=7&soldOnly=true&lowConfidence=true',
+    'offset=30&search=iphone&category=Phones&minProfit=1000&minTier=peer_listings&maxDaysListed=7&addedWithinHours=24&soldOnly=true&lowConfidence=true',
   )
 })

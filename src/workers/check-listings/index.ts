@@ -7,10 +7,16 @@ import { secretsFromEnv } from '../../platform/redact'
 import {
   createListingPhotos,
   getCheckListingsCandidates,
+  getDealCheckCandidates,
+  putDealsFirst,
   resolveProxy,
   runCheckListings,
 } from '../../modules/collection'
+import { getDealListingIds } from '../../modules/pricing'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
+
+// How many top-ranked /deals listings are considered for priority checking.
+const DEALS_PRIORITY_POOL = 200
 
 async function main() {
   loadEnvFile()
@@ -43,6 +49,10 @@ async function main() {
       'check_listings.pacing_min_ms',
       'check_listings.pacing_max_ms',
       'check_listings.re_recheck_min_days',
+      'check_listings.deals_priority_enabled',
+      'check_listings.deals_recheck_min_hours',
+      'discount_policy.min_profit_pesos',
+      'discount_policy.min_price_pesos',
     ],
     loopDelayKey: 'check_listings.loop_delay_ms',
     setup: async ({ logger, db }) => {
@@ -65,7 +75,20 @@ async function main() {
 
       return async ({ settings }) => {
         const limit = explicitLimit ?? settings['check_listings.limit_default']
-        const candidates = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
+        const backlog = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
+        let candidates = backlog
+        if (settings['check_listings.deals_priority_enabled'] >= 1) {
+          const dealIds = await getDealListingIds(
+            db,
+            {
+              minProfitPesos: settings['discount_policy.min_profit_pesos'],
+              minPricePesos: settings['discount_policy.min_price_pesos'],
+            },
+            DEALS_PRIORITY_POOL,
+          )
+          const deals = await getDealCheckCandidates(db, dealIds, settings['check_listings.deals_recheck_min_hours'])
+          candidates = putDealsFirst(deals, backlog, limit)
+        }
         return {
           dryRun: `would call Facebook to check ${candidates.length} listings`,
           run: async () => {

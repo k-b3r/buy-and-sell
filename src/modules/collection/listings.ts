@@ -204,6 +204,37 @@ export async function getCheckListingsCandidates(
   return result.rows
 }
 
+// Priority slice for check-listings: unsold listings among `ids` (the ones
+// currently ranked on /deals, see pricing's getDealListingIds) that haven't
+// been checked within minHours. The recency floor keeps the same top deals
+// from being re-checked every lap and starving the rest of the backlog.
+// Stalest first, same idiom as getCheckListingsCandidates.
+export async function getDealCheckCandidates(
+  db: DbClient,
+  ids: string[],
+  minHoursSinceCheck: number,
+): Promise<CheckListingsCandidate[]> {
+  if (ids.length === 0) return []
+  const result = (await db.query(
+    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+     WHERE id = ANY($1)
+       AND sold_at IS NULL
+       AND (last_checked_at IS NULL OR last_checked_at < now() - make_interval(hours => $2))
+     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
+    [ids, minHoursSinceCheck],
+  )) as { rows: CheckListingsCandidate[] }
+  return result.rows
+}
+
+export function putDealsFirst(
+  deals: CheckListingsCandidate[],
+  backlog: CheckListingsCandidate[],
+  limit: number,
+): CheckListingsCandidate[] {
+  const dealIds = new Set(deals.map((d) => d.id))
+  return [...deals, ...backlog.filter((c) => !dealIds.has(c.id))].slice(0, limit)
+}
+
 // Scoped counterpart to getCheckListingsCandidates, for the dashboard's
 // per-product bulk refresh (see server/routes/refreshProduct.ts) - same
 // sold-exclusion and staleness ordering, just narrowed to one product's

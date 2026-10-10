@@ -69,6 +69,18 @@ export default function DealsFilterBar({
         className="mono"
         style={{ ...dealsInputStyle, width: 140 }}
       />
+      <select
+        value={filters.addedWithinHours}
+        onChange={(e) => setFilters((f) => ({ ...f, addedWithinHours: e.target.value }))}
+        className="mono"
+        style={dealsInputStyle}
+      >
+        <option value="">Any time added</option>
+        <option value="6">Added in last 6 hours</option>
+        <option value="24">Added in last 24 hours</option>
+        <option value="72">Added in last 3 days</option>
+        <option value="168">Added in last 7 days</option>
+      </select>
       <button
         type="button"
         onClick={() => setFilters((f) => ({ ...f, soldOnly: !f.soldOnly }))}

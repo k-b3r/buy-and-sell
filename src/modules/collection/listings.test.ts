@@ -5,6 +5,8 @@ import {
   upsertListing,
   getCollectedListingIds,
   getCheckListingsCandidates,
+  getDealCheckCandidates,
+  putDealsFirst,
   getListingCheckCandidatesForProduct,
   markListingAlive,
   markListingSold,
@@ -608,4 +610,41 @@ test('getCheckListingsCandidates skips recently checked real estate listings onl
   expect(calls[0].sql).toContain('l.sold_at IS NULL')
   expect(calls[0].sql).toContain('ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST')
   expect(calls[0].params).toEqual([50, 7])
+})
+
+test('getDealCheckCandidates picks unsold listings among the given ids not checked within minHours, stalest first', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 'a', flagged_removed_at: null, source_photo_ids: null }] }
+    },
+  }
+
+  const rows = await getDealCheckCandidates(db, ['a', 'b'], 6)
+
+  expect(rows).toEqual([{ id: 'a', flagged_removed_at: null, source_photo_ids: null }])
+  expect(calls[0].sql).toContain('id = ANY($1)')
+  expect(calls[0].sql).toContain('sold_at IS NULL')
+  expect(calls[0].sql).toContain('last_checked_at IS NULL OR last_checked_at < now() - make_interval(hours => $2)')
+  expect(calls[0].sql).toContain('ORDER BY last_checked_at ASC NULLS FIRST')
+  expect(calls[0].params).toEqual([['a', 'b'], 6])
+})
+
+test('getDealCheckCandidates skips the query when there are no ids', async () => {
+  const db = {
+    query: async () => {
+      throw new Error('should not query')
+    },
+  }
+
+  expect(await getDealCheckCandidates(db, [], 6)).toEqual([])
+})
+
+test('putDealsFirst puts deal candidates ahead of the backlog, drops duplicates and caps at the limit', () => {
+  const c = (id: string) => ({ id, flagged_removed_at: null, source_photo_ids: null })
+
+  const merged = putDealsFirst([c('d1'), c('d2')], [c('a'), c('d1'), c('b'), c('d3')], 4)
+
+  expect(merged.map((x) => x.id)).toEqual(['d1', 'd2', 'a', 'b'])
 })

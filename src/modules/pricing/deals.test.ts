@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { getDeals } from './deals'
+import { getDealListingIds, getDeals } from './deals'
 import { notMagnitudeOutlierSql, peerListingSql } from './clean-median'
 import { repostKeySql } from './repost'
 import type { QueryClient } from '../../platform/storage'
@@ -182,6 +182,23 @@ test('getDeals filters by category and max days listed when provided', async () 
   expect(capturedParams.some((p) => Array.isArray(p) && p.includes('Mobile Phones'))).toBe(true)
 })
 
+test('getDeals filters to listings first seen within the given hours', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { addedWithinHours: 48 })
+
+  expect(capturedSql).toContain('first_seen_at >= now() - make_interval(hours =>')
+  expect(capturedParams).toContain(48)
+})
+
 test('getDeals filters by title or base_model when a search term is provided', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []
@@ -323,4 +340,24 @@ test('getDeals caps each category at 10 rows via a per-category ROW_NUMBER, appl
   // tier/profit-ranked the same way as the main list).
   await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { lowConfidenceOnly: true })
   expect(capturedSql).toMatch(/WHERE \$\d+ OR category_rank <= \$\d+/)
+})
+
+test('getDealListingIds returns the ranked main-list deal ids up to the limit', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return {
+        rows: [
+          { listing_id: 'l1', ask_price: '1' },
+          { listing_id: 'l2', ask_price: '1' },
+        ],
+      }
+    },
+  }
+
+  const ids = await getDealListingIds(db, DEFAULT_DISCOUNT_POLICY_FLOORS, 200)
+
+  expect(ids).toEqual(['l1', 'l2'])
+  expect(capturedParams).toContain(200)
 })
