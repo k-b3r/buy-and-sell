@@ -3,6 +3,8 @@ name: ci
 on:
   pull_request:
 
+permissions: write-all
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
