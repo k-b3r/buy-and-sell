@@ -48,8 +48,20 @@ const JUNK_PRICE_FLOOR = 100
 // The one junk-price rule: below the floor or a placeholder digit pattern.
 // Junk never enters a median, a listing-derived price range, or a parsed
 // search-result price.
+interface JunkPriceChecker {
+  isJunk(price: number): boolean
+}
+
+class DefaultJunkPriceChecker implements JunkPriceChecker {
+  isJunk(price: number): boolean {
+    return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+  }
+}
+
+const junkPriceChecker: JunkPriceChecker = new DefaultJunkPriceChecker()
+
 export function isJunkPrice(price: number): boolean {
-  return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+  return junkPriceChecker.isJunk(price)
 }
 
 // SQL equivalent of isJunkPrice above, negated.
