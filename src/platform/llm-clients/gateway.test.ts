@@ -396,3 +396,23 @@ test('withGateway does not invent a grounded method on a client that has none', 
 
   expect('generateGroundedText' in client).toBe(false)
 })
+
+test('a grounded 429 is Gemini quota, not an outage, so it leaves the shared breaker closed', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const grounded = { ...direct, generateGroundedText: async (_prompt: string) => 'direct text' }
+  const { fetchFn } = sequencedFetch([429, 429])
+  const client = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker })
+
+  expect(await client.generateGroundedText('q')).toBe('direct text')
+  expect(breaker.isOpen()).toBe(false)
+})
+
+test('a grounded 503 still trips the shared breaker', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const grounded = { ...direct, generateGroundedText: async (_prompt: string) => 'direct text' }
+  const { fetchFn } = sequencedFetch([503, 503])
+  const client = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker })
+
+  await client.generateGroundedText('q')
+  expect(breaker.isOpen()).toBe(true)
+})

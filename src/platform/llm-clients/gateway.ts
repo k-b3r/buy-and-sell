@@ -87,9 +87,12 @@ function isAutoModel(model: string): boolean {
 // A failure that says the gateway itself is struggling (rate limited, 5xx,
 // timeout, network), as opposed to this one request being rejected (400, bad
 // JSON), which must not shut the gateway off for every other call.
-function isGatewayOutage(err: unknown): boolean {
+// A 429 only counts when `quotaCounts`: for grounded search it means Gemini's
+// own free-tier quota is spent, which says nothing about the JSON calls that
+// share this breaker.
+function isGatewayOutage(err: unknown, quotaCounts: boolean): boolean {
   const status = errorStatus(err)
-  if (status !== undefined) return status === 429 || status >= 500
+  if (status !== undefined) return (status === 429 && quotaCounts) || status >= 500
   return (
     err instanceof TypeError || (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError'))
   )
@@ -222,7 +225,7 @@ export function withGateway<C extends JsonClient>(
     onFallback: (from, to, reason) => deps.logger.warn(`LLM gateway ${from} failed (${reason}), trying ${to}`),
   })
 
-  async function viaGateway<T>(call: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+  async function viaGateway<T>(call: () => Promise<T>, fallback: () => Promise<T>, quotaCounts: boolean): Promise<T> {
     const settings = await loadSettings(deps.db, [SETTING_KEY, FALLBACK_SETTING_KEY])
     if (settings[SETTING_KEY] !== 1) return fallback()
     const directAllowed = settings[FALLBACK_SETTING_KEY] === 1
@@ -235,7 +238,7 @@ export function withGateway<C extends JsonClient>(
     try {
       return await call()
     } catch (err) {
-      if (isGatewayOutage(err)) breaker.trip()
+      if (isGatewayOutage(err, quotaCounts)) breaker.trip()
       if (!directAllowed) throw err
       deps.logger.warn(`LLM gateway failed (${summarizeError(err)}), falling back to direct client`)
       return fallback()
@@ -249,6 +252,7 @@ export function withGateway<C extends JsonClient>(
       viaGateway(
         () => gateway.generateJson(prompt, schema),
         () => direct.generateJson(prompt, schema),
+        true,
       ),
     ...(grounded
       ? {
@@ -256,6 +260,7 @@ export function withGateway<C extends JsonClient>(
             viaGateway(
               () => gateway.generateGroundedText(prompt),
               () => grounded(prompt),
+              false,
             ),
         }
       : {}),
