@@ -1,4 +1,4 @@
-import type { QueryClient } from '../../platform/storage'
+import type { DbClient, QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
 import { medianCtes, notJunkPriceSql, notMagnitudeOutlierSql, peerListingSql } from './clean-median'
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
@@ -323,4 +323,17 @@ export async function getDeals(
     is_saved: r.is_saved as boolean,
     is_low_confidence: r.is_low_confidence as boolean,
   }))
+}
+
+// Ids of the listings /deals currently ranks (main list, same filters and
+// category cap), for check-listings to verify availability first. Reuses
+// getDeals so "is a deal" has one definition.
+export async function getDealListingIds(
+  db: DbClient,
+  discountPolicy: DealsDiscountPolicyFloors,
+  limit: number,
+): Promise<string[]> {
+  const rowsDb: QueryClient = { query: async (sql, params) => (await db.query(sql, params)) as { rows: unknown[] } }
+  const deals = await getDeals(rowsDb, discountPolicy, { limit })
+  return deals.map((d) => d.listing_id)
 }

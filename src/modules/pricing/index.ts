@@ -28,7 +28,7 @@ export {
   toPriceReview,
 } from './price-rules'
 export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './deals'
-export { getDeals } from './deals'
+export { getDealListingIds, getDeals } from './deals'
 export type {
   ComparableListing,
   DiscountNotification,

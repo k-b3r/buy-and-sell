@@ -42,7 +42,8 @@ export async function GET(request: Request) {
     minProfitPesos: minProfitParam ? Number(minProfitParam) : undefined,
     minConfidenceTier,
     maxDaysListed: maxDaysListedParam ? Number(maxDaysListedParam) : undefined,
-    addedWithinHours: Number.isInteger(addedWithinHoursParam) && addedWithinHoursParam > 0 ? addedWithinHoursParam : undefined,
+    addedWithinHours:
+      Number.isInteger(addedWithinHoursParam) && addedWithinHoursParam > 0 ? addedWithinHoursParam : undefined,
     soldOnly,
     lowConfidenceOnly,
     offset,
