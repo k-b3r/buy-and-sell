@@ -260,14 +260,6 @@ export async function saveTriageRows(db: DbClient, rows: TriageRow[]): Promise<v
 
 const CONFIDENCE_RANK: Record<TriageConfidence, number> = { low: 1, medium: 2, high: 3 }
 
-// The reviewed step: every unapplied "retry" verdict at or above minConfidence
-// goes through includeInPricing (BUY-36: retry for failed searches, override
-// for judgments). Idempotent: applied_at marks what's done. A crash between
-// the include and the applied_at write is safe: the next run re-includes, and
-// includeInPricing leaves an already-included product alone. Returns the count.
-// `reasons` limits it to products whose old exclusion reason is listed (the
-// reviewed groups); omitted means every reason. A human's manual_review
-// exclusion is never overturned, listed or not.
 // A typo'd reason would otherwise match nothing and look like a clean run.
 async function assertKnownReasons(db: DbClient, reasons: string[]): Promise<void> {
   const result = (await db.query('SELECT DISTINCT previous_reason FROM product_pricing_triage', [])) as {
@@ -280,6 +272,14 @@ async function assertKnownReasons(db: DbClient, reasons: string[]): Promise<void
   }
 }
 
+// The reviewed step: every unapplied "retry" verdict at or above minConfidence
+// goes through includeInPricing (BUY-36: retry for failed searches, override
+// for judgments). Idempotent: applied_at marks what's done. A crash between
+// the include and the applied_at write is safe: the next run re-includes, and
+// includeInPricing leaves an already-included product alone. Returns the count.
+// `reasons` limits it to products whose old exclusion reason is listed (the
+// reviewed groups); omitted means every reason. A human's manual_review
+// exclusion is never overturned, listed or not.
 export async function applyTriageVerdicts(
   db: DbClient,
   minConfidence: TriageConfidence,
