@@ -12,6 +12,7 @@ import {
 } from '../../modules/collection'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 import { realDelay } from '../../platform/delay'
+import { parseLimit, readLimitArg } from '../../platform/limit-arg'
 
 // One-off backfill for listings collected before the listing_photos extraction
 // fix and R2 image storage existed. Re-visits each listing live (paced like a
@@ -26,10 +27,10 @@ async function main() {
   const headed = rawArgs.includes('--headed')
   const args = rawArgs.filter((arg) => arg !== '--headed')
 
-  const limitArg = args[0]
+  const limitArg = readLimitArg(args)
   let limit: number | undefined
   if (limitArg !== undefined) {
-    const parsed = Number(limitArg)
+    const parsed = parseLimit(limitArg)
     if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
       throw new Error(`invalid limit argument: "${limitArg}"`)
     }
