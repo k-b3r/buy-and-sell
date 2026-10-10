@@ -49,7 +49,9 @@ const JUNK_PRICE_FLOOR = 100
 // Junk never enters a median, a listing-derived price range, or a parsed
 // search-result price.
 export function isJunkPrice(price: number): boolean {
-  return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+  const junk = price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+  if (junk) console.warn(`junk price rejected: ${price}`)
+  return junk
 }
 
 // SQL equivalent of isJunkPrice above, negated.
