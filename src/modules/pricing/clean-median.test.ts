@@ -155,3 +155,15 @@ test('medianCtes with clean false emits only the raw median, skipping the second
   expect(sql).not.toContain('product_median_raw')
   expect(sql).not.toContain('clean_median_price')
 })
+
+test('junk price', () => {
+  expect(isJunkPrice(50)).toBe(true)
+})
+
+test('not junk', () => {
+  expect(isJunkPrice(1500)).toBe(false)
+})
+
+test('placeholder', () => {
+  expect(isPlaceholderPrice(12345)).toBe(true)
+})
