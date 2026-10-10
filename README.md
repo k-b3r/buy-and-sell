@@ -1,4 +1,4 @@
-# buy-and-sell-ai
+# Buy and Sell Facebook Marketplace
 
 Personal Facebook Marketplace intelligence tool — collects publicly visible listings (logged-out, no account used) to help spot potentially undervalued buy-and-sell opportunities in the Philippines. ₱0 budget, runs locally.
 
