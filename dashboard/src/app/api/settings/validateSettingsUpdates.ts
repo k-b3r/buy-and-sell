@@ -57,6 +57,7 @@ const SETTING_FLOORS: Record<string, number> = {
   'discount_policy.gemini_daily_grounding_cap': 1,
 
   'llm.gateway_enabled': 0,
+  'llm.direct_fallback_enabled': 0,
 
   'pricing.exclusions_ui_enabled': 0,
 }

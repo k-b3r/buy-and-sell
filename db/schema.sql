@@ -611,3 +611,10 @@ CREATE TABLE IF NOT EXISTS product_pricing_triage (
   applied_at TIMESTAMPTZ
 );
 GRANT SELECT, INSERT, UPDATE, DELETE ON product_pricing_triage TO server_service;
+
+-- 1 (default) = a failed gateway call falls back to the worker's own Groq/Gemini
+-- client. 0 = the direct clients are never called (the keys live in the
+-- gateway now); a gateway failure is the worker's error. See gateway.ts.
+INSERT INTO settings (key, value) VALUES
+  ('llm.direct_fallback_enabled', 1)
+ON CONFLICT (key) DO NOTHING;
