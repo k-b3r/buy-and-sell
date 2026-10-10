@@ -82,7 +82,7 @@ _(undocumented)_
 
 ## src/platform/llm-clients/gateway.ts
 
-**Interactions:** imports `../errors`, `../logger`, `../settings`, `../storage`, `./groq`
+**Interactions:** imports `../errors`, `../logger`, `../settings`, `../storage`, `./error-classification`, `./groq`
 
 ### `loadGatewayConfig(env: NodeJS.ProcessEnv, worker?: string): GatewayConfig | null`
 
@@ -92,7 +92,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): JsonClient`
+### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): GatewayClient`
 
 _(undocumented)_
 
@@ -210,7 +210,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): JsonClient`
+### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): GatewayClient`
 
 _(undocumented)_
 
