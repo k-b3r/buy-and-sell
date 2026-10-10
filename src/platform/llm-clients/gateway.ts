@@ -216,6 +216,7 @@ export function withGateway<C extends JsonClient>(
   >,
 ): C {
   if (!config) return direct
+  deps.logger.info(`LLM gateway enabled: ${config.baseUrl} (key ${config.apiKey})`)
   const breaker = deps.breaker ?? createGatewayBreaker()
   const gateway = createGatewayClient(config, {
     fetchFn: deps.fetchFn,

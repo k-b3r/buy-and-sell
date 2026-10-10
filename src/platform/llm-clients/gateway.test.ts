@@ -214,7 +214,10 @@ test('withGateway sends generateJson to the gateway when the setting is on and l
   const client = withGateway(direct, config, { db: settingsDb(1), logger, fetchFn: gatewayFetch('ok') })
 
   expect(await client.generateJson('p', {})).toEqual({ from: 'gateway' })
-  expect(logger.lines).toEqual(['info LLM gateway now served by groq/qwen/qwen3.8-27b'])
+  expect(logger.lines).toEqual([
+    expect.stringMatching(/^info LLM gateway enabled/),
+    'info LLM gateway now served by groq/qwen/qwen3.8-27b',
+  ])
 })
 
 test('withGateway keeps using the direct client when the setting is off or missing', async () => {
@@ -233,7 +236,10 @@ test('withGateway falls back to the direct client and logs why when the gateway 
   const client = withGateway(direct, config, { db: settingsDb(1), logger, fetchFn: gatewayFetch('rate-limited') })
 
   expect(await client.generateJson('p', {})).toEqual({ from: 'direct' })
-  expect(logger.lines).toEqual([expect.stringMatching(/^warn LLM gateway failed.*rate-limited.*direct/)])
+  expect(logger.lines).toEqual([
+    expect.stringMatching(/^info LLM gateway enabled/),
+    expect.stringMatching(/^warn LLM gateway failed.*rate-limited.*direct/),
+  ])
 })
 
 test('withGateway forwards request options to the gateway call', async () => {
@@ -258,7 +264,10 @@ test('withGateway falls back to the direct client when the gateway never answers
   const client = withGateway(direct, config, { db: settingsDb(1), logger, fetchFn: hangingFetch, timeoutMs: 10 })
 
   expect(await client.generateJson('p', {})).toEqual({ from: 'direct' })
-  expect(logger.lines).toEqual([expect.stringMatching(/^warn LLM gateway failed/)])
+  expect(logger.lines).toEqual([
+    expect.stringMatching(/^info LLM gateway enabled/),
+    expect.stringMatching(/^warn LLM gateway failed/),
+  ])
 })
 
 test('withGateway skips the gateway for a cooldown after it fails, then tries it again', async () => {
