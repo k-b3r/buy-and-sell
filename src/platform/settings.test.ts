@@ -47,6 +47,10 @@ test('the LLM gateway is off by default so workers keep calling providers direct
   expect(SETTING_DEFAULTS['llm.gateway_enabled']).toBe(0)
 })
 
+test('the direct Groq/Gemini fallback stays on by default', () => {
+  expect(SETTING_DEFAULTS['llm.direct_fallback_enabled']).toBe(1)
+})
+
 test("real estate settings default to today's behavior (collection off, no recheck skipping)", () => {
   expect(SETTING_DEFAULTS['collect.re_keywords_enabled']).toBe(0)
   expect(SETTING_DEFAULTS['check_listings.re_recheck_min_days']).toBe(0)

@@ -8,6 +8,7 @@ import {
   loadExaApiKeys,
   createDailyGroundingCap,
   createOpenRouterClient,
+  createGatewayBreaker,
   loadGatewayConfig,
   withGateway,
 } from '../../platform/llm-clients'
@@ -59,6 +60,7 @@ async function main() {
     ],
     loopDelayKey: 'verify_discount.loop_delay_ms',
     setup: ({ logger, db }) => {
+      const breaker = createGatewayBreaker()
       // Exa is now the primary market-context source (see discount-verification.ts's
       // fetchFreshMarketContext comment) - its credits ran out mid-investigation
       // (2026-08-31, real 402), so multiple keys are worth having on hand here
@@ -76,11 +78,18 @@ async function main() {
         // The cap is a live getter (not a fixed number) so a dashboard edit to
         // discount_policy.gemini_daily_grounding_cap takes effect on the very
         // next grounded call, not just the next process restart.
-        gemini: createDailyGroundingCap(createGeminiClient(geminiApiKey), async () => {
-          const settings = await loadSettings(db, ['discount_policy.gemini_daily_grounding_cap'])
-          return settings['discount_policy.gemini_daily_grounding_cap']
-        }),
-        openrouter: withGateway(createOpenRouterClient(openRouterApiKey), gatewayConfig, { db, logger }),
+        // The cap guards the direct Gemini key only; grounded search goes
+        // through the gateway first (pinned Gemini models), sharing one
+        // breaker with the judge below.
+        gemini: withGateway(
+          createDailyGroundingCap(createGeminiClient(geminiApiKey), async () => {
+            const settings = await loadSettings(db, ['discount_policy.gemini_daily_grounding_cap'])
+            return settings['discount_policy.gemini_daily_grounding_cap']
+          }),
+          gatewayConfig,
+          { db, logger, breaker },
+        ),
+        openrouter: withGateway(createOpenRouterClient(openRouterApiKey), gatewayConfig, { db, logger, breaker }),
       }
 
       return async ({ settings }) => {

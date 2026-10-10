@@ -3,7 +3,12 @@ import type { DbClient } from '../storage'
 import type { JsonClient } from './gateway'
 import { createGatewayBreaker, createGatewayClient, loadGatewayConfig, withGateway } from './gateway'
 
-const config = { baseUrl: 'http://localhost:13001/v1', apiKey: 'gw-key', models: ['auto'] }
+const config = {
+  baseUrl: 'http://localhost:13001/v1',
+  apiKey: 'gw-key',
+  models: ['auto'],
+  groundedModels: ['gemini-a', 'gemini-b'],
+}
 
 function fakeFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
   const calls: { url: string; init: RequestInit }[] = []
@@ -28,10 +33,13 @@ function fakeLogger(): Logger & { lines: string[] } {
   }
 }
 
-function settingsDb(enabled: number | null): DbClient {
-  return {
-    query: async () => ({ rows: enabled === null ? [] : [{ key: 'llm.gateway_enabled', value: enabled }] }),
-  } as DbClient
+// Rows for the two gateway settings; null leaves the key out so its code default applies.
+function settingsDb(enabled: number | null, directFallback: number | null = null): DbClient {
+  const rows = [
+    ...(enabled === null ? [] : [{ key: 'llm.gateway_enabled', value: enabled }]),
+    ...(directFallback === null ? [] : [{ key: 'llm.direct_fallback_enabled', value: directFallback }]),
+  ]
+  return { query: async () => ({ rows }) } as DbClient
 }
 
 test('loadGatewayConfig returns null unless both the URL and the API key are set', () => {
@@ -41,11 +49,21 @@ test('loadGatewayConfig returns null unless both the URL and the API key are set
 })
 
 test('loadGatewayConfig defaults to the router auto pick and strips a trailing slash', () => {
-  expect(loadGatewayConfig({ LLM_GATEWAY_URL: 'http://x/v1/', LLM_GATEWAY_API_KEY: 'k' })).toEqual({
+  expect(loadGatewayConfig({ LLM_GATEWAY_URL: 'http://x/v1/', LLM_GATEWAY_API_KEY: 'k' })).toMatchObject({
     baseUrl: 'http://x/v1',
     apiKey: 'k',
     models: ['auto'],
   })
+})
+
+test('loadGatewayConfig gives grounded search Gemini models by default and reads an override list', () => {
+  const base = { LLM_GATEWAY_URL: 'http://x/v1', LLM_GATEWAY_API_KEY: 'k' }
+
+  expect(loadGatewayConfig(base)?.groundedModels).toEqual(['gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-3.8-flash'])
+  expect(loadGatewayConfig({ ...base, LLM_GATEWAY_GROUNDED_MODELS: 'gemini-x, gemini-y' })?.groundedModels).toEqual([
+    'gemini-x',
+    'gemini-y',
+  ])
 })
 
 test('loadGatewayConfig reads a comma list of pinned models, trimming blanks', () => {
@@ -231,13 +249,6 @@ test('withGateway forwards request options to the gateway call', async () => {
   expect(JSON.parse(calls[0].init.body as string)).toMatchObject({ max_completion_tokens: 4000 })
 })
 
-test('withGateway leaves every other method of the direct client in place', async () => {
-  const grounded = { ...direct, generateGroundedText: async (prompt: string) => `grounded ${prompt}` }
-  const client = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn: gatewayFetch('ok') })
-
-  expect(await client.generateGroundedText('q')).toBe('grounded q')
-})
-
 test('withGateway falls back to the direct client when the gateway never answers within the timeout', async () => {
   const hangingFetch = (_url: string, init: RequestInit) =>
     new Promise<Response>((_resolve, reject) => {
@@ -279,4 +290,129 @@ test('two wrappers sharing one breaker both skip the gateway after either one tr
   await first.generateJson('p', {})
   expect(await second.generateJson('p', {})).toEqual({ from: 'direct2' })
   expect(calls).toHaveLength(1)
+})
+
+function bodyOf(call: { init: RequestInit }): Record<string, unknown> {
+  return JSON.parse(call.init.body as string)
+}
+
+test('generateGroundedText sends the google_search tool to the first grounded model and returns the raw text', async () => {
+  const { fetchFn, calls } = fakeFetch(200, chatBody('around P60,000\nPRICE_PHP=60000'))
+  const client = createGatewayClient(config, { fetchFn })
+
+  expect(await client.generateGroundedText('price of x')).toBe('around P60,000\nPRICE_PHP=60000')
+  expect(bodyOf(calls[0])).toMatchObject({
+    model: 'gemini-a',
+    tools: [{ type: 'function', function: { name: 'google_search', parameters: {} } }],
+  })
+  expect(bodyOf(calls[0])).not.toHaveProperty('response_format')
+})
+
+test('generateGroundedText tries each grounded model and never falls back to the unpinned router', async () => {
+  const { fetchFn, calls } = sequencedFetch([429, 503])
+  const client = createGatewayClient(config, { fetchFn })
+
+  await expect(client.generateGroundedText('p')).rejects.toMatchObject({ status: 503 })
+  expect(modelsOf(calls)).toEqual(['gemini-a', 'gemini-b'])
+})
+
+test('a pinned id that merely starts with auto still gets the unpinned fallback appended', async () => {
+  const { fetchFn, calls } = sequencedFetch([404, 200])
+  const client = createGatewayClient({ ...config, models: ['automl-1'] }, { fetchFn })
+
+  await client.generateJson('p', {})
+  expect(modelsOf(calls)).toEqual(['automl-1', 'auto'])
+})
+
+test('withGateway keeps the gateway in use after a request-specific 400, but cools down after a 503', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const bad = sequencedFetch([400])
+  await withGateway(direct, config, {
+    db: settingsDb(1),
+    logger: fakeLogger(),
+    fetchFn: bad.fetchFn,
+    breaker,
+  }).generateJson('p', {})
+  expect(breaker.isOpen()).toBe(false)
+
+  const down = sequencedFetch([503])
+  await withGateway(direct, config, {
+    db: settingsDb(1),
+    logger: fakeLogger(),
+    fetchFn: down.fetchFn,
+    breaker,
+  }).generateJson('p', {})
+  expect(breaker.isOpen()).toBe(true)
+})
+
+test('withGateway trips the breaker on a network failure', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const fetchFn = async () => {
+    throw new TypeError('fetch failed')
+  }
+
+  await withGateway(direct, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker }).generateJson('p', {})
+  expect(breaker.isOpen()).toBe(true)
+})
+
+test('withGateway with the direct fallback off rethrows a gateway failure and never calls the direct client', async () => {
+  let directCalls = 0
+  const countingDirect: JsonClient = {
+    generateJson: async () => {
+      directCalls++
+      return { from: 'direct' }
+    },
+  }
+  const { fetchFn } = sequencedFetch([429])
+  const client = withGateway(countingDirect, config, { db: settingsDb(1, 0), logger: fakeLogger(), fetchFn })
+
+  await expect(client.generateJson('p', {})).rejects.toMatchObject({ status: 429 })
+  expect(directCalls).toBe(0)
+})
+
+test('withGateway with the direct fallback off fails fast while the breaker is open instead of calling anyone', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  breaker.trip()
+  const { fetchFn, calls } = sequencedFetch([200])
+  const client = withGateway(direct, config, { db: settingsDb(1, 0), logger: fakeLogger(), fetchFn, breaker })
+
+  await expect(client.generateJson('p', {})).rejects.toMatchObject({ status: 503 })
+  expect(calls).toHaveLength(0)
+})
+
+test('withGateway sends grounded search through the gateway first and falls back to the direct client', async () => {
+  const grounded = { ...direct, generateGroundedText: async (prompt: string) => `direct ${prompt}` }
+  const ok = fakeFetch(200, chatBody('from gateway'))
+  const viaGateway = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn: ok.fetchFn })
+  expect(await viaGateway.generateGroundedText('q')).toBe('from gateway')
+
+  const failing = sequencedFetch([429, 429])
+  const fallback = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn: failing.fetchFn })
+  expect(await fallback.generateGroundedText('q')).toBe('direct q')
+})
+
+test('withGateway does not invent a grounded method on a client that has none', () => {
+  const client = withGateway(direct, config, { db: settingsDb(1), logger: fakeLogger() })
+
+  expect('generateGroundedText' in client).toBe(false)
+})
+
+test('a grounded 429 is Gemini quota, not an outage, so it leaves the shared breaker closed', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const grounded = { ...direct, generateGroundedText: async (_prompt: string) => 'direct text' }
+  const { fetchFn } = sequencedFetch([429, 429])
+  const client = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker })
+
+  expect(await client.generateGroundedText('q')).toBe('direct text')
+  expect(breaker.isOpen()).toBe(false)
+})
+
+test('a grounded 503 still trips the shared breaker', async () => {
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const grounded = { ...direct, generateGroundedText: async (_prompt: string) => 'direct text' }
+  const { fetchFn } = sequencedFetch([503, 503])
+  const client = withGateway(grounded, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker })
+
+  await client.generateGroundedText('q')
+  expect(breaker.isOpen()).toBe(true)
 })

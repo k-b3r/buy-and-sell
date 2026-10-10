@@ -340,6 +340,15 @@ export const WORKER_SETTINGS: SettingsCategory = {
           min: 0,
           defaultValue: 0,
         },
+        {
+          key: 'llm.direct_fallback_enabled',
+          label: 'Direct Groq/Gemini fallback',
+          description:
+            '1 = a failed gateway call falls back to the worker’s own Groq/Gemini key (default); 0 = gateway only, direct clients are never called.',
+          unit: 'count',
+          min: 0,
+          defaultValue: 1,
+        },
       ],
     },
   ],
