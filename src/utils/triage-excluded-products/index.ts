@@ -42,9 +42,12 @@ async function main() {
         `included ${count} products in pricing (min confidence: ${min}, reasons: ${reasons?.join(', ') ?? 'all'})`,
       )
     } else {
-      const config = loadGatewayConfig(process.env)
+      const config = loadGatewayConfig(process.env, 'triage-excluded-products')
       if (!config) throw new Error('LLM_GATEWAY_URL / LLM_GATEWAY_API_KEY not set in .env')
-      const llm = createGatewayClient(config, { onRoute: (route) => logger.info(`served by ${route}`) })
+      const llm = createGatewayClient(config, {
+        onRoute: (route) => logger.info(`served by ${route}`),
+        onFallback: (from, to, reason) => logger.warn(`${from} failed (${reason}), trying ${to}`),
+      })
       const limit = Number(flagValue('--limit') ?? ALL_PRODUCTS)
       if (!Number.isInteger(limit) || limit <= 0) throw new Error('--limit must be a positive whole number')
       const candidates = await getTriageCandidates(pool, limit)
