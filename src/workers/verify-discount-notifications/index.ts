@@ -29,7 +29,7 @@ async function main() {
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const openRouterApiKey = process.env.OPEN_ROUTER_PRODUCT_JUDGE_API_KEY
   if (!openRouterApiKey) throw new Error('OPEN_ROUTER_PRODUCT_JUDGE_API_KEY not set in .env')
-  const gatewayConfig = loadGatewayConfig(process.env)
+  const gatewayConfig = loadGatewayConfig(process.env, 'verify-discount-notifications')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — verification requires Postgres')
 

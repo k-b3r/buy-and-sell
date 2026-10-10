@@ -3,6 +3,7 @@ import {
   createFallbackGeminiClient,
   createQuotaAwareGeminiClient,
   loadGroqApiKeys,
+  createGatewayBreaker,
   loadGatewayConfig,
   withGateway,
   createExaClient,
@@ -31,7 +32,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product extraction requires Postgres')
   const altGeminiApiKey = process.env.ALT_FREE_GEMINI_API_KEY
-  const gatewayConfig = loadGatewayConfig(process.env)
+  const gatewayConfig = loadGatewayConfig(process.env, 'extract-products')
 
   await runWorker({
     name: 'extract-products',
@@ -50,6 +51,8 @@ async function main() {
     ],
     loopDelayKey: 'extract_products.loop_delay_ms',
     setup: ({ logger, db }) => {
+      // One breaker for both wrapped clients below: a down gateway is tried once per cooldown, not per client.
+      const breaker = createGatewayBreaker()
       // Same shape as enrich-products.ts - see createGroqPool. Logs every
       // model/key hop so a stuck one is visible.
       const groq = withGateway(
@@ -57,7 +60,7 @@ async function main() {
           logger.warn(`Groq ${fromLabel} exhausted, falling back to ${toLabel}`),
         ),
         gatewayConfig,
-        { db, logger },
+        { db, logger, breaker },
       )
       logger.info(`round-robining across ${groqApiKeys.length} Groq key(s)`)
 
@@ -82,7 +85,13 @@ async function main() {
       // gemini.ts), price lookups skip straight to Exa for the rest of the day
       // without a doomed round-trip; generateJson (this worker's own
       // extraction calls) passes through untouched.
-      const gemini = createQuotaAwareGeminiClient(geminiForExtraction)
+      // Extraction's Gemini fallback goes through the gateway too (BUY-60 follow-up); grounded
+      // search passes through to Gemini direct (gateway tests 2026-10-10: same exhausted keys).
+      const gemini = withGateway(createQuotaAwareGeminiClient(geminiForExtraction), gatewayConfig, {
+        db,
+        logger,
+        breaker,
+      })
       // Exa is fallback 1 for both retail and secondhand pricing (Gemini's
       // primary) - its credits ran out mid-investigation once already
       // (2026-08-31, real 402), so multiple keys are worth having on hand here
