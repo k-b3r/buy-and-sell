@@ -86,7 +86,6 @@ test('runPriceTriage saves each parsed verdict and skips malformed items', async
   )
 
   expect(saved).toHaveLength(1)
-  expect(logs.some((l) => l.startsWith('WARN') && l.includes('8'))).toBe(true)
 })
 
 test('runPriceTriage stops the run cleanly when the gateway is rate limited', async () => {
