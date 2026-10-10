@@ -119,3 +119,10 @@ test('applying never overturns a human manual_review exclusion, even when it is 
 
   expect(await state(UNSURE)).toEqual({ excluded: true, applied: false })
 })
+
+test('applying refuses reasons that no triaged product has, so a typo cannot silently include nothing', async () => {
+  await saveTriageRows(pool, [row(SPECIFIC, 'retry', 'high', 'retail_not_found')])
+
+  await expect(applyTriageVerdicts(pool, 'high', ['retail_not_foundd'])).rejects.toThrow('unknown reason')
+  expect((await state(SPECIFIC)).excluded).toBe(true)
+})

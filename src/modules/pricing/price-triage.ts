@@ -268,11 +268,24 @@ const CONFIDENCE_RANK: Record<TriageConfidence, number> = { low: 1, medium: 2, h
 // `reasons` limits it to products whose old exclusion reason is listed (the
 // reviewed groups); omitted means every reason. A human's manual_review
 // exclusion is never overturned, listed or not.
+// A typo'd reason would otherwise match nothing and look like a clean run.
+async function assertKnownReasons(db: DbClient, reasons: string[]): Promise<void> {
+  const result = (await db.query('SELECT DISTINCT previous_reason FROM product_pricing_triage', [])) as {
+    rows: { previous_reason: string }[]
+  }
+  const known = new Set(result.rows.map((r) => r.previous_reason))
+  const unknown = reasons.filter((r) => !known.has(r))
+  if (unknown.length > 0) {
+    throw new Error(`unknown reason(s): ${unknown.join(', ')}. Triaged reasons: ${[...known].sort().join(', ')}`)
+  }
+}
+
 export async function applyTriageVerdicts(
   db: DbClient,
   minConfidence: TriageConfidence,
   reasons?: string[],
 ): Promise<number> {
+  if (reasons) await assertKnownReasons(db, reasons)
   const result = (await db.query(
     `SELECT product_id FROM product_pricing_triage
      WHERE verdict = 'retry' AND applied_at IS NULL

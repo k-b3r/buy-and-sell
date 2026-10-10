@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
+import { parseReasonsFlag } from './args'
 import { createGatewayClient, loadGatewayConfig } from '../../platform/llm-clients'
 import type { TriageConfidence } from '../../modules/pricing'
 import {
@@ -35,7 +36,7 @@ async function main() {
     } else if (process.argv.includes('--apply')) {
       const min = (flagValue('--min-confidence') ?? 'high') as TriageConfidence
       if (!CONFIDENCES.includes(min)) throw new Error(`--min-confidence must be one of ${CONFIDENCES.join(', ')}`)
-      const reasons = flagValue('--reasons')?.split(',').filter(Boolean)
+      const reasons = parseReasonsFlag(process.argv)
       const count = await applyTriageVerdicts(pool, min, reasons)
       logger.info(
         `included ${count} products in pricing (min confidence: ${min}, reasons: ${reasons?.join(', ') ?? 'all'})`,
