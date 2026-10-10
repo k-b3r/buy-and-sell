@@ -882,7 +882,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence): Promise<number>`
+### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
 
 _(undocumented)_
 
@@ -1106,7 +1106,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence): Promise<number>`
+### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
 
 _(undocumented)_
 
