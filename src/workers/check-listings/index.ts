@@ -89,6 +89,13 @@ async function main() {
           const deals = await getDealCheckCandidates(db, dealIds, settings['check_listings.deals_recheck_min_hours'])
           candidates = putDealsFirst(deals, backlog, limit)
         }
+        // A listing flagged removed in the last day was just looked at: skip it.
+        const recentlyFlagged = (await db.query(
+          `SELECT id FROM listings WHERE id = ANY($1) AND flagged_removed_at > now() - interval '1 day'`,
+          [candidates.map((c) => c.id)],
+        )) as { rows: { id: string }[] }
+        const skip = new Set(recentlyFlagged.rows.map((r) => r.id))
+        candidates = candidates.filter((c) => !skip.has(c.id))
         return {
           dryRun: `would call Facebook to check ${candidates.length} listings`,
           run: async () => {
