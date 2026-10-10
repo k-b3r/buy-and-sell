@@ -26,7 +26,8 @@ async function main() {
   const headed = rawArgs.includes('--headed')
   const args = rawArgs.filter((arg) => arg !== '--headed')
 
-  const limitArg = args[0]
+  const limitFlag = args.indexOf('--limit')
+  const limitArg = limitFlag >= 0 ? args[limitFlag + 1] : undefined
   let limit: number | undefined
   if (limitArg !== undefined) {
     const parsed = Number(limitArg)
