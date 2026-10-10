@@ -260,10 +260,10 @@ export async function getExcludedProducts(
   const result = (await db.query(
     `SELECT p.id, p.base_model, p.variant_tier, count(l.id)::int AS listing_count
      FROM products p LEFT JOIN listings l ON l.product_id = p.id
-     WHERE p.price_lookup_excluded AND COALESCE(p.price_lookup_excluded_reason, 'unknown') = $1
+     WHERE p.price_lookup_excluded AND COALESCE(p.price_lookup_excluded_reason, 'unknown') = '${reason}'
      GROUP BY p.id ORDER BY listing_count DESC, p.base_model
-     LIMIT $2 OFFSET $3`,
-    [reason, options.limit ?? EXCLUDED_PAGE_SIZE, options.offset ?? 0],
+     LIMIT $1 OFFSET $2`,
+    [options.limit ?? EXCLUDED_PAGE_SIZE, options.offset ?? 0],
   )) as { rows: ExcludedProduct[] }
   return result.rows
 }
