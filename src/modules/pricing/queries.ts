@@ -261,7 +261,7 @@ export async function getExcludedProducts(
     `SELECT p.id, p.base_model, p.variant_tier, count(l.id)::int AS listing_count
      FROM products p LEFT JOIN listings l ON l.product_id = p.id
      WHERE p.price_lookup_excluded AND COALESCE(p.price_lookup_excluded_reason, 'unknown') = $1
-     GROUP BY p.id ORDER BY listing_count DESC, p.base_model
+     GROUP BY p.id ORDER BY p.base_model, listing_count DESC
      LIMIT $2 OFFSET $3`,
     [reason, options.limit ?? EXCLUDED_PAGE_SIZE, options.offset ?? 0],
   )) as { rows: ExcludedProduct[] }
