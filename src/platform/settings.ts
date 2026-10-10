@@ -22,7 +22,7 @@ export const SETTING_DEFAULTS: Record<string, number> = {
   'check_listings.pacing_max_ms': 4000,
   'check_listings.re_recheck_min_days': 0,
   'check_listings.deals_priority_enabled': 0,
-  'check_listings.deals_recheck_min_hours': 6,
+  'check_listings.deals_recheck_min_hours': 24,
 
   'extract_products.max_attempts': 5,
   'extract_products.retry_base_delay_ms': 30000,

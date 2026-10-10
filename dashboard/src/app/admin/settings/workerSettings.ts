@@ -145,7 +145,7 @@ export const WORKER_SETTINGS: SettingsCategory = {
             'A deal is prioritized only if not checked within this many hours, so top deals do not starve the backlog.',
           unit: 'count',
           min: 1,
-          defaultValue: 6,
+          defaultValue: 24,
         },
       ],
     },
