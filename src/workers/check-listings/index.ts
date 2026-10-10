@@ -14,6 +14,7 @@ import {
 } from '../../modules/collection'
 import { getDealListingIds } from '../../modules/pricing'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
+import { parseLimitArg } from '../../platform/limit-arg'
 
 // How many top-ranked /deals listings are considered for priority checking.
 const DEALS_PRIORITY_POOL = 200
@@ -28,14 +29,7 @@ async function main() {
 
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const limitArg = args[0]
-  let explicitLimit: number | undefined
-  if (limitArg !== undefined) {
-    const parsed = Number(limitArg)
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
-      throw new Error(`invalid limit argument: "${limitArg}"`)
-    }
-    explicitLimit = parsed
-  }
+  const explicitLimit = parseLimitArg(limitArg)
 
   await runWorker({
     name: 'check-listings',
