@@ -555,6 +555,7 @@ CREATE TABLE IF NOT EXISTS real_estate_details (
   price_basis TEXT NOT NULL CHECK (price_basis IN ('total', 'per_sqm', 'monthly', 'equity', 'unresolved')),
   lot_sqm NUMERIC,
   floor_sqm NUMERIC,
+  price_per_sqm NUMERIC,
   bedrooms INTEGER,
   bathrooms INTEGER,
   project_name TEXT,
@@ -568,6 +569,8 @@ CREATE TABLE IF NOT EXISTS real_estate_details (
   model TEXT NOT NULL,
   extracted_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE real_estate_details ADD COLUMN IF NOT EXISTS price_per_sqm NUMERIC;
 
 CREATE INDEX IF NOT EXISTS real_estate_details_type_idx ON real_estate_details (listing_type, property_type);
 
