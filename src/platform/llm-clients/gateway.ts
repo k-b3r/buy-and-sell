@@ -45,10 +45,8 @@ const DEFAULT_GROUNDED_MODELS = ['gemini-3.5-flash', 'gemini-3.7-flash', 'gemini
 // A gateway that accepts the connection but never answers would otherwise
 // hang the worker, since the direct-client fallback only runs on an error.
 const GATEWAY_TIMEOUT_MS = 120_000
-// Confirmed live 2026-10-10: pinned models answered strict JSON in 0.2-3.6s
-// while an unpinned call took 12.6s, so a pin that hangs is cut short and the
-// call moves on, leaving the full budget for the unpinned attempt.
-const PINNED_TIMEOUT_MS = 45_000
+// Pinned models answer fast, so a pin that hangs is cut short at 30s.
+const PINNED_TIMEOUT_MS = 30_000
 const AUTO_MODEL = 'auto'
 // After every attempt in the chain fails, skip the gateway this long. Without
 // it each call during an outage waits out its timeouts before the direct client.
