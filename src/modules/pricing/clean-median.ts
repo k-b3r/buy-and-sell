@@ -45,11 +45,14 @@ export function notPlaceholderPriceSql(column: string): string {
 // a placeholder/joke price ("₱12", "₱20"), not a real ask.
 const JUNK_PRICE_FLOOR = 100
 
+// Asks above this are keyboard-mash or scam prices, not real listings.
+const JUNK_PRICE_CEILING = 50_000_000
+
 // The one junk-price rule: below the floor or a placeholder digit pattern.
 // Junk never enters a median, a listing-derived price range, or a parsed
 // search-result price.
 export function isJunkPrice(price: number): boolean {
-  return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+  return price < JUNK_PRICE_FLOOR || price > JUNK_PRICE_CEILING || isPlaceholderPrice(price)
 }
 
 // SQL equivalent of isJunkPrice above, negated.
