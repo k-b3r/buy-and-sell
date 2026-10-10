@@ -127,14 +127,14 @@ test('decideListingDiscount returns null when the listing price is below the ₱
   expect(await decideListingDiscount(db, used(300), { retail: null, secondhand: range(1400, 1600) })).toBeNull()
 })
 
-test('decideListingDiscount qualifies a ₱500 item reselling for ₱1,500 - a real ₱1,000-profit flip, not excluded just for being cheap', async () => {
+test('decideListingDiscount qualifies a ₱500 item reselling for ₱1,700 - a real flip, not excluded just for being cheap', async () => {
   const { db } = mockDb()
 
-  expect(await decideListingDiscount(db, used(500), { retail: null, secondhand: range(1500, 1700) })).toEqual({
+  expect(await decideListingDiscount(db, used(500), { retail: null, secondhand: range(1700, 1900) })).toEqual({
     listingId: '1',
     productId: 10,
-    discountPercent: 67,
-    referencePrice: 1500,
+    discountPercent: 71,
+    referencePrice: 1700,
   })
 })
 
