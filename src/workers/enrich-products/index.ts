@@ -12,7 +12,7 @@ async function main() {
   loadEnvFile()
   const groqApiKeys = loadGroqApiKeys(process.env)
   if (groqApiKeys.length === 0) throw new Error('No GROQ_API_KEY<n> (GROQ_API_KEY0, GROQ_API_KEY1, ...) set in .env')
-  const gatewayConfig = loadGatewayConfig(process.env)
+  const gatewayConfig = loadGatewayConfig(process.env, 'enrich-products')
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — product enrichment requires Postgres')
 
