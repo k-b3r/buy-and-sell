@@ -3,6 +3,7 @@ import { resolvePhotoUrls, toNullableNumber } from '../../platform/rows'
 import { medianCtes, notJunkPriceSql, notMagnitudeOutlierSql, peerListingSql } from './clean-median'
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
 import { repostKeySql } from './repost'
+import { TIER_RANK_SQL } from '../../platform/pricing-sql'
 
 type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
 
@@ -14,7 +15,6 @@ const CONFIDENCE_TIER_RANK: Record<DealsConfidenceTier, number> = {
 
 // Same ranking baked into SQL as TIER_RANK_SQL below - kept in one place so
 // a minConfidenceTier filter and the tier's own displayed rank can't drift.
-const TIER_RANK_SQL = `CASE tier WHEN 'sold_comps' THEN 3 WHEN 'peer_listings' THEN 2 WHEN 'llm_estimate' THEN 1 ELSE 0 END`
 
 export interface DealListing {
   listing_id: string
