@@ -190,10 +190,6 @@ export async function runPriceTriage(
     for (const item of results) {
       const parsed = parseTriageItem(item, batch)
       if (parsed.kind === 'ok') rows.push(parsed.row)
-      else
-        logger.warn(
-          `${label}: item ${parsed.kind === 'malformed' ? parsed.idHint : parsed.id} ${parsed.kind}, skipping`,
-        )
     }
     await saveRows(rows)
     logger.info(`${label}: saved ${rows.length}/${batch.length} verdicts`)
