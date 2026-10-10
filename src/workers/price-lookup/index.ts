@@ -5,6 +5,8 @@ import {
   createFallbackExaClient,
   loadExaApiKeys,
   createTavilyClient,
+  loadGatewayConfig,
+  withGateway,
 } from '../../platform/llm-clients'
 import { createGeminiClient } from '../../platform/llm-clients/gemini-sdk'
 import { realDelay } from '../../platform/delay'
@@ -17,6 +19,7 @@ import { getPriceLookupCandidates, runPriceLookup } from '../../modules/pricing'
 async function main() {
   loadEnvFile()
 
+  const gatewayConfig = loadGatewayConfig(process.env, 'price-lookup')
   const geminiApiKey = process.env.FREE_GEMINI_API_KEY
   if (!geminiApiKey) throw new Error('FREE_GEMINI_API_KEY not set in .env')
   const exaApiKeys = loadExaApiKeys(process.env)
@@ -58,7 +61,14 @@ async function main() {
         // createQuotaAwareGeminiClient so once that 429 is seen, every later
         // call this same day skips straight to Exa instead of spending a
         // round-trip on a call already known to fail.
-        gemini: createQuotaAwareGeminiClient(createGeminiClient(geminiApiKey)),
+        // Grounded search goes through the gateway first (Gemini models pinned,
+        // never the unpinned router); this daily-quota latch wraps only the
+        // direct client behind it, so a gateway cooldown can't skip Gemini
+        // for the rest of the day and push every product onto Exa credits.
+        gemini: withGateway(createQuotaAwareGeminiClient(createGeminiClient(geminiApiKey)), gatewayConfig, {
+          db,
+          logger,
+        }),
         exa: createFallbackExaClient(exaApiKeys.map(createExaClient)),
         tavily: createTavilyClient(tavilyApiKey),
       }
