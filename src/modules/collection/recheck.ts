@@ -77,7 +77,7 @@ export interface RecheckTiming {
 export async function runCheckListings(
   io: ListingPageIo,
   candidates: CheckListingsCandidate[],
-  { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {},
+  { softWallTimeoutMs = 5000, pacingMinMs = 300, pacingMaxMs = 800 }: Partial<RecheckTiming> = {},
 ): Promise<void> {
   const { driver, logger } = io
   logger.info(`${candidates.length} listings to check`)
