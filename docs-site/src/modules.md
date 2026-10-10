@@ -16,7 +16,7 @@ _(undocumented)_
 
 ## src/modules/catalog/extraction.ts
 
-**Interactions:** imports `./product-storage`, `./products`
+**Interactions:** imports `./product-storage`, `./products`, `./variant-alias-rules`
 
 ### `parseExtractionItem(raw: unknown, batch: ExtractionCandidate[]): ExtractionItemOutcome`
 
