@@ -39,11 +39,13 @@ export interface RealEstateDetailsRow {
 
 export async function upsertRealEstateDetails(db: DbClient, row: RealEstateDetailsRow): Promise<void> {
   const { listingId, fields: f, model, sourceHash } = row
+  const area = f.lot_sqm ?? f.floor_sqm
+  const pricePerSqm = f.price_php !== null && area ? f.price_php / area : null
   await db.query(
     `INSERT INTO real_estate_details
        (listing_id, listing_type, property_type, price_php, price_basis, lot_sqm, floor_sqm, bedrooms, bathrooms,
-        project_name, area_text, tags, confidence, source_hash, model)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15)
+        project_name, area_text, tags, confidence, source_hash, model, price_per_sqm)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16)
      ON CONFLICT (listing_id) DO UPDATE SET
        listing_type = EXCLUDED.listing_type, property_type = EXCLUDED.property_type,
        price_php = EXCLUDED.price_php, price_basis = EXCLUDED.price_basis,
@@ -51,7 +53,8 @@ export async function upsertRealEstateDetails(db: DbClient, row: RealEstateDetai
        bedrooms = EXCLUDED.bedrooms, bathrooms = EXCLUDED.bathrooms,
        project_name = EXCLUDED.project_name, area_text = EXCLUDED.area_text,
        tags = EXCLUDED.tags, confidence = EXCLUDED.confidence,
-       source_hash = EXCLUDED.source_hash, model = EXCLUDED.model, extracted_at = now()`,
+       source_hash = EXCLUDED.source_hash, model = EXCLUDED.model, price_per_sqm = EXCLUDED.price_per_sqm,
+       extracted_at = now()`,
     [
       listingId,
       f.listing_type,
@@ -68,6 +71,7 @@ export async function upsertRealEstateDetails(db: DbClient, row: RealEstateDetai
       f.confidence,
       sourceHash,
       model,
+      pricePerSqm,
     ],
   )
 }

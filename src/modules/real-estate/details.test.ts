@@ -72,5 +72,6 @@ test('upsertRealEstateDetails writes every field in a stable parameter order and
     'high',
     'abc',
     'openai/gpt-oss-120b',
+    4500000 / 35,
   ])
 })
