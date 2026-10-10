@@ -1,9 +1,9 @@
 import type { Logger } from '../logger'
 import type { DbClient } from '../storage'
 import type { JsonClient } from './gateway'
-import { createGatewayClient, loadGatewayConfig, withGateway } from './gateway'
+import { createGatewayBreaker, createGatewayClient, loadGatewayConfig, withGateway } from './gateway'
 
-const config = { baseUrl: 'http://localhost:13001/v1', apiKey: 'gw-key', model: 'auto' }
+const config = { baseUrl: 'http://localhost:13001/v1', apiKey: 'gw-key', models: ['auto'] }
 
 function fakeFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
   const calls: { url: string; init: RequestInit }[] = []
@@ -40,15 +40,34 @@ test('loadGatewayConfig returns null unless both the URL and the API key are set
   expect(loadGatewayConfig({ LLM_GATEWAY_API_KEY: 'k' })).toBeNull()
 })
 
-test('loadGatewayConfig defaults the model to the router auto pick and strips a trailing slash', () => {
+test('loadGatewayConfig defaults to the router auto pick and strips a trailing slash', () => {
   expect(loadGatewayConfig({ LLM_GATEWAY_URL: 'http://x/v1/', LLM_GATEWAY_API_KEY: 'k' })).toEqual({
     baseUrl: 'http://x/v1',
     apiKey: 'k',
-    model: 'auto',
+    models: ['auto'],
   })
-  expect(
-    loadGatewayConfig({ LLM_GATEWAY_URL: 'http://x/v1', LLM_GATEWAY_API_KEY: 'k', LLM_GATEWAY_MODEL: 'auto:extract' }),
-  ).toMatchObject({ model: 'auto:extract' })
+})
+
+test('loadGatewayConfig reads a comma list of pinned models, trimming blanks', () => {
+  const env = {
+    LLM_GATEWAY_URL: 'http://x/v1',
+    LLM_GATEWAY_API_KEY: 'k',
+    LLM_GATEWAY_MODEL: ' gpt-oss-120b, qwen3.8-27b ,',
+  }
+
+  expect(loadGatewayConfig(env)?.models).toEqual(['gpt-oss-120b', 'qwen3.8-27b'])
+})
+
+test('loadGatewayConfig lets a per-worker pin override the global one', () => {
+  const env = {
+    LLM_GATEWAY_URL: 'http://x/v1',
+    LLM_GATEWAY_API_KEY: 'k',
+    LLM_GATEWAY_MODEL: 'gpt-oss-120b',
+    LLM_GATEWAY_MODEL_VERIFY_DISCOUNT_NOTIFICATIONS: 'mistral-large-3',
+  }
+
+  expect(loadGatewayConfig(env, 'verify-discount-notifications')?.models).toEqual(['mistral-large-3'])
+  expect(loadGatewayConfig(env, 'extract-products')?.models).toEqual(['gpt-oss-120b'])
 })
 
 test('generateJson posts a strict json_schema chat completion with the configured model and key', async () => {
@@ -64,6 +83,59 @@ test('generateJson posts a strict json_schema chat completion with the configure
     messages: [{ role: 'user', content: 'extract this' }],
     response_format: { type: 'json_schema', json_schema: { name: 'response', strict: true, schema } },
   })
+})
+
+function modelsOf(calls: { init: RequestInit }[]): string[] {
+  return calls.map((c) => JSON.parse(c.init.body as string).model)
+}
+
+// Answers each request from `statuses` in order (200 carries a JSON body).
+function sequencedFetch(statuses: number[]) {
+  const calls: { url: string; init: RequestInit }[] = []
+  const fetchFn = async (url: string, init: RequestInit) => {
+    calls.push({ url, init })
+    const status = statuses[calls.length - 1] ?? 200
+    const body = status === 200 ? chatBody('{"ok":true}') : { error: { message: `status ${status}` } }
+    return new Response(JSON.stringify(body), { status })
+  }
+  return { fetchFn, calls }
+}
+
+test('generateJson tries the pinned model first and does not touch auto when it answers', async () => {
+  const { fetchFn, calls } = sequencedFetch([200])
+  const client = createGatewayClient({ ...config, models: ['gpt-oss-120b'] }, { fetchFn })
+
+  expect(await client.generateJson('p', {})).toEqual({ ok: true })
+  expect(modelsOf(calls)).toEqual(['gpt-oss-120b'])
+})
+
+test('generateJson falls through the pinned models in order, then auto, and reports each hop', async () => {
+  const { fetchFn, calls } = sequencedFetch([404, 429, 200])
+  const hops: string[] = []
+  const client = createGatewayClient(
+    { ...config, models: ['model-a', 'model-b'] },
+    { fetchFn, onFallback: (from, to, reason) => hops.push(`${from}>${to}:${reason}`) },
+  )
+
+  expect(await client.generateJson('p', {})).toEqual({ ok: true })
+  expect(modelsOf(calls)).toEqual(['model-a', 'model-b', 'auto'])
+  expect(hops).toEqual([expect.stringMatching(/^model-a>model-b:.*404/), expect.stringMatching(/^model-b>auto:.*429/)])
+})
+
+test('generateJson throws the last error when every pinned model and auto fail', async () => {
+  const { fetchFn, calls } = sequencedFetch([404, 503])
+  const client = createGatewayClient({ ...config, models: ['gpt-oss-120b'] }, { fetchFn })
+
+  await expect(client.generateJson('p', {})).rejects.toMatchObject({ status: 503 })
+  expect(modelsOf(calls)).toEqual(['gpt-oss-120b', 'auto'])
+})
+
+test('generateJson does not call auto twice when the config already ends with it', async () => {
+  const { fetchFn, calls } = sequencedFetch([500, 500])
+  const client = createGatewayClient({ ...config, models: ['gpt-oss-120b', 'auto'] }, { fetchFn })
+
+  await expect(client.generateJson('p', {})).rejects.toThrow()
+  expect(modelsOf(calls)).toEqual(['gpt-oss-120b', 'auto'])
 })
 
 test('generateJson forwards reasoning effort and completion cap when given', async () => {
@@ -176,4 +248,35 @@ test('withGateway falls back to the direct client when the gateway never answers
 
   expect(await client.generateJson('p', {})).toEqual({ from: 'direct' })
   expect(logger.lines).toEqual([expect.stringMatching(/^warn LLM gateway failed/)])
+})
+
+test('withGateway skips the gateway for a cooldown after it fails, then tries it again', async () => {
+  let now = 1_000
+  const { fetchFn, calls } = sequencedFetch([500, 200])
+  const breaker = createGatewayBreaker({ now: () => now, cooldownMs: 60_000 })
+  const client = withGateway(direct, config, { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker })
+
+  expect(await client.generateJson('p', {})).toEqual({ from: 'direct' })
+  expect(calls).toHaveLength(1)
+
+  now += 30_000
+  expect(await client.generateJson('p', {})).toEqual({ from: 'direct' })
+  expect(calls).toHaveLength(1)
+
+  now += 31_000
+  expect(await client.generateJson('p', {})).toEqual({ ok: true })
+  expect(calls).toHaveLength(2)
+})
+
+test('two wrappers sharing one breaker both skip the gateway after either one trips it', async () => {
+  const { fetchFn, calls } = sequencedFetch([500])
+  const breaker = createGatewayBreaker({ now: () => 0, cooldownMs: 60_000 })
+  const deps = { db: settingsDb(1), logger: fakeLogger(), fetchFn, breaker }
+  const first = withGateway(direct, config, deps)
+  const otherDirect: JsonClient = { generateJson: async () => ({ from: 'direct2' }) }
+  const second = withGateway(otherDirect, config, deps)
+
+  await first.generateJson('p', {})
+  expect(await second.generateJson('p', {})).toEqual({ from: 'direct2' })
+  expect(calls).toHaveLength(1)
 })
