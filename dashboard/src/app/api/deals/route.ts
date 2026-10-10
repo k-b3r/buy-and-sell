@@ -25,6 +25,7 @@ export async function GET(request: Request) {
   const minProfitParam = url.searchParams.get('minProfit')
   const minTierParam = url.searchParams.get('minTier')
   const maxDaysListedParam = url.searchParams.get('maxDaysListed')
+  const addedWithinHoursParam = Number(url.searchParams.get('addedWithinHours'))
   const soldOnly = url.searchParams.get('soldOnly') === 'true'
   const lowConfidenceOnly = url.searchParams.get('lowConfidence') === 'true'
   const offset = Number(url.searchParams.get('offset') ?? '0')
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
     minProfitPesos: minProfitParam ? Number(minProfitParam) : undefined,
     minConfidenceTier,
     maxDaysListed: maxDaysListedParam ? Number(maxDaysListedParam) : undefined,
+    addedWithinHours: Number.isInteger(addedWithinHoursParam) && addedWithinHoursParam > 0 ? addedWithinHoursParam : undefined,
     soldOnly,
     lowConfidenceOnly,
     offset,

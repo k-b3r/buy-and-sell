@@ -6,6 +6,7 @@ export interface DealsFilters {
   minProfit: string
   minTier: DealsConfidenceTier | ''
   maxDaysListed: string
+  addedWithinHours: string
   soldOnly: boolean
 }
 
@@ -15,6 +16,7 @@ export const EMPTY_FILTERS: DealsFilters = {
   minProfit: '',
   minTier: '',
   maxDaysListed: '',
+  addedWithinHours: '',
   soldOnly: false,
 }
 
@@ -25,6 +27,7 @@ export function buildDealsParams(filters: DealsFilters, offset: number, lowConfi
   if (filters.minProfit) params.set('minProfit', filters.minProfit)
   if (filters.minTier) params.set('minTier', filters.minTier)
   if (filters.maxDaysListed) params.set('maxDaysListed', filters.maxDaysListed)
+  if (filters.addedWithinHours) params.set('addedWithinHours', filters.addedWithinHours)
   if (filters.soldOnly) params.set('soldOnly', 'true')
   if (lowConfidence) params.set('lowConfidence', 'true')
   return params

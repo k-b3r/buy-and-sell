@@ -182,6 +182,23 @@ test('getDeals filters by category and max days listed when provided', async () 
   expect(capturedParams.some((p) => Array.isArray(p) && p.includes('Mobile Phones'))).toBe(true)
 })
 
+test('getDeals filters to listings first seen within the given hours', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await getDeals(db, DEFAULT_DISCOUNT_POLICY_FLOORS, { addedWithinHours: 48 })
+
+  expect(capturedSql).toContain('first_seen_at >= now() - make_interval(hours =>')
+  expect(capturedParams).toContain(48)
+})
+
 test('getDeals filters by title or base_model when a search term is provided', async () => {
   let capturedSql = ''
   let capturedParams: unknown[] = []

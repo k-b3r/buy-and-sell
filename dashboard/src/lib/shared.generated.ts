@@ -295,6 +295,9 @@ export interface DealsFilters {
   minProfitPesos?: number
   minConfidenceTier?: DealsConfidenceTier
   maxDaysListed?: number
+  // Hours since our collector first saw the listing (first_seen_at), not the
+  // seller's FB posting date that maxDaysListed uses.
+  addedWithinHours?: number
   soldOnly?: boolean
   lowConfidenceOnly?: boolean
   offset?: number

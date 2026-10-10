@@ -50,6 +50,9 @@ export interface DealsFilters {
   minProfitPesos?: number
   minConfidenceTier?: DealsConfidenceTier
   maxDaysListed?: number
+  // Hours since our collector first saw the listing (first_seen_at), not the
+  // seller's FB posting date that maxDaysListed uses.
+  addedWithinHours?: number
   soldOnly?: boolean
   lowConfidenceOnly?: boolean
   offset?: number
@@ -123,6 +126,10 @@ export async function getDeals(
   if (filters.maxDaysListed !== undefined) {
     daysListedClause = `AND days_listed IS NOT NULL AND days_listed <= ${push(filters.maxDaysListed)}`
   }
+  let addedWithinClause = ''
+  if (filters.addedWithinHours !== undefined) {
+    addedWithinClause = `AND first_seen_at >= now() - make_interval(hours => ${push(filters.addedWithinHours)})`
+  }
   // Against title and base_model - a listing's title is what's actually
   // shown on the row (and what a search term is most likely echoing back),
   // base_model as a fallback for titles that don't spell the product name
@@ -191,7 +198,7 @@ export async function getDeals(
          -- ₱29,850-profit "deal" - within the 10x-of-reference guard below
          -- on the raw number alone.
          COALESCE(pr.price_high, pr.price_low, l.price_amount) AS ask_price,
-         l.listed_at,
+         l.listed_at, l.first_seen_at,
          l.primary_photo_url, l.stored_photo_urls, l.product_id,
          prod.base_model, prod.variant_tier, cat.name AS category, subcat.name AS sub_category,
          sv.listing_id IS NOT NULL AS is_saved,
@@ -265,6 +272,7 @@ export async function getDeals(
          AND (${lowConfidenceOnlyPlaceholder} OR ${TIER_RANK_SQL} >= ${minTierPlaceholder})
          ${categoryClause}
          ${daysListedClause}
+         ${addedWithinClause}
          ${searchClause}
      ),
      -- Ranks each category's own deals separately (same ordering as the
