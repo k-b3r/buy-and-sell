@@ -28,13 +28,13 @@ async function main() {
 
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
   const limitArg = args[0]
-  let explicitLimit: number | undefined
+  let limitOverride: number | undefined
   if (limitArg !== undefined) {
     const parsed = Number(limitArg)
     if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
       throw new Error(`invalid limit argument: "${limitArg}"`)
     }
-    explicitLimit = parsed
+    limitOverride = parsed
   }
 
   await runWorker({
@@ -74,7 +74,7 @@ async function main() {
       }
 
       return async ({ settings }) => {
-        const limit = explicitLimit ?? settings['check_listings.limit_default']
+        const limit = limitOverride ?? settings['check_listings.limit_default']
         const backlog = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
         let candidates = backlog
         if (settings['check_listings.deals_priority_enabled'] >= 1) {
@@ -92,6 +92,7 @@ async function main() {
         return {
           dryRun: `would call Facebook to check ${candidates.length} listings`,
           run: async () => {
+            logger.info(`checking ${candidates.length} listings (limit ${limit})`)
             if (candidates.length === 0) {
               logger.info('lap has no candidates, skipping browser launch')
               return
