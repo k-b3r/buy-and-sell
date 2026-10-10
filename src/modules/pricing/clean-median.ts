@@ -48,8 +48,26 @@ const JUNK_PRICE_FLOOR = 100
 // The one junk-price rule: below the floor or a placeholder digit pattern.
 // Junk never enters a median, a listing-derived price range, or a parsed
 // search-result price.
+abstract class PriceRule {
+  abstract matches(price: number): boolean
+}
+
+class FloorRule extends PriceRule {
+  matches(price: number): boolean {
+    return price < JUNK_PRICE_FLOOR
+  }
+}
+
+class PlaceholderRule extends PriceRule {
+  matches(price: number): boolean {
+    return isPlaceholderPrice(price)
+  }
+}
+
+const JUNK_RULES: PriceRule[] = [new FloorRule(), new PlaceholderRule()]
+
 export function isJunkPrice(price: number): boolean {
-  return price < JUNK_PRICE_FLOOR || isPlaceholderPrice(price)
+  return JUNK_RULES.some((rule) => rule.matches(price))
 }
 
 // SQL equivalent of isJunkPrice above, negated.
