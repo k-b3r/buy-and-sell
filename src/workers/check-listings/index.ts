@@ -26,7 +26,9 @@ async function main() {
   const photoIo = r2PhotoIoFromEnv(process.env)
   if (!photoIo) throw new Error('R2 not fully configured in .env — check-listings needs to be able to delete photos')
 
+  // get the arguments
   const args = process.argv.slice(2).filter((arg) => arg !== '--')
+  // the first argument is the limit
   const limitArg = args[0]
   let explicitLimit: number | undefined
   if (limitArg !== undefined) {
@@ -56,6 +58,7 @@ async function main() {
     ],
     loopDelayKey: 'check_listings.loop_delay_ms',
     setup: async ({ logger, db }) => {
+      // create the photos helper
       const photos = createListingPhotos({ ...photoIo, logger })
 
       // Opt-in, same as collect: no WEBSHARE_PROXY/SOCKS_PROXY at all means a
@@ -74,9 +77,13 @@ async function main() {
       }
 
       return async ({ settings }) => {
+        // work out the limit
         const limit = explicitLimit ?? settings['check_listings.limit_default']
+        // get the backlog
         const backlog = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
+        // start with the backlog
         let candidates = backlog
+        // if deals priority is enabled
         if (settings['check_listings.deals_priority_enabled'] >= 1) {
           const dealIds = await getDealListingIds(
             db,
@@ -92,6 +99,7 @@ async function main() {
         return {
           dryRun: `would call Facebook to check ${candidates.length} listings`,
           run: async () => {
+            // if there are no candidates
             if (candidates.length === 0) {
               logger.info('lap has no candidates, skipping browser launch')
               return
@@ -106,6 +114,7 @@ async function main() {
                 pacingMaxMs: settings['check_listings.pacing_max_ms'],
               })
             } finally {
+              // close the browser
               await close()
             }
           },
