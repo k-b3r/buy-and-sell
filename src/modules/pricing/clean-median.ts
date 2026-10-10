@@ -181,3 +181,7 @@ export function medianCtes({ name, pool, clean = true }: MedianCtesOptions): str
     FROM ${name}_raw r
   )`
 }
+
+export function formatPesos(amount: number): string {
+  return `₱${Math.round(amount)}`
+}
