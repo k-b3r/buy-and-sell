@@ -84,7 +84,11 @@ _(undocumented)_
 
 **Interactions:** imports `../errors`, `../logger`, `../settings`, `../storage`, `./groq`
 
-### `loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null`
+### `loadGatewayConfig(env: NodeJS.ProcessEnv, worker?: string): GatewayConfig | null`
+
+_(undocumented)_
+
+### `createGatewayBreaker({ now = Date.now, cooldownMs = BREAKER_COOLDOWN_MS, }: { now?: () => number; cooldownMs?: number } = {}): GatewayBreaker`
 
 _(undocumented)_
 
@@ -92,7 +96,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `withGateway(direct: C, config: GatewayConfig | null, deps: { db: DbClient; logger: Logger } & Omit<GatewayClientOptions, 'onRoute'>): C`
+### `withGateway(direct: C, config: GatewayConfig | null, deps: { db: DbClient; logger: Logger; breaker?: GatewayBreaker } & Omit< GatewayClientOptions, 'onRoute' | 'onFallback' >): C`
 
 _(undocumented)_
 
@@ -202,15 +206,19 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `createGatewayBreaker({ now = Date.now, cooldownMs = BREAKER_COOLDOWN_MS, }: { now?: () => number; cooldownMs?: number } = {}): GatewayBreaker`
+
+_(undocumented)_
+
 ### `createGatewayClient(config: GatewayConfig, options: GatewayClientOptions = {}): JsonClient`
 
 _(undocumented)_
 
-### `loadGatewayConfig(env: NodeJS.ProcessEnv): GatewayConfig | null`
+### `loadGatewayConfig(env: NodeJS.ProcessEnv, worker?: string): GatewayConfig | null`
 
 _(undocumented)_
 
-### `withGateway(direct: C, config: GatewayConfig | null, deps: { db: DbClient; logger: Logger } & Omit<GatewayClientOptions, 'onRoute'>): C`
+### `withGateway(direct: C, config: GatewayConfig | null, deps: { db: DbClient; logger: Logger; breaker?: GatewayBreaker } & Omit< GatewayClientOptions, 'onRoute' | 'onFallback' >): C`
 
 _(undocumented)_
 
