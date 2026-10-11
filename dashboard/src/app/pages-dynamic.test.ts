@@ -12,7 +12,9 @@ function pageFiles(dir: string): string[] {
   )
 }
 
-const dataPages = pageFiles(APP_DIR).filter((file) => /from '@\/lib\/queries'/.test(readFileSync(file, 'utf8')))
+const dataPages = pageFiles(APP_DIR).filter((file) =>
+  /from '@\/lib\/(queries|cachedQueries)'/.test(readFileSync(file, 'utf8')),
+)
 
 test('the dashboard has data pages to check', () => {
   expect(dataPages.length).toBeGreaterThan(0)
