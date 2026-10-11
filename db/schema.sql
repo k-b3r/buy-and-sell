@@ -466,7 +466,7 @@ ALTER TABLE listing_price_review DROP CONSTRAINT IF EXISTS listing_price_review_
 ALTER TABLE listing_price_review ADD CONSTRAINT listing_price_review_listing_id_fkey
   FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE;
 
--- AI verification gate (see docs/superpowers/specs/2026-08-30-discount-notification-
+-- AI verification gate (see docs/specs/2026-08-30-discount-notification-
 -- verification-design.md) - a discount_notifications row is invisible to the
 -- dashboard (getDiscountNotifications/getUnreadDiscountNotificationCount both
 -- filter on this) until verified_at is set by verify-discount-notifications.ts.
@@ -517,7 +517,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO server_service;
 
 -- Price history for real estate listings only (see
--- docs/superpowers/specs/2026-09-20-real-estate-page-design.md). refreshListingFields
+-- docs/specs/2026-09-20-real-estate-page-design.md). refreshListingFields
 -- overwrites listings.price_amount on every recheck, so a price drop was
 -- previously lost. Written only for Real Estate; other categories never touch it.
 CREATE TABLE IF NOT EXISTS listing_price_history (
@@ -577,7 +577,7 @@ INSERT INTO settings (key, value) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 -- A human's "include in pricing" over a judgment exclusion (BUY-36, see
--- docs/superpowers/specs/2026-10-08-pricing-exclusions.md). Every automatic
+-- docs/specs/2026-10-08-pricing-exclusions.md). Every automatic
 -- exclusion write in src/modules/pricing/exclusion.ts skips products listed
 -- here, so the LLM lap, the live heuristic and the curated lists can't
 -- re-exclude what a human included. A manual exclusion deletes the row.
