@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest (globals), Postgres 18 (`pg`), Groq structured JSON, Next.js 16 (dashboard), pnpm workspaces (root, `server/`, `dashboard/`).
 
-**Spec:** `docs/superpowers/specs/2026-09-20-real-estate-page-design.md`
+**Spec:** `docs/specs/2026-09-20-real-estate-page-design.md`
 
 ## Global Constraints
 
@@ -211,7 +211,7 @@ Expected: the 5 new tests FAIL (the UPDATE returns no `RETURNING` handling yet, 
 
 ```sql
 -- Price history for real estate listings only (see
--- docs/superpowers/specs/2026-09-20-real-estate-page-design.md). refreshListingFields
+-- docs/specs/2026-09-20-real-estate-page-design.md). refreshListingFields
 -- overwrites listings.price_amount on every recheck, so a price drop was
 -- previously lost. Written only for Real Estate; other categories never touch it.
 CREATE TABLE IF NOT EXISTS listing_price_history (

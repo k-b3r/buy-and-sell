@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js, TypeScript, `groq-sdk` (new dependency), `pg` (existing), Vitest — same as the rest of this repo.
 
-**Spec:** `docs/superpowers/specs/2026-08-21-listing-value-judgment-design.md`
+**Spec:** `docs/specs/2026-08-21-listing-value-judgment-design.md`
 
 ## Global Constraints
 
