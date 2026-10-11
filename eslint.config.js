@@ -22,6 +22,9 @@ const CURATED_DATA_FILES = [
 export default [
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
+    // SQL takes values as $n parameters; only constant fragments (SCREAMING_CASE, or names ending Sql/Clause/Placeholder) may be interpolated.
+    parameterizedSqlFiles: ['src/modules/**/*.ts', 'server/**/*.ts'],
+    sqlFragment: '^[A-Z][A-Z0-9_]*$|(Sql|SQL|Ctes|Lateral|Clause|Placeholder)\\b|^params\\.length( - [12])?$',
     allowDefaultProject: [
       'docs-site/.vitepress/config.ts',
       'scripts/*.ts',
