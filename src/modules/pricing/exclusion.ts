@@ -59,10 +59,10 @@ export async function excludeFromPricing(
   reason: PriceExclusionReason,
   options: { resolveReview?: boolean } = {},
 ): Promise<void> {
-  const resolveReview = options.resolveReview ? ', price_lookup_review_status = NULL' : ''
-  const where = 'productId' in target ? 'id = $2' : 'base_model = ANY($2)'
+  const resolveReviewSql = options.resolveReview ? ', price_lookup_review_status = NULL' : ''
+  const whereSql = 'productId' in target ? 'id = $2' : 'base_model = ANY($2)'
   await db.query(
-    `UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1${resolveReview} WHERE ${where} AND ${NOT_OVERRIDDEN}`,
+    `UPDATE products SET price_lookup_excluded = true, price_lookup_excluded_reason = $1${resolveReviewSql} WHERE ${whereSql} AND ${NOT_OVERRIDDEN}`,
     [reason, 'productId' in target ? target.productId : target.baseModels],
   )
 }

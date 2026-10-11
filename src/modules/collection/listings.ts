@@ -378,8 +378,9 @@ export async function refreshListingFields(
     }
   }
 
+  const setSql = setClauses.join(', ')
   const updated = (await db.query(
-    `UPDATE listings SET ${setClauses.join(', ')}
+    `UPDATE listings SET ${setSql}
      FROM (SELECT price_amount AS old_price_amount, price_currency AS old_price_currency, first_seen_at AS old_first_seen_at
            FROM listings WHERE id = $1) prev
      WHERE listings.id = $1
