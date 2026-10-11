@@ -2,6 +2,7 @@ import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '..
 import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './discount-notifications'
 import { DEFAULT_DISCOUNT_POLICY } from './discount-notifications'
 import { isNewCondition } from './price-rules'
+import { formatPesos } from './clean-median'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
@@ -104,7 +105,7 @@ Listing:
 title: "${candidate.title ?? ''}"
 description: "${candidate.description ?? ''}"
 condition: "${candidate.condition ?? 'unknown'}"
-asking price: ₱${candidate.price_amount}
+asking price: ${formatPesos(candidate.price_amount)}
 
 Fresh market data (from a live web search):
 ${marketContext}

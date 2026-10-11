@@ -618,6 +618,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `formatPesos(amount: number): string`
+
+_(undocumented)_
+
 ## src/modules/pricing/deals.ts
 
 **Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./repost`
@@ -660,7 +664,7 @@ _(undocumented)_
 
 ## src/modules/pricing/discount-verification.ts
 
-**Interactions:** imports `../../platform/llm-clients`, `./discount-notifications`, `./price-rules`
+**Interactions:** imports `../../platform/llm-clients`, `./clean-median`, `./discount-notifications`, `./price-rules`
 
 ### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
 
