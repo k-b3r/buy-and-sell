@@ -368,7 +368,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 300, pacingMaxMs = 800 }: Partial<RecheckTiming> = {}): Promise<void>`
 
 _(undocumented)_
 
@@ -548,7 +548,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 300, pacingMaxMs = 800 }: Partial<RecheckTiming> = {}): Promise<void>`
 
 _(undocumented)_
 
