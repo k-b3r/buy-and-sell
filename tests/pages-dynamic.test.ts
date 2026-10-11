@@ -4,7 +4,7 @@ import { expect, test } from 'vitest'
 
 // Dashboard rule (CODING_STANDARDS.md): a page that reads data from the VPS must
 // not be prerendered at build time, or it freezes today's data until the next deploy.
-const APP_DIR = new URL('.', import.meta.url).pathname
+const APP_DIR = new URL('../dashboard/src/app/', import.meta.url).pathname
 
 function pageFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>

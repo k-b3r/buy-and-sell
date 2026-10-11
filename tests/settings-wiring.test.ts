@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { SETTING_DEFAULTS } from './settings'
+import { SETTING_DEFAULTS } from '../src/platform/settings'
 
-const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
+const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 const schema = read('db/schema.sql')
 const dashboardCatalog = [
