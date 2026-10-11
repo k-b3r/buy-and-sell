@@ -620,7 +620,7 @@ _(undocumented)_
 
 ## src/modules/pricing/deals.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./repost`
+**Interactions:** imports `../../platform/pricing-sql`, `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./repost`
 
 ### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
 
