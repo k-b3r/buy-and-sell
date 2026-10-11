@@ -34,7 +34,7 @@ db/schema.sql             single source of schema truth
 
 ## Writing Code
 
-- `review` Runtime-adjustable tunables live in DB settings with a `SETTING_DEFAULTS` fallback (`src/platform/settings.ts`).
+- `tool`+`review` Runtime-adjustable tunables live in DB settings with a `SETTING_DEFAULTS` fallback (`src/platform/settings.ts`). _(`tests/settings-wiring.test.ts` checks every setting is seeded and in the dashboard catalog; whether a value is a tunable is review)_
 
 ## Testing
 
@@ -49,7 +49,7 @@ db/schema.sql             single source of schema truth
 
 - `process` Read Next.js docs in `node_modules/next/dist/docs/` before writing code (version differs from training data).
 - `review` No direct DB access: all SQL lives in the modules' `queries.ts` (settings in `src/platform/settings.ts`) behind the named-query whitelist in `server/routes/query.ts`.
-- `review` Data pages are `force-dynamic` (no build-time dependency on the VPS).
+- `tool`+`review` Data pages are `force-dynamic` (no build-time dependency on the VPS). _(`tests/pages-dynamic.test.ts` checks every page importing `queries` or `cachedQueries`; which pages count as data pages is review)_
 
 ## Data
 
