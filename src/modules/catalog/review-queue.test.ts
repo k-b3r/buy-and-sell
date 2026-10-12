@@ -84,6 +84,7 @@ test('getProductsNeedingReview queries only price_lookup_review_status = needs_r
   const result = await getProductsNeedingReview(db)
 
   expect(capturedSql).toContain("p.price_lookup_review_status = 'needs_review'")
+  expect(capturedSql).toContain('NOT EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = p.id)')
   expect(result).toEqual([
     {
       id: 12,
