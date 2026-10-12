@@ -612,6 +612,10 @@ test('getCheckListingsCandidates skips recently checked real estate listings onl
   expect(calls[0].params).toEqual([50, 7])
 })
 
+function contextOver(db: { query: (sql: string, params: unknown[]) => Promise<unknown> }) {
+  return { db, logger: fakeLogger(), photos: photosOver(fakeImageStore()), settings: {} }
+}
+
 test('getDealCheckCandidates picks unsold listings among the given ids not checked within minHours, stalest first', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {
@@ -621,7 +625,7 @@ test('getDealCheckCandidates picks unsold listings among the given ids not check
     },
   }
 
-  const rows = await getDealCheckCandidates(db, ['a', 'b'], 6)
+  const rows = await getDealCheckCandidates(contextOver(db), ['a', 'b'], 6)
 
   expect(rows).toEqual([{ id: 'a', flagged_removed_at: null, source_photo_ids: null }])
   expect(calls[0].sql).toContain('id = ANY($1)')
@@ -638,7 +642,7 @@ test('getDealCheckCandidates skips the query when there are no ids', async () =>
     },
   }
 
-  expect(await getDealCheckCandidates(db, [], 6)).toEqual([])
+  expect(await getDealCheckCandidates(contextOver(db), [], 6)).toEqual([])
 })
 
 test('putDealsFirst puts deal candidates ahead of the backlog, drops duplicates and caps at the limit', () => {

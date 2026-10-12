@@ -86,7 +86,11 @@ async function main() {
             },
             DEALS_PRIORITY_POOL,
           )
-          const deals = await getDealCheckCandidates(db, dealIds, settings['check_listings.deals_recheck_min_hours'])
+          const deals = await getDealCheckCandidates(
+            { db, logger, photos, settings },
+            dealIds,
+            settings['check_listings.deals_recheck_min_hours'],
+          )
           candidates = putDealsFirst(deals, backlog, limit)
         }
         return {

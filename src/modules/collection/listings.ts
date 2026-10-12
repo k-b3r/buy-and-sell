@@ -209,13 +209,20 @@ export async function getCheckListingsCandidates(
 // been checked within minHours. The recency floor keeps the same top deals
 // from being re-checked every lap and starving the rest of the backlog.
 // Stalest first, same idiom as getCheckListingsCandidates.
+export interface CheckListingsContext {
+  db: DbClient
+  logger: Logger
+  photos: ListingPhotos
+  settings: Record<string, number>
+}
+
 export async function getDealCheckCandidates(
-  db: DbClient,
+  context: CheckListingsContext,
   ids: string[],
   minHoursSinceCheck: number,
 ): Promise<CheckListingsCandidate[]> {
   if (ids.length === 0) return []
-  const result = (await db.query(
+  const result = (await context.db.query(
     `SELECT id, flagged_removed_at, source_photo_ids FROM listings
      WHERE id = ANY($1)
        AND sold_at IS NULL
