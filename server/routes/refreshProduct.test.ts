@@ -212,6 +212,37 @@ test('starts the job and returns immediately, then the background loop checks ev
   expect(lock.isBusy()).toBe(false)
 })
 
+test('a limit in the request body caps how many candidates the job checks', async () => {
+  const logger = createLogger(LOG_PATH)
+  const opened: string[] = []
+  const driver = makeDriver({
+    openListing: async (listing) => {
+      opened.push(listing.id)
+    },
+    getDetailHtml: async () => aliveHtml(opened[opened.length - 1]),
+  })
+  const { factory, closed } = driverFactory(driver)
+  const lock = createRefreshLock()
+  const jobs = createJobStore()
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    lock,
+    jobs,
+    pacer: createRefreshPacer(lock),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+  })
+
+  const result = await handle({ productId: 42, limit: 1 })
+
+  expect(result).toEqual({ statusCode: 200, body: { productId: 42, total: 1 } })
+  await closed
+  expect(opened).toEqual(['a'])
+})
+
 test('cancellation requested after the first candidate stops the loop before the second', async () => {
   const logger = createLogger(LOG_PATH)
   const jobs = createJobStore()

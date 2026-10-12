@@ -39,7 +39,10 @@ export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHand
       return { statusCode: 503, body: { error: tunnel.error } }
     }
 
-    const candidates = await getListingCheckCandidatesForProduct(db, productId)
+    const allCandidates = await getListingCheckCandidatesForProduct(db, productId)
+    // Optional cap from the dashboard for a quick partial refresh.
+    const { limit } = body as { limit?: number }
+    const candidates = limit ? allCandidates.slice(0, limit) : allCandidates
     if (candidates.length === 0) {
       jobs.start(productId, 0)
       jobs.finish('completed')
