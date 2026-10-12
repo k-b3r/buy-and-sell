@@ -22,6 +22,11 @@ const CURATED_DATA_FILES = [
 export default [
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
+    // SQL takes values as $n parameters; only constant fragments (SCREAMING_CASE, or names ending Sql/Clause/Placeholder) may be interpolated.
+    parameterizedSqlFiles: ['src/modules/**/*.ts', 'server/**/*.ts'],
+    sqlFragment: '^[A-Z][A-Z0-9_]*$|(Sql|SQL|Ctes|Lateral|Clause|Placeholder)\\b|^params\\.length( - [12])?$',
+    // Domain code logs through the injected Logger, which redacts secrets.
+    noConsoleFiles: ['src/modules/**/*.ts', 'src/platform/**/*.ts'],
     allowDefaultProject: [
       'docs-site/.vitepress/config.ts',
       'scripts/*.ts',
@@ -60,6 +65,8 @@ export default [
       complexity: ['error', ENTRY_POINT_MAX_COMPLEXITY],
     },
   },
+  // The logger is the console sink everything else goes through; its `line` is already redacted.
+  { files: ['src/platform/logger.ts'], rules: { 'no-console': 'off' } },
   {
     files: CURATED_DATA_FILES,
     rules: { 'max-lines': 'off' },

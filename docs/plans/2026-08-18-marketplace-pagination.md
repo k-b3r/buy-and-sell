@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js, TypeScript, Playwright (headed Chromium), Vitest — same as the base collector.
 
-**Spec:** `CONTEXT.md` (this repo) — see "Pagination beyond initial batch" under Domain Terms, and `docs/superpowers/plans/2026-08-17-marketplace-collector.md` (the base plan this extends).
+**Spec:** `CONTEXT.md` (this repo) — see "Pagination beyond initial batch" under Domain Terms, and `docs/plans/2026-08-17-marketplace-collector.md` (the base plan this extends).
 
 ## Global Constraints
 

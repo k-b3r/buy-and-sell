@@ -81,7 +81,8 @@ export async function getRealEstateListings(
 
   const limit = Math.min(Math.max(filters.limit ?? 30, 1), REAL_ESTATE_MAX_LIMIT)
   const offset = Math.max(filters.offset ?? 0, 0)
-  const orderBy = REAL_ESTATE_SORTS[filters.sort ?? 'newest'] ?? REAL_ESTATE_SORTS.newest
+  const orderBySql = REAL_ESTATE_SORTS[filters.sort ?? 'newest'] ?? REAL_ESTATE_SORTS.newest
+  const whereSql = where.join(' AND ')
   params.push(limit, offset)
 
   const result = (await db.query(
@@ -101,8 +102,8 @@ export async function getRealEstateListings(
        JOIN listings l ON l.id = d.listing_id
        WHERE l.sold_at IS NULL AND l.flagged_removed_at IS NULL
      ) x
-     WHERE ${where.join(' AND ')}
-     ORDER BY ${orderBy}, x.id
+     WHERE ${whereSql}
+     ORDER BY ${orderBySql}, x.id
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   )) as { rows: Record<string, unknown>[] }

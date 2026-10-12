@@ -127,7 +127,7 @@ db/schema.sql                           # single source of schema truth
 scripts/                                # gen-arch-doc, deploy, backup, tunnel
 tests/                                  # integration/, e2e/, lint-config.test.ts
 *.test.ts colocated next to the file it tests; fixtures/ for shared fixture data
-docs/superpowers/plans/                 # implementation plans this was built from
+docs/plans/                 # implementation plans this was built from
 ```
 
 ## Safety notes
