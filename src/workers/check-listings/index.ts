@@ -15,6 +15,9 @@ import {
 import { getDealListingIds } from '../../modules/pricing'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 
+// Deals are checked on every lap, so no recheck spacing applies to them.
+const RECHECK_EVERY_LAP = 0
+
 // How many top-ranked /deals listings are considered for priority checking.
 const DEALS_PRIORITY_POOL = 200
 
@@ -50,7 +53,6 @@ async function main() {
       'check_listings.pacing_max_ms',
       'check_listings.re_recheck_min_days',
       'check_listings.deals_priority_enabled',
-      'check_listings.deals_recheck_min_hours',
       'discount_policy.min_profit_pesos',
       'discount_policy.min_price_pesos',
     ],
@@ -86,7 +88,7 @@ async function main() {
             },
             DEALS_PRIORITY_POOL,
           )
-          const deals = await getDealCheckCandidates(db, dealIds, settings['check_listings.deals_recheck_min_hours'])
+          const deals = await getDealCheckCandidates(db, dealIds, RECHECK_EVERY_LAP)
           candidates = putDealsFirst(deals, backlog, limit)
         }
         return {
