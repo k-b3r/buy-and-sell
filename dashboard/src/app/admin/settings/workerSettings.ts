@@ -130,15 +130,6 @@ export const WORKER_SETTINGS: SettingsCategory = {
           defaultValue: 0,
         },
         {
-          key: 'check_listings.deals_priority_enabled',
-          label: 'Check /deals listings first',
-          description:
-            '1 = listings currently ranked on /deals are checked ahead of the backlog; 0 = backlog order only (default).',
-          unit: 'count',
-          min: 0,
-          defaultValue: 0,
-        },
-        {
           key: 'check_listings.deals_recheck_min_hours',
           label: 'Deals recheck spacing',
           description:

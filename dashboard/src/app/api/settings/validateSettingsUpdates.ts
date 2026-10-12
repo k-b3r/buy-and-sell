@@ -24,7 +24,6 @@ const SETTING_FLOORS: Record<string, number> = {
   'check_listings.pacing_min_ms': 2000,
   'check_listings.pacing_max_ms': 2000,
   'check_listings.re_recheck_min_days': 0,
-  'check_listings.deals_priority_enabled': 0,
   'check_listings.deals_recheck_min_hours': 1,
 
   'extract_products.max_attempts': 1,

@@ -533,7 +533,6 @@ INSERT INTO settings (key, value) VALUES
   ('collect.re_every_n_laps', 3),
   ('collect.re_max_items', 50),
   ('check_listings.re_recheck_min_days', 0),
-  ('check_listings.deals_priority_enabled', 0),
   ('check_listings.deals_recheck_min_hours', 24)
 ON CONFLICT (key) DO NOTHING;
 
