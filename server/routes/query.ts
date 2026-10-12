@@ -51,6 +51,12 @@ import { getRealEstateListings } from '../../src/modules/real-estate'
 // index.ts; settings live in platform. Adding a dashboard query means adding
 // it here too. That is the intended friction: it's the whole security
 // boundary.
+// Unsold listings, for the header badge on the dashboard.
+async function getActiveListingCount(db: QueryClient): Promise<number> {
+  const result = await db.query('SELECT count(*)::int AS n FROM listings WHERE sold_at IS NULL', [])
+  return (result.rows[0] as { n: number }).n
+}
+
 const REGISTRY = {
   getProductSummaries,
   getSubCategoryTree,
@@ -81,6 +87,7 @@ const REGISTRY = {
   replaceCollectKeywords,
   getListingProductId,
   getRealEstateListings,
+  getActiveListingCount,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
 export type QueryName = keyof typeof REGISTRY
