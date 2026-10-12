@@ -15,8 +15,6 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 
 ## Design
 
-- `review` New behavior is gated behind a DB setting that defaults to today's behavior (e.g. `collect.re_keywords_enabled = 0`).
-
 ### Structure
 
 - `review` Every worker/util gets a `package.json` script (`pnpm extract-real-estate`).
