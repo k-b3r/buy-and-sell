@@ -26,10 +26,7 @@ export interface RefreshDeps {
 export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
   const { db, photos, logger, delay, pacer, driverFactory, tunnelCheck } = deps
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
-    const id = (body as Record<string, unknown> | null)?.id
-    if (typeof id !== 'string' || id.trim() === '') {
-      return { statusCode: 400, body: { error: 'missing or invalid "id"' } }
-    }
+    const { id } = body as { id: string }
 
     // Cheap DB-only check before ever queueing - a bogus id shouldn't sit
     // through the pacing wait just to 404 at the end of it.

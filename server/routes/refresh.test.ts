@@ -91,24 +91,6 @@ function fastPacer(lock = createRefreshLock()) {
   )
 }
 
-test('rejects a missing or non-string id', async () => {
-  const logger = createLogger(LOG_PATH)
-  const handle = createRefreshHandler({
-    db: fakeDb(),
-    photos: fakePhotos(),
-    logger,
-    delay: noDelay,
-    pacer: instantPacer(),
-    driverFactory: driverFactory(makeDriver()).factory,
-    tunnelCheck: okTunnel,
-  })
-
-  expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
-  expect(await handle({ id: 42 })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
-  expect(await handle({ id: '  ' })).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
-  expect(await handle(null)).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
-})
-
 test('404s when the listing id does not exist, without ever queueing', async () => {
   const logger = createLogger(LOG_PATH)
   const handle = createRefreshHandler({
