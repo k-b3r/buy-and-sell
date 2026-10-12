@@ -16,14 +16,18 @@ test('defaultCompressImage re-encodes to a smaller jpeg without changing dimensi
   expect(meta.width).toBeLessThanOrEqual(800)
 })
 
-test('defaultFetchBytes returns null instead of throwing on a network-level failure', async () => {
+test('defaultFetchBytes retries a network-level failure until the fetch succeeds', async () => {
   const originalFetch = global.fetch
+  let calls = 0
   global.fetch = (async () => {
-    throw new TypeError('fetch failed')
+    calls++
+    if (calls < 3) throw new TypeError('fetch failed')
+    return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/png' } })
   }) as typeof fetch
 
-  const result = await defaultFetchBytes('https://cdn.example.com/unreachable.jpg')
+  const result = await defaultFetchBytes('https://cdn.example.com/flaky.jpg')
 
   global.fetch = originalFetch
-  expect(result).toBeNull()
+  expect(calls).toBe(3)
+  expect(result?.contentType).toBe('image/png')
 })

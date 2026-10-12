@@ -53,17 +53,17 @@ export function createR2ImageStore(config: R2Config): ImageStore {
 export type FetchBytes = (url: string) => Promise<{ body: Uint8Array; contentType: string } | null>
 
 export const defaultFetchBytes: FetchBytes = async (url) => {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const contentType = res.headers.get('content-type') ?? 'image/jpeg'
-    const body = new Uint8Array(await res.arrayBuffer())
-    return { body, contentType }
-  } catch {
-    // network-level failure (DNS, timeout, connection reset, etc.) — treat
-    // the same as a bad HTTP response, skip this one photo rather than
-    // crashing the whole run over a single flaky CDN fetch.
-    return null
+  for (;;) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return null
+      const contentType = res.headers.get('content-type') ?? 'image/jpeg'
+      const body = new Uint8Array(await res.arrayBuffer())
+      return { body, contentType }
+    } catch {
+      // network-level failure (DNS, timeout, connection reset): the CDN is
+      // flaky, not the photo, so go again.
+    }
   }
 }
 
