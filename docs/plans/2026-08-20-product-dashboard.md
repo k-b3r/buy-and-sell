@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js (App Router), React, TypeScript, `pg`, Vitest — deployed to Vercel (free Hobby tier).
 
-**Spec:** `CONTEXT.md` — see "Product identification / canonical matching" under Domain Terms, "Dashboard" sub-section of the 2026-08-20 design entry. Depends on the `products`/`variant_enums` schema from `docs/superpowers/plans/2026-08-20-product-extraction.md` (Task 3) — that plan must be applied to the database (`psql "$DATABASE_URL" -f db/schema.sql` from the repo root) before this one is useful, though the dashboard code itself will build fine either way.
+**Spec:** `CONTEXT.md` — see "Product identification / canonical matching" under Domain Terms, "Dashboard" sub-section of the 2026-08-20 design entry. Depends on the `products`/`variant_enums` schema from `docs/plans/2026-08-20-product-extraction.md` (Task 3) — that plan must be applied to the database (`psql "$DATABASE_URL" -f db/schema.sql` from the repo root) before this one is useful, though the dashboard code itself will build fine either way.
 
 ## Global Constraints
 
@@ -797,7 +797,7 @@ Add to `README.md` (root repo):
 ```markdown
 ## Dashboard
 
-Read-only product/listing browser + variant-tier curation, deployed separately to Vercel from `dashboard/`. See `dashboard/README.md` (if present) or `docs/superpowers/plans/2026-08-20-product-dashboard.md` for setup. Requires `DATABASE_URL` and `DASHBOARD_PASSWORD` env vars in the Vercel project (not the root `.env`).
+Read-only product/listing browser + variant-tier curation, deployed separately to Vercel from `dashboard/`. See `dashboard/README.md` (if present) or `docs/plans/2026-08-20-product-dashboard.md` for setup. Requires `DATABASE_URL` and `DASHBOARD_PASSWORD` env vars in the Vercel project (not the root `.env`).
 ```
 
 - [ ] **Step 6: Commit**
