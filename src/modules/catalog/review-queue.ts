@@ -94,6 +94,7 @@ export async function getProductsNeedingReview(db: QueryClient): Promise<Product
      ${NEW_PRICE_LATERAL}
      ${SECONDHAND_PRICE_LATERAL}
      WHERE p.price_lookup_review_status = 'needs_review'
+       AND NOT EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = p.id)
      ORDER BY p.id`,
     [],
   )
