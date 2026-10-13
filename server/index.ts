@@ -4,11 +4,13 @@ import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
 import { createListingPhotos } from '../src/modules/collection'
+import { createCollectionRouter } from '../src/modules/collection/routes'
 import { createApp } from './app'
 import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
 import { createQueryHandler } from './routes/query'
+import { createSettingsRouter } from './routes/settings'
 import { createRefreshHandlers } from './refreshHandlers'
 
 // Run from within server/ (`pnpm start` / `pnpm dev`) - .env is resolved
@@ -32,6 +34,7 @@ async function main() {
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
+    routers: [createSettingsRouter(pool), createCollectionRouter(pool)],
     routes: {
       'POST /refresh': refreshHandlers.refresh,
       'POST /refresh-product': refreshHandlers.refreshProduct,
