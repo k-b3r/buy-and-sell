@@ -29,14 +29,18 @@ async function main() {
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
   const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env })
-  const app = createApp(apiKey, {
-    'POST /refresh': refreshHandlers.refresh,
-    'POST /refresh-product': refreshHandlers.refreshProduct,
-    'GET /refresh-job': refreshHandlers.jobStatus,
-    'POST /refresh-job/cancel': refreshHandlers.cancelJob,
-    'POST /logs': createLogsHandler(),
-    'POST /worker-control': createWorkerControlHandler(),
-    'POST /query': createQueryHandler(pool, (msg) => logger.error(msg)),
+  const app = createApp({
+    apiKey,
+    log: (msg) => logger.error(msg),
+    routes: {
+      'POST /refresh': refreshHandlers.refresh,
+      'POST /refresh-product': refreshHandlers.refreshProduct,
+      'GET /refresh-job': refreshHandlers.jobStatus,
+      'POST /refresh-job/cancel': refreshHandlers.cancelJob,
+      'POST /logs': createLogsHandler(),
+      'POST /worker-control': createWorkerControlHandler(),
+      'POST /query': createQueryHandler(pool, (msg) => logger.error(msg)),
+    },
   })
 
   app.listen(port, () => {
