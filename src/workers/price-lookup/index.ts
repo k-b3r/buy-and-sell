@@ -15,6 +15,7 @@ import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import type { PriceLookupClients } from '../../modules/pricing'
 import { getPriceLookupCandidates, runPriceLookup } from '../../modules/pricing'
+import { parseLimitArg } from '../../platform/limit-arg'
 
 async function main() {
   loadEnvFile()
@@ -30,14 +31,7 @@ async function main() {
   if (!dbUrl) throw new Error('DATABASE_URL not set in .env — price lookup requires Postgres')
 
   const limitArg = process.argv.slice(2).filter((arg) => arg !== '--')[0]
-  let explicitLimit: number | undefined
-  if (limitArg !== undefined) {
-    const parsed = Number(limitArg)
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
-      throw new Error(`invalid limit argument: "${limitArg}"`)
-    }
-    explicitLimit = parsed
-  }
+  const explicitLimit = parseLimitArg(limitArg)
 
   await runWorker({
     name: 'price-lookup',

@@ -38,6 +38,12 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/platform/limit-arg.ts
+
+### `parseLimitArg(raw: string | undefined): number | undefined`
+
+_(undocumented)_
+
 ## src/platform/llm-clients/client-pool.ts
 
 **Interactions:** imports `./error-classification`
