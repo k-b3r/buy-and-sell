@@ -14,6 +14,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## server/config.ts
+
+**Interactions:** imports `../src/platform/r2-photos`
+
+### `loadServerConfig(env: Record<string, string | undefined>): ServerConfig`
+
+_(undocumented)_
+
 ## server/jobState.ts
 
 ### `createJobStore(): JobStore`
@@ -31,6 +39,14 @@ _(undocumented)_
 ## server/rateLimiter.ts
 
 ### `createRateLimiter(maxFailures: number, windowMs: number, now: () => number = Date.now): RateLimiter`
+
+_(undocumented)_
+
+## server/refreshHandlers.ts
+
+**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/browser`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
+
+### `createRefreshHandlers({ db, photos, logger, env }: RefreshHandlersDeps): RefreshHandlers`
 
 _(undocumented)_
 
