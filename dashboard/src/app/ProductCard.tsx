@@ -17,6 +17,7 @@ export default function ProductCard({
   return (
     <Link
       href={listQueryString ? `/products/${p.id}?from=${encodeURIComponent(listQueryString)}` : `/products/${p.id}`}
+      prefetch={false}
       style={{
         display: 'block',
         background: 'var(--color-surface)',
