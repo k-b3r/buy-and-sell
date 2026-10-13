@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
-import { r2PhotoIoFromEnv } from '../src/platform/r2-photos'
 import { createListingPhotos } from '../src/modules/collection'
 import { createApp } from './app'
+import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
 import { createQueryHandler } from './routes/query'
@@ -19,15 +19,7 @@ async function main() {
     process.loadEnvFile('.env')
   }
 
-  const apiKey = process.env.REFRESH_API_KEY
-  if (!apiKey) throw new Error('REFRESH_API_KEY not set in .env')
-  const dbUrl = process.env.DATABASE_URL
-  if (!dbUrl) throw new Error('DATABASE_URL not set in .env — the server requires Postgres')
-
-  const photoIo = r2PhotoIoFromEnv(process.env)
-  if (!photoIo) throw new Error('R2 not fully configured in .env — the refresh route needs to be able to delete photos')
-
-  const port = Number(process.env.SERVER_PORT ?? 8787)
+  const { apiKey, dbUrl, photoIo, port } = loadServerConfig(process.env)
 
   const logger = createLogger('server.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
