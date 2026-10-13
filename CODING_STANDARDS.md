@@ -37,7 +37,6 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 ## Dashboard
 
 - `review` No direct DB access: all SQL lives in the modules' `queries.ts` (settings in `src/platform/settings.ts`) behind the named-query whitelist in `server/routes/query.ts`.
-- `tool`+`review` Data pages are `force-dynamic` (no build-time dependency on the VPS). _(`tests/pages-dynamic.test.ts` checks every page importing `queries` or `cachedQueries`; which pages count as data pages is review)_
 
 ## Data
 

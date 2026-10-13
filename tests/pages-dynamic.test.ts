@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 
-// Dashboard rule (CODING_STANDARDS.md): a page that reads data from the VPS must
+// Dashboard rule (dashboard/CLAUDE.md): a page that reads data from the VPS must
 // not be prerendered at build time, or it freezes today's data until the next deploy.
 const APP_DIR = new URL('../dashboard/src/app/', import.meta.url).pathname
 
