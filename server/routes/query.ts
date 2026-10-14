@@ -1,14 +1,6 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
 import {
-  getProductDetail,
-  getProductsNeedingReview,
-  getProductSummaries,
-  getSoldCountsBySubCategory,
-  getSubCategoryTree,
-  markProductReviewed,
-} from '../../src/modules/catalog'
-import {
   getListingDetail,
   getListingProductId,
   getSavedListings,
@@ -49,16 +41,11 @@ import { getRealEstateListings } from '../../src/modules/real-estate'
 // it here too. That is the intended friction: it's the whole security
 // boundary.
 const REGISTRY = {
-  getProductSummaries,
-  getSubCategoryTree,
-  getProductsNeedingReview,
   setManualPrice,
-  markProductReviewed,
   excludeProductFromReview,
   includeInPricing,
   getExclusionSummary,
   getExcludedProducts,
-  getProductDetail,
   getListingDetail,
   getSoldComparablePrice,
   getPeerMedianPrice,
@@ -66,7 +53,6 @@ const REGISTRY = {
   getDeals,
   saveListing,
   unsaveListing,
-  getSoldCountsBySubCategory,
   getSavedListings,
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
