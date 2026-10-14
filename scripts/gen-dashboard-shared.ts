@@ -31,7 +31,7 @@ const SHARED_SOURCES: SharedSource[] = [
       'CategoryWeeklySoldCounts',
     ],
   },
-  { index: 'src/modules/collection/index.ts', names: ['ListingDetail', 'SavedListingSummary', 'CollectKeyword'] },
+  { index: 'src/modules/collection/index.ts', names: ['ListingDetail', 'SavedListingSummary'] },
   {
     index: 'src/modules/pricing/index.ts',
     names: [
