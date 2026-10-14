@@ -36,6 +36,12 @@ test('settings and collect-keywords queries are served by their resource routes,
   }
 })
 
+test('listing detail, saved listings and save toggles are served by their resource routes, not the whitelist', () => {
+  for (const name of ['getListingDetail', 'getSavedListings', 'saveListing', 'unsaveListing']) {
+    expect(QUERY_NAMES).not.toContain(name)
+  }
+})
+
 // The whole point of the whitelist: a leaked bearer token must not be able to
 // run SQL the app doesn't already ship. Anything not in the registry is
 // refused before it can reach the database at all.
@@ -66,7 +72,7 @@ test('rejects a malformed body', async () => {
   const db = fakeDb()
   const handler = createQueryHandler(db)
 
-  for (const body of [{}, { name: 42 }, null, { name: 'getSavedListings', args: 'nope' }]) {
+  for (const body of [{}, { name: 42 }, null, { name: 'getExclusionSummary', args: 'nope' }]) {
     const result = await handler(body)
     expect(result.statusCode).toBe(400)
   }
@@ -77,7 +83,7 @@ test('defaults args to empty when omitted', async () => {
   const db = fakeDb([])
   const handler = createQueryHandler(db)
 
-  const result = await handler({ name: 'getSavedListings' })
+  const result = await handler({ name: 'getExclusionSummary' })
 
   expect(result.statusCode).toBe(200)
 })
@@ -92,7 +98,7 @@ test('turns a failing query into a 500 without leaking driver detail', async () 
   }
   const handler = createQueryHandler(db)
 
-  const result = await handler({ name: 'getSavedListings', args: [] })
+  const result = await handler({ name: 'getExclusionSummary', args: [] })
 
   expect(result.statusCode).toBe(500)
   expect(JSON.stringify(result.body)).not.toMatch(/relation/)
@@ -102,7 +108,6 @@ test('whitelist covers every db-backed query the dashboard calls', () => {
   expect(QUERY_NAMES).toContain('getProductSummaries')
   expect(QUERY_NAMES).toContain('getDeals')
   expect(QUERY_NAMES).toContain('getProductDetail')
-  expect(QUERY_NAMES.length).toBeGreaterThanOrEqual(24)
 })
 
 test('the registry exposes getRealEstateListings', () => {
