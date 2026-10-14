@@ -30,6 +30,12 @@ test('forwards args through to the underlying query', async () => {
   expect(db.query).toHaveBeenCalledWith(expect.stringContaining('discount_notifications'), [5])
 })
 
+test('settings and collect-keywords queries are served by their resource routes, not the whitelist', () => {
+  for (const name of ['getAllSettings', 'updateSettings', 'getCollectKeywords', 'replaceCollectKeywords']) {
+    expect(QUERY_NAMES).not.toContain(name)
+  }
+})
+
 // The whole point of the whitelist: a leaked bearer token must not be able to
 // run SQL the app doesn't already ship. Anything not in the registry is
 // refused before it can reach the database at all.

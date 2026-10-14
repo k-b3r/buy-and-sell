@@ -20,7 +20,6 @@
 
 import type {
   CategoryWeeklySoldCounts,
-  CollectKeyword,
   DealListing,
   DealsDiscountPolicyFloors,
   DealsFilters,
@@ -43,7 +42,6 @@ import { api } from './api'
 
 export type {
   CategoryWeeklySoldCounts,
-  CollectKeyword,
   ComparableListing,
   DealListing,
   DealsConfidenceTier,
@@ -197,18 +195,6 @@ export function markAllDiscountNotificationsRead(): Promise<void> {
 export async function getAllSettings(): Promise<SettingRow[]> {
   const { settings } = await api<{ settings: SettingRow[] }>('/settings')
   return settings
-}
-
-export function updateSettings(updates: { key: string; value: number }[]): Promise<void> {
-  return rpc('updateSettings', [updates])
-}
-
-export function getCollectKeywords(): Promise<CollectKeyword[]> {
-  return rpc('getCollectKeywords')
-}
-
-export function replaceCollectKeywords(keywords: CollectKeyword[]): Promise<void> {
-  return rpc('replaceCollectKeywords', [keywords])
 }
 
 export function getListingProductId(listingId: string): Promise<number | null> {
