@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
-import { getListingDetailCached } from '@/lib/cachedQueries'
+import { getListingDetail } from '@/lib/queries'
 import ListingDetailContent from './ListingDetailContent'
 
 // Live data - prerendering would pin it to build time, and would also make
 // the build depend on server/ being reachable from the build container (see
-// analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
+// analytics/page.tsx). Freshness is the server's cache job, not the build's.
 export const dynamic = 'force-dynamic'
 
 export default async function ListingDetailPage({
@@ -16,7 +16,7 @@ export default async function ListingDetailPage({
 }) {
   const { id } = await params
   const { back } = await searchParams
-  const listing = await getListingDetailCached(id)
+  const listing = await getListingDetail(id)
   if (!listing) notFound()
 
   return <ListingDetailContent listing={listing} back={back} />

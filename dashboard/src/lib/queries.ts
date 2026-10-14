@@ -141,8 +141,9 @@ export function getProductDetail(productId: number): Promise<ProductDetail | nul
   return rpc('getProductDetail', [productId])
 }
 
-export function getListingDetail(listingId: string): Promise<ListingDetail | null> {
-  return rpc('getListingDetail', [listingId])
+export async function getListingDetail(listingId: string): Promise<ListingDetail | null> {
+  const { listing } = await api<{ listing: ListingDetail | null }>(`/listings/${encodeURIComponent(listingId)}`)
+  return listing
 }
 
 export function getSoldComparablePrice(productId: number): Promise<SoldComparablePrice | null> {
@@ -172,8 +173,9 @@ export function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]
   return rpc('getSoldCountsBySubCategory')
 }
 
-export function getSavedListings(): Promise<SavedListingSummary[]> {
-  return rpc('getSavedListings')
+export async function getSavedListings(): Promise<SavedListingSummary[]> {
+  const { listings } = await api<{ listings: SavedListingSummary[] }>('/saved-listings')
+  return listings
 }
 
 export function getDiscountNotifications(limit?: number): Promise<DiscountNotification[]> {
