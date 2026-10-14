@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from 'node:fs'
-import { expect, test, afterEach, describe } from 'vitest'
+import { expect, test, afterEach } from 'vitest'
 import {
   isWideSpread,
   buildGeminiPrompt,
