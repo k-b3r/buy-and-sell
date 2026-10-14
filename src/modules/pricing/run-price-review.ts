@@ -6,7 +6,7 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review'
 import type { PriceReviewCandidate } from './price-review'
-import { upsertListingPriceReview } from './listing-price-review'
+import { upsertListingPriceReview } from './store/listing-price-review'
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
