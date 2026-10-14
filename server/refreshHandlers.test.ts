@@ -2,6 +2,7 @@ import express from 'express'
 import request from 'supertest'
 import type { ListingPhotos } from '../src/modules/collection'
 import type { QueryClient } from '../src/platform/storage'
+import { createApp } from './app'
 import { createRefreshHandlers, createRefreshRouter } from './refreshHandlers'
 
 const noopLogger = { info() {}, warn() {}, error() {} }
@@ -74,4 +75,36 @@ test('POST /products/:id/refresh with a non-numeric id answers the handler 400 f
 
   expect(res.status).toBe(400)
   expect(res.body).toEqual({ error: 'missing or invalid "productId"' })
+})
+
+const API_KEY = 'test-key'
+
+function authedApp(handlers: Parameters<typeof createRefreshRouter>[0], log: (msg: string) => void = () => {}) {
+  return createApp({ apiKey: API_KEY, log, routers: [createRefreshRouter(handlers)] })
+}
+
+test('a handler that throws behind the id-path routes answers an opaque JSON 500 and logs the detail', async () => {
+  const logged: string[] = []
+  const app = authedApp(
+    {
+      refresh: async () => {
+        throw new Error('relation "listings" does not exist')
+      },
+      refreshProduct: async () => {
+        throw new Error('browser crashed')
+      },
+    },
+    (msg) => logged.push(msg),
+  )
+
+  const listing = await request(app).post('/listings/1/refresh').set('authorization', `Bearer ${API_KEY}`)
+  const product = await request(app).post('/products/2/refresh').set('authorization', `Bearer ${API_KEY}`)
+
+  for (const res of [listing, product]) {
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({ error: 'internal error' })
+  }
+  expect(logged).toHaveLength(2)
+  expect(logged[0]).toContain('relation "listings" does not exist')
+  expect(logged[1]).toContain('browser crashed')
 })
