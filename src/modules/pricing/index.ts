@@ -75,8 +75,14 @@ export {
   setManualPrice,
 } from './store/price-history'
 export { runPriceFromListings } from './price-from-listings'
-export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
-export { ensureProductPriced, PriceLookupFailedError, runPriceLookup } from './price-lookup'
+export type {
+  PriceLookupCandidate,
+  PriceLookupClients,
+  PriceLookupDeps,
+  PriceRange,
+  ProductPricingResult,
+} from './price-lookup'
+export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
 export type { TriageCandidate, TriageConfidence, TriageRow } from './price-triage'
 export { applyTriageVerdicts, runPriceTriage } from './price-triage'
 export type { TriageSummaryRow } from './store/price-triage'
