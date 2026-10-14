@@ -598,15 +598,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `notPlaceholderPriceSql(column: string): string`
-
-_(undocumented)_
-
 ### `isJunkPrice(price: number): boolean`
-
-_(undocumented)_
-
-### `notJunkPriceSql(column: string): string`
 
 _(undocumented)_
 
@@ -614,25 +606,13 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `notMagnitudeOutlierSql(column: string, medianColumn: string): string`
-
-_(undocumented)_
-
-### `peerListingSql(alias: string): string`
-
-_(undocumented)_
-
 ### `computeMedians(rawPrices: (number | null)[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
-
-_(undocumented)_
-
-### `medianCtes({ name, pool, clean = true }: MedianCtesOptions): string`
 
 _(undocumented)_
 
 ## src/modules/pricing/deals.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./price-rules`, `./repost`
+**Interactions:** imports `../../platform/storage`, `./store/deals`
 
 ### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
 
@@ -644,35 +624,15 @@ _(undocumented)_
 
 ## src/modules/pricing/discount-notifications.ts
 
-**Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`, `./price-rules`, `./queries`
+**Interactions:** imports `../../platform/storage`, `./clean-median`, `./discount-policy`, `./price-lookup`, `./price-rules`, `./store/comparables`
 
 ### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<NewDiscountNotification | null>`
 
 _(undocumented)_
 
-### `insertDiscountNotifications(db: DbClient, notifications: NewDiscountNotification[]): Promise<void>`
-
-_(undocumented)_
-
-### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
-
-_(undocumented)_
-
-### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
-
-_(undocumented)_
-
-### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
-
-_(undocumented)_
-
 ## src/modules/pricing/discount-verification.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./discount-notifications`, `./price-rules`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./discount-policy`, `./price-rules`, `./store/discount-notifications`
 
 ### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
 
@@ -692,25 +652,9 @@ _(undocumented)_
 
 ## src/modules/pricing/exclusion.ts
 
-**Interactions:** imports `../../platform/storage`
-
-### `excludeFromPricing(db: DbClient, target: ExclusionTarget, reason: PriceExclusionReason, options: { resolveReview?: boolean } = {}): Promise<void>`
-
-_(undocumented)_
-
-### `getUnexcludedBaseModels(db: DbClient): Promise<string[]>`
-
-_(undocumented)_
+**Interactions:** imports `../../platform/storage`, `./exclusion-reasons`, `./store/exclusion`
 
 ### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
-
-_(undocumented)_
-
-### `includeInPricing(db: DbClient, productId: number): Promise<void>`
-
-_(undocumented)_
-
-### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
 
 _(undocumented)_
 
@@ -798,18 +742,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]>`
-
-_(undocumented)_
-
-### `getExcludedProducts(db: QueryClient, reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
-
-_(undocumented)_
-
-### `getExclusionSummary(db: QueryClient): Promise<ExclusionReasonCount[]>`
-
-_(undocumented)_
-
 ### `getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null>`
 
 _(undocumented)_
@@ -818,7 +750,19 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]>`
+
+_(undocumented)_
+
 ### `getUnreadDiscountNotificationCount(db: QueryClient): Promise<number>`
+
+_(undocumented)_
+
+### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
+
+_(undocumented)_
+
+### `insertDiscountNotifications(db: DbClient, notifications: NewDiscountNotification[]): Promise<void>`
 
 _(undocumented)_
 
@@ -830,19 +774,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
-
-_(undocumented)_
-
 ### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<NewDiscountNotification | null>`
-
-_(undocumented)_
-
-### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
-
-_(undocumented)_
-
-### `insertDiscountNotifications(db: DbClient, notifications: NewDiscountNotification[]): Promise<void>`
 
 _(undocumented)_
 
@@ -862,7 +794,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
+### `getExcludedProducts(db: QueryClient, reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
+
+_(undocumented)_
+
+### `getExclusionSummary(db: QueryClient): Promise<ExclusionReasonCount[]>`
 
 _(undocumented)_
 
@@ -871,6 +807,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `includeInPricing(db: DbClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
+### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
 
 _(undocumented)_
 
@@ -906,6 +846,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
+
+_(undocumented)_
+
 ### `runPriceFromListings(db: DbClient, logger: Logger, groups: ListingPricesForProductCondition[]): Promise<void>`
 
 _(undocumented)_
@@ -926,15 +870,15 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `runPriceTriage({ llm, saveRows, logger, delay = realDelay }: TriageIo, candidates: TriageCandidate[], { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {}): Promise<void>`
+
+_(undocumented)_
+
 ### `getTriageCandidates(db: DbClient, limit: number): Promise<TriageCandidate[]>`
 
 _(undocumented)_
 
 ### `getTriageSummary(db: DbClient): Promise<TriageSummaryRow[]>`
-
-_(undocumented)_
-
-### `runPriceTriage({ llm, saveRows, logger, delay = realDelay }: TriageIo, candidates: TriageCandidate[], { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {}): Promise<void>`
 
 _(undocumented)_
 
@@ -960,7 +904,7 @@ _(undocumented)_
 
 ## src/modules/pricing/ineligible-categories.ts
 
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./exclusion`
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./exclusion-reasons`, `./store/exclusion`
 
 ### `excludeIneligibleCategories(db: DbClient, logger: Logger): Promise<void>`
 
@@ -968,17 +912,9 @@ _(undocumented)_
 
 ## src/modules/pricing/listing-price-review.ts
 
-**Interactions:** imports `../../platform/storage`, `./clean-median`, `./negotiable-keywords`, `./price-review/parse`, `./price-review/prompt`
+**Interactions:** imports `../../platform/storage`, `./negotiable-keywords`, `./price-review/parse`, `./price-review/prompt`, `./store/listing-price-review`
 
 ### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
-
-_(undocumented)_
-
-### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
-
-_(undocumented)_
-
-### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
 
 _(undocumented)_
 
@@ -994,7 +930,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-from-listings.ts
 
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./price-history`, `./price-lookup`
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./price-lookup`, `./store/price-history`
 
 ### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
 
@@ -1004,29 +940,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/pricing/price-history.ts
-
-**Interactions:** imports `../../platform/storage`, `./clean-median`, `./price-lookup`
-
-### `insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void>`
-
-_(undocumented)_
-
-### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
-
-_(undocumented)_
-
-### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
-
-_(undocumented)_
-
-### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
-
-_(undocumented)_
-
 ## src/modules/pricing/price-lookup.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./generic-products`, `./price-history`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./generic-products`, `./store/exclusion`, `./store/price-history`
 
 ### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
 
@@ -1088,7 +1004,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-review/price-review.ts
 
-**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../../../platform/storage`, `../listing-price-review`, `./prompt`
+**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../../../platform/storage`, `../store/listing-price-review`, `./prompt`
 
 ### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
@@ -1138,7 +1054,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-triage.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/rows`, `../../platform/storage`, `./exclusion`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./store/exclusion`, `./store/price-triage`
 
 ### `buildTriagePrompt(batch: TriageCandidate[]): string`
 
@@ -1152,67 +1068,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getTriageCandidates(db: DbClient, limit: number): Promise<TriageCandidate[]>`
-
-_(undocumented)_
-
-### `saveTriageRows(db: DbClient, rows: TriageRow[]): Promise<void>`
-
-_(undocumented)_
-
 ### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
-
-_(undocumented)_
-
-### `getTriageSummary(db: DbClient): Promise<TriageSummaryRow[]>`
-
-_(undocumented)_
-
-## src/modules/pricing/queries.ts
-
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./schemas`
-
-### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
-
-_(undocumented)_
-
-### `getProductCleanMedian(db: DbClient, productId: number, options: { scope: ListingScope }): Promise<ProductCleanMedian | null>`
-
-_(undocumented)_
-
-### `getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null>`
-
-_(undocumented)_
-
-### `getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null>`
-
-_(undocumented)_
-
-### `getComparableListings(db: QueryClient, { productId, excludeListingId, sold, limit = COMPARABLE_LISTINGS_DEFAULT_LIMIT }: ComparableListingsQuery): Promise<ComparableListing[]>`
-
-_(undocumented)_
-
-### `getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]>`
-
-_(undocumented)_
-
-### `getUnreadDiscountNotificationCount(db: QueryClient): Promise<number>`
-
-_(undocumented)_
-
-### `markDiscountNotificationRead(db: QueryClient, id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markAllDiscountNotificationsRead(db: QueryClient): Promise<void>`
-
-_(undocumented)_
-
-### `getExclusionSummary(db: QueryClient): Promise<ExclusionReasonCount[]>`
-
-_(undocumented)_
-
-### `getExcludedProducts(db: QueryClient, reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
 
 _(undocumented)_
 
@@ -1232,9 +1088,205 @@ _(undocumented)_
 
 ## src/modules/pricing/routes.ts
 
-**Interactions:** imports `../../platform/settings`, `../../platform/storage`, `../catalog`, `./deals`, `./exclusion`, `./queries`, `./schemas`
+**Interactions:** imports `../../platform/settings`, `../../platform/storage`, `../catalog`, `./deals`, `./exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
 
 ### `createPricingRouter(db: QueryClient, cache: CacheInvalidator): Router`
+
+_(undocumented)_
+
+## src/modules/pricing/store/comparables.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `./fragments`
+
+### `getProductCleanMedian(db: DbClient, productId: number, options: { scope: ListingScope }): Promise<ProductCleanMedian | null>`
+
+_(undocumented)_
+
+### `getSoldComparablePrice(db: QueryClient, productId: number): Promise<SoldComparablePrice | null>`
+
+_(undocumented)_
+
+### `getPeerMedianPrice(db: QueryClient, productId: number): Promise<PeerMedianPrice | null>`
+
+_(undocumented)_
+
+### `getComparableListings(db: QueryClient, { productId, excludeListingId, sold, limit = COMPARABLE_LISTINGS_DEFAULT_LIMIT }: ComparableListingsQuery): Promise<ComparableListing[]>`
+
+_(undocumented)_
+
+## src/modules/pricing/store/deals.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `../deals`, `../repost`, `./fragments`
+
+### `queryDeals(db: QueryClient, filters: DealsQuery): Promise<DealListing[]>`
+
+_(undocumented)_
+
+### `queryDealListingIds(db: DbClient, filters: DealsQuery): Promise<string[]>`
+
+_(undocumented)_
+
+## src/modules/pricing/store/discount-notifications.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `../discount-notifications`, `../discount-policy`
+
+### `getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]>`
+
+_(undocumented)_
+
+### `getUnreadDiscountNotificationCount(db: QueryClient): Promise<number>`
+
+_(undocumented)_
+
+### `markDiscountNotificationRead(db: QueryClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+### `markAllDiscountNotificationsRead(db: QueryClient): Promise<void>`
+
+_(undocumented)_
+
+### `insertDiscountNotifications(db: DbClient, notifications: NewDiscountNotification[]): Promise<void>`
+
+_(undocumented)_
+
+### `getUnverifiedDiscountCandidates(db: DbClient, limit: number, minPricePesos: number = DEFAULT_DISCOUNT_POLICY.minPricePesos): Promise<DiscountVerificationCandidate[]>`
+
+_(undocumented)_
+
+### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
+
+_(undocumented)_
+
+### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/store/exclusion.ts
+
+**Interactions:** imports `../../../platform/storage`, `../exclusion-reasons`
+
+### `excludeFromPricing(db: DbClient, target: ExclusionTarget, reason: PriceExclusionReason, options: { resolveReview?: boolean } = {}): Promise<void>`
+
+_(undocumented)_
+
+### `getUnexcludedBaseModels(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `deleteExclusionOverride(db: DbClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
+### `includeInPricing(db: DbClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
+### `applyEligibilityFromEnrichment(db: DbClient): Promise<void>`
+
+_(undocumented)_
+
+### `getExclusionSummary(db: QueryClient): Promise<ExclusionReasonCount[]>`
+
+_(undocumented)_
+
+### `getExcludedProducts(db: QueryClient, reason: string, options: { offset?: number; limit?: number } = {}): Promise<ExcludedProduct[]>`
+
+_(undocumented)_
+
+## src/modules/pricing/store/fragments.ts
+
+**Interactions:** imports `../clean-median`
+
+### `notPlaceholderPriceSql(column: string): string`
+
+_(undocumented)_
+
+### `notJunkPriceSql(column: string): string`
+
+_(undocumented)_
+
+### `notMagnitudeOutlierSql(column: string, medianColumn: string): string`
+
+_(undocumented)_
+
+### `peerListingSql(alias: string): string`
+
+_(undocumented)_
+
+### `medianCtes({ name, pool, clean = true }: MedianCtesOptions): string`
+
+_(undocumented)_
+
+## src/modules/pricing/store/listing-price-review.ts
+
+**Interactions:** imports `../../../platform/storage`, `../price-review/prompt`, `./fragments`
+
+### `getPriceReviewRows(db: DbClient): Promise<PriceReviewRow[]>`
+
+_(undocumented)_
+
+### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
+
+_(undocumented)_
+
+### `upsertKeywordNegotiable(db: DbClient, listingId: string, matchedKeyword: string): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/store/price-history.ts
+
+**Interactions:** imports `../../../platform/storage`, `../clean-median`, `../price-lookup`, `../schemas`
+
+### `insertPriceCheck(db: DbClient, check: PriceCheck): Promise<void>`
+
+_(undocumented)_
+
+### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
+
+_(undocumented)_
+
+### `getProductPricingStatus(db: DbClient, productId: number): Promise<ProductPricingStatus>`
+
+_(undocumented)_
+
+### `getListingPricesByProduct(db: DbClient): Promise<ListingPricesForProductCondition[]>`
+
+_(undocumented)_
+
+### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/store/price-triage.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `../price-triage`
+
+### `getTriageCandidates(db: DbClient, limit: number): Promise<TriageCandidate[]>`
+
+_(undocumented)_
+
+### `saveTriageRows(db: DbClient, rows: TriageRow[]): Promise<void>`
+
+_(undocumented)_
+
+### `getTriageSummary(db: DbClient): Promise<TriageSummaryRow[]>`
+
+_(undocumented)_
+
+### `getTriagedReasons(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `getRetryVerdictProductIds(db: DbClient, minConfidenceRank: number, reasons?: string[]): Promise<number[]>`
+
+_(undocumented)_
+
+### `markTriageApplied(db: DbClient, productId: number): Promise<void>`
 
 _(undocumented)_
 
