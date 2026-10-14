@@ -698,7 +698,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `excludeProductFromReview(db: DbClient, productId: number, reason: unknown): Promise<void>`
+### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
 
 _(undocumented)_
 
@@ -858,7 +858,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `excludeProductFromReview(db: DbClient, productId: number, reason: unknown): Promise<void>`
+### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
 
 _(undocumented)_
 
@@ -1152,7 +1152,7 @@ _(undocumented)_
 
 ## src/modules/pricing/queries.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./exclusion`
+**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./schemas`
 
 ### `setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void>`
 
@@ -1209,6 +1209,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
+
+_(undocumented)_
+
+## src/modules/pricing/routes.ts
+
+**Interactions:** imports `../../platform/settings`, `../../platform/storage`, `../catalog`, `./deals`, `./exclusion`, `./queries`, `./schemas`
+
+### `createPricingRouter(db: QueryClient, cache: CacheInvalidator): Router`
 
 _(undocumented)_
 

@@ -42,10 +42,6 @@ _(undocumented)_
 
 **Interactions:** imports `./app`, `./cache`
 
-### `invalidateAfterQuery(handler: RouteHandler, cache: Invalidator): RouteHandler`
-
-POST /query: after a successful product mutation, drop its catalog caches.
-
 ### `invalidateAfterJobStatus(handler: RouteHandler, cache: Invalidator): RouteHandler`
 
 GET /refresh-job: a finished (or cancelled, which can still have written
@@ -94,7 +90,7 @@ _(undocumented)_
 
 ## server/routes/query.ts
 
-**Interactions:** imports `../../src/modules/collection`, `../../src/modules/pricing`, `../../src/platform/storage`, `../app`
+**Interactions:** imports `../../src/modules/collection`, `../../src/platform/storage`, `../app`
 
 ### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
 

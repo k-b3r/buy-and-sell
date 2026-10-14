@@ -12,10 +12,10 @@ function asBody<T>(result: RouteResult): T {
 }
 
 test('runs a whitelisted query by name and returns its result', async () => {
-  const db = fakeDb([{ count: '7' }])
+  const db = fakeDb([{ product_id: 7 }])
   const handler = createQueryHandler(db)
 
-  const result = await handler({ name: 'getUnreadDiscountNotificationCount', args: [] })
+  const result = await handler({ name: 'getListingProductId', args: ['abc'] })
 
   expect(result.statusCode).toBe(200)
   expect(asBody<{ result: unknown }>(result).result).toBe(7)
@@ -25,9 +25,9 @@ test('forwards args through to the underlying query', async () => {
   const db = fakeDb([])
   const handler = createQueryHandler(db)
 
-  await handler({ name: 'getDiscountNotifications', args: [5] })
+  await handler({ name: 'getListingProductId', args: ['abc'] })
 
-  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('discount_notifications'), [5])
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('FROM listings'), ['abc'])
 })
 
 test('settings and collect-keywords queries are served by their resource routes, not the whitelist', () => {
@@ -72,7 +72,7 @@ test('rejects a malformed body', async () => {
   const db = fakeDb()
   const handler = createQueryHandler(db)
 
-  for (const body of [{}, { name: 42 }, null, { name: 'getExclusionSummary', args: 'nope' }]) {
+  for (const body of [{}, { name: 42 }, null, { name: 'getListingProductId', args: 'nope' }]) {
     const result = await handler(body)
     expect(result.statusCode).toBe(400)
   }
@@ -83,7 +83,7 @@ test('defaults args to empty when omitted', async () => {
   const db = fakeDb([])
   const handler = createQueryHandler(db)
 
-  const result = await handler({ name: 'getExclusionSummary' })
+  const result = await handler({ name: 'getListingProductId' })
 
   expect(result.statusCode).toBe(200)
 })
@@ -98,7 +98,7 @@ test('turns a failing query into a 500 without leaking driver detail', async () 
   }
   const handler = createQueryHandler(db)
 
-  const result = await handler({ name: 'getExclusionSummary', args: [] })
+  const result = await handler({ name: 'getListingProductId', args: ['abc'] })
 
   expect(result.statusCode).toBe(500)
   expect(JSON.stringify(result.body)).not.toMatch(/relation/)
@@ -117,9 +117,28 @@ test('catalog queries are served by their resource routes, not the whitelist', (
   }
 })
 
-test('whitelist still covers the db-backed queries the dashboard has not moved off it', () => {
-  expect(QUERY_NAMES).toContain('getDeals')
-  expect(QUERY_NAMES.length).toBeGreaterThanOrEqual(10)
+test('pricing queries are served by their resource routes, not the whitelist', () => {
+  for (const name of [
+    'setManualPrice',
+    'excludeProductFromReview',
+    'includeInPricing',
+    'getExclusionSummary',
+    'getExcludedProducts',
+    'getSoldComparablePrice',
+    'getPeerMedianPrice',
+    'getComparableListings',
+    'getDeals',
+    'getDiscountNotifications',
+    'getUnreadDiscountNotificationCount',
+    'markDiscountNotificationRead',
+    'markAllDiscountNotificationsRead',
+  ]) {
+    expect(QUERY_NAMES).not.toContain(name)
+  }
+})
+
+test('whitelist still covers the one query the dashboard has not moved off it', () => {
+  expect(QUERY_NAMES).toEqual(['getListingProductId'])
 })
 
 test('the real-estate listings query is served by its resource route, not the whitelist', () => {

@@ -72,6 +72,14 @@ export {
   LOOKUP_OUTCOME_REASONS,
 } from './exclusion'
 export { excludeIneligibleCategories } from './ineligible-categories'
+export type { ManualPrice } from './schemas'
+export {
+  dealsQuerySchema,
+  excludedProductsQuerySchema,
+  manualPriceSchema,
+  notificationIdParamSchema,
+  priceExclusionReasonSchema,
+} from './schemas'
 export { runVerifyDiscountNotifications } from './run-discount-verification'
 export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
 export {
