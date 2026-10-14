@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Generic HTTP companion service for the collector - the one piece of this repo that needs to run continuously (a long-lived process, not a one-shot CLI script), so it's a separate deployable package from the root scripts. app.ts is a small generic JSON-in/JSON-out router (auth + routing + parsing); routes/ holds each use case's actual logic (currently just on-demand listing refresh). Still imports shared logic (db.ts, browser.ts, check-listings.ts, ...) from ../src rather than duplicating it.",
+  "description": "Generic HTTP companion service for the collector - the one piece of this repo that needs to run continuously (a long-lived process, not a one-shot CLI script), so it's a separate deployable package from the root scripts. app.ts is an Express app (bearer auth, rate limiting, JSON parsing, error handling) that mounts each feature module's router (src/modules/*/routes.ts) plus the refresh, logs and worker-control handlers in routes/. Imports shared logic from ../src rather than duplicating it.",
   "scripts": {
     "start": "tsx index.ts",
     "dev": "tsx watch index.ts",

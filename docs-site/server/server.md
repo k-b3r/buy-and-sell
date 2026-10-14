@@ -78,14 +78,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## server/routes/query.ts
-
-**Interactions:** imports `../../src/platform/storage`, `../app`
-
-### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
-
-_(undocumented)_
-
 ## server/routes/refresh.ts
 
 **Interactions:** imports `../../src/modules/collection`, `../../src/platform/delay`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../app`, `../cache`, `../proxyGuard`, `../refreshPacer`

@@ -1,6 +1,6 @@
 // Coercions for raw pg rows, shared by the server's dashboard queries and the
 // modules' own query exports. pg returns NUMERIC as a string and timestamps as
-// Date, while the dashboard RPC wants plain JSON numbers and ISO strings.
+// Date, while the dashboard's JSON responses want plain numbers and ISO strings.
 
 export function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value)
