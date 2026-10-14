@@ -1,15 +1,15 @@
-import type { DbClient } from '../../platform/storage'
+import type { DbClient } from '../../../platform/storage'
 import {
   findOrCreateProduct,
   updateListingProductIds,
-  getExtractionCandidates,
-  getEnrichmentCandidates,
-  upsertProductEnrichment,
   updateProductCategories,
   mergeDuplicateProduct,
   findProductIdsByNormalizedName,
   getProductMatchedListings,
-} from './product-storage'
+  findProductsByBaseModel,
+  renameProduct,
+  renameProductBaseModel,
+} from './products'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -165,131 +165,6 @@ test('updateListingProductIds issues a single multi-row UPDATE for all assignmen
   expect(calls[0].params).toEqual(['1', 10, '2', 20, '3', 10])
 })
 
-test('getExtractionCandidates returns pending listings with condition/price_amount for the inline discount check', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return {
-        rows: [
-          { id: '1', title: 'RTX 3060', description: 'for sale', condition: 'Used - Good', price_amount: '15000' },
-        ],
-      }
-    },
-  }
-
-  const result = await getExtractionCandidates(db)
-
-  expect(calls[0].sql).toContain('WHERE product_id IS NULL')
-  expect(result).toEqual([
-    { id: '1', title: 'RTX 3060', description: 'for sale', condition: 'Used - Good', price_amount: 15000 },
-  ])
-})
-
-test('getExtractionCandidates coerces a null price_amount to null, not NaN', async () => {
-  const db = {
-    query: async () => ({
-      rows: [{ id: '1', title: 'RTX 3060', description: null, condition: null, price_amount: null }],
-    }),
-  }
-
-  const result = await getExtractionCandidates(db)
-
-  expect(result[0].price_amount).toBeNull()
-})
-
-test('getEnrichmentCandidates returns products without an enrichment row, with sibling variant names', async () => {
-  const calls: { sql: string; params: unknown[] }[] = []
-  const db = {
-    query: async (sql: string, params: unknown[]) => {
-      calls.push({ sql, params })
-      return {
-        rows: [
-          {
-            id: 363,
-            base_model: 'iPhone 12',
-            variant_tier: 'Mini',
-            category: null,
-            sibling_variants: ['(base, no variant)', 'Pro', 'Pro Max'],
-          },
-          { id: 17, base_model: 'RTX 2060', variant_tier: null, category: 'PC Components', sibling_variants: [] },
-        ],
-      }
-    },
-  }
-
-  const result = await getEnrichmentCandidates(db)
-
-  expect(calls[0].sql).toContain('NOT EXISTS')
-  expect(calls[0].sql).toContain('product_enrichment')
-  expect(calls[0].sql).toContain('categories')
-  expect(result).toEqual([
-    {
-      id: 363,
-      base_model: 'iPhone 12',
-      variant_tier: 'Mini',
-      category: null,
-      sibling_variants: ['(base, no variant)', 'Pro', 'Pro Max'],
-    },
-    { id: 17, base_model: 'RTX 2060', variant_tier: null, category: 'PC Components', sibling_variants: [] },
-  ])
-})
-
-test('upsertProductEnrichment inserts with PHP currency derived when a trained price is known', async () => {
-  const { db, calls } = mockDb()
-
-  await upsertProductEnrichment(
-    db,
-    363,
-    {
-      description: 'desc',
-      valueDrivers: 'drivers',
-      hasTrainedPriceKnowledge: true,
-      trainedPriceLow: 9000,
-      trainedPriceHigh: 13000,
-      isSpecificProduct: true,
-      confidence: 'high',
-    },
-    'openai/gpt-oss-120b',
-  )
-
-  expect(calls[0].sql).toMatch(/^INSERT INTO product_enrichment/)
-  expect(calls[0].sql).toContain('ON CONFLICT (product_id) DO UPDATE')
-  expect(calls[0].params).toEqual([
-    363,
-    'desc',
-    'drivers',
-    true,
-    9000,
-    13000,
-    'PHP',
-    'openai/gpt-oss-120b',
-    true,
-    'high',
-  ])
-})
-
-test('upsertProductEnrichment stores null currency when no trained price is known', async () => {
-  const { db, calls } = mockDb()
-
-  await upsertProductEnrichment(
-    db,
-    17,
-    {
-      description: 'desc',
-      valueDrivers: 'drivers',
-      hasTrainedPriceKnowledge: false,
-      trainedPriceLow: null,
-      trainedPriceHigh: null,
-      isSpecificProduct: false,
-      confidence: 'low',
-    },
-    'openai/gpt-oss-120b',
-  )
-
-  expect(calls[0].params).toEqual([17, 'desc', 'drivers', false, null, null, null, 'openai/gpt-oss-120b', false, 'low'])
-})
-
 test('updateProductCategories does nothing (no query) when given an empty array', async () => {
   const { db, calls } = mockDb()
 
@@ -374,4 +249,40 @@ test('getProductMatchedListings returns titled listings joined to their product 
   expect(calls[0].sql).toContain('JOIN products p ON p.id = l.product_id')
   expect(calls[0].sql).toContain('WHERE l.title IS NOT NULL')
   expect(result).toEqual([row])
+})
+
+test('findProductsByBaseModel selects id and normalized variant by the raw base_model text', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 4, variant_tier_normalized: null }] }
+    },
+  }
+
+  const rows = await findProductsByBaseModel(db, 'PS5')
+
+  expect(rows).toEqual([{ id: 4, variant_tier_normalized: null }])
+  expect(calls[0].sql).toContain('FROM products WHERE base_model = $1')
+  expect(calls[0].params).toEqual(['PS5'])
+})
+
+test('renameProductBaseModel rewrites base_model and its normalized twin for one product', async () => {
+  const { db, calls } = mockDb()
+
+  await renameProductBaseModel(db, 9, 'PlayStation  5')
+
+  expect(calls[0].sql).toContain('UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3')
+  expect(calls[0].params).toEqual(['PlayStation  5', 'playstation 5', 9])
+})
+
+test('renameProduct rewrites base_model and variant_tier with both normalized twins, null variant stays null', async () => {
+  const { db, calls } = mockDb()
+
+  await renameProduct(db, 9, { baseModel: 'iPhone 14', variantTier: "Pro Founder's" })
+  await renameProduct(db, 10, { baseModel: 'iPhone 14', variantTier: null })
+
+  expect(calls[0].sql).toContain('variant_tier = $3, variant_tier_normalized = $4 WHERE id = $5')
+  expect(calls[0].params).toEqual(['iPhone 14', 'iphone 14', "Pro Founder's", 'pro founders', 9])
+  expect(calls[1].params).toEqual(['iPhone 14', 'iphone 14', null, null, 10])
 })
