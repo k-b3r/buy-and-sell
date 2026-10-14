@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
-import type { PriceReviewCandidate, PriceReviewData } from './price-review'
-import { descriptionPriceDiverges } from './price-review'
+import type { PriceReviewCandidate, PriceReviewData } from './price-review/prompt'
+import { descriptionPriceDiverges } from './price-review/parse'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
 import { medianCtes, notPlaceholderPriceSql } from './clean-median'
 

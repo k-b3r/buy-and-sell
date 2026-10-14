@@ -101,5 +101,5 @@ export {
   saveTriageRows,
 } from './price-triage'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
-export type { PriceReviewCandidate } from './price-review'
-export { runPriceReview } from './run-price-review'
+export type { PriceReviewCandidate } from './price-review/prompt'
+export { runPriceReview } from './price-review/price-review'
