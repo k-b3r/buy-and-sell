@@ -57,31 +57,6 @@ export type {
   SubCategoryTreeEntry,
 } from './shared.generated'
 
-// One round trip per call. Reads the server caches itself (300s TTL, tag
-// invalidation) are on api() above; this POST /query path is what is left.
-async function rpc<T>(name: string, args: unknown[] = []): Promise<T> {
-  const baseUrl = process.env.REFRESH_SERVER_URL
-  const apiKey = process.env.REFRESH_API_KEY
-  if (!baseUrl || !apiKey) {
-    throw new Error('REFRESH_SERVER_URL/REFRESH_API_KEY not set - the dashboard cannot reach the database without them')
-  }
-
-  const res = await fetch(`${baseUrl}/query`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ name, args }),
-    // Caching is the server's job - Next's fetch cache would key on this
-    // URL+body and duplicate that badly.
-    cache: 'no-store',
-  })
-
-  if (!res.ok) {
-    throw new Error(`query ${name} failed: ${res.status}`)
-  }
-  const body = (await res.json()) as { result: T }
-  return body.result
-}
-
 /** One page of the product list (the server fixes the page size). */
 export function getProductSummaries(
   options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number } = {},
@@ -172,10 +147,6 @@ export async function getSavedListings(): Promise<SavedListingSummary[]> {
 export async function getAllSettings(): Promise<SettingRow[]> {
   const { settings } = await api<{ settings: SettingRow[] }>('/settings')
   return settings
-}
-
-export function getListingProductId(listingId: string): Promise<number | null> {
-  return rpc('getListingProductId', [listingId])
 }
 
 // Filter field -> the URL param GET /real-estate (and /api/real-estate) reads.

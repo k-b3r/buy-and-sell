@@ -20,7 +20,7 @@ test('serverRouteTarget keeps the query string', () => {
 
 test('serverRouteTarget returns null for paths still served by Next handlers', () => {
   expect(serverRouteTarget('/api/login', '', BASE)).toBeNull()
-  expect(serverRouteTarget('/api/listings/123/refresh', '', BASE)).toBeNull()
+  expect(serverRouteTarget('/api/listings/123', '', BASE)).toBeNull()
   expect(serverRouteTarget('/admin/settings', '', BASE)).toBeNull()
 })
 
@@ -31,7 +31,7 @@ test('serverRouteTarget does not match a path that only shares a prefix', () => 
 test('isServerRoute is true for migrated exact paths only, not their subpaths', () => {
   expect(isServerRoute('/api/settings')).toBe(true)
   expect(isServerRoute('/api/settings/x')).toBe(false)
-  expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
+  expect(isServerRoute('/api/listings/123/refresh/x')).toBe(false)
 })
 
 test('serverRouteTarget tolerates a trailing slash on the base url', () => {
@@ -82,7 +82,6 @@ test('the catalog routes resolve to their server paths and leave their unmigrate
     'https://vps.test/products/42/mark-reviewed',
   )
   expect(isServerRoute('/api/products/42')).toBe(false)
-  expect(isServerRoute('/api/products/42/refresh')).toBe(false)
 })
 
 test('serverRouteTarget sends the listing save toggle to the server, keeping the productId query', () => {
@@ -91,10 +90,23 @@ test('serverRouteTarget sends the listing save toggle to the server, keeping the
   )
 })
 
-test('isServerRoute leaves the listing refresh to its Next handler', () => {
+test('isServerRoute matches the listing save and refresh toggles but not the listing itself', () => {
   expect(isServerRoute('/api/listings/123/save')).toBe(true)
-  expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
+  expect(isServerRoute('/api/listings/123/refresh')).toBe(true)
   expect(isServerRoute('/api/listings/123')).toBe(false)
+})
+
+test('serverRouteTarget sends the refresh, job, logs and worker-control paths to the same path on the server', () => {
+  for (const path of [
+    '/api/listings/123/refresh',
+    '/api/products/42/refresh',
+    '/api/refresh-job',
+    '/api/refresh-job/cancel',
+    '/api/logs',
+    '/api/worker-control',
+  ]) {
+    expect(serverRouteTarget(path, '', BASE)?.toString()).toBe(`https://vps.test${path.slice('/api'.length)}`)
+  }
 })
 
 test('the pricing routes resolve to their server paths, bodies and all', () => {
@@ -118,5 +130,4 @@ test('the pricing routes resolve to their server paths, bodies and all', () => {
 test('the pricing routes do not swallow the notification or product siblings still on Next', () => {
   expect(isServerRoute('/api/notifications/9')).toBe(false)
   expect(isServerRoute('/api/notifications/9/unread')).toBe(false)
-  expect(isServerRoute('/api/products/42/refresh')).toBe(false)
 })

@@ -5,7 +5,7 @@ import { createRefreshPacer } from '../refreshPacer'
 import { createJobStore } from '../jobState'
 import { createLogger } from '../../src/platform/logger'
 import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
-import type { DbClient } from '../../src/platform/storage'
+import type { QueryClient } from '../../src/platform/storage'
 
 const LOG_PATH = 'data/tmp-refresh-product.log'
 
@@ -31,7 +31,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // Two candidates under product 42, everything else (the UPDATE calls inside
 // checkOneListing) is a no-op - same "always empty rows" shape used
 // elsewhere for db calls whose return value isn't under test.
-function fakeDb(): DbClient {
+function fakeDb(): QueryClient {
   return {
     query: async (sql: string) => {
       if (sql.includes('WHERE product_id = $1')) {
@@ -77,6 +77,17 @@ function driverFactory(driver: PageDriver) {
 // from depending on real SOCKS_PROXY env state.
 const okTunnel = async () => ({ ok: true as const })
 
+// Records each invalidate call's tags, cleared between tests.
+const invalidated: string[][] = []
+const cache = {
+  invalidate: (...tags: string[]) => {
+    invalidated.push(tags)
+  },
+}
+beforeEach(() => {
+  invalidated.length = 0
+})
+
 test('rejects a missing or non-integer productId', async () => {
   const logger = createLogger(LOG_PATH)
   const lock = createRefreshLock()
@@ -90,6 +101,7 @@ test('rejects a missing or non-integer productId', async () => {
     pacer: createRefreshPacer(lock),
     driverFactory: driverFactory(makeDriver()).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "productId"' } })
@@ -117,6 +129,7 @@ test('429s when the shared lock is already held', async () => {
     pacer: createRefreshPacer(lock),
     driverFactory: driverFactory(makeDriver()).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const result = await handle({ productId: 42 })
@@ -143,6 +156,7 @@ test('503s and never starts a job when the tunnel is not reachable', async () =>
       return { driver: makeDriver(), close: async () => {} }
     },
     tunnelCheck: badTunnel,
+    cache,
   })
 
   const result = await handle({ productId: 42 })
@@ -155,7 +169,7 @@ test('503s and never starts a job when the tunnel is not reachable', async () =>
 
 test('a product with no eligible listings completes immediately without acquiring the lock', async () => {
   const logger = createLogger(LOG_PATH)
-  const db: DbClient = { query: async () => ({ rows: [] }) } // no candidates
+  const db: QueryClient = { query: async () => ({ rows: [] }) } // no candidates
   const lock = createRefreshLock()
   const jobs = createJobStore()
   const handle = createRefreshProductHandler({
@@ -168,6 +182,7 @@ test('a product with no eligible listings completes immediately without acquirin
     pacer: createRefreshPacer(lock),
     driverFactory: driverFactory(makeDriver()).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const result = await handle({ productId: 42 })
@@ -199,6 +214,7 @@ test('starts the job and returns immediately, then the background loop checks ev
     pacer: createRefreshPacer(lock),
     driverFactory: factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const result = await handle({ productId: 42 })
@@ -210,6 +226,30 @@ test('starts the job and returns immediately, then the background loop checks ev
   expect(opened).toEqual(['a', 'b'])
   expect(jobs.current()).toEqual({ productId: 42, total: 2, completed: 2, status: 'completed' })
   expect(lock.isBusy()).toBe(false)
+})
+
+test('a finished job drops the product and list caches once, and not before it ends', async () => {
+  const logger = createLogger(LOG_PATH)
+  const { factory, closed } = driverFactory(makeDriver({ getDetailHtml: async () => aliveHtml('a') }))
+  const lock = createRefreshLock()
+  const handle = createRefreshProductHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    lock,
+    jobs: createJobStore(),
+    pacer: createRefreshPacer(lock),
+    driverFactory: factory,
+    tunnelCheck: okTunnel,
+    cache,
+  })
+
+  await handle({ productId: 42 })
+  expect(invalidated).toEqual([])
+
+  await closed
+  expect(invalidated).toEqual([['products-list', 'product:42']])
 })
 
 test('cancellation requested after the first candidate stops the loop before the second', async () => {
@@ -240,6 +280,7 @@ test('cancellation requested after the first candidate stops the loop before the
     pacer: createRefreshPacer(lock),
     driverFactory: factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   await handle({ productId: 42 })
@@ -275,6 +316,7 @@ test('a hard-block stops the loop early and still resolves to completed, not stu
     pacer: createRefreshPacer(lock),
     driverFactory: factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   await handle({ productId: 42 })
@@ -305,6 +347,7 @@ test('a browser launch that throws releases the lock and marks the job failed, n
     pacer: createRefreshPacer(lock),
     driverFactory: () => launch,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const res = await handle({ productId: 42 })
@@ -337,6 +380,7 @@ test('an error mid-loop marks the job failed and still releases the lock', async
     pacer: createRefreshPacer(lock),
     driverFactory: factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   await handle({ productId: 42 })
@@ -344,4 +388,6 @@ test('an error mid-loop marks the job failed and still releases the lock', async
 
   expect(jobs.current()?.status).toBe('failed')
   expect(lock.isBusy()).toBe(false)
+  // A failed job may still have written some listings before it stopped.
+  expect(invalidated).toEqual([['products-list', 'product:42']])
 })

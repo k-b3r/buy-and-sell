@@ -1,6 +1,5 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
-import { getListingProductId } from '../../src/modules/collection'
 
 // The dashboard runs on Vercel and has no route to this box's Postgres, which
 // listens on localhost only (deliberately - see the migration off Neon). This
@@ -14,13 +13,11 @@ import { getListingProductId } from '../../src/modules/collection'
 // reads. Args still reach the database, but only ever as bound parameters of
 // a query the server ships, never as SQL text.
 //
-// Each feature module owns its dashboard queries and exports them from its
-// index.ts; settings live in platform. Adding a dashboard query means adding
-// it here too. That is the intended friction: it's the whole security
-// boundary.
-const REGISTRY = {
-  getListingProductId,
-} satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
+// Every dashboard query now has its own resource route in its feature module,
+// so the registry is empty and this route refuses every name until BUY-84
+// removes it. Adding a dashboard query means adding it here too. That is the
+// intended friction: it's the whole security boundary.
+const REGISTRY = {} satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
 export type QueryName = keyof typeof REGISTRY
 

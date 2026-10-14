@@ -4,7 +4,7 @@ import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createLogger } from '../../src/platform/logger'
 import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
-import type { DbClient } from '../../src/platform/storage'
+import type { QueryClient } from '../../src/platform/storage'
 
 const LOG_PATH = 'data/tmp-refresh.log'
 
@@ -30,7 +30,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // Only listing '1' exists — matches getListingCheckCandidate's single-row
 // SELECT, distinct from the generic "always empty rows" fakes used
 // elsewhere, since these tests specifically need a found/not-found split.
-function fakeDb(): DbClient {
+function fakeDb(): QueryClient {
   return {
     query: async (sql: string, params: unknown[]) => {
       if (sql.startsWith('SELECT')) {
@@ -69,6 +69,17 @@ function driverFactory(driver: PageDriver) {
 // keeps them from depending on real SOCKS_PROXY env state.
 const okTunnel = async () => ({ ok: true as const })
 
+// Records each invalidate call's tags, cleared between tests.
+const invalidated: string[][] = []
+const cache = {
+  invalidate: (...tags: string[]) => {
+    invalidated.push(tags)
+  },
+}
+beforeEach(() => {
+  invalidated.length = 0
+})
+
 // No pacing gap to wait out and an already-free lock - real timers are fine
 // for a single call, since recordActionComplete never having fired means no
 // delay() call happens at all.
@@ -101,6 +112,7 @@ test('rejects a missing or non-string id', async () => {
     pacer: instantPacer(),
     driverFactory: driverFactory(makeDriver()).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   expect(await handle({})).toEqual({ statusCode: 400, body: { error: 'missing or invalid "id"' } })
@@ -119,6 +131,7 @@ test('404s when the listing id does not exist, without ever queueing', async () 
     pacer: instantPacer(),
     driverFactory: driverFactory(makeDriver()).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const result = await handle({ id: 'does-not-exist' })
@@ -140,6 +153,7 @@ test('503s and takes no action when the tunnel is not reachable', async () => {
       return { driver: makeDriver(), close: async () => {} }
     },
     tunnelCheck: badTunnel,
+    cache,
   })
 
   const result = await handle({ id: '1' })
@@ -166,6 +180,7 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
     pacer: instantPacer(),
     driverFactory: factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const result = await handle({ id: '1' })
@@ -173,6 +188,95 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
   expect(result).toEqual({ statusCode: 200, body: { status: 'alive' } })
   expect(openedId).toBe('1')
   expect(wasClosed()).toBe(true)
+})
+
+// Only listing '1' exists in fakeDb, and its row has no product_id.
+test('a successful refresh drops the listing and list caches, plus the product cache when the listing has one', async () => {
+  const logger = createLogger(LOG_PATH)
+  const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
+  const db: QueryClient = {
+    query: async (sql: string, params: unknown[]) => {
+      if (sql.includes('SELECT product_id')) return { rows: [{ product_id: 7 }] }
+      return fakeDb().query(sql, params)
+    },
+  }
+  const handle = createRefreshHandler({
+    db,
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: driverFactory(driver).factory,
+    tunnelCheck: okTunnel,
+    cache,
+  })
+
+  await handle({ id: '1' })
+
+  expect(invalidated).toEqual([['listing:1', 'products-list'], ['product:7']])
+})
+
+test('a failing product lookup still answers the refresh result and keeps the listing and list invalidation', async () => {
+  const logger = createLogger(LOG_PATH)
+  const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
+  const db: QueryClient = {
+    query: async (sql: string, params: unknown[]) => {
+      if (sql.includes('SELECT product_id')) throw new Error('db down')
+      return fakeDb().query(sql, params)
+    },
+  }
+  const handle = createRefreshHandler({
+    db,
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: driverFactory(driver).factory,
+    tunnelCheck: okTunnel,
+    cache,
+  })
+
+  const result = await handle({ id: '1' })
+
+  expect(result).toEqual({ statusCode: 200, body: { status: 'alive' } })
+  expect(invalidated).toEqual([['listing:1', 'products-list']])
+})
+
+test('a successful refresh of a listing with no product drops only the listing and list caches', async () => {
+  const logger = createLogger(LOG_PATH)
+  const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: driverFactory(driver).factory,
+    tunnelCheck: okTunnel,
+    cache,
+  })
+
+  await handle({ id: '1' })
+
+  expect(invalidated).toEqual([['listing:1', 'products-list']])
+})
+
+test('a failed refresh drops nothing', async () => {
+  const logger = createLogger(LOG_PATH)
+  const handle = createRefreshHandler({
+    db: fakeDb(),
+    photos: fakePhotos(),
+    logger,
+    delay: noDelay,
+    pacer: instantPacer(),
+    driverFactory: driverFactory(makeDriver()).factory,
+    tunnelCheck: okTunnel,
+    cache,
+  })
+
+  await handle({ id: 'does-not-exist' })
+
+  expect(invalidated).toEqual([])
 })
 
 test('a second request while one is in flight queues and succeeds once the first releases the lock', async () => {
@@ -196,6 +300,7 @@ test('a second request while one is in flight queues and succeeds once the first
     pacer,
     driverFactory: slowFactory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const firstRequest = handle({ id: '1' })
@@ -230,6 +335,7 @@ test('gives up with 429 if the lock never frees within the max queue wait', asyn
     pacer,
     driverFactory: driverFactory(makeDriver()).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const result = await handle({ id: '1' })
@@ -248,6 +354,7 @@ test('a later request succeeds after an earlier one completes and releases', asy
     pacer: fastPacer(),
     driverFactory: driverFactory(driver).factory,
     tunnelCheck: okTunnel,
+    cache,
   })
 
   const first = await handle({ id: '1' })

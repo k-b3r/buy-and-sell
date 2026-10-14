@@ -211,10 +211,8 @@ export async function replaceCollectKeywords(db: QueryClient, keywords: CollectK
   await db.query(`INSERT INTO collect_keywords (keyword, enabled) VALUES ${valuesSql}`, params)
 }
 
-// The dashboard's refresh route busts the product-detail cache tag after a
-// refresh and needs the listing's product id to name that tag. Trivial, but
-// it still goes through the registry like everything else - the dashboard
-// has no way to send SQL of its own (see routes/query.ts).
+// The server's listing refresh route needs the listing's product id to name
+// the product cache tag it drops after a refresh.
 export async function getListingProductId(db: QueryClient, listingId: string): Promise<number | null> {
   const result = await db.query('SELECT product_id FROM listings WHERE id = $1', [listingId])
   const row = (result.rows as { product_id: number | null }[])[0]
