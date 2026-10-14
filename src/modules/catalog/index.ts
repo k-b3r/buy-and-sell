@@ -15,7 +15,7 @@ export type { CategoryWeeklySoldCounts, SubCategoryTreeEntry } from './store/pro
 export { getSoldCountsBySubCategory, getSubCategoryTree } from './store/product-list'
 export type { ProductNeedingReview } from './store/review-queue'
 export { getProductsNeedingReview, markProductReviewed } from './store/review-queue'
-export { runProductEnrichment } from './run-enrichment'
+export { runProductEnrichment } from './enrichment'
 export { detectModelMismatches, reassignModelMismatches } from './model-mismatch'
 export type { ExtractionClients } from './run-extraction'
 export { runProductExtraction } from './run-extraction'

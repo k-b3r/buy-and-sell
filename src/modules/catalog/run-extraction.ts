@@ -49,7 +49,7 @@ export interface ExtractionOptions {
 // under load ("This model is currently experiencing high demand... usually
 // temporary") — confirmed live 2026-08-24 on Hetzner, which crashed the
 // whole run uncaught. Exponential backoff starting at 30s (not
-// run-enrichment.ts's 3s) because "usually temporary" for a model-capacity
+// enrichment.ts's 3s) because "usually temporary" for a model-capacity
 // spike plausibly means minutes, not seconds — 5 attempts caps the wait at
 // 30+60+120+240 = ~7.5 minutes before giving up. A real quota error (429,
 // all fallback keys exhausted) is not retried on that same provider —
