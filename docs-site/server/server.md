@@ -76,7 +76,7 @@ _(undocumented)_
 
 ## server/routes/query.ts
 
-**Interactions:** imports `../../src/modules/collection`, `../../src/modules/pricing`, `../../src/modules/real-estate`, `../../src/platform/storage`, `../app`
+**Interactions:** imports `../../src/modules/collection`, `../../src/modules/pricing`, `../../src/platform/storage`, `../app`
 
 ### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
 

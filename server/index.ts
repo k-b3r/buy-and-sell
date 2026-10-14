@@ -6,6 +6,7 @@ import { createDbPool } from '../src/platform/storage'
 import { createCatalogRouter } from '../src/modules/catalog/routes'
 import { createListingPhotos } from '../src/modules/collection'
 import { createCollectionRouter } from '../src/modules/collection/routes'
+import { createRealEstateRouter } from '../src/modules/real-estate/routes'
 import { createApp } from './app'
 import { createCache } from './cache'
 import { loadServerConfig } from './config'
@@ -37,7 +38,12 @@ async function main() {
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
-    routers: [createSettingsRouter(pool), createCollectionRouter(pool), createCatalogRouter(pool, cache)],
+    routers: [
+      createSettingsRouter(pool),
+      createCollectionRouter(pool),
+      createCatalogRouter(pool, cache),
+      createRealEstateRouter(pool),
+    ],
     routes: {
       'POST /refresh': refreshHandlers.refresh,
       'POST /refresh-product': refreshHandlers.refreshProduct,

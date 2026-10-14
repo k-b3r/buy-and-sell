@@ -8,6 +8,12 @@ test('serverRouteTarget maps a migrated /api path to the same path on the server
   expect(serverRouteTarget('/api/collect-keywords', '', BASE)?.toString()).toBe('https://vps.test/collect-keywords')
 })
 
+test('serverRouteTarget sends /api/real-estate to the server with its filters intact', () => {
+  expect(serverRouteTarget('/api/real-estate', '?kind=sale&page=2', BASE)?.toString()).toBe(
+    'https://vps.test/real-estate?kind=sale&page=2',
+  )
+})
+
 test('serverRouteTarget keeps the query string', () => {
   expect(serverRouteTarget('/api/settings', '?a=1', BASE)?.toString()).toBe('https://vps.test/settings?a=1')
 })
