@@ -130,3 +130,42 @@ export async function mergeDuplicateProduct(db: DbClient, survivorId: number, lo
   await db.query(`DELETE FROM product_enrichment WHERE product_id = $1`, [loserId])
   await db.query(`DELETE FROM products WHERE id = $1`, [loserId])
 }
+
+export interface ProductNameRow {
+  id: number
+  variant_tier_normalized: string | null
+}
+
+export async function findProductsByBaseModel(db: DbClient, baseModel: string): Promise<ProductNameRow[]> {
+  const result = (await db.query(`SELECT id, variant_tier_normalized FROM products WHERE base_model = $1`, [
+    baseModel,
+  ])) as { rows: ProductNameRow[] }
+  return result.rows
+}
+
+// Rewrites a product's base_model in place, keeping its normalized twin in sync.
+export async function renameProductBaseModel(db: DbClient, productId: number, baseModel: string): Promise<void> {
+  await db.query(`UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3`, [
+    baseModel,
+    normalizeBaseModel(baseModel),
+    productId,
+  ])
+}
+
+// Rewrites base_model and variant_tier together, keeping both normalized twins in sync.
+export async function renameProduct(
+  db: DbClient,
+  productId: number,
+  { baseModel, variantTier }: { baseModel: string; variantTier: string | null },
+): Promise<void> {
+  await db.query(
+    `UPDATE products SET base_model = $1, base_model_normalized = $2, variant_tier = $3, variant_tier_normalized = $4 WHERE id = $5`,
+    [
+      baseModel,
+      normalizeBaseModel(baseModel),
+      variantTier,
+      variantTier === null ? null : normalizeVariantTier(variantTier),
+      productId,
+    ],
+  )
+}

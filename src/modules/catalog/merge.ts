@@ -1,11 +1,12 @@
 import type { DbClient } from '../../platform/storage'
-import { findProductIdsByNormalizedName, mergeDuplicateProduct } from './store/products'
 import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from './products'
-
-interface ProductRow {
-  id: number
-  variant_tier_normalized: string | null
-}
+import {
+  findProductIdsByNormalizedName,
+  findProductsByBaseModel,
+  mergeDuplicateProduct,
+  renameProduct,
+  renameProductBaseModel,
+} from './store/products'
 
 // Retroactive fix for duplicates CANONICAL_BASE_MODEL now prevents at
 // extraction time. Renames in place when nothing collides. When the
@@ -26,13 +27,7 @@ export async function mergeDuplicateProducts(
   let merged = 0
 
   for (const [alias, canonical] of Object.entries(canonicalMap)) {
-    const aliasRows = (await db.query(`SELECT id, variant_tier_normalized FROM products WHERE base_model = $1`, [
-      alias,
-    ])) as {
-      rows: ProductRow[]
-    }
-
-    for (const row of aliasRows.rows) {
+    for (const row of await findProductsByBaseModel(db, alias)) {
       const existing = (
         await findProductIdsByNormalizedName(db, normalizeBaseModel(canonical), row.variant_tier_normalized)
       ).filter((id) => id !== row.id)
@@ -41,13 +36,7 @@ export async function mergeDuplicateProducts(
         if (!dryRun) await mergeDuplicateProduct(db, existing[0], row.id)
         merged++
       } else {
-        if (!dryRun) {
-          await db.query(`UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3`, [
-            canonical,
-            normalizeBaseModel(canonical),
-            row.id,
-          ])
-        }
+        if (!dryRun) await renameProductBaseModel(db, row.id, canonical)
         renamed++
       }
     }
@@ -114,16 +103,7 @@ export async function mergeProductVariantAliases(
         merged++
       } else {
         if (!opts.dryRun) {
-          await db.query(
-            `UPDATE products SET base_model = $1, base_model_normalized = $2, variant_tier = $3, variant_tier_normalized = $4 WHERE id = $5`,
-            [
-              rule.canonicalBase,
-              normalizeBaseModel(rule.canonicalBase),
-              rule.canonicalVariant,
-              rule.canonicalVariant === null ? null : normalizeVariantTier(rule.canonicalVariant),
-              aliasId,
-            ],
-          )
+          await renameProduct(db, aliasId, { baseModel: rule.canonicalBase, variantTier: rule.canonicalVariant })
         }
         renamed++
       }

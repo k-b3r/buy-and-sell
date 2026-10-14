@@ -6,6 +6,9 @@ import {
   mergeDuplicateProduct,
   findProductIdsByNormalizedName,
   getProductMatchedListings,
+  findProductsByBaseModel,
+  renameProduct,
+  renameProductBaseModel,
 } from './products'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -246,4 +249,40 @@ test('getProductMatchedListings returns titled listings joined to their product 
   expect(calls[0].sql).toContain('JOIN products p ON p.id = l.product_id')
   expect(calls[0].sql).toContain('WHERE l.title IS NOT NULL')
   expect(result).toEqual([row])
+})
+
+test('findProductsByBaseModel selects id and normalized variant by the raw base_model text', async () => {
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params })
+      return { rows: [{ id: 4, variant_tier_normalized: null }] }
+    },
+  }
+
+  const rows = await findProductsByBaseModel(db, 'PS5')
+
+  expect(rows).toEqual([{ id: 4, variant_tier_normalized: null }])
+  expect(calls[0].sql).toContain('FROM products WHERE base_model = $1')
+  expect(calls[0].params).toEqual(['PS5'])
+})
+
+test('renameProductBaseModel rewrites base_model and its normalized twin for one product', async () => {
+  const { db, calls } = mockDb()
+
+  await renameProductBaseModel(db, 9, 'PlayStation  5')
+
+  expect(calls[0].sql).toContain('UPDATE products SET base_model = $1, base_model_normalized = $2 WHERE id = $3')
+  expect(calls[0].params).toEqual(['PlayStation  5', 'playstation 5', 9])
+})
+
+test('renameProduct rewrites base_model and variant_tier with both normalized twins, null variant stays null', async () => {
+  const { db, calls } = mockDb()
+
+  await renameProduct(db, 9, { baseModel: 'iPhone 14', variantTier: "Pro Founder's" })
+  await renameProduct(db, 10, { baseModel: 'iPhone 14', variantTier: null })
+
+  expect(calls[0].sql).toContain('variant_tier = $3, variant_tier_normalized = $4 WHERE id = $5')
+  expect(calls[0].params).toEqual(['iPhone 14', 'iphone 14', "Pro Founder's", 'pro founders', 9])
+  expect(calls[1].params).toEqual(['iPhone 14', 'iphone 14', null, null, 10])
 })
