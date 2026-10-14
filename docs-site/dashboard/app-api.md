@@ -18,18 +18,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/app/api/listings/[id]/save/route.ts
-
-**Interactions:** imports `@/lib/queries`
-
-### `POST(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<{ saved: boolean; }>>`
-
-_(undocumented)_
-
-### `DELETE(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<{ saved: boolean; }>>`
-
-_(undocumented)_
-
 ## dashboard/src/app/api/login/route.ts
 
 **Interactions:** imports `@/lib/auth`
