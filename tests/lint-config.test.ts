@@ -152,7 +152,7 @@ async function runExportMessages(file: string, code = RUN_EXPORT_CODE) {
 }
 
 test('lint config bans run* exports in modules listed in RUN_FREE_MODULES', async () => {
-  for (const file of ['src/modules/catalog/merge.ts', 'src/modules/catalog/products.ts']) {
+  for (const file of ['src/modules/catalog/merge.ts', 'src/modules/real-estate/extractor.ts']) {
     expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
       file,
       expect.arrayContaining([expect.stringContaining(RUN_EXPORT_MARKER), QUERY_SELECTOR]),

@@ -1,18 +1,14 @@
 import type { Logger } from '../../platform/logger'
-import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
-import { realDelay } from '../../platform/delay'
-import { QuotaExhaustedError, withRetryAndSplit } from '../../platform/llm-clients'
+import { withRetryAndSplit } from '../../platform/llm-clients'
 import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from './extraction'
 import type { RealEstateCandidate, RealEstateFields } from './extraction'
-import { upsertRealEstateDetails } from './store/details'
 
 // The I/O port this module needs from an LLM client; a Groq pool satisfies it.
 export interface JsonModelClient {
   generateJson(prompt: string, schema: object): Promise<unknown>
 }
 
-const MODEL = 'openai/gpt-oss-120b'
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 3000
 
@@ -78,37 +74,4 @@ export async function extractRealEstateBatch(
     logger,
   })
   return new Map(entries)
-}
-
-export async function runRealEstateExtraction(
-  deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn },
-  candidates: RealEstateCandidate[],
-  batchSize = 10,
-): Promise<void> {
-  const { groq, db, logger, delay = realDelay } = deps
-  logger.info(`${candidates.length} real estate listings to extract`)
-  for (let i = 0; i < candidates.length; i += batchSize) {
-    const batch = candidates.slice(i, i + batchSize)
-    let extracted: Map<string, RealEstateFields>
-    try {
-      extracted = await extractRealEstateBatch({ groq, logger, delay }, batch)
-    } catch (err) {
-      if (!(err instanceof QuotaExhaustedError)) throw err
-      logger.error(`Groq quota exhausted (${err.message}), stopping run`)
-      return
-    }
-    for (const candidate of batch) {
-      const fields = extracted.get(candidate.id)
-      if (!fields) continue
-      await upsertRealEstateDetails(db, {
-        listingId: candidate.id,
-        fields,
-        model: MODEL,
-        sourceHash: candidate.source_hash,
-      })
-      logger.info(
-        `listing ${candidate.id} extracted (${fields.property_type}, price basis ${fields.price_basis}, ${fields.confidence})`,
-      )
-    }
-  }
 }

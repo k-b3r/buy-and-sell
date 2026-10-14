@@ -1428,13 +1428,9 @@ _(undocumented)_
 
 ## src/modules/real-estate/extractor.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./extraction`, `./store/details`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `./extraction`
 
 ### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
-
-_(undocumented)_
-
-### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
 
 _(undocumented)_
 
@@ -1444,7 +1440,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
+### `upsertRealEstateDetails(db: DbClient, row: RealEstateDetailsRow): Promise<void>`
+
+_(undocumented)_
+
+### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
 _(undocumented)_
 
