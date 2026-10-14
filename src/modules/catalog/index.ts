@@ -16,7 +16,7 @@ export { getSoldCountsBySubCategory, getSubCategoryTree } from './store/product-
 export type { ProductNeedingReview } from './store/review-queue'
 export { getProductsNeedingReview, markProductReviewed } from './store/review-queue'
 export { runProductEnrichment } from './run-enrichment'
-export { detectModelMismatches, reassignModelMismatches } from './run-model-mismatches'
+export { detectModelMismatches, reassignModelMismatches } from './model-mismatch'
 export type { ExtractionClients } from './run-extraction'
 export { runProductExtraction } from './run-extraction'
 export type { ListingSortKey, ListingsFilters } from './schemas'
