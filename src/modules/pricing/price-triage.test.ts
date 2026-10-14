@@ -1,4 +1,4 @@
-import { applyTriageVerdicts, buildTriagePrompt, parseTriageItem, runPriceTriage } from './price-triage'
+import { applyTriageVerdicts, buildTriagePrompt, parseTriageItem } from './price-triage'
 import type { DbClient } from '../../platform/storage'
 import type { TriageCandidate } from './price-triage'
 
@@ -69,48 +69,6 @@ test('parseTriageItem rejects an unknown verdict, a bad confidence, or a product
   expect(parseTriageItem(item({ verdict: 'maybe' }), [candidate()]).kind).toBe('malformed')
   expect(parseTriageItem(item({ confidence: 'sure' }), [candidate()]).kind).toBe('malformed')
   expect(parseTriageItem(item({ product_id: 99 }), [candidate()]).kind).toBe('unknown-candidate')
-})
-
-test('runPriceTriage saves each parsed verdict and skips malformed items', async () => {
-  const saved: unknown[] = []
-  const logs: string[] = []
-  await runPriceTriage(
-    {
-      llm: { generateJson: async () => ({ results: [item(), item({ product_id: 8, verdict: 'bogus' })] }) },
-      saveRows: async (rows) => {
-        saved.push(...rows)
-      },
-      logger: { info: (m) => logs.push(m), warn: (m) => logs.push(`WARN ${m}`), error: (m) => logs.push(`ERROR ${m}`) },
-      delay: async () => {},
-    },
-    [candidate(), candidate({ id: 8 })],
-  )
-
-  expect(saved).toHaveLength(1)
-  expect(logs.some((l) => l.startsWith('WARN') && l.includes('8'))).toBe(true)
-})
-
-test('runPriceTriage stops the run cleanly when the gateway is rate limited', async () => {
-  const logs: string[] = []
-  let calls = 0
-  await runPriceTriage(
-    {
-      llm: {
-        generateJson: async () => {
-          calls++
-          throw Object.assign(new Error('All models rate-limited'), { status: 429 })
-        },
-      },
-      saveRows: async () => {},
-      logger: { info: (m) => logs.push(m), warn: (m) => logs.push(m), error: (m) => logs.push(`ERROR ${m}`) },
-      delay: async () => {},
-    },
-    [candidate(), candidate({ id: 8 })],
-    { batchSize: 1 },
-  )
-
-  expect(calls).toBe(1)
-  expect(logs.some((l) => l.startsWith('ERROR') && l.includes('stopping'))).toBe(true)
 })
 
 function triageDb(rows: { product_id?: number; previous_reason?: string }[]): { db: DbClient; sqls: string[] } {

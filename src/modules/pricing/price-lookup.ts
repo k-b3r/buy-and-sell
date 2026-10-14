@@ -2,8 +2,6 @@ import type { Logger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
 import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { DelayFn } from '../../platform/delay'
-import { realDelay } from '../../platform/delay'
 import type { PriceCheckSource } from './store/price-history'
 import { insertPriceCheck } from './store/price-history'
 import { excludeFromPricing } from './store/exclusion'
@@ -25,7 +23,6 @@ export interface PriceLookupCandidate {
 }
 
 const WIDE_SPREAD_RATIO = 4
-const DEFAULT_PACING_DELAY_MS = 1000
 
 // A spread this wide usually means the search grounded to a whole product
 // tier or market segment, not one specific product.
@@ -168,7 +165,7 @@ export function parseTavilyPriceAnswer(text: string | null): PriceRange | null {
   return { low: Math.min(...amounts), high: Math.max(...amounts), currency: 'PHP' }
 }
 
-// ---- Orchestration: shared by price-lookup.ts's own backfill loop AND
+// ---- Orchestration: shared by the price-lookup worker's backfill loop AND
 // extract-products.ts's inline per-listing call, so both go through
 // identical provider chains and exclusion rules. ----
 
@@ -304,8 +301,8 @@ export interface ProductPricingResult {
 // Ensures a product has retail/secondhand pricing, unconditionally attempting
 // both (callers are responsible for skipping this call entirely when a
 // product already has pricing or is already excluded - see
-// getProductPricingStatus in store/price-history.ts). Shared by price-lookup.ts's
-// own backfill loop and extract-products.ts's inline per-listing trigger, so
+// getProductPricingStatus in store/price-history.ts). Shared by the price-lookup
+// worker's backfill loop and extract-products.ts's inline per-listing trigger, so
 // both go through identical provider chains and exclusion rules.
 export async function ensureProductPriced(
   deps: PriceLookupDeps,
@@ -379,41 +376,5 @@ async function lookupSecondhand(
   } catch (err) {
     if (err instanceof PriceLookupFailedError) return null
     throw err
-  }
-}
-
-export interface PriceLookupRunDeps extends PriceLookupDeps {
-  delay?: DelayFn
-}
-
-// Each product is independent - a failure on one is logged and skipped (it
-// stays unpriced, so it's a candidate again next lap); only a quota error
-// unwinds the whole lap.
-// All the actual provider-chain/exclusion logic lives in
-// ensureProductPriced, shared with catalog extraction's
-// inline per-listing trigger - this loop is just the backfill pass over
-// whatever getPriceLookupCandidates still finds unpriced (extraction's own
-// inline attempt is now the primary path for brand-new products; this loop
-// mainly catches anything that slipped through - a failed inline attempt, a
-// listing extracted before the price-lookup worker existed, etc).
-export async function runPriceLookup(
-  deps: PriceLookupRunDeps,
-  products: PriceLookupCandidate[],
-  pacingDelayMs = DEFAULT_PACING_DELAY_MS,
-): Promise<void> {
-  const { clients, db, logger, delay = realDelay } = deps
-  logger.info(`${products.length} products to check for retail/secondhand price`)
-
-  for (let i = 0; i < products.length; i++) {
-    if (i > 0) await delay(pacingDelayMs)
-    const product = products[i]
-    try {
-      await ensureProductPriced({ clients, db, logger }, product)
-    } catch (err) {
-      // Fatal-vs-transient rule from llm-clients' error-classification.ts.
-      if (isQuotaError(err)) throw err
-      const message = err instanceof Error ? err.message : String(err)
-      logger.error(`product ${product.id} (${product.base_model}): unexpected error (${message}), skipping this lap`)
-    }
   }
 }

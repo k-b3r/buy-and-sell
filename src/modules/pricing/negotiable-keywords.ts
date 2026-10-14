@@ -22,7 +22,7 @@ const NEGOTIABLE_PATTERNS: KeywordPattern[] = [
 // description, or null if neither mentions one - even when price_amount is a
 // perfectly normal, non-placeholder number. This is independent of (and
 // deliberately does not replace) the LLM-based price-review negotiability
-// read (price-review/price-review.ts), which only ever runs on price-outlier
+// read (workers/enrich-listing-prices/run.ts), which only ever runs on price-outlier
 // candidates - see isListingPriceNegotiable's callers in the dashboard for
 // how the two signals combine.
 export function matchesNegotiableKeyword(title: string | null, description: string | null = null): string | null {

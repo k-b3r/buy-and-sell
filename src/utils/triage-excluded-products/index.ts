@@ -4,13 +4,8 @@ import { loadEnvFile } from '../../platform/env'
 import { parseReasonsFlag } from './args'
 import { createGatewayClient, loadGatewayConfig } from '../../platform/llm-clients'
 import type { TriageConfidence } from '../../modules/pricing'
-import {
-  applyTriageVerdicts,
-  getTriageCandidates,
-  getTriageSummary,
-  runPriceTriage,
-  saveTriageRows,
-} from '../../modules/pricing'
+import { runPriceTriage } from './run'
+import { applyTriageVerdicts, getTriageCandidates, getTriageSummary, saveTriageRows } from '../../modules/pricing'
 
 // BUY-60. Default: triage excluded products via the LLM gateway into
 // product_pricing_triage (resumable). --summary: verdict split for review.

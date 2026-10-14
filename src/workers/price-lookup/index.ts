@@ -14,7 +14,8 @@ import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import type { PriceLookupClients } from '../../modules/pricing'
-import { getPriceLookupCandidates, runPriceLookup } from '../../modules/pricing'
+import { getPriceLookupCandidates } from '../../modules/pricing'
+import { runPriceLookup } from './run'
 import { parseLimitArg } from '../../platform/limit-arg'
 
 async function main() {

@@ -26,6 +26,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/workers/enrich-listing-prices/run.ts
+
+**Interactions:** imports `../../modules/pricing`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
+
+### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
+
+_(undocumented)_
+
 ## src/workers/enrich-products/run.ts
 
 **Interactions:** imports `../../modules/catalog`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
@@ -47,5 +55,21 @@ _(undocumented)_
 **Interactions:** imports `../../modules/real-estate`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
 
 ### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
+
+_(undocumented)_
+
+## src/workers/price-lookup/run.ts
+
+**Interactions:** imports `../../modules/pricing`, `../../platform/delay`, `../../platform/llm-clients`
+
+### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
+
+_(undocumented)_
+
+## src/workers/verify-discount-notifications/run.ts
+
+**Interactions:** imports `../../modules/pricing`, `../../platform/delay`, `../../platform/logger`, `../../platform/storage`
+
+### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
 
 _(undocumented)_
