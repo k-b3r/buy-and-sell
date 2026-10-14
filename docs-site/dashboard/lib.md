@@ -217,6 +217,10 @@ _(undocumented)_
 
 ## dashboard/src/lib/serverRoutes.ts
 
+### `resolveServerPath(routes: readonly ServerRoute[], pathname: string): string | null`
+
+The server path for a browser path, or null when no entry matches.
+
 ### `isServerRoute(pathname: string): boolean`
 
 _(undocumented)_
