@@ -161,14 +161,6 @@ export function getDeals(
   return rpc('getDeals', [discountPolicy, filters])
 }
 
-export function saveListing(listingId: string): Promise<void> {
-  return rpc('saveListing', [listingId])
-}
-
-export function unsaveListing(listingId: string): Promise<void> {
-  return rpc('unsaveListing', [listingId])
-}
-
 export function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]> {
   return rpc('getSoldCountsBySubCategory')
 }

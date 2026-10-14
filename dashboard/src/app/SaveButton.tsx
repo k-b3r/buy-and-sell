@@ -32,8 +32,9 @@ const iconStyle: CSSProperties = {
 
 // Toggle, not fire-and-forget like RefreshButton - optimistic local flip so
 // it feels instant inside a card grid, with the fetch's result only used to
-// revert on failure. The API route (api/listings/[id]/save/route.ts) does
-// its own revalidateTag so other views pick up the change on next load.
+// revert on failure. The server's save route (src/modules/collection/routes.ts)
+// invalidates the cached listing, saved list and product so other views pick
+// up the change on next load.
 //
 // Cards in ListingsView.tsx wrap this whole button in a <Link> (click =
 // navigate to the listing) - preventDefault/stopPropagation keeps a save
