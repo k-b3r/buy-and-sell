@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { AUTH_COOKIE_NAME, isAuthCookieValid } from '@/lib/auth'
+import { serverRouteTarget } from '@/lib/serverRoutes'
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -16,6 +17,20 @@ export function proxy(request: NextRequest) {
   const cookie = request.cookies.get(AUTH_COOKIE_NAME)?.value
   if (!expected || !isAuthCookieValid(cookie, expected)) {
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  const serverUrl = process.env.REFRESH_SERVER_URL
+  const apiKey = process.env.REFRESH_API_KEY
+  const target =
+    serverUrl && apiKey ? serverRouteTarget(pathname, request.nextUrl.search, serverUrl) : null
+  if (target && apiKey) {
+    // Forward only what the server needs; the browser's own cookies (the
+    // dashboard auth cookie) must not reach the VPS.
+    const headers = new Headers()
+    const contentType = request.headers.get('content-type')
+    if (contentType) headers.set('content-type', contentType)
+    headers.set('authorization', `Bearer ${apiKey}`)
+    return NextResponse.rewrite(target, { request: { headers } })
   }
 
   return NextResponse.next()
