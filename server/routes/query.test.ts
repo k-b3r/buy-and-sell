@@ -105,6 +105,6 @@ test('whitelist covers every db-backed query the dashboard calls', () => {
   expect(QUERY_NAMES.length).toBeGreaterThanOrEqual(24)
 })
 
-test('the registry exposes getRealEstateListings', () => {
-  expect(QUERY_NAMES).toContain('getRealEstateListings')
+test('the real-estate listings query is served by its resource route, not the whitelist', () => {
+  expect(QUERY_NAMES).not.toContain('getRealEstateListings')
 })
