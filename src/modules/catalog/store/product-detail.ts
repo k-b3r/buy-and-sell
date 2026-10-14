@@ -18,7 +18,7 @@ export interface ProductEnrichment {
 // The used_price_* and trained_* fields stay raw: whether a looked-up used
 // price or the model's trained guess wins is pricing's decision
 // (resolveSecondhandPrice), made by the caller.
-export interface ProductDetailRow {
+interface ProductDetailRow {
   id: number
   base_model: string
   variant_tier: string | null
@@ -35,7 +35,7 @@ export interface ProductDetailRow {
   enrichment: ProductEnrichment | null
 }
 
-export interface ProductDetailListingRow {
+interface ProductDetailListingRow {
   id: string
   title: string
   price_amount: number | null
