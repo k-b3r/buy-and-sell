@@ -37,7 +37,7 @@ export const productListQuerySchema = z
     offset,
   }))
 
-export const LISTING_SORT_KEYS = [
+const LISTING_SORT_KEYS = [
   'discount_desc',
   'discount_asc',
   'price_asc',
