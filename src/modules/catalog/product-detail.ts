@@ -13,7 +13,7 @@ import {
   summarizeDiscounts,
   toPriceReview,
 } from '../pricing'
-import { exclusionReason } from './product-list'
+import { exclusionReason } from './store/product-list'
 
 export interface ProductListingSummary {
   id: string
