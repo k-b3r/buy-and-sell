@@ -2,7 +2,7 @@ import type { ListingPhotos } from '../src/modules/collection'
 import { launchBrowserDriver } from '../src/modules/collection/browser'
 import { realDelay } from '../src/platform/delay'
 import type { Logger } from '../src/platform/logger'
-import type { DbClient } from '../src/platform/storage'
+import type { QueryClient } from '../src/platform/storage'
 import type { RouteHandler } from './app'
 import { createJobStore } from './jobState'
 import { createProxyGuard, type ProxyGuardEnv } from './proxyGuard'
@@ -14,7 +14,7 @@ import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createRefreshProductHandler } from './routes/refreshProduct'
 
 export interface RefreshHandlersDeps {
-  db: DbClient
+  db: QueryClient
   photos: ListingPhotos
   logger: Logger
   // Read once in server/index.ts and injected, like the proxy guard's env.

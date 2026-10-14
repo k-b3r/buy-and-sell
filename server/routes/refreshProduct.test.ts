@@ -5,7 +5,7 @@ import { createRefreshPacer } from '../refreshPacer'
 import { createJobStore } from '../jobState'
 import { createLogger } from '../../src/platform/logger'
 import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
-import type { DbClient } from '../../src/platform/storage'
+import type { QueryClient } from '../../src/platform/storage'
 
 const LOG_PATH = 'data/tmp-refresh-product.log'
 
@@ -31,7 +31,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // Two candidates under product 42, everything else (the UPDATE calls inside
 // checkOneListing) is a no-op - same "always empty rows" shape used
 // elsewhere for db calls whose return value isn't under test.
-function fakeDb(): DbClient {
+function fakeDb(): QueryClient {
   return {
     query: async (sql: string) => {
       if (sql.includes('WHERE product_id = $1')) {
@@ -155,7 +155,7 @@ test('503s and never starts a job when the tunnel is not reachable', async () =>
 
 test('a product with no eligible listings completes immediately without acquiring the lock', async () => {
   const logger = createLogger(LOG_PATH)
-  const db: DbClient = { query: async () => ({ rows: [] }) } // no candidates
+  const db: QueryClient = { query: async () => ({ rows: [] }) } // no candidates
   const lock = createRefreshLock()
   const jobs = createJobStore()
   const handle = createRefreshProductHandler({

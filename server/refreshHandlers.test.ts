@@ -1,12 +1,12 @@
 import type { ListingPhotos } from '../src/modules/collection'
-import type { DbClient } from '../src/platform/storage'
+import type { QueryClient } from '../src/platform/storage'
 import { createRefreshHandlers } from './refreshHandlers'
 
 const noopLogger = { info() {}, warn() {}, error() {} }
 
 function handlers() {
   return createRefreshHandlers({
-    db: {} as DbClient,
+    db: {} as QueryClient,
     photos: {} as ListingPhotos,
     logger: noopLogger,
     env: {},

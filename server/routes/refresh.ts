@@ -1,6 +1,6 @@
 import type { DelayFn } from '../../src/platform/delay'
 import type { Logger } from '../../src/platform/logger'
-import type { DbClient } from '../../src/platform/storage'
+import type { QueryClient } from '../../src/platform/storage'
 import { getListingCheckCandidate } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
 import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
@@ -14,7 +14,7 @@ import { loadSettings } from '../../src/platform/settings'
 // for the shared core logic. Auth/JSON-parsing/routing already happened
 // (see ../app.ts) by the time this runs - it only ever sees a parsed body.
 export interface RefreshDeps {
-  db: DbClient
+  db: QueryClient
   photos: ListingPhotos
   logger: Logger
   delay: DelayFn

@@ -4,7 +4,7 @@ import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
 import { createLogger } from '../../src/platform/logger'
 import type { ListingPhotos, PageDriver } from '../../src/modules/collection'
-import type { DbClient } from '../../src/platform/storage'
+import type { QueryClient } from '../../src/platform/storage'
 
 const LOG_PATH = 'data/tmp-refresh.log'
 
@@ -30,7 +30,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // Only listing '1' exists — matches getListingCheckCandidate's single-row
 // SELECT, distinct from the generic "always empty rows" fakes used
 // elsewhere, since these tests specifically need a found/not-found split.
-function fakeDb(): DbClient {
+function fakeDb(): QueryClient {
   return {
     query: async (sql: string, params: unknown[]) => {
       if (sql.startsWith('SELECT')) {
