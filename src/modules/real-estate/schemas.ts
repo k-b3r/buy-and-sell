@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { RealEstateFilters } from './queries'
+import type { RealEstateFilters } from './store/listings'
 
 export const REAL_ESTATE_PAGE_SIZE = 30
 

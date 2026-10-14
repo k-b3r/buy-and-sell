@@ -1,5 +1,5 @@
-import type { DbClient } from '../../platform/storage'
-import { getRealEstateListings } from './queries'
+import type { DbClient } from '../../../platform/storage'
+import { getRealEstateListings } from './listings'
 
 function recordingReDb(rows: Record<string, unknown>[] = []): {
   db: DbClient

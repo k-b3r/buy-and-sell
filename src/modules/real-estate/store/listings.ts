@@ -1,5 +1,5 @@
-import type { DbClient } from '../../platform/storage'
-import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
+import type { DbClient } from '../../../platform/storage'
+import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
 
 export interface RealEstateFilters {
   listingType?: 'sale' | 'rent'

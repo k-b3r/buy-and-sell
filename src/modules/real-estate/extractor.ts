@@ -5,7 +5,7 @@ import { realDelay } from '../../platform/delay'
 import { QuotaExhaustedError, withRetryAndSplit } from '../../platform/llm-clients'
 import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from './extraction'
 import type { RealEstateCandidate, RealEstateFields } from './extraction'
-import { upsertRealEstateDetails } from './details'
+import { upsertRealEstateDetails } from './store/details'
 
 // The I/O port this module needs from an LLM client; a Groq pool satisfies it.
 export interface JsonModelClient {
