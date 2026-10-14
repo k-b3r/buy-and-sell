@@ -1,10 +1,10 @@
 import { readFileSync, rmSync, existsSync } from 'node:fs'
-import type { PageDriver } from './driver'
+import type { PageDriver } from '../../modules/collection'
+import { createListingPhotos } from '../../modules/collection'
 import type { DbClient } from '../../platform/storage'
 import type { ReviewDecision } from '../../platform/review'
-import { runCollection } from './collect'
+import { runCollection } from './run'
 import { createLogger } from '../../platform/logger'
-import { createListingPhotos } from './photos'
 
 const LOG_PATH = 'data/tmp-run.log'
 

@@ -1,16 +1,22 @@
-import type { PageIo } from './driver'
+import type { GridListing, ListingPhotos, PageIo } from '../../modules/collection'
+import {
+  extractCursor,
+  extractDetailFields,
+  extractGridListings,
+  extractLsd,
+  getCollectedListingIds,
+  isWithinServiceArea,
+  looksLikeListing,
+  MAX_SERVICE_RADIUS_KM,
+  parsePaginationResponse,
+  resolveDetailPage,
+  resolvePageState,
+  upsertListing,
+} from '../../modules/collection'
 import type { ReviewDecision } from '../../platform/review'
-import { extractGridListings, looksLikeListing, type GridListing } from './extract/grid'
-import { extractDetailFields } from './extract/detail'
-import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
-import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './location'
 import type { DbClient } from '../../platform/storage'
-import { upsertListing } from './listings'
-import { getCollectedListingIds } from './store/listings'
-import type { ListingPhotos } from './photos'
-import { resolveDetailPage, resolvePageState } from './page-state'
 
-export interface RunOptions {
+interface RunOptions {
   query: string
   softWallTimeoutMs: number
   maxItems?: number
@@ -19,7 +25,7 @@ export interface RunOptions {
   pacingMaxMs?: number
 }
 
-export interface CollectionRunIo extends PageIo {
+interface CollectionRunIo extends PageIo {
   db: DbClient
   // Approves, rejects or stops on each in-area listing before it is saved.
   review: (listing: Record<string, unknown>) => Promise<ReviewDecision>
