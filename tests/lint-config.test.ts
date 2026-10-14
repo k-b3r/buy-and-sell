@@ -133,7 +133,7 @@ test('lint config leaves modules not listed in STORE_ENFORCED_MODULES free to ca
 
 test('lint config keeps every other restricted-syntax ban in enforced modules, so the store block cannot drift from the shared list', async () => {
   const enforced = selectors(await rule('src/modules/catalog/merge.ts', 'no-restricted-syntax'))
-  const shared = selectors(await rule('src/modules/pricing/deals.ts', 'no-restricted-syntax'))
+  const shared = selectors(await rule('src/modules/unlisted-example/deals.ts', 'no-restricted-syntax'))
   expect(enforced.filter((selector) => selector !== QUERY_SELECTOR)).toEqual(shared)
 }, 60_000)
 
