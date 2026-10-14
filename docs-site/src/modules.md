@@ -364,19 +364,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getSavedListings(db: QueryClient): Promise<SavedListingSummary[]>`
-
-_(undocumented)_
-
 ### `replaceCollectKeywords(db: QueryClient, keywords: CollectKeyword[]): Promise<void>`
-
-_(undocumented)_
-
-### `saveListing(db: QueryClient, listingId: string): Promise<void>`
-
-_(undocumented)_
-
-### `unsaveListing(db: QueryClient, listingId: string): Promise<void>`
 
 _(undocumented)_
 
@@ -572,7 +560,7 @@ _(undocumented)_
 
 **Interactions:** imports `../../platform/storage`, `./queries`, `./schemas`
 
-### `createCollectionRouter(db: QueryClient): Router`
+### `createCollectionRouter(db: QueryClient, cache: RouteCache): Router`
 
 _(undocumented)_
 

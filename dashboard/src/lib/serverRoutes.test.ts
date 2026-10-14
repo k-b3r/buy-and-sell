@@ -87,3 +87,15 @@ test('the catalog routes resolve to their server paths and leave their unmigrate
   expect(isServerRoute('/api/products/42/manual-price')).toBe(false)
   expect(isServerRoute('/api/products/42/refresh')).toBe(false)
 })
+
+test('serverRouteTarget sends the listing save toggle to the server, keeping the productId query', () => {
+  expect(serverRouteTarget('/api/listings/123/save', '?productId=7', BASE)?.toString()).toBe(
+    'https://vps.test/listings/123/save?productId=7',
+  )
+})
+
+test('isServerRoute leaves the listing refresh to its Next handler', () => {
+  expect(isServerRoute('/api/listings/123/save')).toBe(true)
+  expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
+  expect(isServerRoute('/api/listings/123')).toBe(false)
+})

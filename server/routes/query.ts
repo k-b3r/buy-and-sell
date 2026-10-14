@@ -1,12 +1,6 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
-import {
-  getListingDetail,
-  getListingProductId,
-  getSavedListings,
-  saveListing,
-  unsaveListing,
-} from '../../src/modules/collection'
+import { getListingProductId } from '../../src/modules/collection'
 import {
   getComparableListings,
   getDeals,
@@ -45,14 +39,10 @@ const REGISTRY = {
   includeInPricing,
   getExclusionSummary,
   getExcludedProducts,
-  getListingDetail,
   getSoldComparablePrice,
   getPeerMedianPrice,
   getComparableListings,
   getDeals,
-  saveListing,
-  unsaveListing,
-  getSavedListings,
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
   markDiscountNotificationRead,

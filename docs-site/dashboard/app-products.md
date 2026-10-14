@@ -88,7 +88,7 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/page.tsx
 
-**Interactions:** imports `../../BackLink`, `./ListingsView`, `./PricingExclusion`, `./RefreshProductButton`, `./listingsFilters`, `@/lib/queries`
+**Interactions:** imports `../../BackLink`, `./ListingsView`, `./PricingExclusion`, `./RefreshProductButton`, `./listingsFilters`, `./productId`, `@/lib/queries`
 
 ### `default({ params, searchParams, }: { params: Promise<{ id: string }> searchParams: Promise<Record<string, string | undefined>> }): Promise<React.JSX.Element>`
 
@@ -99,6 +99,12 @@ _(undocumented)_
 **Interactions:** imports `@/lib/exclusionReasons`
 
 ### `default({ productId, reason, show, }: { productId: number reason: string | null show: boolean }): React.JSX.Element | null`
+
+_(undocumented)_
+
+## dashboard/src/app/products/[id]/productId.ts
+
+### `parseProductId(raw: string): number | null`
 
 _(undocumented)_
 

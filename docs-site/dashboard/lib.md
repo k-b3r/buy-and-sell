@@ -19,18 +19,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/lib/cachedQueries.ts
-
-**Interactions:** imports `./queries`
-
-### `getListingDetailCached(listingId: string): Promise<ListingDetail | null>`
-
-_(undocumented)_
-
-### `getSavedListingsCached(): Promise<SavedListingSummary[]>`
-
-_(undocumented)_
-
 ## dashboard/src/lib/exclusionReasons.ts
 
 **Interactions:** imports `./shared.generated`
@@ -128,14 +116,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getDeals(discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
-
-_(undocumented)_
-
-### `saveListing(listingId: string): Promise<void>`
-
-_(undocumented)_
-
-### `unsaveListing(listingId: string): Promise<void>`
 
 _(undocumented)_
 

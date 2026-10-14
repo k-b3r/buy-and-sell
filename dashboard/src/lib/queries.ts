@@ -61,10 +61,8 @@ export type {
   SubCategoryTreeEntry,
 } from './shared.generated'
 
-// One round trip per call. Most page loads never reach here - lib/
-// cachedQueries.ts wraps the read paths in unstable_cache with a 300s TTL
-// and tag-based busting, so this fires on a cache miss or a mutation, not
-// on every render.
+// One round trip per call. Reads the server caches itself (300s TTL, tag
+// invalidation) are on api() above; this POST /query path is what is left.
 async function rpc<T>(name: string, args: unknown[] = []): Promise<T> {
   const baseUrl = process.env.REFRESH_SERVER_URL
   const apiKey = process.env.REFRESH_API_KEY
@@ -76,8 +74,8 @@ async function rpc<T>(name: string, args: unknown[] = []): Promise<T> {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ name, args }),
-    // Caching is cachedQueries.ts's job, keyed on real arguments - Next's
-    // fetch cache would key on this URL+body and duplicate that badly.
+    // Caching is the server's job - Next's fetch cache would key on this
+    // URL+body and duplicate that badly.
     cache: 'no-store',
   })
 
@@ -157,8 +155,9 @@ export function getProductListingsPage(productId: number, queryString: string): 
   return api(`/products/${productId}/listings?${queryString}`)
 }
 
-export function getListingDetail(listingId: string): Promise<ListingDetail | null> {
-  return rpc('getListingDetail', [listingId])
+export async function getListingDetail(listingId: string): Promise<ListingDetail | null> {
+  const { listing } = await api<{ listing: ListingDetail | null }>(`/listings/${encodeURIComponent(listingId)}`)
+  return listing
 }
 
 export function getSoldComparablePrice(productId: number): Promise<SoldComparablePrice | null> {
@@ -176,21 +175,14 @@ export function getDeals(
   return rpc('getDeals', [discountPolicy, filters])
 }
 
-export function saveListing(listingId: string): Promise<void> {
-  return rpc('saveListing', [listingId])
-}
-
-export function unsaveListing(listingId: string): Promise<void> {
-  return rpc('unsaveListing', [listingId])
-}
-
 export async function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]> {
   const { categories } = await api<{ categories: CategoryWeeklySoldCounts[] }>('/categories/sold-counts')
   return categories
 }
 
-export function getSavedListings(): Promise<SavedListingSummary[]> {
-  return rpc('getSavedListings')
+export async function getSavedListings(): Promise<SavedListingSummary[]> {
+  const { listings } = await api<{ listings: SavedListingSummary[] }>('/saved-listings')
+  return listings
 }
 
 export function getDiscountNotifications(limit?: number): Promise<DiscountNotification[]> {

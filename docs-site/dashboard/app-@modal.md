@@ -12,7 +12,7 @@ _(undocumented)_
 
 ## dashboard/src/app/@modal/(.)listings/[id]/page.tsx
 
-**Interactions:** imports `../../../Modal`, `../../../listings/[id]/ListingDetailContent`, `@/lib/cachedQueries`
+**Interactions:** imports `../../../Modal`, `../../../listings/[id]/ListingDetailContent`, `@/lib/queries`
 
 ### `default({ params }: { params: Promise<{ id: string }> }): Promise<React.JSX.Element>`
 

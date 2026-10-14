@@ -41,7 +41,7 @@ async function main() {
     log: (msg) => logger.error(msg),
     routers: [
       createSettingsRouter(pool),
-      createCollectionRouter(pool),
+      createCollectionRouter(pool, cache),
       createCatalogRouter(pool, cache),
       createRealEstateRouter(pool),
     ],

@@ -38,8 +38,7 @@ export async function api<T>(path: string, options: ApiOptions = {}, deps: ApiDe
     method,
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    // Caching is the server's job (cachedQueries.ts still wraps the listing
-    // reads until they move there); Next's fetch cache would key on URL+body
+    // Caching is the server's job; Next's fetch cache would key on URL+body
     // and duplicate it.
     cache: 'no-store',
   })

@@ -19,6 +19,7 @@ const SERVER_ROUTES: readonly ServerRoute[] = [
   { pattern: '/api/products/:id/listings' },
   { pattern: '/api/products/:id/mark-reviewed' },
   { pattern: '/api/real-estate' },
+  { pattern: '/api/listings/:id/save' },
 ]
 
 function matchSegments(pattern: string, pathname: string): Record<string, string> | null {
