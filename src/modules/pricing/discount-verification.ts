@@ -1,6 +1,7 @@
 import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
-import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './discount-notifications'
-import { DEFAULT_DISCOUNT_POLICY } from './discount-notifications'
+import type { DiscountPolicyThresholds } from './discount-policy'
+import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
+import type { DiscountVerificationCandidate } from './store/discount-notifications'
 import { isNewCondition } from './price-rules'
 
 export type VerificationOutcome =

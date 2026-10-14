@@ -3,7 +3,7 @@ import { runVerifyDiscountNotifications } from './run-discount-verification'
 import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import type { VerificationClients } from './discount-verification'
-import type { DiscountVerificationCandidate } from './discount-notifications'
+import type { DiscountVerificationCandidate } from './store/discount-notifications'
 
 const LOG_PATH = 'data/tmp-verify-discount-notifications.log'
 

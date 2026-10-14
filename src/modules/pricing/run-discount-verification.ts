@@ -4,13 +4,14 @@ import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import type { VerificationClients } from './discount-verification'
 import { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
-import type { DiscountPolicyThresholds, DiscountVerificationCandidate } from './discount-notifications'
+import type { DiscountPolicyThresholds } from './discount-policy'
+import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
+import type { DiscountVerificationCandidate } from './store/discount-notifications'
 import {
-  DEFAULT_DISCOUNT_POLICY,
   markDiscountNotificationAttempted,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
-} from './discount-notifications'
+} from './store/discount-notifications'
 
 const DEFAULT_PACING_DELAY_MS = 1000
 

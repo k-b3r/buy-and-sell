@@ -29,26 +29,21 @@ export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './dea
 export { getDealListingIds, getDeals } from './deals'
 export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
 export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
-export type { DiscountNotification, ExcludedProduct, ExclusionReasonCount } from './queries'
+export type { ExcludedProduct, ExclusionReasonCount } from './queries'
+export { getExcludedProducts, getExclusionSummary } from './queries'
+export type { DiscountNotification, DiscountVerificationCandidate } from './store/discount-notifications'
 export {
   getDiscountNotifications,
-  getExcludedProducts,
-  getExclusionSummary,
   getUnreadDiscountNotificationCount,
-  markAllDiscountNotificationsRead,
-  markDiscountNotificationRead,
-} from './queries'
-export type {
-  NewDiscountNotification,
-  DiscountPolicyThresholds,
-  DiscountVerificationCandidate,
-} from './discount-notifications'
-export {
-  decideListingDiscount,
-  DEFAULT_DISCOUNT_POLICY,
   getUnverifiedDiscountCandidates,
   insertDiscountNotifications,
-} from './discount-notifications'
+  markAllDiscountNotificationsRead,
+  markDiscountNotificationRead,
+} from './store/discount-notifications'
+export type { NewDiscountNotification } from './discount-notifications'
+export { decideListingDiscount } from './discount-notifications'
+export type { DiscountPolicyThresholds } from './discount-policy'
+export { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
 export type { VerificationClients } from './discount-verification'
 export type { GenericReason } from './generic-products'
 export { detectGenericBaseModel, groupGenericBaseModels } from './generic-products'

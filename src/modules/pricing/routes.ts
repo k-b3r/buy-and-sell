@@ -6,14 +6,13 @@ import type { QueryClient } from '../../platform/storage'
 import { markProductReviewed, productIdParamSchema } from '../catalog'
 import { getDeals } from './deals'
 import { excludeProductFromReview, includeInPricing } from './exclusion'
+import { getExcludedProducts, getExclusionSummary } from './queries'
 import {
   getDiscountNotifications,
-  getExcludedProducts,
-  getExclusionSummary,
   getUnreadDiscountNotificationCount,
   markAllDiscountNotificationsRead,
   markDiscountNotificationRead,
-} from './queries'
+} from './store/discount-notifications'
 import { setManualPrice } from './store/price-history'
 import { dealsQuerySchema, excludedProductsQuerySchema, manualPriceSchema, notificationIdParamSchema } from './schemas'
 
