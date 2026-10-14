@@ -88,7 +88,7 @@ export type {
 } from './price-lookup'
 export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
 export type { TriageCandidate, TriageConfidence, TriageRow } from './price-triage'
-export { applyTriageVerdicts, runPriceTriage } from './price-triage'
+export { applyTriageVerdicts, buildTriagePrompt, parseTriageItem, TRIAGE_RESPONSE_SCHEMA } from './price-triage'
 export type { TriageSummaryRow } from './store/price-triage'
 export { getTriageCandidates, getTriageSummary, saveTriageRows } from './store/price-triage'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
