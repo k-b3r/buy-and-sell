@@ -1,13 +1,9 @@
 // Plain module (no 'use client') - parseListingsFilters is called from
 // ProductDetailPage (a Server Component) to seed ListingsView, and a client
 // export can't be invoked from the server, so this logic can't live inside
-// ListingsView.tsx itself despite being ListingsView-specific. paginateListings
-// below is called from both page.tsx (SSR, first page) and the
-// /api/products/[id]/listings route (subsequent pages) for the same reason.
+// ListingsView.tsx itself despite being ListingsView-specific.
 
 import type { ProductListingSummary } from '../../../lib/queries'
-import { isListingPriceNegotiable } from '../../../lib/shared.generated'
-import { isInDiscountBand } from './discountBand'
 
 export type View = 'list' | 'cards'
 export type SortKey = 'discount_desc' | 'discount_asc' | 'price_asc' | 'price_desc' | 'listed_newest' | 'listed_oldest'
@@ -116,86 +112,9 @@ export function listingDetailHref(listingId: string, filters: ListingsFilters): 
     : `/listings/${listingId}`
 }
 
-// Nulls always sort last, regardless of direction - a listing with no
-// discount/date data shouldn't jump to the front just because "low to high"
-// treats null as 0.
-function compareNullableNumbers(a: number | null, b: number | null, direction: 1 | -1): number {
-  if (a === null && b === null) return 0
-  if (a === null) return 1
-  if (b === null) return -1
-  return (a - b) * direction
-}
-
-export function sortListings<T extends ProductListingSummary>(listings: T[], sortKey: SortKey): T[] {
-  const sorted = [...listings]
-  switch (sortKey) {
-    case 'discount_desc':
-      return sorted.sort((a, b) => compareNullableNumbers(a.discount_percent, b.discount_percent, -1))
-    case 'discount_asc':
-      return sorted.sort((a, b) => compareNullableNumbers(a.discount_percent, b.discount_percent, 1))
-    case 'price_asc':
-      return sorted.sort((a, b) => compareNullableNumbers(a.price_amount, b.price_amount, 1))
-    case 'price_desc':
-      return sorted.sort((a, b) => compareNullableNumbers(a.price_amount, b.price_amount, -1))
-    case 'listed_newest':
-      return sorted.sort((a, b) =>
-        compareNullableNumbers(
-          a.listed_at ? Date.parse(a.listed_at) : null,
-          b.listed_at ? Date.parse(b.listed_at) : null,
-          -1,
-        ),
-      )
-    case 'listed_oldest':
-      return sorted.sort((a, b) =>
-        compareNullableNumbers(
-          a.listed_at ? Date.parse(a.listed_at) : null,
-          b.listed_at ? Date.parse(b.listed_at) : null,
-          1,
-        ),
-      )
-  }
-}
-
-export function filterListings<T extends ProductListingSummary>(
-  listings: T[],
-  { listedWithinDays, hideSold, negotiableOnly, selectedBand }: ListingsFilters,
-): T[] {
-  return listings.filter((l) => {
-    if (hideSold && l.sold_at) return false
-    if (negotiableOnly && !isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent)) return false
-    if (selectedBand !== null && !isInDiscountBand(l.discount_percent, selectedBand)) return false
-    if (listedWithinDays > 0) {
-      if (!l.listed_at) return false
-      const cutoff = Date.now() - listedWithinDays * 24 * 60 * 60 * 1000
-      if (Date.parse(l.listed_at) < cutoff) return false
-    }
-    return true
-  })
-}
-
-export const LISTINGS_PAGE_SIZE = 30
-
-// is_repost comes from the server (pricing's computeRepostIds over the
-// product's FULL listing set), so filtering/paging here can't change it.
+// Page shape the server's /products/:id/listings route returns; filtering,
+// sorting and paging happen there (src/modules/catalog/listings-page.ts).
+// is_repost comes from the server's pricing computeRepostIds over the
+// product's FULL listing set, so paging can't change it.
+export type { ListingsPage } from '../../../lib/queries'
 export type PaginatedListingSummary = ProductListingSummary
-
-export interface ListingsPage {
-  listings: PaginatedListingSummary[]
-  nextOffset: number | null
-  matchedCount: number
-  allIds: string[]
-}
-
-// allIds is computed over the full filtered/sorted set (cheap - just ids) so
-// the listing-detail modal's prev/next cycling still spans every matching
-// listing, not just whatever pages happen to be loaded client-side.
-export function paginateListings(
-  listings: ProductListingSummary[],
-  filters: ListingsFilters,
-  offset: number,
-): ListingsPage {
-  const visible = sortListings(filterListings(listings, filters), filters.sortKey)
-  const page = visible.slice(offset, offset + LISTINGS_PAGE_SIZE)
-  const nextOffset = offset + LISTINGS_PAGE_SIZE < visible.length ? offset + LISTINGS_PAGE_SIZE : null
-  return { listings: page, nextOffset, matchedCount: visible.length, allIds: visible.map((l) => l.id) }
-}

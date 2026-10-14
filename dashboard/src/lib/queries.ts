@@ -27,6 +27,7 @@ import type {
   ExcludedProduct,
   ExclusionReasonCount,
   ListingDetail,
+  ListingsPage,
   PeerMedianPrice,
   ProductDetail,
   ProductNeedingReview,
@@ -49,6 +50,7 @@ export type {
   ExcludedProduct,
   ExclusionReasonCount,
   ListingDetail,
+  ListingsPage,
   ProductDetail,
   ProductListingSummary,
   ProductNeedingReview,
@@ -86,18 +88,26 @@ async function rpc<T>(name: string, args: unknown[] = []): Promise<T> {
   return body.result
 }
 
+/** One page of the product list (the server fixes the page size). */
 export function getProductSummaries(
-  options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {},
-): Promise<ProductSummary[]> {
-  return rpc('getProductSummaries', [options])
+  options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number } = {},
+): Promise<{ products: ProductSummary[]; nextOffset: number | null }> {
+  const params = new URLSearchParams()
+  if (options.search) params.set('q', options.search)
+  for (const category of options.categories ?? []) params.append('category', category)
+  for (const subCategory of options.subCategories ?? []) params.append('subCategory', subCategory)
+  if (options.offset) params.set('offset', String(options.offset))
+  return api(`/products?${params}`)
 }
 
-export function getSubCategoryTree(): Promise<SubCategoryTreeEntry[]> {
-  return rpc('getSubCategoryTree')
+export async function getSubCategoryTree(): Promise<SubCategoryTreeEntry[]> {
+  const { tree } = await api<{ tree: SubCategoryTreeEntry[] }>('/categories/tree')
+  return tree
 }
 
-export function getProductsNeedingReview(): Promise<ProductNeedingReview[]> {
-  return rpc('getProductsNeedingReview')
+export async function getProductsNeedingReview(): Promise<ProductNeedingReview[]> {
+  const { products } = await api<{ products: ProductNeedingReview[] }>('/review-queue')
+  return products
 }
 
 export function setManualPrice(
@@ -107,8 +117,8 @@ export function setManualPrice(
   return rpc('setManualPrice', [productId, price])
 }
 
-export function markProductReviewed(productId: number): Promise<void> {
-  return rpc('markProductReviewed', [productId])
+export async function markProductReviewed(productId: number): Promise<void> {
+  await api(`/products/${productId}/mark-reviewed`, { method: 'POST' })
 }
 
 export function excludeProductFromReview(productId: number, reason: string): Promise<void> {
@@ -137,8 +147,14 @@ export async function isExclusionsUiEnabled(): Promise<boolean> {
   return settings.some((s) => s.key === 'pricing.exclusions_ui_enabled' && s.value === 1)
 }
 
-export function getProductDetail(productId: number): Promise<ProductDetail | null> {
-  return rpc('getProductDetail', [productId])
+export async function getProductDetail(productId: number): Promise<ProductDetail | null> {
+  const { product } = await api<{ product: ProductDetail | null }>(`/products/${productId}`)
+  return product
+}
+
+/** First page of a product's listings; `queryString` is buildListingsQueryString's output. */
+export function getProductListingsPage(productId: number, queryString: string): Promise<ListingsPage> {
+  return api(`/products/${productId}/listings?${queryString}`)
 }
 
 export function getListingDetail(listingId: string): Promise<ListingDetail | null> {
@@ -168,8 +184,9 @@ export function unsaveListing(listingId: string): Promise<void> {
   return rpc('unsaveListing', [listingId])
 }
 
-export function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]> {
-  return rpc('getSoldCountsBySubCategory')
+export async function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]> {
+  const { categories } = await api<{ categories: CategoryWeeklySoldCounts[] }>('/categories/sold-counts')
+  return categories
 }
 
 export function getSavedListings(): Promise<SavedListingSummary[]> {
