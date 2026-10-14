@@ -243,11 +243,6 @@ export interface SavedListingSummary {
   saved_at: string
 }
 
-export interface CollectKeyword {
-  keyword: string
-  enabled: boolean
-}
-
 // From src/modules/pricing/index.ts
 
 export type SoldComparablePrice = ProductCleanMedian
