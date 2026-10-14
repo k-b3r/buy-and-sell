@@ -25,3 +25,11 @@ _(undocumented)_
 ### `runProductExtraction({ clients, db, logger, delay = realDelay }: ExtractionIo, candidates: ExtractionCandidate[], options: ExtractionOptions): Promise<void>`
 
 _(undocumented)_
+
+## src/workers/extract-real-estate/run.ts
+
+**Interactions:** imports `../../modules/real-estate`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
+
+### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
+
+_(undocumented)_
