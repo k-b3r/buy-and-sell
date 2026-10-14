@@ -7,20 +7,24 @@ export type { BrowserDriver, DriverFactory, PageDriver } from './driver'
 export { isBrowserUnusableError } from './driver'
 export type { LapQuery } from './keywords'
 export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
+export { putDealsFirst } from './listings'
 export {
   getBackfillCandidates,
   getCheckListingsCandidates,
   getDealCheckCandidates,
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
-  putDealsFirst,
-} from './listings'
+} from './store/listings'
 export { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 export type { ListingPhotos } from './photos'
 export { createListingPhotos } from './photos'
 export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'
-export type { CollectKeyword, ListingDetail, SavedListingSummary } from './queries'
-export { getCollectKeywords, getListingDetail, getListingProductId, replaceCollectKeywords } from './queries'
+export type { ListingDetail } from './listing-detail'
+export { getListingDetail } from './listing-detail'
+export type { SavedListingSummary } from './store/dashboard'
+export { getListingProductId } from './store/dashboard'
+export type { CollectKeyword } from './store/keywords'
+export { getCollectKeywords, replaceCollectKeywords } from './store/keywords'
 export { checkOneListing, runCheckListings } from './recheck'
-export { runCollection } from './run'
+export { runCollection } from './collect'

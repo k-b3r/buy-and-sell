@@ -2,7 +2,7 @@ import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
 import type { ReviewDecision } from '../../platform/review'
-import { runCollection, resolvePageState } from './run'
+import { runCollection, resolvePageState } from './collect'
 import { createLogger } from '../../platform/logger'
 import { createListingPhotos } from './photos'
 
@@ -30,7 +30,7 @@ function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
 // existingIds simulates listings Postgres already has (from any prior run, any
 // machine) — the dedup source runCollection reads once at the start via
 // getCollectedListingIds. upsertCalls captures every upsertListing call this
-// run makes, in full param-array form (see listings.ts's upsertListing for the
+// run makes, in full param-array form (see store/listings.ts's upsertListingRow for the
 // positional layout: [0]=id, [1]=title, [5]=condition, [11]=stored_photo_urls).
 function fakeDb(existingIds: string[] = []): { db: DbClient; upsertCalls: unknown[][] } {
   const upsertCalls: unknown[][] = []

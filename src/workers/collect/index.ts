@@ -22,9 +22,9 @@ async function main() {
   // still overrides it exactly as before.
   const explicitQuery = !cycle ? rest[0] : undefined
   const maxItemsArg = rest[cycle ? 0 : 1]
-  // run.ts's pagination loop treats an unset maxItems as "just the first
+  // collect.ts's pagination loop treats an unset maxItems as "just the first
   // page" (its target defaults to whatever the first batch happened to
-  // contain, not a real cap) - confirmed live 2026-08-28: every run.ts
+  // contain, not a real cap) - confirmed live 2026-08-28: every collect.ts
   // caller here (manual `pnpm run collect` with no args, and the
   // dashboard's Start button, which spawns with zero args) hit exactly that
   // and silently never paginated past page 1. An explicit CLI arg always
