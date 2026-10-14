@@ -13,7 +13,6 @@ import { createCache } from './cache'
 import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
-import { createQueryHandler } from './routes/query'
 import { createSettingsRouter } from './routes/settings'
 import { createRefreshHandlers, createRefreshRouter } from './refreshHandlers'
 
@@ -32,9 +31,10 @@ async function main() {
   const photos = createListingPhotos({ ...photoIo, logger })
   const cache = createCache()
 
-  // Add a new use case by adding an entry here (e.g. "POST /some-route":
-  // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
-  // for every entry uniformly, so a new route only ever needs its own logic.
+  // A new feature mounts its module's router in `routers`; createApp handles
+  // auth and JSON parsing for every route uniformly, so a route only ever needs
+  // its own logic. `routes` is the older body-driven table (refresh, logs,
+  // worker control) and takes no new entries.
   const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env, cache })
   const app = createApp({
     apiKey,
@@ -54,7 +54,6 @@ async function main() {
       'POST /refresh-job/cancel': refreshHandlers.cancelJob,
       'POST /logs': createLogsHandler(),
       'POST /worker-control': createWorkerControlHandler(),
-      'POST /query': createQueryHandler(pool, (msg) => logger.error(msg)),
     },
   })
 
