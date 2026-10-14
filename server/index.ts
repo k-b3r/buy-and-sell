@@ -5,6 +5,7 @@ import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
 import { createListingPhotos } from '../src/modules/collection'
 import { createCollectionRouter } from '../src/modules/collection/routes'
+import { createRealEstateRouter } from '../src/modules/real-estate/routes'
 import { createApp } from './app'
 import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
@@ -34,7 +35,7 @@ async function main() {
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
-    routers: [createSettingsRouter(pool), createCollectionRouter(pool)],
+    routers: [createSettingsRouter(pool), createCollectionRouter(pool), createRealEstateRouter(pool)],
     routes: {
       'POST /refresh': refreshHandlers.refresh,
       'POST /refresh-product': refreshHandlers.refreshProduct,
