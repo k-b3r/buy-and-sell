@@ -56,13 +56,6 @@ test('excludeProductFromReview drops any override, then excludes with a reason a
   expect(calls[1].params).toEqual(['manual_review', 12])
 })
 
-test('excludeProductFromReview rejects a reason outside the known exclusion reasons without writing', async () => {
-  const { db, calls } = mockDb()
-
-  await expect(excludeProductFromReview(db, 12, 'because')).rejects.toThrow('unknown price exclusion reason')
-  expect(calls).toHaveLength(0)
-})
-
 test('applyEligibilityFromEnrichment auto-excludes high-confidence non-specific products, then flags low-confidence ones for review', async () => {
   const { db, calls } = mockDb()
 

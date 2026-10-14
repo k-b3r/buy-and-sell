@@ -42,10 +42,6 @@ export const LOOKUP_OUTCOME_REASONS = [
 // (price_exclusion_overrides, BUY-36).
 const NOT_OVERRIDDEN = 'NOT EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = products.id)'
 
-function isPriceExclusionReason(value: unknown): value is PriceExclusionReason {
-  return (PRICE_EXCLUSION_REASONS as readonly unknown[]).includes(value)
-}
-
 export type ExclusionTarget = { productId: number } | { baseModels: string[] }
 
 // Nothing un-excludes a product automatically; includeInPricing is the human undo. By product id when
@@ -79,10 +75,12 @@ export async function getUnexcludedBaseModels(db: DbClient): Promise<string[]> {
 
 // Needs-review page's alternative to markProductReviewed: a human looked and
 // agrees with Groq's low-confidence hunch that this isn't a real priceable
-// product. reason arrives from the dashboard over RPC, so it's checked
-// against the known reasons before it reaches the table.
-export async function excludeProductFromReview(db: DbClient, productId: number, reason: unknown): Promise<void> {
-  if (!isPriceExclusionReason(reason)) throw new Error(`unknown price exclusion reason: ${String(reason)}`)
+// product. Callers validate the reason at the boundary (priceExclusionReasonSchema).
+export async function excludeProductFromReview(
+  db: DbClient,
+  productId: number,
+  reason: PriceExclusionReason,
+): Promise<void> {
   // An explicit human exclusion wins over an earlier human include.
   await db.query('DELETE FROM price_exclusion_overrides WHERE product_id = $1', [productId])
   await excludeFromPricing(db, { productId }, reason, { resolveReview: true })

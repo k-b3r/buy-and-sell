@@ -2,35 +2,15 @@ import type { DbClient, QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
 import { medianCtes, notMagnitudeOutlierSql, peerListingSql } from './clean-median'
 import { LOOKUP_OUTCOME_REASONS } from './exclusion'
+import type { ManualPrice } from './schemas'
 
 // Human-entered price for a needs_review product - outranks every automated
 // source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
 // just until the next automated run. Append-only like every other
 // product_price_history writer; doesn't touch price_lookup_review_status
-// itself (the API route pairs this with markProductReviewed).
-interface ManualPrice {
-  kind: 'new' | 'secondhand'
-  priceLow: number
-  priceHigh: number
-}
-
-// price arrives over the dashboard RPC as untrusted JSON. Checked here so a
-// dashboard still sending the old positional args (kind, low, high) during a
-// deploy fails loudly instead of inserting a null-priced manual row.
-function isManualPrice(price: unknown): price is ManualPrice {
-  if (typeof price !== 'object' || price === null) return false
-  const { kind, priceLow, priceHigh } = price as Record<string, unknown>
-  return (
-    (kind === 'new' || kind === 'secondhand') &&
-    typeof priceLow === 'number' &&
-    Number.isFinite(priceLow) &&
-    typeof priceHigh === 'number' &&
-    Number.isFinite(priceHigh)
-  )
-}
-
+// itself (the API route pairs this with markProductReviewed). The range is
+// validated at the boundary (manualPriceSchema).
 export async function setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void> {
-  if (!isManualPrice(price)) throw new Error('setManualPrice: expected { kind, priceLow, priceHigh }')
   const { kind, priceLow, priceHigh } = price
   const source = kind === 'new' ? 'manual_new_retail' : 'manual_secondhand'
   await db.query(
