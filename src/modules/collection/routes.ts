@@ -1,9 +1,9 @@
 import express from 'express'
 import type { Router } from 'express'
 import type { QueryClient } from '../../platform/storage'
+import { getListingDetail } from './listing-detail'
 import {
   getCollectKeywords,
-  getListingDetail,
   getSavedListings,
   replaceCollectKeywords,
   saveListing,

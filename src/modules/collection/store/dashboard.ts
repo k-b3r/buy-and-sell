@@ -1,40 +1,6 @@
 import type { QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
-import type { ComparableListing, ListingPriceReview } from '../../pricing'
-import {
-  computeListingDiscount,
-  getComparableListings,
-  getPeerMedianPrice,
-  getSoldComparablePrice,
-  isPriceInvalidated,
-  medianCtes,
-  peerListingSql,
-  toPriceReview,
-} from '../../pricing'
-
-export interface ListingDetail {
-  id: string
-  title: string
-  price_amount: number | null
-  price_currency: string | null
-  description: string | null
-  condition: string | null
-  location_city: string | null
-  listed_at: string | null
-  last_seen_at: string | null
-  photo_urls: string[]
-  product_id: number | null
-  base_model: string | null
-  variant_tier: string | null
-  sold_at: string | null
-  price_review: ListingPriceReview | null
-  discount_percent: number | null
-  reference_price: number | null
-  is_saved: boolean
-  verification_reasoning: string | null
-  recent_sales: ComparableListing[]
-  similar_listings: ComparableListing[]
-}
+import { medianCtes, peerListingSql } from '../../pricing'
 
 // Same clean-median approach as getProductDetail's in-JS version, but as SQL
 // since a single listing's siblings aren't already fetched here. Takes
@@ -56,10 +22,11 @@ const SIBLING_MEDIAN_SQL = `
   SELECT raw_median_price, sample_size, clean_median_price FROM product
 `
 
-export async function getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null> {
-  const [result, medianResult] = await Promise.all([
-    db.query(
-      `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
+type Row = Record<string, unknown>
+
+export async function getListingDetailRow(db: QueryClient, listingId: string): Promise<Row | undefined> {
+  const result = await db.query(
+    `SELECT l.id, l.title, l.price_amount, l.price_currency, l.description, l.condition,
               l.location_city, l.listed_at, l.last_seen_at, l.primary_photo_url, l.stored_photo_urls, l.product_id,
               l.sold_at, p.base_model, p.variant_tier,
               pr.is_negotiable as price_review_is_negotiable,
@@ -72,69 +39,14 @@ export async function getListingDetail(db: QueryClient, listingId: string): Prom
        LEFT JOIN saved_listings sv ON sv.listing_id = l.id
        LEFT JOIN discount_notifications dn ON dn.listing_id = l.id AND dn.verified_at IS NOT NULL
        WHERE l.id = $1`,
-      [listingId],
-    ),
-    db.query(SIBLING_MEDIAN_SQL, [listingId]),
-  ])
-  const row = (result.rows as Record<string, unknown>[])[0]
-  if (!row) return null
+    [listingId],
+  )
+  return (result.rows as Row[])[0]
+}
 
-  const photoUrls = resolvePhotoUrls(row.stored_photo_urls, row.primary_photo_url)
-
-  const medianRow = (medianResult.rows as Record<string, unknown>[])[0]
-  const rawMedian = medianRow ? toNullableNumber(medianRow.raw_median_price) : null
-  const discount = medianRow
-    ? computeListingDiscount(
-        row.price_amount,
-        medianRow.raw_median_price,
-        medianRow.clean_median_price,
-        medianRow.sample_size,
-      )
-    : { discountPercent: null, referencePrice: null }
-
-  const priceAmount = toNullableNumber(row.price_amount)
-
-  // Evidence panel: only populated when the tier's own min-sample threshold
-  // (MIN_PEER_SAMPLE, n>=3, for both) is met - same
-  // bar /deals uses to call something a real tier, so this page never shows
-  // weaker evidence than what would've qualified the listing there.
-  const productId = toNullableNumber(row.product_id)
-  let recentSales: ComparableListing[] = []
-  let similarListings: ComparableListing[] = []
-  if (productId !== null) {
-    const [soldComp, peerMedian, salesRows, similarRows] = await Promise.all([
-      getSoldComparablePrice(db, productId),
-      getPeerMedianPrice(db, productId),
-      getComparableListings(db, { productId, excludeListingId: listingId, sold: true }),
-      getComparableListings(db, { productId, excludeListingId: listingId, sold: false }),
-    ])
-    if (soldComp) recentSales = salesRows
-    if (peerMedian) similarListings = similarRows
-  }
-
-  return {
-    id: row.id as string,
-    title: row.title as string,
-    price_amount: priceAmount !== null && isPriceInvalidated(priceAmount, rawMedian) ? null : priceAmount,
-    price_currency: row.price_currency as string | null,
-    description: row.description as string | null,
-    condition: row.condition as string | null,
-    location_city: row.location_city as string | null,
-    listed_at: toIsoOrNull(row.listed_at),
-    last_seen_at: toIsoOrNull(row.last_seen_at),
-    photo_urls: photoUrls,
-    product_id: row.product_id as number | null,
-    base_model: row.base_model as string | null,
-    variant_tier: row.variant_tier as string | null,
-    sold_at: toIsoOrNull(row.sold_at),
-    price_review: toPriceReview(row),
-    discount_percent: discount.discountPercent,
-    reference_price: discount.referencePrice,
-    is_saved: row.is_saved as boolean,
-    verification_reasoning: row.verification_reasoning as string | null,
-    recent_sales: recentSales,
-    similar_listings: similarListings,
-  }
+export async function getSiblingMedianRow(db: QueryClient, listingId: string): Promise<Row | undefined> {
+  const result = await db.query(SIBLING_MEDIAN_SQL, [listingId])
+  return (result.rows as Row[])[0]
 }
 
 // Dashboard-wide bookmark list (see db/schema.sql's saved_listings) - no
