@@ -36,13 +36,17 @@ export {
   getUnverifiedDiscountCandidates,
   insertDiscountNotifications,
   markAllDiscountNotificationsRead,
+  markDiscountNotificationAttempted,
   markDiscountNotificationRead,
+  markDiscountNotificationVerified,
+  rejectDiscountNotification,
 } from './store/discount-notifications'
 export type { NewDiscountNotification } from './discount-notifications'
 export { decideListingDiscount } from './discount-notifications'
 export type { DiscountPolicyThresholds } from './discount-policy'
 export { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
 export type { VerificationClients } from './discount-verification'
+export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
 export type { GenericReason } from './generic-products'
 export { detectGenericBaseModel, groupGenericBaseModels } from './generic-products'
 export type { ExcludedProduct, ExclusionReasonCount } from './store/exclusion'
@@ -65,7 +69,6 @@ export {
   notificationIdParamSchema,
   priceExclusionReasonSchema,
 } from './schemas'
-export { runVerifyDiscountNotifications } from './discount-verification'
 export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
 export {
   getListingPricesByProduct,
