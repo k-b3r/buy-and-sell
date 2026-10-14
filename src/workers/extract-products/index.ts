@@ -16,8 +16,9 @@ import { createGroqPool } from '../../platform/llm-clients/groq-sdk'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import type { ExtractionClients } from '../../modules/catalog'
-import { getExtractionCandidates, runProductExtraction } from '../../modules/catalog'
+import { getExtractionCandidates } from '../../modules/catalog'
+import type { ExtractionClients } from './run'
+import { runProductExtraction } from './run'
 
 async function main() {
   loadEnvFile()
@@ -67,7 +68,7 @@ async function main() {
       // Free tier is 20 requests/day per project per model — a second key from a
       // different Google account is a different project, so it has its own
       // independent quota. Gemini is now the fallback provider (see
-      // DEFAULT_MAX_ATTEMPTS in modules/catalog/extraction.ts), tried only once Groq is exhausted.
+      // DEFAULT_MAX_ATTEMPTS in run.ts), tried only once Groq is exhausted.
       const geminiForExtraction = altGeminiApiKey
         ? createFallbackGeminiClient([
             createGeminiClient(geminiApiKey),
