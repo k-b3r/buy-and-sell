@@ -8,7 +8,7 @@ import {
   replaceCollectKeywords,
   saveListing,
   unsaveListing,
-} from './queries'
+} from './store/dashboard'
 import { collectKeywordsSchema, saveListingQuerySchema } from './schemas'
 
 // The slice of the server's cache (server/cache.ts) this router needs. Declared

@@ -6,9 +6,9 @@ import {
   replaceCollectKeywords,
   saveListing,
   unsaveListing,
-} from './queries'
-import type { QueryClient } from '../../platform/storage'
-import { peerListingSql } from '../pricing'
+} from './dashboard'
+import type { QueryClient } from '../../../platform/storage'
+import { peerListingSql } from '../../pricing'
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }

@@ -1,6 +1,6 @@
-import type { QueryClient } from '../../platform/storage'
-import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
-import type { ComparableListing, ListingPriceReview } from '../pricing'
+import type { QueryClient } from '../../../platform/storage'
+import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
+import type { ComparableListing, ListingPriceReview } from '../../pricing'
 import {
   computeListingDiscount,
   getComparableListings,
@@ -10,7 +10,7 @@ import {
   medianCtes,
   peerListingSql,
   toPriceReview,
-} from '../pricing'
+} from '../../pricing'
 
 export interface ListingDetail {
   id: string

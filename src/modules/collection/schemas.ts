@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { CollectKeyword } from './queries'
+import type { CollectKeyword } from './store/dashboard'
 
 const NOT_AN_ARRAY = 'keywords must be a non-empty array'
 
