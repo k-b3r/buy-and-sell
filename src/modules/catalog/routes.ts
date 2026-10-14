@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import type { QueryClient } from '../../platform/storage'
 import { paginateListings } from './listings-page'
 import { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
-import { getProductsNeedingReview, markProductReviewed } from './review-queue'
+import { getProductsNeedingReview, markProductReviewed } from './store/review-queue'
 import { listingsQuerySchema, productIdParamSchema, productListQuerySchema } from './schemas'
 
 // HTTP edge of the catalog feature, mounted by server/index.ts only (the

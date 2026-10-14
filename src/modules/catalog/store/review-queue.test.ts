@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { getProductsNeedingReview, markProductReviewed } from './review-queue'
-import type { QueryClient } from '../../platform/storage'
+import type { QueryClient } from '../../../platform/storage'
 
 test('getProductsNeedingReview queries only price_lookup_review_status = needs_review, with enrichment when present', async () => {
   let capturedSql = ''
