@@ -25,3 +25,27 @@ _(undocumented)_
 ### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
 
 _(undocumented)_
+
+## src/workers/enrich-products/run.ts
+
+**Interactions:** imports `../../modules/catalog`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
+
+### `runProductEnrichment(io: EnrichmentIo, candidates: EnrichmentCandidate[], options: EnrichmentOptions = {}): Promise<void>`
+
+_(undocumented)_
+
+## src/workers/extract-products/run.ts
+
+**Interactions:** imports `../../modules/catalog`, `../../modules/pricing`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
+
+### `runProductExtraction({ clients, db, logger, delay = realDelay }: ExtractionIo, candidates: ExtractionCandidate[], options: ExtractionOptions): Promise<void>`
+
+_(undocumented)_
+
+## src/workers/extract-real-estate/run.ts
+
+**Interactions:** imports `../../modules/real-estate`, `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`
+
+### `runRealEstateExtraction(deps: { groq: JsonModelClient; db: DbClient; logger: Logger; delay?: DelayFn }, candidates: RealEstateCandidate[], batchSize = 10): Promise<void>`
+
+_(undocumented)_

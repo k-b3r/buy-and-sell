@@ -32,6 +32,19 @@ const STORE_ENFORCED_MODULES = [
   'pricing',
 ]
 
+// Modules that hold only business logic (decisions, prompts, parsing, store/):
+// the `run*` orchestration loops live in the one worker/util that calls them,
+// as a sibling run.ts (docs/specs/2026-10-14-module-layout.md). One module per
+// line so concurrent migrations append without merge conflicts. Every module
+// listed here must also be in STORE_ENFORCED_MODULES (the run block restates
+// the store ban). Once every module is listed, drop the list and apply the rule
+// to src/modules/**.
+// prettier-ignore
+const RUN_FREE_MODULES = [
+  'catalog',
+  'real-estate',
+]
+
 // A later no-restricted-syntax block replaces the shared list, so the store
 // block restates it (the shared config does not export it) next to the new
 // selector; tests/lint-config.test.ts fails if the two drift apart.
@@ -39,6 +52,15 @@ const STORE_ONLY_SQL = {
   selector: "CallExpression[callee.property.name='query']",
   message:
     'SQL lives in the module store/ folder (docs/specs/2026-10-14-module-layout.md): move this .query() call there.',
+}
+const NO_RUN_EXPORT = {
+  selector: [
+    'ExportNamedDeclaration > FunctionDeclaration[id.name=/^run[A-Z]/]',
+    'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator[id.name=/^run[A-Z]/]',
+    'ExportSpecifier[exported.name=/^run[A-Z]/]',
+  ].join(', '),
+  message:
+    'Run loops live in the worker/util that calls them, as a sibling run.ts (docs/specs/2026-10-14-module-layout.md); modules export capabilities.',
 }
 const SHARED_RESTRICTED_SYNTAX = [
   { selector: 'ExportAllDeclaration', message: 'List exports explicitly; never export *.' },
@@ -100,6 +122,11 @@ export default [
     files: STORE_ENFORCED_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
     ignores: ['**/store/**', '**/*.test.ts'],
     rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL] },
+  },
+  {
+    files: RUN_FREE_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
+    ignores: ['**/store/**', '**/*.test.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL, NO_RUN_EXPORT] },
   },
   // The logger is the console sink everything else goes through; its `line` is already redacted.
   { files: ['src/platform/logger.ts'], rules: { 'no-console': 'off' } },

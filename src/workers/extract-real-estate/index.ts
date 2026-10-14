@@ -4,12 +4,8 @@ import { createGroqPool } from '../../platform/llm-clients/groq-sdk'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import {
-  EXTRACTOR_MODELS,
-  EXTRACTOR_REQUEST_OPTIONS,
-  getRealEstateCandidates,
-  runRealEstateExtraction,
-} from '../../modules/real-estate'
+import { EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS, getRealEstateCandidates } from '../../modules/real-estate'
+import { runRealEstateExtraction } from './run'
 
 const LAP_CANDIDATE_LIMIT = 200
 
