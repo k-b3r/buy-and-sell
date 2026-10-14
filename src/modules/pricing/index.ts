@@ -90,8 +90,7 @@ export {
 } from './price-history'
 export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
-export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
-export { runPriceLookup } from './run-price-lookup'
+export { ensureProductPriced, PriceLookupFailedError, runPriceLookup } from './price-lookup'
 export type { TriageCandidate, TriageConfidence, TriageRow, TriageSummaryRow } from './price-triage'
 export {
   applyTriageVerdicts,
