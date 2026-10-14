@@ -121,8 +121,9 @@ test('lint config lets store/ files and tests call .query()', async () => {
   }
 }, 60_000)
 
-test('lint config leaves modules not yet listed in STORE_ENFORCED_MODULES free to call .query() anywhere', async () => {
-  for (const file of ['src/modules/real-estate/queries.ts', 'src/modules/collection/listings.ts']) {
+// A made-up module name, so the test stays true as real modules join the list.
+test('lint config leaves modules not listed in STORE_ENFORCED_MODULES free to call .query() anywhere', async () => {
+  for (const file of ['src/modules/unlisted-example/deals.ts', 'src/modules/unlisted-example/routes.ts']) {
     expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
       file,
       expect.not.arrayContaining([QUERY_SELECTOR]),
@@ -132,7 +133,7 @@ test('lint config leaves modules not yet listed in STORE_ENFORCED_MODULES free t
 
 test('lint config keeps every other restricted-syntax ban in enforced modules, so the store block cannot drift from the shared list', async () => {
   const enforced = selectors(await rule('src/modules/catalog/merge.ts', 'no-restricted-syntax'))
-  const shared = selectors(await rule('src/platform/storage.ts', 'no-restricted-syntax'))
+  const shared = selectors(await rule('src/modules/pricing/deals.ts', 'no-restricted-syntax'))
   expect(enforced.filter((selector) => selector !== QUERY_SELECTOR)).toEqual(shared)
 }, 60_000)
 

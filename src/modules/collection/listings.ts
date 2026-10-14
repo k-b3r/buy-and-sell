@@ -1,8 +1,9 @@
 import type { DbClient } from '../../platform/storage'
 import type { Logger } from '../../platform/logger'
-import type { PriorPriceRow } from '../real-estate'
 import { recordRealEstatePriceChange } from '../real-estate'
 import type { ListingPhotos } from './photos'
+import type { CheckListingsCandidate, ListingFields, PhotoUpdate } from './store/listings'
+import { updateListingFields, upsertListingRow } from './store/listings'
 // Negotiable-keyword flagging is pricing's rule, run on every listing write.
 import { flagNegotiableFromKeywords } from '../pricing'
 
@@ -13,26 +14,10 @@ function extractField(listing: Record<string, unknown>, ...keys: string[]): unkn
   return null
 }
 
-interface ParsedListingFields {
-  id: string
-  title: string | null
-  priceAmount: number | null
-  priceCurrency: string | null
-  description: string | null
-  condition: string | null
-  categoryId: string | null
-  locationLat: number | null
-  locationLng: number | null
-  locationCity: string | null
-  primaryPhotoUrl: string | null
-  storedPhotoUrls: string[] | null
-  listedAt: Date | null
-}
-
 // Shared by upsertListing (full insert/refresh, including photos) and
 // refreshListingFields (text/price-only refresh) so the two can't drift on
 // how a raw Facebook listing object gets parsed.
-function parseListingFields(listing: Record<string, unknown>): ParsedListingFields {
+function parseListingFields(listing: Record<string, unknown>): ListingFields {
   const creationTime = listing.creation_time as number | undefined
   return {
     id: String(listing.id),
@@ -45,7 +30,7 @@ function parseListingFields(listing: Record<string, unknown>): ParsedListingFiel
   }
 }
 
-function parsePrice(listing: Record<string, unknown>): Pick<ParsedListingFields, 'priceAmount' | 'priceCurrency'> {
+function parsePrice(listing: Record<string, unknown>): Pick<ListingFields, 'priceAmount' | 'priceCurrency'> {
   const priceObj = listing.listing_price as { amount?: string; currency?: string } | undefined
   return {
     priceAmount: priceObj?.amount !== undefined ? Number(priceObj.amount) : null,
@@ -55,7 +40,7 @@ function parsePrice(listing: Record<string, unknown>): Pick<ParsedListingFields,
 
 function parseDetails(
   listing: Record<string, unknown>,
-): Pick<ParsedListingFields, 'description' | 'condition' | 'categoryId'> {
+): Pick<ListingFields, 'description' | 'condition' | 'categoryId'> {
   // Facebook nests condition inside attribute_data (an array of {label, value,
   // attribute_name} entries covering Condition, Brand, etc.), not a top-level
   // "condition" field — confirmed live, 97% of real listings have it here.
@@ -69,7 +54,7 @@ function parseDetails(
 
 function parseLocation(
   listing: Record<string, unknown>,
-): Pick<ParsedListingFields, 'locationLat' | 'locationLng' | 'locationCity'> {
+): Pick<ListingFields, 'locationLat' | 'locationLng' | 'locationCity'> {
   const location = listing.location as
     { latitude?: number; longitude?: number; reverse_geocode?: { city?: string } } | undefined
   return {
@@ -79,9 +64,7 @@ function parseLocation(
   }
 }
 
-function parsePhotos(
-  listing: Record<string, unknown>,
-): Pick<ParsedListingFields, 'primaryPhotoUrl' | 'storedPhotoUrls'> {
+function parsePhotos(listing: Record<string, unknown>): Pick<ListingFields, 'primaryPhotoUrl' | 'storedPhotoUrls'> {
   return {
     primaryPhotoUrl: (listing.primary_listing_photo as { image?: { uri?: string } } | undefined)?.image?.uri ?? null,
     storedPhotoUrls: (listing.stored_photo_urls as string[] | undefined) ?? null,
@@ -108,122 +91,8 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
   const f = parseListingFields(listing)
   const photoIds = extractPhotoIds(listing)
 
-  await db.query(
-    `INSERT INTO listings (
-       id, title, price_amount, price_currency, description, condition, category_id,
-       location_lat, location_lng, location_city, primary_photo_url, stored_photo_urls, source_photo_ids, listed_at, raw_json
-     )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-     ON CONFLICT (id) DO UPDATE SET
-       title = EXCLUDED.title,
-       price_amount = EXCLUDED.price_amount,
-       price_currency = EXCLUDED.price_currency,
-       description = EXCLUDED.description,
-       condition = EXCLUDED.condition,
-       category_id = EXCLUDED.category_id,
-       location_lat = EXCLUDED.location_lat,
-       location_lng = EXCLUDED.location_lng,
-       location_city = EXCLUDED.location_city,
-       primary_photo_url = EXCLUDED.primary_photo_url,
-       stored_photo_urls = EXCLUDED.stored_photo_urls,
-       source_photo_ids = EXCLUDED.source_photo_ids,
-       listed_at = EXCLUDED.listed_at,
-       raw_json = EXCLUDED.raw_json,
-       last_seen_at = now(),
-       updated_at = now()`,
-    [
-      f.id,
-      f.title,
-      f.priceAmount,
-      f.priceCurrency,
-      f.description,
-      f.condition,
-      f.categoryId,
-      f.locationLat,
-      f.locationLng,
-      f.locationCity,
-      f.primaryPhotoUrl,
-      f.storedPhotoUrls ? JSON.stringify(f.storedPhotoUrls) : null,
-      photoIds ? JSON.stringify(photoIds) : null,
-      f.listedAt,
-      JSON.stringify(listing),
-    ],
-  )
+  await upsertListingRow(db, f, photoIds, listing)
   await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
-}
-
-// Dedup source for collection runs — replaces the old JSONL-file-based
-// loadPersistedIds. Postgres is the single source of truth now; no local
-// file can drift out of sync with it (see CONTEXT.md on removing JSONL).
-export async function getCollectedListingIds(db: DbClient): Promise<Set<string>> {
-  const result = (await db.query('SELECT id FROM listings', [])) as { rows: { id: string }[] }
-  return new Set(result.rows.map((r) => r.id))
-}
-
-export interface CheckListingsCandidate {
-  id: string
-  flagged_removed_at: string | null
-  source_photo_ids: string[] | null
-}
-
-// Never-checked listings (NULLS FIRST) all come before any re-check cycle —
-// the first full pass works through the backlog before anything repeats.
-// Within that, oldest by the seller's actual FB posting date (listed_at)
-// goes first: the longer something's been posted, the likelier it's already
-// sold/removed, so checking those first finds genuinely-stale listings fastest.
-export async function getCheckListingsCandidates(
-  db: DbClient,
-  limit: number,
-  reRecheckMinDays = 0,
-): Promise<CheckListingsCandidate[]> {
-  // reRecheckMinDays = 0 (the default) runs the exact original query, so nothing
-  // changes for any listing until an operator opts in. When > 0, real estate
-  // listings checked within that many days are skipped - property listings
-  // change slowly, and every recheck costs live browser time. COALESCE keeps
-  // never-checked and non-real-estate rows in (NULL AND ... would drop them).
-  const result = (
-    reRecheckMinDays > 0
-      ? await db.query(
-          `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
-         LEFT JOIN products p ON p.id = l.product_id
-         LEFT JOIN categories c ON c.id = p.category_id
-         WHERE l.sold_at IS NULL
-           AND NOT COALESCE(c.name = 'Real Estate' AND l.last_checked_at > now() - make_interval(days => $2), false)
-         ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST
-         LIMIT $1`,
-          [limit, reRecheckMinDays],
-        )
-      : await db.query(
-          `SELECT id, flagged_removed_at, source_photo_ids FROM listings
-         WHERE sold_at IS NULL
-         ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
-         LIMIT $1`,
-          [limit],
-        )
-  ) as { rows: CheckListingsCandidate[] }
-  return result.rows
-}
-
-// Priority slice for check-listings: unsold listings among `ids` (the ones
-// currently ranked on /deals, see pricing's getDealListingIds) that haven't
-// been checked within minHours. The recency floor keeps the same top deals
-// from being re-checked every lap and starving the rest of the backlog.
-// Stalest first, same idiom as getCheckListingsCandidates.
-export async function getDealCheckCandidates(
-  db: DbClient,
-  ids: string[],
-  minHoursSinceCheck: number,
-): Promise<CheckListingsCandidate[]> {
-  if (ids.length === 0) return []
-  const result = (await db.query(
-    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
-     WHERE id = ANY($1)
-       AND sold_at IS NULL
-       AND (last_checked_at IS NULL OR last_checked_at < now() - make_interval(hours => $2))
-     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
-    [ids, minHoursSinceCheck],
-  )) as { rows: CheckListingsCandidate[] }
-  return result.rows
 }
 
 export function putDealsFirst(
@@ -233,70 +102,6 @@ export function putDealsFirst(
 ): CheckListingsCandidate[] {
   const dealIds = new Set(deals.map((d) => d.id))
   return [...deals, ...backlog.filter((c) => !dealIds.has(c.id))].slice(0, limit)
-}
-
-// Scoped counterpart to getCheckListingsCandidates, for the dashboard's
-// per-product bulk refresh (see server/routes/refreshProduct.ts) - same
-// sold-exclusion and staleness ordering, just narrowed to one product's
-// listings instead of the whole backlog. No LIMIT - a bulk job checks every
-// eligible listing under the product, not a capped batch.
-export async function getListingCheckCandidatesForProduct(
-  db: DbClient,
-  productId: number,
-): Promise<CheckListingsCandidate[]> {
-  const result = (await db.query(
-    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
-     WHERE product_id = $1
-     AND sold_at IS NULL
-     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
-    [productId],
-  )) as { rows: CheckListingsCandidate[] }
-  return result.rows
-}
-
-// Single-listing counterpart to getCheckListingsCandidates, for the on-demand
-// refresh path (see server/routes/refresh.ts) - same shape (id + flagged_removed_at)
-// so checkOneListing's two-phase soft-wall logic works identically whether
-// the candidate came from the batch query or a one-off request. Does NOT
-// filter on sold_at IS NULL - a sold listing can still be manually refreshed
-// (e.g. to double-check it wasn't a false positive).
-export async function getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null> {
-  const result = (await db.query(`SELECT id, flagged_removed_at, source_photo_ids FROM listings WHERE id = $1`, [
-    id,
-  ])) as { rows: CheckListingsCandidate[] }
-  return result.rows[0] ?? null
-}
-
-// Real content found — clears any prior removal flag too, treating a listing
-// that recovers after being flagged as a false positive, not something to
-// silently leave flagged. Also clears sold_at, for the same reason (a listing
-// that's actually still live and unsold shouldn't stay marked sold).
-export async function markListingAlive(db: DbClient, id: string): Promise<void> {
-  await db.query(
-    `UPDATE listings SET last_checked_at = now(), flagged_removed_at = NULL, sold_at = NULL WHERE id = $1`,
-    [id],
-  )
-}
-
-// Sold is a terminal, definite signal from Facebook itself (raw_json.is_sold) —
-// no soft-wall-style two-phase confirmation needed, unlike flagListingRemoved.
-// getCheckListingsCandidates excludes sold_at IS NOT NULL rows, so a sold
-// listing is never re-checked again.
-export async function markListingSold(db: DbClient, id: string): Promise<void> {
-  await db.query(`UPDATE listings SET sold_at = now(), last_checked_at = now() WHERE id = $1`, [id])
-}
-
-// First soft-wall hit — not deleted yet. See db/schema.sql for why one hit
-// alone isn't trusted (indistinguishable from a transient session wall).
-export async function flagListingRemoved(db: DbClient, id: string): Promise<void> {
-  await db.query(`UPDATE listings SET flagged_removed_at = now(), last_checked_at = now() WHERE id = $1`, [id])
-}
-
-// Only called when a listing was already flagged from a prior, separate run
-// and is still soft-walled now — confirmed removed. Products are never
-// cascade-deleted here, even if this was their last remaining listing.
-export async function deleteListing(db: DbClient, id: string): Promise<void> {
-  await db.query(`DELETE FROM listings WHERE id = $1`, [id])
 }
 
 // check-listings calls this when a re-checked listing is confirmed still
@@ -331,31 +136,11 @@ export async function refreshListingFields(
   const f = parseListingFields(listing)
   const currentPhotoIds = extractPhotoIds(listing)
 
-  const setClauses = [
-    'title = $2',
-    'price_amount = $3',
-    'price_currency = $4',
-    'description = $5',
-    'condition = $6',
-    'raw_json = $7',
-    'last_seen_at = now()',
-    'updated_at = now()',
-  ]
-  const params: unknown[] = [
-    f.id,
-    f.title,
-    f.priceAmount,
-    f.priceCurrency,
-    f.description,
-    f.condition,
-    JSON.stringify(listing),
-  ]
-
+  let photoUpdate: PhotoUpdate | null = null
   let pruneUnusedPhotos = async (): Promise<void> => {}
   if (currentPhotoIds !== null) {
     if (storedPhotoIds === null) {
-      params.push(JSON.stringify(currentPhotoIds))
-      setClauses.push(`source_photo_ids = $${params.length}`)
+      photoUpdate = { kind: 'baseline', sourcePhotoIds: currentPhotoIds }
     } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
       logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
       // No deleteAll first: replace writes deterministic keys (listings/<id>/<i>),
@@ -363,54 +148,27 @@ export async function refreshListingFields(
       // after the UPDATE below succeeded, and a re-fetch that gets nothing
       // leaves the stored photos the DB points at intact.
       const replaced = await photos.replace(f.id, listing.listing_photos)
-      const newUrls = replaced.urls
       pruneUnusedPhotos = replaced.pruneUnused
-      if (newUrls.length > 0) {
-        params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
-        setClauses.push(
-          `primary_photo_url = $${params.length - 2}`,
-          `stored_photo_urls = $${params.length - 1}`,
-          `source_photo_ids = $${params.length}`,
-        )
+      if (replaced.urls.length > 0) {
+        photoUpdate = {
+          kind: 'replace',
+          primaryPhotoUrl: f.primaryPhotoUrl,
+          storedPhotoUrls: replaced.urls,
+          sourcePhotoIds: currentPhotoIds,
+        }
       } else {
         logger.warn(`listing ${f.id} photo re-fetch returned nothing, keeping existing photos`)
       }
     }
   }
 
-  const setSql = setClauses.join(', ')
-  const updated = (await db.query(
-    `UPDATE listings SET ${setSql}
-     FROM (SELECT price_amount AS old_price_amount, price_currency AS old_price_currency, first_seen_at AS old_first_seen_at
-           FROM listings WHERE id = $1) prev
-     WHERE listings.id = $1
-     RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
-    params,
-  )) as { rows?: PriorPriceRow[] } | undefined
+  const prior = await updateListingFields(db, f, listing, photoUpdate)
   await pruneUnusedPhotos()
   await recordRealEstatePriceChange(db, logger, {
     listingId: f.id,
-    prior: updated?.rows?.[0],
+    prior,
     newPrice: f.priceAmount,
     newCurrency: f.priceCurrency,
   })
   await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
-}
-
-export interface BackfillCandidate {
-  id: string
-  raw_json: Record<string, unknown>
-}
-
-export async function getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]> {
-  const result = (await db.query(`SELECT id, raw_json FROM listings WHERE stored_photo_urls IS NULL`, [])) as {
-    rows: BackfillCandidate[]
-  }
-  return result.rows
-}
-
-// Reversible: a listing later confirmed still live (via a validation pass)
-// can just be re-run through backfill, which overwrites this with real URLs.
-export async function markListingPhotosUnavailable(db: DbClient, id: string): Promise<void> {
-  await db.query(`UPDATE listings SET stored_photo_urls = '[]'::jsonb WHERE id = $1`, [id])
 }
