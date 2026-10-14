@@ -6,7 +6,7 @@ import { normalizeVariantTier } from './products'
 import type { GeminiClient, GroqClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
 import { QuotaExhaustedError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { ExtractionCandidate } from './store/products'
+import type { ExtractionCandidate } from './store/extraction'
 
 const LOG_PATH = 'data/tmp-extract.log'
 

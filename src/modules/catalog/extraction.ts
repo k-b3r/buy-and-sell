@@ -1,4 +1,4 @@
-import type { ExtractionCandidate } from './store/products'
+import type { ExtractionCandidate } from './store/extraction'
 import {
   CANONICAL_BASE_MODEL,
   normalizeBaseModel,

@@ -1,22 +1,5 @@
 import { isProductCategory, PRODUCT_CATEGORIES } from './products'
-
-export interface EnrichmentCandidate {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  sibling_variants: string[]
-  category: string | null
-}
-
-export interface EnrichmentData {
-  description: string
-  valueDrivers: string
-  hasTrainedPriceKnowledge: boolean
-  trainedPriceLow: number | null
-  trainedPriceHigh: number | null
-  isSpecificProduct: boolean
-  confidence: 'high' | 'low'
-}
+import type { EnrichmentCandidate, EnrichmentData } from './store/enrichment'
 
 function formatProductLine(p: EnrichmentCandidate): string {
   const label = p.variant_tier ? `${p.base_model} (${p.variant_tier})` : p.base_model

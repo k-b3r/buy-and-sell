@@ -1,6 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
 import { normalizeBaseModel, normalizeVariantTier } from '../products'
-import type { EnrichmentCandidate, EnrichmentData } from '../enrichment'
 
 // The products_base_model_variant_normalized_idx identity: one row per normalized
 // base_model + variant_tier. Every "does this product already exist" check
@@ -84,81 +83,6 @@ export async function getProductMatchedListings(db: DbClient): Promise<ProductMa
     [],
   )) as { rows: ProductMatchedListing[] }
   return result.rows
-}
-
-export interface ExtractionCandidate {
-  id: string
-  title: string
-  description: string | null
-  condition: string | null
-  price_amount: number | null
-}
-
-// condition/price_amount added (2026-08-31) for the inline discount check
-// that now runs right after a listing gets its product_id, in the same
-// per-item loop - without them, extract-products.ts would need a second
-// per-listing round trip just to re-fetch what it already has here.
-export async function getExtractionCandidates(db: DbClient): Promise<ExtractionCandidate[]> {
-  const result = (await db.query(
-    `SELECT id, title, description, condition, price_amount FROM listings WHERE product_id IS NULL`,
-    [],
-  )) as { rows: (ExtractionCandidate & { price_amount: string | null })[] }
-  return result.rows.map((r) => ({ ...r, price_amount: r.price_amount === null ? null : Number(r.price_amount) }))
-}
-
-export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {
-  const result = (await db.query(
-    `SELECT p.id, p.base_model, p.variant_tier, c.name AS category,
-       COALESCE(
-         (SELECT array_agg(DISTINCT COALESCE(p2.variant_tier, '(base, no variant)'))
-          FROM products p2
-          WHERE p2.base_model_normalized = p.base_model_normalized AND p2.id != p.id),
-         ARRAY[]::text[]
-       ) as sibling_variants
-     FROM products p
-     LEFT JOIN categories c ON c.id = p.category_id
-     WHERE NOT EXISTS (SELECT 1 FROM product_enrichment e WHERE e.product_id = p.id)
-     ORDER BY p.id`,
-    [],
-  )) as { rows: EnrichmentCandidate[] }
-  return result.rows
-}
-
-export async function upsertProductEnrichment(
-  db: DbClient,
-  productId: number,
-  data: EnrichmentData,
-  model: string,
-): Promise<void> {
-  const trainedPriceCurrency = data.trainedPriceLow !== null ? 'PHP' : null
-  await db.query(
-    `INSERT INTO product_enrichment
-       (product_id, description, value_drivers, has_trained_price_knowledge, trained_price_low, trained_price_high, trained_price_currency, model, is_specific_product, confidence)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     ON CONFLICT (product_id) DO UPDATE SET
-       description = EXCLUDED.description,
-       value_drivers = EXCLUDED.value_drivers,
-       has_trained_price_knowledge = EXCLUDED.has_trained_price_knowledge,
-       trained_price_low = EXCLUDED.trained_price_low,
-       trained_price_high = EXCLUDED.trained_price_high,
-       trained_price_currency = EXCLUDED.trained_price_currency,
-       model = EXCLUDED.model,
-       is_specific_product = EXCLUDED.is_specific_product,
-       confidence = EXCLUDED.confidence,
-       checked_at = now()`,
-    [
-      productId,
-      data.description,
-      data.valueDrivers,
-      data.hasTrainedPriceKnowledge,
-      data.trainedPriceLow,
-      data.trainedPriceHigh,
-      trainedPriceCurrency,
-      model,
-      data.isSpecificProduct,
-      data.confidence,
-    ],
-  )
 }
 
 // Batched single round trip, same reasoning as updateListingProductIds above

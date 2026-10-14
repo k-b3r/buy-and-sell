@@ -1,5 +1,5 @@
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
-import type { EnrichmentCandidate } from './enrichment'
+import type { EnrichmentCandidate } from './store/enrichment'
 import { PRODUCT_CATEGORIES } from './products'
 
 test('buildEnrichmentPrompt includes each product id/label, and sibling variants only when present', () => {

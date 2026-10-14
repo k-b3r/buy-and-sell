@@ -5,8 +5,9 @@ import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
-import type { EnrichmentCandidate } from './enrichment'
-import { upsertProductEnrichment, updateProductCategories } from './store/products'
+import type { EnrichmentCandidate } from './store/enrichment'
+import { upsertProductEnrichment } from './store/enrichment'
+import { updateProductCategories } from './store/products'
 
 // Originally sized at 35 from output-token math alone — wrong, because
 // gpt-oss-120b is a reasoning model: it spends hidden "thinking" tokens before

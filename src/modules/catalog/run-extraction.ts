@@ -18,7 +18,7 @@ import {
   insertDiscountNotifications,
   PriceLookupFailedError,
 } from '../pricing'
-import type { ExtractionCandidate } from './store/products'
+import type { ExtractionCandidate } from './store/extraction'
 import { findOrCreateProduct, updateListingProductIds } from './store/products'
 import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from './products'
 import type { ExtractedListing } from './extraction'

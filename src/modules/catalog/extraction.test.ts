@@ -1,6 +1,6 @@
 import { parseExtractionItem } from './extraction'
 import type { ExtractedListing } from './extraction'
-import type { ExtractionCandidate } from './store/products'
+import type { ExtractionCandidate } from './store/extraction'
 
 const listing: ExtractionCandidate = {
   id: 'l1',
