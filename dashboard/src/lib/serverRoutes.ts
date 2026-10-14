@@ -4,12 +4,15 @@
 // Next route handlers are deleted, one line per migrated resource.
 const SERVER_ROUTES = ['/api/settings', '/api/collect-keywords']
 
+export function isServerRoute(pathname: string): boolean {
+  return SERVER_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+}
+
 /**
  * The server URL a browser request should be rewritten to, or null when Next
  * still serves the path itself. `/api/settings` becomes `{baseUrl}/settings`.
  */
 export function serverRouteTarget(pathname: string, search: string, baseUrl: string): URL | null {
-  const matches = SERVER_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
-  if (!matches) return null
+  if (!isServerRoute(pathname)) return null
   return new URL(`${baseUrl.replace(/\/+$/, '')}${pathname.slice('/api'.length)}${search}`)
 }

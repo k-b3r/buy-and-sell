@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { serverRouteTarget } from './serverRoutes'
+import { isServerRoute, serverRouteTarget } from './serverRoutes'
 
 const BASE = 'https://vps.test'
 
@@ -20,6 +20,12 @@ test('serverRouteTarget returns null for paths still served by Next handlers', (
 
 test('serverRouteTarget does not match a path that only shares a prefix', () => {
   expect(serverRouteTarget('/api/settings-old', '', BASE)).toBeNull()
+})
+
+test('isServerRoute is true for migrated paths and their subpaths only', () => {
+  expect(isServerRoute('/api/settings')).toBe(true)
+  expect(isServerRoute('/api/settings/x')).toBe(true)
+  expect(isServerRoute('/api/deals')).toBe(false)
 })
 
 test('serverRouteTarget tolerates a trailing slash on the base url', () => {
