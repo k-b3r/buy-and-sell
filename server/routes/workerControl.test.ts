@@ -2,6 +2,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { EventEmitter } from 'node:events'
+import request from 'supertest'
+import { createApp } from '../app'
 import { createWorkerControlHandler } from './workerControl'
 import type { RouteResult } from '../app'
 
@@ -320,5 +322,27 @@ test(
     expect(options.stdio[0]).toBe('ignore')
     expect(options.stdio[1]).toBe('ignore')
     expect(typeof options.stdio[2]).toBe('number')
+  }),
+)
+
+test(
+  'POST /worker-control through the app answers a status request without spawning or killing anything',
+  withTmpDir(async (dir) => {
+    const deps = fakeDeps()
+    const app = createApp({
+      apiKey: 'test-key',
+      log: () => {},
+      routes: { 'POST /worker-control': createWorkerControlHandler(dir, deps) },
+    })
+
+    const res = await request(app)
+      .post('/worker-control')
+      .set('authorization', 'Bearer test-key')
+      .send({ worker: 'collect', action: 'status' })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ running: false, lastRunErrored: false })
+    expect(deps.spawn).not.toHaveBeenCalled()
+    expect(deps.kill).not.toHaveBeenCalled()
   }),
 )
