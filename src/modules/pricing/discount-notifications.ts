@@ -1,7 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import type { PriceRange } from './price-lookup'
 import { isJunkPrice, isMagnitudeOutlier } from './clean-median'
-import { getProductCleanMedian } from './queries'
+import { getProductCleanMedian } from './store/comparables'
 import { isNewCondition } from './price-rules'
 
 export interface DiscountPolicyThresholds {

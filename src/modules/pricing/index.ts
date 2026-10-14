@@ -27,21 +27,13 @@ export {
 } from './price-rules'
 export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './deals'
 export { getDealListingIds, getDeals } from './deals'
-export type {
-  ComparableListing,
-  DiscountNotification,
-  ExcludedProduct,
-  ExclusionReasonCount,
-  PeerMedianPrice,
-  SoldComparablePrice,
-} from './queries'
+export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
+export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
+export type { DiscountNotification, ExcludedProduct, ExclusionReasonCount } from './queries'
 export {
-  getComparableListings,
   getDiscountNotifications,
   getExcludedProducts,
   getExclusionSummary,
-  getPeerMedianPrice,
-  getSoldComparablePrice,
   getUnreadDiscountNotificationCount,
   markAllDiscountNotificationsRead,
   markDiscountNotificationRead,
