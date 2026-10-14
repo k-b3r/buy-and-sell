@@ -21,14 +21,11 @@
 import type {
   CategoryWeeklySoldCounts,
   DealListing,
-  DealsDiscountPolicyFloors,
   DealsFilters,
-  DiscountNotification,
   ExcludedProduct,
   ExclusionReasonCount,
   ListingDetail,
   ListingsPage,
-  PeerMedianPrice,
   ProductDetail,
   ProductNeedingReview,
   ProductSummary,
@@ -36,7 +33,6 @@ import type {
   RealEstateListing,
   SavedListingSummary,
   SettingRow,
-  SoldComparablePrice,
   SubCategoryTreeEntry,
 } from './shared.generated'
 import { api } from './api'
@@ -108,34 +104,20 @@ export async function getProductsNeedingReview(): Promise<ProductNeedingReview[]
   return products
 }
 
-export function setManualPrice(
-  productId: number,
-  price: { kind: 'new' | 'secondhand'; priceLow: number; priceHigh: number },
-): Promise<void> {
-  return rpc('setManualPrice', [productId, price])
+export async function getExclusionSummary(): Promise<ExclusionReasonCount[]> {
+  const { summary } = await api<{ summary: ExclusionReasonCount[] }>('/price-exclusions/summary')
+  return summary
 }
 
-export async function markProductReviewed(productId: number): Promise<void> {
-  await api(`/products/${productId}/mark-reviewed`, { method: 'POST' })
-}
-
-export function excludeProductFromReview(productId: number, reason: string): Promise<void> {
-  return rpc('excludeProductFromReview', [productId, reason])
-}
-
-export function includeInPricing(productId: number): Promise<void> {
-  return rpc('includeInPricing', [productId])
-}
-
-export function getExclusionSummary(): Promise<ExclusionReasonCount[]> {
-  return rpc('getExclusionSummary')
-}
-
-export function getExcludedProducts(
+export async function getExcludedProducts(
   reason: string,
   options: { offset?: number; limit?: number } = {},
 ): Promise<ExcludedProduct[]> {
-  return rpc('getExcludedProducts', [reason, options])
+  const params = new URLSearchParams({ reason })
+  if (options.offset) params.set('offset', String(options.offset))
+  if (options.limit) params.set('limit', String(options.limit))
+  const { products } = await api<{ products: ExcludedProduct[] }>(`/price-exclusions?${params}`)
+  return products
 }
 
 // pricing.exclusions_ui_enabled (BUY-36): off hides every exclusion badge,
@@ -160,19 +142,21 @@ export async function getListingDetail(listingId: string): Promise<ListingDetail
   return listing
 }
 
-export function getSoldComparablePrice(productId: number): Promise<SoldComparablePrice | null> {
-  return rpc('getSoldComparablePrice', [productId])
-}
-
-export function getPeerMedianPrice(productId: number): Promise<PeerMedianPrice | null> {
-  return rpc('getPeerMedianPrice', [productId])
-}
-
+/** One page of ranked deals; the server applies the live discount-policy floors and fixes the page size. */
 export function getDeals(
-  discountPolicy: DealsDiscountPolicyFloors,
-  filters: DealsFilters = {},
-): Promise<DealListing[]> {
-  return rpc('getDeals', [discountPolicy, filters])
+  filters: Omit<DealsFilters, 'limit'> = {},
+): Promise<{ deals: DealListing[]; nextOffset: number | null }> {
+  const params = new URLSearchParams()
+  if (filters.search) params.set('search', filters.search)
+  for (const category of filters.categories ?? []) params.append('category', category)
+  if (filters.minProfitPesos !== undefined) params.set('minProfit', String(filters.minProfitPesos))
+  if (filters.minConfidenceTier) params.set('minTier', filters.minConfidenceTier)
+  if (filters.maxDaysListed !== undefined) params.set('maxDaysListed', String(filters.maxDaysListed))
+  if (filters.addedWithinHours !== undefined) params.set('addedWithinHours', String(filters.addedWithinHours))
+  if (filters.soldOnly) params.set('soldOnly', 'true')
+  if (filters.lowConfidenceOnly) params.set('lowConfidence', 'true')
+  if (filters.offset) params.set('offset', String(filters.offset))
+  return api(`/deals?${params}`)
 }
 
 export async function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]> {
@@ -183,22 +167,6 @@ export async function getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCo
 export async function getSavedListings(): Promise<SavedListingSummary[]> {
   const { listings } = await api<{ listings: SavedListingSummary[] }>('/saved-listings')
   return listings
-}
-
-export function getDiscountNotifications(limit?: number): Promise<DiscountNotification[]> {
-  return rpc('getDiscountNotifications', limit === undefined ? [] : [limit])
-}
-
-export function getUnreadDiscountNotificationCount(): Promise<number> {
-  return rpc('getUnreadDiscountNotificationCount')
-}
-
-export function markDiscountNotificationRead(id: number): Promise<void> {
-  return rpc('markDiscountNotificationRead', [id])
-}
-
-export function markAllDiscountNotificationsRead(): Promise<void> {
-  return rpc('markAllDiscountNotificationsRead')
 }
 
 export async function getAllSettings(): Promise<SettingRow[]> {
