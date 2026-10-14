@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { getDealListingIds, getDeals } from './deals'
-import { notMagnitudeOutlierSql, peerListingSql } from './clean-median'
+import { notMagnitudeOutlierSql, peerListingSql } from './store/fragments'
 import { repostKeySql } from './repost'
 import type { QueryClient } from '../../platform/storage'
 

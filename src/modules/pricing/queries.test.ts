@@ -10,7 +10,7 @@ import {
   setManualPrice,
 } from './queries'
 import type { QueryClient } from '../../platform/storage'
-import { peerListingSql } from './clean-median'
+import { peerListingSql } from './store/fragments'
 
 test('getDiscountNotifications maps joined rows into DiscountNotification shape, most recent first, capped by limit', async () => {
   const calls: { sql: string; params: unknown[] }[] = []

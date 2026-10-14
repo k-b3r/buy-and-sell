@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import { peerListingSql } from './clean-median'
+import { peerListingSql } from './store/fragments'
 import {
   decideListingDiscount,
   insertDiscountNotifications,

@@ -2,7 +2,7 @@ import type { DbClient } from '../../platform/storage'
 import type { PriceReviewCandidate, PriceReviewData } from './price-review'
 import { descriptionPriceDiverges } from './price-review'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
-import { medianCtes, notPlaceholderPriceSql } from './clean-median'
+import { medianCtes, notPlaceholderPriceSql } from './store/fragments'
 
 // Loose SQL pre-filter for "the description names a price": any currency/
 // keyword-prefixed number, or a k-abbreviated one. Deliberately over-matches
