@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import type { QueryClient } from '../../platform/storage'
 import { paginateListings } from './listings-page'
 import { getProductDetail } from './product-detail'
-import { getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
+import { getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './product-list'
 import { getProductsNeedingReview, markProductReviewed } from './store/review-queue'
 import { listingsQuerySchema, productIdParamSchema, productListQuerySchema } from './schemas'
 

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
+import { getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './product-list'
 import type { QueryClient } from '../../platform/storage'
 import { notJunkPriceSql } from '../pricing'
 
