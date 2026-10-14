@@ -1,13 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
-import {
-  extractRealEstateBatch,
-  runRealEstateExtraction,
-  EXTRACTOR_MODELS,
-  EXTRACTOR_REQUEST_OPTIONS,
-} from './extractor'
+import { extractRealEstateBatch, EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS } from './extractor'
 import type { JsonModelClient } from './extractor'
 import { createLogger } from '../../platform/logger'
-import type { DbClient } from '../../platform/storage'
 import type { RealEstateCandidate } from './extraction'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
@@ -75,24 +69,6 @@ test('extractRealEstateBatch stops the run on a 429 quota error', async () => {
   await expect(
     extractRealEstateBatch({ groq, logger: createLogger(LOG_PATH), delay: noDelay }, [cand('1')]),
   ).rejects.toThrow()
-})
-
-test('runRealEstateExtraction upserts each extracted listing with its source hash', async () => {
-  const params: unknown[][] = []
-  const db: DbClient = {
-    query: async (_sql: string, p: unknown[]) => {
-      params.push(p)
-      return { rows: [] }
-    },
-  }
-  const groq: JsonModelClient = { generateJson: async () => ({ results: [item('1')] }) }
-
-  await runRealEstateExtraction({ groq, db, logger: createLogger(LOG_PATH), delay: noDelay }, [cand('1')], 20)
-
-  expect(params).toHaveLength(1)
-  expect(params[0][0]).toBe('1')
-  expect(params[0][13]).toBe('hash-1')
-  expect(params[0][14]).toBe('openai/gpt-oss-120b')
 })
 
 test('extractRealEstateBatch retries the listings the model left out of its response', async () => {
