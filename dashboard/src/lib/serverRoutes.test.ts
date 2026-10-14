@@ -85,7 +85,6 @@ test('the catalog routes resolve to their server paths and leave their unmigrate
   expect(isServerRoute('/api/products/42/exclude')).toBe(false)
   expect(isServerRoute('/api/products/42/include')).toBe(false)
   expect(isServerRoute('/api/products/42/manual-price')).toBe(false)
-  expect(isServerRoute('/api/products/42/refresh')).toBe(false)
 })
 
 test('serverRouteTarget sends the listing save toggle to the server, keeping the productId query', () => {
@@ -94,8 +93,21 @@ test('serverRouteTarget sends the listing save toggle to the server, keeping the
   )
 })
 
-test('isServerRoute leaves the listing refresh to its Next handler', () => {
+test('isServerRoute matches the listing save and refresh toggles but not the listing itself', () => {
   expect(isServerRoute('/api/listings/123/save')).toBe(true)
-  expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
+  expect(isServerRoute('/api/listings/123/refresh')).toBe(true)
   expect(isServerRoute('/api/listings/123')).toBe(false)
+})
+
+test('serverRouteTarget sends the refresh, job, logs and worker-control paths to the same path on the server', () => {
+  for (const path of [
+    '/api/listings/123/refresh',
+    '/api/products/42/refresh',
+    '/api/refresh-job',
+    '/api/refresh-job/cancel',
+    '/api/logs',
+    '/api/worker-control',
+  ]) {
+    expect(serverRouteTarget(path, '', BASE)?.toString()).toBe(`https://vps.test${path.slice('/api'.length)}`)
+  }
 })
