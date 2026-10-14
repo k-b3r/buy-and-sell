@@ -2,7 +2,7 @@ import { readFileSync, rmSync, existsSync } from 'node:fs'
 import type { PageDriver } from './driver'
 import type { DbClient } from '../../platform/storage'
 import type { ReviewDecision } from '../../platform/review'
-import { runCollection, resolvePageState } from './run'
+import { runCollection, resolvePageState } from './collect'
 import { createLogger } from '../../platform/logger'
 import { createListingPhotos } from './photos'
 

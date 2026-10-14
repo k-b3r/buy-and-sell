@@ -4,7 +4,7 @@ import type { BackfillCandidate } from './listings'
 import { markListingPhotosUnavailable, upsertListing } from './listings'
 import type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 import { defaultProxyChecker, resolveProxy } from './proxy'
-import { resolveDetailPage } from './run'
+import { resolveDetailPage } from './collect'
 
 // Stricter than collect/check-listings, which skip the egress check when no
 // proxy is configured at all: the backfill is a one-off most likely run on
