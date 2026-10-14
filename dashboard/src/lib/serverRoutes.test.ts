@@ -20,7 +20,7 @@ test('serverRouteTarget keeps the query string', () => {
 
 test('serverRouteTarget returns null for paths still served by Next handlers', () => {
   expect(serverRouteTarget('/api/login', '', BASE)).toBeNull()
-  expect(serverRouteTarget('/api/deals', '', BASE)).toBeNull()
+  expect(serverRouteTarget('/api/listings/123/refresh', '', BASE)).toBeNull()
   expect(serverRouteTarget('/admin/settings', '', BASE)).toBeNull()
 })
 
@@ -31,7 +31,7 @@ test('serverRouteTarget does not match a path that only shares a prefix', () => 
 test('isServerRoute is true for migrated exact paths only, not their subpaths', () => {
   expect(isServerRoute('/api/settings')).toBe(true)
   expect(isServerRoute('/api/settings/x')).toBe(false)
-  expect(isServerRoute('/api/deals')).toBe(false)
+  expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
 })
 
 test('serverRouteTarget tolerates a trailing slash on the base url', () => {
@@ -82,9 +82,6 @@ test('the catalog routes resolve to their server paths and leave their unmigrate
     'https://vps.test/products/42/mark-reviewed',
   )
   expect(isServerRoute('/api/products/42')).toBe(false)
-  expect(isServerRoute('/api/products/42/exclude')).toBe(false)
-  expect(isServerRoute('/api/products/42/include')).toBe(false)
-  expect(isServerRoute('/api/products/42/manual-price')).toBe(false)
   expect(isServerRoute('/api/products/42/refresh')).toBe(false)
 })
 
@@ -98,4 +95,28 @@ test('isServerRoute leaves the listing refresh to its Next handler', () => {
   expect(isServerRoute('/api/listings/123/save')).toBe(true)
   expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
   expect(isServerRoute('/api/listings/123')).toBe(false)
+})
+
+test('the pricing routes resolve to their server paths, bodies and all', () => {
+  expect(serverRouteTarget('/api/deals', '?minTier=sold_comps&offset=30', BASE)?.toString()).toBe(
+    'https://vps.test/deals?minTier=sold_comps&offset=30',
+  )
+  expect(serverRouteTarget('/api/notifications', '', BASE)?.toString()).toBe('https://vps.test/notifications')
+  expect(serverRouteTarget('/api/notifications/9/read', '', BASE)?.toString()).toBe(
+    'https://vps.test/notifications/9/read',
+  )
+  expect(serverRouteTarget('/api/notifications/mark-all-read', '', BASE)?.toString()).toBe(
+    'https://vps.test/notifications/mark-all-read',
+  )
+  for (const action of ['exclude', 'include', 'manual-price']) {
+    expect(serverRouteTarget(`/api/products/42/${action}`, '', BASE)?.toString()).toBe(
+      `https://vps.test/products/42/${action}`,
+    )
+  }
+})
+
+test('the pricing routes do not swallow the notification or product siblings still on Next', () => {
+  expect(isServerRoute('/api/notifications/9')).toBe(false)
+  expect(isServerRoute('/api/notifications/9/unread')).toBe(false)
+  expect(isServerRoute('/api/products/42/refresh')).toBe(false)
 })
