@@ -1,6 +1,5 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
-import { getListingProductId } from '../../src/modules/collection'
 import {
   getComparableListings,
   getDeals,
@@ -47,7 +46,6 @@ const REGISTRY = {
   getUnreadDiscountNotificationCount,
   markDiscountNotificationRead,
   markAllDiscountNotificationsRead,
-  getListingProductId,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
 export type QueryName = keyof typeof REGISTRY

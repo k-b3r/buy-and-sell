@@ -206,10 +206,6 @@ export async function getAllSettings(): Promise<SettingRow[]> {
   return settings
 }
 
-export function getListingProductId(listingId: string): Promise<number | null> {
-  return rpc('getListingProductId', [listingId])
-}
-
 // Filter field -> the URL param GET /real-estate (and /api/real-estate) reads.
 const REAL_ESTATE_PARAMS = [
   ['listingType', 'kind'],
