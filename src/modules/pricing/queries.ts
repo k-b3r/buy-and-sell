@@ -2,23 +2,6 @@ import type { DbClient, QueryClient } from '../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
 import { medianCtes, notMagnitudeOutlierSql, peerListingSql } from './store/fragments'
 import { LOOKUP_OUTCOME_REASONS } from './exclusion'
-import type { ManualPrice } from './schemas'
-
-// Human-entered price for a needs_review product - outranks every automated
-// source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
-// just until the next automated run. Append-only like every other
-// product_price_history writer; doesn't touch price_lookup_review_status
-// itself (the API route pairs this with markProductReviewed). The range is
-// validated at the boundary (manualPriceSchema).
-export async function setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void> {
-  const { kind, priceLow, priceHigh } = price
-  const source = kind === 'new' ? 'manual_new_retail' : 'manual_secondhand'
-  await db.query(
-    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, source)
-     VALUES ($1, $2, $3, 'PHP', $4)`,
-    [productId, priceLow, priceHigh, source],
-  )
-}
 
 export interface ProductCleanMedian {
   medianPrice: number

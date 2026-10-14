@@ -45,7 +45,6 @@ export {
   getUnreadDiscountNotificationCount,
   markAllDiscountNotificationsRead,
   markDiscountNotificationRead,
-  setManualPrice,
 } from './queries'
 export type {
   NewDiscountNotification,
@@ -85,6 +84,7 @@ export {
   getPriceLookupCandidates,
   getProductPricingStatus,
   insertPriceCheck,
+  setManualPrice,
 } from './store/price-history'
 export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'

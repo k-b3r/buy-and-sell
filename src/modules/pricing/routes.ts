@@ -13,8 +13,8 @@ import {
   getUnreadDiscountNotificationCount,
   markAllDiscountNotificationsRead,
   markDiscountNotificationRead,
-  setManualPrice,
 } from './queries'
+import { setManualPrice } from './store/price-history'
 import { dealsQuerySchema, excludedProductsQuerySchema, manualPriceSchema, notificationIdParamSchema } from './schemas'
 
 // HTTP edge of the pricing feature, mounted by server/index.ts only (the

@@ -1,5 +1,6 @@
-import type { DbClient } from '../../../platform/storage'
+import type { DbClient, QueryClient } from '../../../platform/storage'
 import type { PriceLookupCandidate, PriceRange } from '../price-lookup'
+import type { ManualPrice } from '../schemas'
 import { MIN_PEER_SAMPLE } from '../clean-median'
 
 // Always an INSERT, never an upsert — each price check is a new point in the
@@ -169,4 +170,20 @@ export async function getListingPricesByProduct(db: DbClient): Promise<ListingPr
     condition: r.condition,
     prices: r.prices.map(Number),
   }))
+}
+
+// Human-entered price for a needs_review product - outranks every automated
+// source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
+// just until the next automated run. Append-only like every other
+// product_price_history writer; doesn't touch price_lookup_review_status
+// itself (the API route pairs this with markProductReviewed). The range is
+// validated at the boundary (manualPriceSchema).
+export async function setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void> {
+  const { kind, priceLow, priceHigh } = price
+  const source = kind === 'new' ? 'manual_new_retail' : 'manual_secondhand'
+  await db.query(
+    `INSERT INTO product_price_history (product_id, price_low, price_high, price_currency, source)
+     VALUES ($1, $2, $3, 'PHP', $4)`,
+    [productId, priceLow, priceHigh, source],
+  )
 }

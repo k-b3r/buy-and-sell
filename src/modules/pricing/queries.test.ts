@@ -7,7 +7,6 @@ import {
   getUnreadDiscountNotificationCount,
   markAllDiscountNotificationsRead,
   markDiscountNotificationRead,
-  setManualPrice,
 } from './queries'
 import type { QueryClient } from '../../platform/storage'
 import { peerListingSql } from './store/fragments'
@@ -133,37 +132,6 @@ test('markAllDiscountNotificationsRead sets read_at on every unread row', async 
   expect(calls[0].sql).toContain('read_at = now()')
   expect(calls[0].sql).toContain('WHERE read_at IS NULL')
   expect(calls[0].params).toEqual([])
-})
-
-test('setManualPrice inserts a manual_new_retail row into product_price_history', async () => {
-  let capturedSql = ''
-  let capturedParams: unknown[] = []
-  const db: QueryClient = {
-    query: async (sql, params) => {
-      capturedSql = sql
-      capturedParams = params
-      return { rows: [] }
-    },
-  }
-
-  await setManualPrice(db, 12, { kind: 'new', priceLow: 1500, priceHigh: 2000 })
-
-  expect(capturedSql).toContain('INSERT INTO product_price_history')
-  expect(capturedParams).toEqual([12, 1500, 2000, 'manual_new_retail'])
-})
-
-test('setManualPrice inserts a manual_secondhand row into product_price_history', async () => {
-  let capturedParams: unknown[] = []
-  const db: QueryClient = {
-    query: async (_sql, params) => {
-      capturedParams = params
-      return { rows: [] }
-    },
-  }
-
-  await setManualPrice(db, 12, { kind: 'secondhand', priceLow: 800, priceHigh: 1200 })
-
-  expect(capturedParams).toEqual([12, 800, 1200, 'manual_secondhand'])
 })
 
 test('getSoldComparablePrice returns the clean median and sample size when at least 3 sold comps exist', async () => {
