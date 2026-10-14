@@ -4,7 +4,7 @@
 // median, discount, price laterals) that catalog and collection queries build
 // on, and the generic-product check that decides what is too vague to
 // price. Everything else is internal (enforced by dependency-cruiser).
-export { computeMedians, isJunkPrice, isPlaceholderPrice } from './clean-median'
+export { computeMedians, isJunkPrice, isPlaceholderPrice, MIN_PEER_SAMPLE } from './clean-median'
 export {
   DISCOUNT_SUMMARY_LATERAL,
   medianCtes,
@@ -71,6 +71,7 @@ export {
 } from './schemas'
 export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
 export { upsertListingPriceReview } from './store/listing-price-review'
+export type { ListingPricesForProductCondition } from './store/price-history'
 export {
   getListingPricesByProduct,
   getPriceLookupCandidates,
@@ -78,7 +79,7 @@ export {
   insertPriceCheck,
   setManualPrice,
 } from './store/price-history'
-export { runPriceFromListings } from './price-from-listings'
+export { computePriceRangeFromPrices } from './price-from-listings'
 export type {
   PriceLookupCandidate,
   PriceLookupClients,
