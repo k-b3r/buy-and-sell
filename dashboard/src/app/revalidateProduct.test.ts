@@ -7,10 +7,11 @@ const { revalidateProduct } = await import('./revalidateProduct')
 
 beforeEach(() => revalidateTag.mockClear())
 
-test('revalidateProduct expires the product detail cache tag immediately', async () => {
+test('revalidateProduct expires the product detail and product list cache tags immediately', async () => {
   await revalidateProduct(42)
 
   expect(revalidateTag).toHaveBeenCalledWith('product:42', { expire: 0 })
+  expect(revalidateTag).toHaveBeenCalledWith('products-list', { expire: 0 })
 })
 
 test('revalidateProduct ignores an id that is not a positive integer', async () => {

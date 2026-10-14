@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
+import { revalidateProduct } from '../../revalidateProduct'
 
 const TOAST_DURATION_MS = 4000
 
@@ -69,6 +70,10 @@ export default function RefreshButton({ listingId, productId }: { listingId: str
         setMessage({ text: body.error ?? 'Refresh failed', tone: 'red' })
         return
       }
+      // The server dropped its own caches; the dashboard's cached product
+      // page and list are cleared here (a failed clear only leaves them to
+      // their TTL, so it must not fail the refresh).
+      if (productId !== null) await revalidateProduct(productId).catch(() => undefined)
       if (body.status === 'removed') {
         setMessage({ text: 'Listing removed - going back…', tone: 'red' })
         router.push(productId ? `/products/${productId}` : '/')

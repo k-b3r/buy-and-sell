@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
+import { revalidateProduct } from '../../revalidateProduct'
 
 type JobStatus = 'running' | 'completed' | 'cancelled'
 
@@ -84,9 +85,15 @@ export default function RefreshProductButton({ productId }: { productId: number 
   const jobStatus = job?.status
   const prevJobStatus = useRef<JobStatus | undefined>(undefined)
   useEffect(() => {
-    if (shouldRefreshPage(prevJobStatus.current, jobStatus)) router.refresh()
+    if (shouldRefreshPage(prevJobStatus.current, jobStatus)) {
+      // Clear the dashboard's cached product page and list first, so the
+      // refresh below does not re-render them from the stale entries.
+      void revalidateProduct(productId)
+        .catch(() => undefined)
+        .then(() => router.refresh())
+    }
     prevJobStatus.current = jobStatus
-  }, [jobStatus, router])
+  }, [jobStatus, router, productId])
 
   async function handleStart() {
     setStarting(true)
