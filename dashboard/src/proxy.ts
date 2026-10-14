@@ -21,8 +21,7 @@ export function proxy(request: NextRequest) {
 
   const serverUrl = process.env.REFRESH_SERVER_URL
   const apiKey = process.env.REFRESH_API_KEY
-  const target =
-    serverUrl && apiKey ? serverRouteTarget(pathname, request.nextUrl.search, serverUrl) : null
+  const target = serverUrl && apiKey ? serverRouteTarget(pathname, request.nextUrl.search, serverUrl) : null
   if (target && apiKey) {
     // Forward only what the server needs; the browser's own cookies (the
     // dashboard auth cookie) must not reach the VPS.
