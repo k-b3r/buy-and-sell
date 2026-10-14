@@ -46,9 +46,13 @@ _(undocumented)_
 
 ## server/refreshHandlers.ts
 
-**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/browser`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
+**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/browser`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./cache`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
 
-### `createRefreshHandlers({ db, photos, logger, env }: RefreshHandlersDeps): RefreshHandlers`
+### `createRefreshHandlers({ db, photos, logger, env, cache }: RefreshHandlersDeps): RefreshHandlers`
+
+_(undocumented)_
+
+### `createRefreshRouter(handlers: Pick<RefreshHandlers, 'refresh' | 'refreshProduct'>): Router`
 
 _(undocumented)_
 
@@ -76,7 +80,7 @@ _(undocumented)_
 
 ## server/routes/query.ts
 
-**Interactions:** imports `../../src/modules/catalog`, `../../src/modules/collection`, `../../src/modules/pricing`, `../../src/platform/storage`, `../app`
+**Interactions:** imports `../../src/modules/catalog`, `../../src/modules/pricing`, `../../src/platform/storage`, `../app`
 
 ### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
 
@@ -84,7 +88,7 @@ _(undocumented)_
 
 ## server/routes/refresh.ts
 
-**Interactions:** imports `../../src/modules/collection`, `../../src/platform/delay`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../app`, `../proxyGuard`, `../refreshPacer`
+**Interactions:** imports `../../src/modules/collection`, `../../src/platform/delay`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../app`, `../cache`, `../proxyGuard`, `../refreshPacer`
 
 ### `createRefreshHandler(deps: RefreshDeps): RouteHandler`
 

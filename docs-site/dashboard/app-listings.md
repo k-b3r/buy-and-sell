@@ -68,6 +68,8 @@ _(undocumented)_
 
 ## dashboard/src/app/listings/[id]/RefreshButton.tsx
 
+**Interactions:** imports `../../revalidateProduct`
+
 ### `default({ listingId, productId }: { listingId: string; productId: number | null }): React.JSX.Element`
 
 _(undocumented)_

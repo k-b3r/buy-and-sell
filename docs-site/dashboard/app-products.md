@@ -122,6 +122,8 @@ _(undocumented)_
 
 ## dashboard/src/app/products/[id]/RefreshProductButton.tsx
 
+**Interactions:** imports `../../revalidateProduct`
+
 ### `shouldRefreshPage(prev: JobStatus | undefined, next: JobStatus | undefined): boolean`
 
 _(undocumented)_

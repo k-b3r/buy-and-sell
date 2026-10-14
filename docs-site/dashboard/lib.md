@@ -167,10 +167,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getListingProductId(listingId: string): Promise<number | null>`
-
-_(undocumented)_
-
 ### `getRealEstateListings(filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
 
 _(undocumented)_
