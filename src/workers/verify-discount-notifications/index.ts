@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import type { DiscountPolicyThresholds, VerificationClients } from '../../modules/pricing'
-import { getUnverifiedDiscountCandidates, runVerifyDiscountNotifications } from '../../modules/pricing'
+import { getUnverifiedDiscountCandidates } from '../../modules/pricing'
+import { runVerifyDiscountNotifications } from './run'
 import {
   createTavilyClient,
   createExaClient,

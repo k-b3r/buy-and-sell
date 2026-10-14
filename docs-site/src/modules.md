@@ -718,7 +718,7 @@ _(undocumented)_
 
 ## src/modules/pricing/discount-verification.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./discount-policy`, `./price-rules`, `./store/discount-notifications`
+**Interactions:** imports `../../platform/llm-clients`, `./discount-policy`, `./price-rules`, `./store/discount-notifications`
 
 ### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
 
@@ -729,10 +729,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
-
-_(undocumented)_
-
-### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
 
 _(undocumented)_
 
@@ -856,11 +852,31 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `markDiscountNotificationAttempted(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
 ### `markDiscountNotificationRead(db: QueryClient, id: number): Promise<void>`
 
 _(undocumented)_
 
+### `markDiscountNotificationVerified(db: DbClient, id: number, data: DiscountVerificationOutcome): Promise<void>`
+
+_(undocumented)_
+
+### `rejectDiscountNotification(db: DbClient, id: number): Promise<void>`
+
+_(undocumented)_
+
 ### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<NewDiscountNotification | null>`
+
+_(undocumented)_
+
+### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
+
+_(undocumented)_
+
+### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
 
 _(undocumented)_
 
@@ -904,15 +920,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
-
-_(undocumented)_
-
 ### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<string | null>`
 
 _(undocumented)_
 
 ### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
+
+_(undocumented)_
+
+### `upsertListingPriceReview(db: DbClient, review: ListingPriceReviewWrite): Promise<void>`
 
 _(undocumented)_
 
@@ -936,7 +952,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runPriceFromListings(db: DbClient, logger: Logger, groups: ListingPricesForProductCondition[]): Promise<void>`
+### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
 
 _(undocumented)_
 
@@ -948,15 +964,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
-
-_(undocumented)_
-
 ### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
 
 _(undocumented)_
 
-### `runPriceTriage({ llm, saveRows, logger, delay = realDelay }: TriageIo, candidates: TriageCandidate[], { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {}): Promise<void>`
+### `buildTriagePrompt(batch: TriageCandidate[]): string`
+
+_(undocumented)_
+
+### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
 
 _(undocumented)_
 
@@ -984,7 +1000,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
+### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
 
 _(undocumented)_
 
@@ -1016,19 +1032,15 @@ _(undocumented)_
 
 ## src/modules/pricing/price-from-listings.ts
 
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./price-lookup`, `./store/price-history`
+**Interactions:** imports `./clean-median`, `./price-lookup`
 
 ### `computePriceRangeFromPrices(prices: number[]): (PriceRange & { usedCount: number }) | null`
 
 _(undocumented)_
 
-### `runPriceFromListings(db: DbClient, logger: Logger, groups: ListingPricesForProductCondition[]): Promise<void>`
-
-_(undocumented)_
-
 ## src/modules/pricing/price-lookup.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./generic-products`, `./store/exclusion`, `./store/price-history`
+**Interactions:** imports `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./generic-products`, `./store/exclusion`, `./store/price-history`
 
 ### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
 
@@ -1070,10 +1082,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
-
-_(undocumented)_
-
 ### `class PriceLookupFailedError`
 
 _(undocumented)_
@@ -1085,14 +1093,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `descriptionPriceDiverges(description: string | null, priceAmount: number, factor = DESCRIPTION_PRICE_DIVERGENCE_FACTOR): boolean`
-
-_(undocumented)_
-
-## src/modules/pricing/price-review/price-review.ts
-
-**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../../../platform/storage`, `../store/listing-price-review`, `./prompt`
-
-### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
 _(undocumented)_
 
@@ -1140,17 +1140,13 @@ _(undocumented)_
 
 ## src/modules/pricing/price-triage.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./store/exclusion`, `./store/price-triage`
+**Interactions:** imports `../../platform/storage`, `./store/exclusion`, `./store/price-triage`
 
 ### `buildTriagePrompt(batch: TriageCandidate[]): string`
 
 _(undocumented)_
 
 ### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
-
-_(undocumented)_
-
-### `runPriceTriage({ llm, saveRows, logger, delay = realDelay }: TriageIo, candidates: TriageCandidate[], { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {}): Promise<void>`
 
 _(undocumented)_
 

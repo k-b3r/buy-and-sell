@@ -3,7 +3,8 @@ import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import { getListingPricesByProduct, runPriceFromListings } from '../../modules/pricing'
+import { getListingPricesByProduct } from '../../modules/pricing'
+import { runPriceFromListings } from './run'
 
 async function main() {
   loadEnvFile()

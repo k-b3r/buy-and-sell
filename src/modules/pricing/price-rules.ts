@@ -75,7 +75,7 @@ export function computeListingDiscount(
 // Third and last fallback tier for secondhand price, below the two external
 // sources in SECONDHAND_PRICE_LATERAL: Groq's own trained-knowledge guess
 // (product_enrichment.trained_price_*) is explicitly scoped to secondhand
-// too (see src/enrichment.ts's prompt) - unverified/no live grounding, but
+// too (see catalog/enrichment.ts's prompt) - unverified/no live grounding, but
 // still the right *kind* of number, unlike gemini_grounding/web_search which
 // simply may not exist yet for a given product.
 export function resolveSecondhandPrice(

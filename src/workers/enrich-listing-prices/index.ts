@@ -4,7 +4,8 @@ import { createGroqPool } from '../../platform/llm-clients/groq-sdk'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import { getPriceReviewCandidates, runPriceReview } from '../../modules/pricing'
+import { getPriceReviewCandidates } from '../../modules/pricing'
+import { runPriceReview } from './run'
 
 async function main() {
   loadEnvFile()
