@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getProductDetail, getProductListingsPage, isExclusionsUiEnabled } from '@/lib/queries'
 import ListingsView from './ListingsView'
+import { parseProductId } from './productId'
 import { buildListingsQueryString, parseListingsFilters } from './listingsFilters'
 import RefreshProductButton from './RefreshProductButton'
 import PricingExclusion from './PricingExclusion'
@@ -21,7 +22,8 @@ export default async function ProductDetailPage({
   const { id } = await params
   const sp = await searchParams
   const from = sp.from
-  const productId = Number(id)
+  const productId = parseProductId(id)
+  if (productId === null) notFound()
   const [product, showExclusions] = await Promise.all([getProductDetail(productId), isExclusionsUiEnabled()])
   if (!product) notFound()
 
