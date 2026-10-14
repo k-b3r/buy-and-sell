@@ -1308,18 +1308,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/real-estate/details.ts
-
-**Interactions:** imports `../../platform/storage`, `./extraction`
-
-### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
-
-_(undocumented)_
-
-### `upsertRealEstateDetails(db: DbClient, row: RealEstateDetailsRow): Promise<void>`
-
-_(undocumented)_
-
 ## src/modules/real-estate/extraction.ts
 
 ### `parsePriceShorthand(text: string): number[]`
@@ -1344,7 +1332,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/extractor.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./details`, `./extraction`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./extraction`, `./store/details`
 
 ### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
@@ -1374,24 +1362,52 @@ _(undocumented)_
 
 ## src/modules/real-estate/price-history.ts
 
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./store/price-history`
 
 ### `recordRealEstatePriceChange(db: DbClient, logger: Logger, change: ListingPriceChange): Promise<void>`
 
 _(undocumented)_
 
-## src/modules/real-estate/queries.ts
+## src/modules/real-estate/routes.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`
+**Interactions:** imports `../../platform/storage`, `./schemas`, `./store/listings`
+
+### `createRealEstateRouter(db: DbClient): Router`
+
+_(undocumented)_
+
+## src/modules/real-estate/store/details.ts
+
+**Interactions:** imports `../../../platform/storage`, `../extraction`
+
+### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
+
+_(undocumented)_
+
+### `upsertRealEstateDetails(db: DbClient, row: RealEstateDetailsRow): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/real-estate/store/listings.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`
 
 ### `getRealEstateListings(db: DbClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
 
 _(undocumented)_
 
-## src/modules/real-estate/routes.ts
+## src/modules/real-estate/store/price-history.ts
 
-**Interactions:** imports `../../platform/storage`, `./queries`, `./schemas`
+**Interactions:** imports `../../../platform/storage`
 
-### `createRealEstateRouter(db: DbClient): Router`
+### `getRealEstatePriceHistoryState(db: DbClient, listingId: string): Promise<boolean | null>`
+
+_(undocumented)_
+
+### `insertPriceHistoryAt(db: DbClient, point: { listingId: string; price: number | null; currency: string | null; recordedAt: string | Date }): Promise<void>`
+
+_(undocumented)_
+
+### `insertPriceHistoryNow(db: DbClient, point: { listingId: string; price: number | null; currency: string | null }): Promise<void>`
 
 _(undocumented)_

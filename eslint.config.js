@@ -28,6 +28,7 @@ const CURATED_DATA_FILES = [
 const STORE_ENFORCED_MODULES = [
   'catalog',
   'collection',
+  'real-estate',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store
