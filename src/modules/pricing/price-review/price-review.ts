@@ -1,12 +1,12 @@
-import type { Logger } from '../../platform/logger'
-import type { GroqClient } from '../../platform/llm-clients'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
-import type { DbClient } from '../../platform/storage'
-import type { DelayFn } from '../../platform/delay'
-import { realDelay } from '../../platform/delay'
-import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review'
-import type { PriceReviewCandidate } from './price-review'
-import { upsertListingPriceReview } from './listing-price-review'
+import type { Logger } from '../../../platform/logger'
+import type { GroqClient } from '../../../platform/llm-clients'
+import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../../platform/llm-clients'
+import type { DbClient } from '../../../platform/storage'
+import type { DelayFn } from '../../../platform/delay'
+import { realDelay } from '../../../platform/delay'
+import { upsertListingPriceReview } from '../listing-price-review'
+import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './prompt'
+import type { PriceReviewCandidate } from './prompt'
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
@@ -28,10 +28,9 @@ export interface PriceReviewDeps {
   delay?: DelayFn
 }
 
-// Same retry-then-stop as product enrichment (catalog/run-enrichment.ts):
-// transient failures are retried, a quota error or exhausted retries end the
-// run, and unreviewed listings stay candidates for the next lap. Null means
-// stop.
+// Same retry-then-stop as product enrichment (catalog module): transient
+// failures are retried, a quota error or exhausted retries end the run, and
+// unreviewed listings stay candidates for the next lap. Null means stop.
 async function requestPriceReview(
   { groq, logger, delay }: Required<Pick<PriceReviewDeps, 'groq' | 'logger' | 'delay'>>,
   prompt: string,

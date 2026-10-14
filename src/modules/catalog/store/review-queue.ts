@@ -1,6 +1,6 @@
-import type { QueryClient } from '../../platform/storage'
-import { toIsoOrNull, toNullableNumber } from '../../platform/rows'
-import { NEW_PRICE_LATERAL, SECONDHAND_PRICE_LATERAL } from '../pricing'
+import type { QueryClient } from '../../../platform/storage'
+import { toIsoOrNull, toNullableNumber } from '../../../platform/rows'
+import { NEW_PRICE_LATERAL, SECONDHAND_PRICE_LATERAL } from '../../pricing'
 
 interface ProductReviewEnrichment {
   description: string
