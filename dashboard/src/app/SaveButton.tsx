@@ -73,7 +73,9 @@ export default function SaveButton({
         setSaved(!next)
         return
       }
-      if (productId !== null) await revalidateProduct(productId)
+      // The save already succeeded; a failed cache bust only leaves the product
+      // page stale until its TTL, so it must not revert the optimistic flip.
+      if (productId !== null) await revalidateProduct(productId).catch(() => undefined)
       onToggle?.(next)
     } catch {
       setSaved(!next)
