@@ -21,7 +21,7 @@ async function getDiscountPolicyFloors() {
 }
 
 // Ranked-by-profit view of active listings -
-// not cached (unlike getProductSummariesCached etc.): this page's whole
+// not cached (unlike the catalog reads the server caches): this page's whole
 // point is to surface the current best opportunities, a stale copy of
 // "current" is actively misleading in a way a stale product catalog isn't.
 export default async function DealsPage() {

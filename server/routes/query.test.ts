@@ -104,10 +104,22 @@ test('turns a failing query into a 500 without leaking driver detail', async () 
   expect(JSON.stringify(result.body)).not.toMatch(/relation/)
 })
 
-test('whitelist covers every db-backed query the dashboard calls', () => {
-  expect(QUERY_NAMES).toContain('getProductSummaries')
+test('catalog queries are served by their resource routes, not the whitelist', () => {
+  for (const name of [
+    'getProductSummaries',
+    'getSubCategoryTree',
+    'getProductsNeedingReview',
+    'markProductReviewed',
+    'getProductDetail',
+    'getSoldCountsBySubCategory',
+  ]) {
+    expect(QUERY_NAMES).not.toContain(name)
+  }
+})
+
+test('whitelist still covers the db-backed queries the dashboard has not moved off it', () => {
   expect(QUERY_NAMES).toContain('getDeals')
-  expect(QUERY_NAMES).toContain('getProductDetail')
+  expect(QUERY_NAMES.length).toBeGreaterThanOrEqual(10)
 })
 
 test('the real-estate listings query is served by its resource route, not the whitelist', () => {

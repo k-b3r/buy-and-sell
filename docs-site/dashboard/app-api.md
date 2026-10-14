@@ -72,14 +72,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/app/api/products/[id]/listings/route.ts
-
-**Interactions:** imports `../../../../products/[id]/listingsFilters`, `@/lib/cachedQueries`
-
-### `GET(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<ListingsPage>>`
-
-_(undocumented)_
-
 ## dashboard/src/app/api/products/[id]/manual-price/route.ts
 
 **Interactions:** imports `@/lib/queries`
@@ -88,25 +80,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/app/api/products/[id]/mark-reviewed/route.ts
-
-**Interactions:** imports `@/lib/queries`
-
-### `POST(_request: Request, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<{ ok: boolean; }>>`
-
-_(undocumented)_
-
 ## dashboard/src/app/api/products/[id]/refresh/route.ts
 
 ### `POST(_request: Request, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<any>>`
-
-_(undocumented)_
-
-## dashboard/src/app/api/products/route.ts
-
-**Interactions:** imports `@/lib/cachedQueries`
-
-### `GET(request: Request): Promise<NextResponse<{ products: ProductSummary[]; nextOffset: number | null; }>>`
 
 _(undocumented)_
 

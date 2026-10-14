@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { getRealEstateListings } from './queries'
+import { getProductDetail, getProductSummaries, getRealEstateListings, markProductReviewed } from './queries'
 
 const fetchMock = vi.fn()
 
@@ -47,4 +47,39 @@ test('getRealEstateListings asks for page 1 when no filters are given', async ()
 
   const url = new URL(fetchMock.mock.calls[0][0] as string)
   expect(Object.fromEntries(url.searchParams)).toEqual({ page: '1' })
+})
+
+test('getProductSummaries sends search, repeated filters and offset to the products route', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ products: [{ id: 1 }], nextOffset: 60 })))
+
+  const page = await getProductSummaries({
+    search: 'iphone',
+    categories: ['Phones', 'Laptops'],
+    subCategories: ['Mac'],
+    offset: 30,
+  })
+
+  expect(page).toEqual({ products: [{ id: 1 }], nextOffset: 60 })
+  const url = new URL(fetchMock.mock.calls[0][0] as string)
+  expect(url.pathname).toBe('/products')
+  expect(url.searchParams.get('q')).toBe('iphone')
+  expect(url.searchParams.getAll('category')).toEqual(['Phones', 'Laptops'])
+  expect(url.searchParams.getAll('subCategory')).toEqual(['Mac'])
+  expect(url.searchParams.get('offset')).toBe('30')
+})
+
+test('getProductDetail unwraps the product and passes null through for an unknown id', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ product: null })))
+
+  expect(await getProductDetail(999)).toBeNull()
+  expect(new URL(fetchMock.mock.calls[0][0] as string).pathname).toBe('/products/999')
+})
+
+test('markProductReviewed posts to the product mark-reviewed route', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })))
+
+  await markProductReviewed(7)
+
+  expect(new URL(fetchMock.mock.calls[0][0] as string).pathname).toBe('/products/7/mark-reviewed')
+  expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' })
 })

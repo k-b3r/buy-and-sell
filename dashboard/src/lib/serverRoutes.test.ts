@@ -71,6 +71,23 @@ test('resolveServerPath uses the per-entry server path, filling in its params', 
   expect(resolveServerPath(ROUTES, '/api/products/42/refresh')).toBe('/refresh/products/42')
 })
 
+test('the catalog routes resolve to their server paths and leave their unmigrated siblings to Next', () => {
+  expect(serverRouteTarget('/api/products', '?q=iphone&offset=30', BASE)?.toString()).toBe(
+    'https://vps.test/products?q=iphone&offset=30',
+  )
+  expect(serverRouteTarget('/api/products/42/listings', '?sort=price_asc', BASE)?.toString()).toBe(
+    'https://vps.test/products/42/listings?sort=price_asc',
+  )
+  expect(serverRouteTarget('/api/products/42/mark-reviewed', '', BASE)?.toString()).toBe(
+    'https://vps.test/products/42/mark-reviewed',
+  )
+  expect(isServerRoute('/api/products/42')).toBe(false)
+  expect(isServerRoute('/api/products/42/exclude')).toBe(false)
+  expect(isServerRoute('/api/products/42/include')).toBe(false)
+  expect(isServerRoute('/api/products/42/manual-price')).toBe(false)
+  expect(isServerRoute('/api/products/42/refresh')).toBe(false)
+})
+
 test('serverRouteTarget sends the listing save toggle to the server, keeping the productId query', () => {
   expect(serverRouteTarget('/api/listings/123/save', '?productId=7', BASE)?.toString()).toBe(
     'https://vps.test/listings/123/save?productId=7',

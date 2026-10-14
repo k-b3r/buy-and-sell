@@ -12,7 +12,7 @@ _(undocumented)_
 
 ## dashboard/src/app/analytics/page.tsx
 
-**Interactions:** imports `./CategorySoldChart`, `@/lib/cachedQueries`, `@/lib/queries`
+**Interactions:** imports `./CategorySoldChart`, `@/lib/queries`
 
 ### `default(): Promise<React.JSX.Element>`
 

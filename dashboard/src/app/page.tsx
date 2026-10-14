@@ -1,13 +1,10 @@
-import { getProductSummariesCached, getSubCategoryTreeCached } from '@/lib/cachedQueries'
-import { isExclusionsUiEnabled } from '@/lib/queries'
+import { getProductSummaries, getSubCategoryTree, isExclusionsUiEnabled } from '@/lib/queries'
 import ProductListClient from './ProductListClient'
 
 // Live data - prerendering would pin it to build time, and would also make
 // the build depend on server/ being reachable from the build container (see
-// analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
+// analytics/page.tsx). Freshness is the server's cache's job, not the build's.
 export const dynamic = 'force-dynamic'
-
-const PAGE_SIZE = 30
 
 export default async function HomePage({
   searchParams,
@@ -18,12 +15,11 @@ export default async function HomePage({
   const search = q ?? ''
   const categories = category === undefined ? [] : Array.isArray(category) ? category : [category]
   const subCategories = subCategory === undefined ? [] : Array.isArray(subCategory) ? subCategory : [subCategory]
-  const [products, subCategoryTree, showExclusions] = await Promise.all([
-    getProductSummariesCached({ search, categories, subCategories, offset: 0, limit: PAGE_SIZE }),
-    getSubCategoryTreeCached(),
+  const [{ products, nextOffset }, subCategoryTree, showExclusions] = await Promise.all([
+    getProductSummaries({ search, categories, subCategories }),
+    getSubCategoryTree(),
     isExclusionsUiEnabled(),
   ])
-  const nextOffset = products.length === PAGE_SIZE ? PAGE_SIZE : null
 
   return (
     <div>

@@ -108,7 +108,7 @@ _(undocumented)_
 
 ## dashboard/src/app/page.tsx
 
-**Interactions:** imports `./ProductListClient`, `@/lib/cachedQueries`, `@/lib/queries`
+**Interactions:** imports `./ProductListClient`, `@/lib/queries`
 
 ### `default({ searchParams, }: { searchParams: Promise<{ q?: string; category?: string | string[]; subCategory?: string | string[] }> }): Promise<React.JSX.Element>`
 
@@ -130,12 +130,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/app/revalidateProduct.ts
-
-### `revalidateProduct(productId: number): Promise<void>`
-
-_(undocumented)_
-
 ## dashboard/src/app/robots.ts
 
 ### `default(): MetadataRoute.Robots`
@@ -143,8 +137,6 @@ _(undocumented)_
 _(undocumented)_
 
 ## dashboard/src/app/SaveButton.tsx
-
-**Interactions:** imports `./revalidateProduct`
 
 ### `default({ listingId, productId, initialSaved, variant = 'button', onToggle, }: { listingId: string productId: number | null initialSaved: boolean variant?: 'button' | 'icon' onToggle?: (saved: boolean) => void }): React.JSX.Element`
 

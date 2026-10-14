@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
-import { createListingPhotos } from '../src/modules/collection'
+import { createCatalogRouter } from '../src/modules/catalog/routes'
+import { createListingPhotos, getListingProductId } from '../src/modules/collection'
 import { createCollectionRouter } from '../src/modules/collection/routes'
 import { createRealEstateRouter } from '../src/modules/real-estate/routes'
 import { createApp } from './app'
@@ -11,6 +12,7 @@ import { createCache } from './cache'
 import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
+import { invalidateAfterJobStatus, invalidateAfterListingRefresh, invalidateAfterQuery } from './queryInvalidation'
 import { createQueryHandler } from './routes/query'
 import { createSettingsRouter } from './routes/settings'
 import { createRefreshHandlers } from './refreshHandlers'
@@ -37,15 +39,25 @@ async function main() {
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
-    routers: [createSettingsRouter(pool), createCollectionRouter(pool, cache), createRealEstateRouter(pool)],
+    routers: [
+      createSettingsRouter(pool),
+      createCollectionRouter(pool, cache),
+      createCatalogRouter(pool, cache),
+      createRealEstateRouter(pool),
+    ],
     routes: {
-      'POST /refresh': refreshHandlers.refresh,
+      'POST /refresh': invalidateAfterListingRefresh(refreshHandlers.refresh, cache, (id) =>
+        getListingProductId(pool, id),
+      ),
       'POST /refresh-product': refreshHandlers.refreshProduct,
-      'GET /refresh-job': refreshHandlers.jobStatus,
+      'GET /refresh-job': invalidateAfterJobStatus(refreshHandlers.jobStatus, cache),
       'POST /refresh-job/cancel': refreshHandlers.cancelJob,
       'POST /logs': createLogsHandler(),
       'POST /worker-control': createWorkerControlHandler(),
-      'POST /query': createQueryHandler(pool, (msg) => logger.error(msg)),
+      'POST /query': invalidateAfterQuery(
+        createQueryHandler(pool, (msg) => logger.error(msg)),
+        cache,
+      ),
     },
   })
 

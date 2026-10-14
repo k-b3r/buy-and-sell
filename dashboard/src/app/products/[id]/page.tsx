@@ -1,15 +1,15 @@
 import { notFound } from 'next/navigation'
-import { getProductDetailCached } from '@/lib/cachedQueries'
-import { isExclusionsUiEnabled } from '@/lib/queries'
+import { getProductDetail, getProductListingsPage, isExclusionsUiEnabled } from '@/lib/queries'
 import ListingsView from './ListingsView'
-import { paginateListings, parseListingsFilters } from './listingsFilters'
+import { parseProductId } from './productId'
+import { buildListingsQueryString, parseListingsFilters } from './listingsFilters'
 import RefreshProductButton from './RefreshProductButton'
 import PricingExclusion from './PricingExclusion'
 import BackLink from '../../BackLink'
 
 // Live data - prerendering would pin it to build time, and would also make
 // the build depend on server/ being reachable from the build container (see
-// analytics/page.tsx). Freshness is cachedQueries.ts's job, not the build's.
+// analytics/page.tsx). Freshness is the server's cache's job, not the build's.
 export const dynamic = 'force-dynamic'
 
 export default async function ProductDetailPage({
@@ -22,8 +22,9 @@ export default async function ProductDetailPage({
   const { id } = await params
   const sp = await searchParams
   const from = sp.from
-  const productId = Number(id)
-  const [product, showExclusions] = await Promise.all([getProductDetailCached(productId), isExclusionsUiEnabled()])
+  const productId = parseProductId(id)
+  if (productId === null) notFound()
+  const [product, showExclusions] = await Promise.all([getProductDetail(productId), isExclusionsUiEnabled()])
   if (!product) notFound()
 
   // A listing link back here (see ListingsView's `back` param) carries the
@@ -32,11 +33,10 @@ export default async function ProductDetailPage({
   const initialFilters = parseListingsFilters(
     new URLSearchParams(Object.entries(sp).filter((entry): entry is [string, string] => entry[1] !== undefined)),
   )
-  // First page of listings, computed the exact same way the
-  // /api/products/[id]/listings route computes every subsequent page - see
-  // paginateListings's comment for why this doesn't re-run the discount
-  // median calc or hit the DB again.
-  const initialPage = paginateListings(product.listings, initialFilters, 0)
+  // First page of listings from the same server route every later page comes
+  // from (/api/products/[id]/listings), so both are filtered and sorted by one
+  // implementation. The server serves it from the product detail it just cached.
+  const initialPage = await getProductListingsPage(productId, buildListingsQueryString(initialFilters))
 
   return (
     <div>

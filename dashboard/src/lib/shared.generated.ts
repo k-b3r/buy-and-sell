@@ -196,6 +196,13 @@ export interface CategoryWeeklySoldCounts {
   weeklyCounts: { weekStart: string; count: number; avgPrice: number | null }[]
 }
 
+export interface ListingsPage {
+  listings: ProductListingSummary[]
+  nextOffset: number | null
+  matchedCount: number
+  allIds: string[]
+}
+
 // From src/modules/collection/index.ts
 
 export interface ListingDetail {

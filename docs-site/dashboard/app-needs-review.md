@@ -18,7 +18,7 @@ _(undocumented)_
 
 ## dashboard/src/app/needs-review/page.tsx
 
-**Interactions:** imports `./NeedsReviewClient`, `@/lib/cachedQueries`
+**Interactions:** imports `./NeedsReviewClient`, `@/lib/queries`
 
 ### `default(): Promise<React.JSX.Element>`
 

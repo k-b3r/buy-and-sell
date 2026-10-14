@@ -1,4 +1,4 @@
-import { getSoldCountsBySubCategoryCached } from '@/lib/cachedQueries'
+import { getSoldCountsBySubCategory } from '@/lib/queries'
 import type { CategoryWeeklySoldCounts } from '@/lib/queries'
 import CategorySoldChart from './CategorySoldChart'
 
@@ -28,7 +28,7 @@ function groupByCategory(rows: CategoryWeeklySoldCounts[]): { category: string; 
 }
 
 export default async function AnalyticsPage() {
-  const categories = await getSoldCountsBySubCategoryCached()
+  const categories = await getSoldCountsBySubCategory()
   const groups = groupByCategory(categories)
 
   return (
