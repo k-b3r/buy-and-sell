@@ -51,6 +51,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/lib/proxyDecision.ts
+
+**Interactions:** imports `./auth`, `./serverRoutes`
+
+### `decideProxy({ pathname, search, authCookie, contentType, env }: ProxyInput): ProxyDecision`
+
+_(undocumented)_
+
 ## dashboard/src/lib/queries.ts
 
 **Interactions:** imports `./api`, `./shared.generated`
