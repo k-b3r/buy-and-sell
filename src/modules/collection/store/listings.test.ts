@@ -4,6 +4,8 @@ import {
   getCheckListingsCandidates,
   getDealCheckCandidates,
   getListingCheckCandidate,
+  updateListingFields,
+  upsertListingRow,
   getListingCheckCandidatesForProduct,
   markListingAlive,
   markListingSold,
@@ -12,6 +14,7 @@ import {
   getBackfillCandidates,
   markListingPhotosUnavailable,
 } from './listings'
+import type { ListingFields } from './listings'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -219,4 +222,106 @@ test('getListingCheckCandidate selects one listing by id without filtering on so
   expect(calls[0].sql).toContain('WHERE id = $1')
   expect(calls[0].sql).not.toContain('sold_at')
   expect(calls[0].params).toEqual(['123'])
+})
+
+const fields: ListingFields = {
+  id: '123',
+  title: 'Mic',
+  priceAmount: 500,
+  priceCurrency: 'PHP',
+  description: 'works',
+  condition: 'Used',
+  categoryId: 'c1',
+  locationLat: 14.5,
+  locationLng: 121,
+  locationCity: 'Manila',
+  primaryPhotoUrl: 'https://fb/p.jpg',
+  storedPhotoUrls: ['https://img/0'],
+  listedAt: new Date('2026-08-01T00:00:00Z'),
+}
+
+test('upsertListingRow inserts all fields in column order, upserting on id, with photo arrays and raw json serialized', async () => {
+  const { db, calls } = mockDb()
+  const raw = { id: '123' }
+
+  await upsertListingRow(db, fields, ['a', 'b'], raw)
+
+  expect(calls[0].sql).toContain('INSERT INTO listings')
+  expect(calls[0].sql).toContain('ON CONFLICT (id) DO UPDATE SET')
+  expect(calls[0].params).toEqual([
+    '123',
+    'Mic',
+    500,
+    'PHP',
+    'works',
+    'Used',
+    'c1',
+    14.5,
+    121,
+    'Manila',
+    'https://fb/p.jpg',
+    '["https://img/0"]',
+    '["a","b"]',
+    fields.listedAt,
+    '{"id":"123"}',
+  ])
+})
+
+test('upsertListingRow stores null photo arrays when there are none', async () => {
+  const { db, calls } = mockDb()
+
+  await upsertListingRow(db, { ...fields, storedPhotoUrls: null }, null, {})
+
+  expect(calls[0].params[11]).toBeNull()
+  expect(calls[0].params[12]).toBeNull()
+})
+
+test('updateListingFields without a photo update touches only the editable text and price columns', async () => {
+  const { db, calls } = mockDb()
+
+  await updateListingFields(db, fields, { id: '123' }, null)
+
+  expect(calls[0].sql).toContain(
+    'SET title = $2, price_amount = $3, price_currency = $4, description = $5, condition = $6, raw_json = $7',
+  )
+  expect(calls[0].sql).not.toContain('source_photo_ids')
+  expect(calls[0].sql).toContain('RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at')
+  expect(calls[0].params).toEqual(['123', 'Mic', 500, 'PHP', 'works', 'Used', '{"id":"123"}'])
+})
+
+test('updateListingFields with a baseline photo update sets only source_photo_ids', async () => {
+  const { db, calls } = mockDb()
+
+  await updateListingFields(db, fields, {}, { kind: 'baseline', sourcePhotoIds: ['a'] })
+
+  expect(calls[0].sql).toContain('source_photo_ids = $8')
+  expect(calls[0].sql).not.toContain('primary_photo_url')
+  expect(calls[0].params[7]).toBe('["a"]')
+})
+
+test('updateListingFields with a replace photo update sets primary, stored and source photo columns together', async () => {
+  const { db, calls } = mockDb()
+
+  await updateListingFields(
+    db,
+    fields,
+    {},
+    {
+      kind: 'replace',
+      primaryPhotoUrl: 'https://fb/new.jpg',
+      storedPhotoUrls: ['https://img/0', 'https://img/1'],
+      sourcePhotoIds: ['a', 'b'],
+    },
+  )
+
+  expect(calls[0].sql).toContain('primary_photo_url = $8, stored_photo_urls = $9, source_photo_ids = $10')
+  expect(calls[0].params.slice(7)).toEqual(['https://fb/new.jpg', '["https://img/0","https://img/1"]', '["a","b"]'])
+})
+
+test('updateListingFields returns the pre-update row, or undefined when the listing was not found', async () => {
+  const prior = { old_price_amount: '1', old_price_currency: 'PHP', old_first_seen_at: '2026-08-01' }
+  const db = (rows: unknown[]): DbClient => ({ query: async () => ({ rows }) })
+
+  expect(await updateListingFields(db([prior]), fields, {}, null)).toEqual(prior)
+  expect(await updateListingFields(db([]), fields, {}, null)).toBeUndefined()
 })

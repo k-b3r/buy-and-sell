@@ -1,4 +1,133 @@
 import type { DbClient } from '../../../platform/storage'
+import type { PriorPriceRow } from '../../real-estate'
+
+export interface ListingFields {
+  id: string
+  title: string | null
+  priceAmount: number | null
+  priceCurrency: string | null
+  description: string | null
+  condition: string | null
+  categoryId: string | null
+  locationLat: number | null
+  locationLng: number | null
+  locationCity: string | null
+  primaryPhotoUrl: string | null
+  storedPhotoUrls: string[] | null
+  listedAt: Date | null
+}
+
+export async function upsertListingRow(
+  db: DbClient,
+  f: ListingFields,
+  sourcePhotoIds: string[] | null,
+  rawJson: Record<string, unknown>,
+): Promise<void> {
+  await db.query(
+    `INSERT INTO listings (
+       id, title, price_amount, price_currency, description, condition, category_id,
+       location_lat, location_lng, location_city, primary_photo_url, stored_photo_urls, source_photo_ids, listed_at, raw_json
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+     ON CONFLICT (id) DO UPDATE SET
+       title = EXCLUDED.title,
+       price_amount = EXCLUDED.price_amount,
+       price_currency = EXCLUDED.price_currency,
+       description = EXCLUDED.description,
+       condition = EXCLUDED.condition,
+       category_id = EXCLUDED.category_id,
+       location_lat = EXCLUDED.location_lat,
+       location_lng = EXCLUDED.location_lng,
+       location_city = EXCLUDED.location_city,
+       primary_photo_url = EXCLUDED.primary_photo_url,
+       stored_photo_urls = EXCLUDED.stored_photo_urls,
+       source_photo_ids = EXCLUDED.source_photo_ids,
+       listed_at = EXCLUDED.listed_at,
+       raw_json = EXCLUDED.raw_json,
+       last_seen_at = now(),
+       updated_at = now()`,
+    [
+      f.id,
+      f.title,
+      f.priceAmount,
+      f.priceCurrency,
+      f.description,
+      f.condition,
+      f.categoryId,
+      f.locationLat,
+      f.locationLng,
+      f.locationCity,
+      f.primaryPhotoUrl,
+      f.storedPhotoUrls ? JSON.stringify(f.storedPhotoUrls) : null,
+      sourcePhotoIds ? JSON.stringify(sourcePhotoIds) : null,
+      f.listedAt,
+      JSON.stringify(rawJson),
+    ],
+  )
+}
+
+// What a recheck refresh does to the photo columns, decided by the caller
+// (listings.ts refreshListingFields): none, record the ids as a baseline, or
+// replace the stored set after a re-upload.
+export type PhotoUpdate =
+  | { kind: 'baseline'; sourcePhotoIds: string[] }
+  | { kind: 'replace'; primaryPhotoUrl: string | null; storedPhotoUrls: string[]; sourcePhotoIds: string[] }
+
+// Text/price-only refresh of a listing's editable fields, plus the optional
+// photo columns. Returns the row as it was before the update (RETURNING from
+// a pre-update subselect) so the caller can detect a price change.
+export async function updateListingFields(
+  db: DbClient,
+  f: ListingFields,
+  rawJson: Record<string, unknown>,
+  photoUpdate: PhotoUpdate | null,
+): Promise<PriorPriceRow | undefined> {
+  const setClauses = [
+    'title = $2',
+    'price_amount = $3',
+    'price_currency = $4',
+    'description = $5',
+    'condition = $6',
+    'raw_json = $7',
+    'last_seen_at = now()',
+    'updated_at = now()',
+  ]
+  const params: unknown[] = [
+    f.id,
+    f.title,
+    f.priceAmount,
+    f.priceCurrency,
+    f.description,
+    f.condition,
+    JSON.stringify(rawJson),
+  ]
+  if (photoUpdate?.kind === 'baseline') {
+    params.push(JSON.stringify(photoUpdate.sourcePhotoIds))
+    setClauses.push(`source_photo_ids = $${params.length}`)
+  } else if (photoUpdate?.kind === 'replace') {
+    params.push(
+      photoUpdate.primaryPhotoUrl,
+      JSON.stringify(photoUpdate.storedPhotoUrls),
+      JSON.stringify(photoUpdate.sourcePhotoIds),
+    )
+    setClauses.push(
+      `primary_photo_url = $${params.length - 2}`,
+      `stored_photo_urls = $${params.length - 1}`,
+      `source_photo_ids = $${params.length}`,
+    )
+  }
+
+  const setSql = setClauses.join(', ')
+  const updated = (await db.query(
+    `UPDATE listings SET ${setSql}
+     FROM (SELECT price_amount AS old_price_amount, price_currency AS old_price_currency, first_seen_at AS old_first_seen_at
+           FROM listings WHERE id = $1) prev
+     WHERE listings.id = $1
+     RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
+    params,
+  )) as { rows?: PriorPriceRow[] } | undefined
+  return updated?.rows?.[0]
+}
 
 // Dedup source for collection runs — replaces the old JSONL-file-based
 // loadPersistedIds. Postgres is the single source of truth now; no local

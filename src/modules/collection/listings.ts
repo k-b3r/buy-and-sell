@@ -1,9 +1,9 @@
 import type { DbClient } from '../../platform/storage'
 import type { Logger } from '../../platform/logger'
-import type { PriorPriceRow } from '../real-estate'
 import { recordRealEstatePriceChange } from '../real-estate'
 import type { ListingPhotos } from './photos'
-import type { CheckListingsCandidate } from './store/listings'
+import type { CheckListingsCandidate, ListingFields, PhotoUpdate } from './store/listings'
+import { updateListingFields, upsertListingRow } from './store/listings'
 // Negotiable-keyword flagging is pricing's rule, run on every listing write.
 import { flagNegotiableFromKeywords } from '../pricing'
 
@@ -14,26 +14,10 @@ function extractField(listing: Record<string, unknown>, ...keys: string[]): unkn
   return null
 }
 
-interface ParsedListingFields {
-  id: string
-  title: string | null
-  priceAmount: number | null
-  priceCurrency: string | null
-  description: string | null
-  condition: string | null
-  categoryId: string | null
-  locationLat: number | null
-  locationLng: number | null
-  locationCity: string | null
-  primaryPhotoUrl: string | null
-  storedPhotoUrls: string[] | null
-  listedAt: Date | null
-}
-
 // Shared by upsertListing (full insert/refresh, including photos) and
 // refreshListingFields (text/price-only refresh) so the two can't drift on
 // how a raw Facebook listing object gets parsed.
-function parseListingFields(listing: Record<string, unknown>): ParsedListingFields {
+function parseListingFields(listing: Record<string, unknown>): ListingFields {
   const creationTime = listing.creation_time as number | undefined
   return {
     id: String(listing.id),
@@ -46,7 +30,7 @@ function parseListingFields(listing: Record<string, unknown>): ParsedListingFiel
   }
 }
 
-function parsePrice(listing: Record<string, unknown>): Pick<ParsedListingFields, 'priceAmount' | 'priceCurrency'> {
+function parsePrice(listing: Record<string, unknown>): Pick<ListingFields, 'priceAmount' | 'priceCurrency'> {
   const priceObj = listing.listing_price as { amount?: string; currency?: string } | undefined
   return {
     priceAmount: priceObj?.amount !== undefined ? Number(priceObj.amount) : null,
@@ -56,7 +40,7 @@ function parsePrice(listing: Record<string, unknown>): Pick<ParsedListingFields,
 
 function parseDetails(
   listing: Record<string, unknown>,
-): Pick<ParsedListingFields, 'description' | 'condition' | 'categoryId'> {
+): Pick<ListingFields, 'description' | 'condition' | 'categoryId'> {
   // Facebook nests condition inside attribute_data (an array of {label, value,
   // attribute_name} entries covering Condition, Brand, etc.), not a top-level
   // "condition" field — confirmed live, 97% of real listings have it here.
@@ -70,7 +54,7 @@ function parseDetails(
 
 function parseLocation(
   listing: Record<string, unknown>,
-): Pick<ParsedListingFields, 'locationLat' | 'locationLng' | 'locationCity'> {
+): Pick<ListingFields, 'locationLat' | 'locationLng' | 'locationCity'> {
   const location = listing.location as
     { latitude?: number; longitude?: number; reverse_geocode?: { city?: string } } | undefined
   return {
@@ -80,9 +64,7 @@ function parseLocation(
   }
 }
 
-function parsePhotos(
-  listing: Record<string, unknown>,
-): Pick<ParsedListingFields, 'primaryPhotoUrl' | 'storedPhotoUrls'> {
+function parsePhotos(listing: Record<string, unknown>): Pick<ListingFields, 'primaryPhotoUrl' | 'storedPhotoUrls'> {
   return {
     primaryPhotoUrl: (listing.primary_listing_photo as { image?: { uri?: string } } | undefined)?.image?.uri ?? null,
     storedPhotoUrls: (listing.stored_photo_urls as string[] | undefined) ?? null,
@@ -109,47 +91,7 @@ export async function upsertListing(db: DbClient, listing: Record<string, unknow
   const f = parseListingFields(listing)
   const photoIds = extractPhotoIds(listing)
 
-  await db.query(
-    `INSERT INTO listings (
-       id, title, price_amount, price_currency, description, condition, category_id,
-       location_lat, location_lng, location_city, primary_photo_url, stored_photo_urls, source_photo_ids, listed_at, raw_json
-     )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-     ON CONFLICT (id) DO UPDATE SET
-       title = EXCLUDED.title,
-       price_amount = EXCLUDED.price_amount,
-       price_currency = EXCLUDED.price_currency,
-       description = EXCLUDED.description,
-       condition = EXCLUDED.condition,
-       category_id = EXCLUDED.category_id,
-       location_lat = EXCLUDED.location_lat,
-       location_lng = EXCLUDED.location_lng,
-       location_city = EXCLUDED.location_city,
-       primary_photo_url = EXCLUDED.primary_photo_url,
-       stored_photo_urls = EXCLUDED.stored_photo_urls,
-       source_photo_ids = EXCLUDED.source_photo_ids,
-       listed_at = EXCLUDED.listed_at,
-       raw_json = EXCLUDED.raw_json,
-       last_seen_at = now(),
-       updated_at = now()`,
-    [
-      f.id,
-      f.title,
-      f.priceAmount,
-      f.priceCurrency,
-      f.description,
-      f.condition,
-      f.categoryId,
-      f.locationLat,
-      f.locationLng,
-      f.locationCity,
-      f.primaryPhotoUrl,
-      f.storedPhotoUrls ? JSON.stringify(f.storedPhotoUrls) : null,
-      photoIds ? JSON.stringify(photoIds) : null,
-      f.listedAt,
-      JSON.stringify(listing),
-    ],
-  )
+  await upsertListingRow(db, f, photoIds, listing)
   await flagNegotiableFromKeywords(db, f.id, f.title, f.description)
 }
 
@@ -194,31 +136,11 @@ export async function refreshListingFields(
   const f = parseListingFields(listing)
   const currentPhotoIds = extractPhotoIds(listing)
 
-  const setClauses = [
-    'title = $2',
-    'price_amount = $3',
-    'price_currency = $4',
-    'description = $5',
-    'condition = $6',
-    'raw_json = $7',
-    'last_seen_at = now()',
-    'updated_at = now()',
-  ]
-  const params: unknown[] = [
-    f.id,
-    f.title,
-    f.priceAmount,
-    f.priceCurrency,
-    f.description,
-    f.condition,
-    JSON.stringify(listing),
-  ]
-
+  let photoUpdate: PhotoUpdate | null = null
   let pruneUnusedPhotos = async (): Promise<void> => {}
   if (currentPhotoIds !== null) {
     if (storedPhotoIds === null) {
-      params.push(JSON.stringify(currentPhotoIds))
-      setClauses.push(`source_photo_ids = $${params.length}`)
+      photoUpdate = { kind: 'baseline', sourcePhotoIds: currentPhotoIds }
     } else if (!photoIdsEqual(currentPhotoIds, storedPhotoIds)) {
       logger.info(`listing ${f.id} photos changed since last check, re-fetching`)
       // No deleteAll first: replace writes deterministic keys (listings/<id>/<i>),
@@ -226,34 +148,25 @@ export async function refreshListingFields(
       // after the UPDATE below succeeded, and a re-fetch that gets nothing
       // leaves the stored photos the DB points at intact.
       const replaced = await photos.replace(f.id, listing.listing_photos)
-      const newUrls = replaced.urls
       pruneUnusedPhotos = replaced.pruneUnused
-      if (newUrls.length > 0) {
-        params.push(f.primaryPhotoUrl, JSON.stringify(newUrls), JSON.stringify(currentPhotoIds))
-        setClauses.push(
-          `primary_photo_url = $${params.length - 2}`,
-          `stored_photo_urls = $${params.length - 1}`,
-          `source_photo_ids = $${params.length}`,
-        )
+      if (replaced.urls.length > 0) {
+        photoUpdate = {
+          kind: 'replace',
+          primaryPhotoUrl: f.primaryPhotoUrl,
+          storedPhotoUrls: replaced.urls,
+          sourcePhotoIds: currentPhotoIds,
+        }
       } else {
         logger.warn(`listing ${f.id} photo re-fetch returned nothing, keeping existing photos`)
       }
     }
   }
 
-  const setSql = setClauses.join(', ')
-  const updated = (await db.query(
-    `UPDATE listings SET ${setSql}
-     FROM (SELECT price_amount AS old_price_amount, price_currency AS old_price_currency, first_seen_at AS old_first_seen_at
-           FROM listings WHERE id = $1) prev
-     WHERE listings.id = $1
-     RETURNING prev.old_price_amount, prev.old_price_currency, prev.old_first_seen_at`,
-    params,
-  )) as { rows?: PriorPriceRow[] } | undefined
+  const prior = await updateListingFields(db, f, listing, photoUpdate)
   await pruneUnusedPhotos()
   await recordRealEstatePriceChange(db, logger, {
     listingId: f.id,
-    prior: updated?.rows?.[0],
+    prior,
     newPrice: f.priceAmount,
     newCurrency: f.priceCurrency,
   })
