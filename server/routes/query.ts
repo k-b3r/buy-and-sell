@@ -1,6 +1,5 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
-import { getAllSettings, updateSettings } from '../../src/platform/settings'
 import {
   getProductDetail,
   getProductsNeedingReview,
@@ -10,11 +9,9 @@ import {
   markProductReviewed,
 } from '../../src/modules/catalog'
 import {
-  getCollectKeywords,
   getListingDetail,
   getListingProductId,
   getSavedListings,
-  replaceCollectKeywords,
   saveListing,
   unsaveListing,
 } from '../../src/modules/collection'
@@ -75,10 +72,6 @@ const REGISTRY = {
   getUnreadDiscountNotificationCount,
   markDiscountNotificationRead,
   markAllDiscountNotificationsRead,
-  getAllSettings,
-  updateSettings,
-  getCollectKeywords,
-  replaceCollectKeywords,
   getListingProductId,
   getRealEstateListings,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
