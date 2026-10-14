@@ -1,21 +1,6 @@
 import type { RouteHandler, RouteResult } from '../app'
 import type { QueryClient } from '../../src/platform/storage'
 import { getListingProductId } from '../../src/modules/collection'
-import {
-  getComparableListings,
-  getDeals,
-  excludeProductFromReview,
-  getDiscountNotifications,
-  getExcludedProducts,
-  getExclusionSummary,
-  includeInPricing,
-  getPeerMedianPrice,
-  getSoldComparablePrice,
-  getUnreadDiscountNotificationCount,
-  markAllDiscountNotificationsRead,
-  markDiscountNotificationRead,
-  setManualPrice,
-} from '../../src/modules/pricing'
 
 // The dashboard runs on Vercel and has no route to this box's Postgres, which
 // listens on localhost only (deliberately - see the migration off Neon). This
@@ -34,19 +19,6 @@ import {
 // it here too. That is the intended friction: it's the whole security
 // boundary.
 const REGISTRY = {
-  setManualPrice,
-  excludeProductFromReview,
-  includeInPricing,
-  getExclusionSummary,
-  getExcludedProducts,
-  getSoldComparablePrice,
-  getPeerMedianPrice,
-  getComparableListings,
-  getDeals,
-  getDiscountNotifications,
-  getUnreadDiscountNotificationCount,
-  markDiscountNotificationRead,
-  markAllDiscountNotificationsRead,
   getListingProductId,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
