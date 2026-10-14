@@ -9,6 +9,11 @@ import { decideProxy } from '@/lib/proxyDecision'
 // injected here, so the browser only ever calls same-origin /api/* and never
 // sees REFRESH_API_KEY. /api/login stays a Next handler (it sets the cookie).
 //
+// Known side effect: the VPS now sees Vercel egress IPs, not the browser's, so
+// its per-IP failed-auth rate limiter (server/rateLimiter.ts) keys on Vercel.
+// Acceptable: the bearer key is never typed by a user, so the limiter only
+// guards against a wrong or leaked key, not password guessing.
+//
 export function proxy(request: NextRequest) {
   const decision = decideProxy({
     pathname: request.nextUrl.pathname,
