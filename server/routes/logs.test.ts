@@ -1,6 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import request from 'supertest'
+import { createApp } from '../app'
 import { createLogsHandler, MAX_READ_BYTES } from './logs'
 import type { RouteResult } from '../app'
 
@@ -129,5 +131,22 @@ test(
     const result = asLogsResult(await handle({ worker: 'collect', offset: 0 }))
 
     expect(result.body.nextOffset).toBe(MAX_READ_BYTES)
+  }),
+)
+
+test(
+  'POST /logs through the app tails the worker log with the bearer key',
+  withTmpDir(async (dir) => {
+    writeFileSync(path.join(dir, 'collector.log'), 'one\ntwo\n')
+    const app = createApp({
+      apiKey: 'test-key',
+      log: () => {},
+      routes: { 'POST /logs': createLogsHandler(dir) },
+    })
+
+    const res = await request(app).post('/logs').set('authorization', 'Bearer test-key').send({ worker: 'collect' })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ lines: ['one', 'two'], nextOffset: 8 })
   }),
 )
