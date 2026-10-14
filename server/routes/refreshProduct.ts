@@ -20,7 +20,7 @@ export interface RefreshProductDeps extends RefreshDeps {
 }
 
 export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHandler {
-  const { db, photos, logger, delay, lock, jobs, pacer, driverFactory, tunnelCheck } = deps
+  const { db, photos, logger, delay, lock, jobs, pacer, driverFactory, tunnelCheck, cache } = deps
   return async function handleRefreshProduct(body: unknown): Promise<RouteResult> {
     const productId = (body as Record<string, unknown> | null)?.productId
     if (typeof productId !== 'number' || !Number.isInteger(productId)) {
@@ -102,6 +102,11 @@ export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHand
         // recent action and skip its own pacing gap entirely.
         lock.release()
         pacer.recordActionComplete()
+        // A finished, failed or cancelled job may all have written listings,
+        // so the product's cached page and the list drop the stale entries
+        // here, where the job state lives (the dashboard used to do this on
+        // the poll that saw the final status).
+        cache.invalidate('products-list', `product:${productId}`)
         await close?.()
       }
     })()

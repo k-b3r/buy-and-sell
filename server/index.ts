@@ -13,7 +13,7 @@ import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
 import { createQueryHandler } from './routes/query'
 import { createSettingsRouter } from './routes/settings'
-import { createRefreshHandlers } from './refreshHandlers'
+import { createRefreshHandlers, createRefreshRouter } from './refreshHandlers'
 
 // Run from within server/ (`pnpm start` / `pnpm dev`) - .env is resolved
 // relative to CWD, so this expects server/.env, a separate file from the
@@ -33,11 +33,16 @@ async function main() {
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
-  const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env })
+  const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env, cache })
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
-    routers: [createSettingsRouter(pool), createCollectionRouter(pool, cache), createRealEstateRouter(pool)],
+    routers: [
+      createSettingsRouter(pool),
+      createCollectionRouter(pool, cache),
+      createRealEstateRouter(pool),
+      createRefreshRouter(refreshHandlers),
+    ],
     routes: {
       'POST /refresh': refreshHandlers.refresh,
       'POST /refresh-product': refreshHandlers.refreshProduct,
