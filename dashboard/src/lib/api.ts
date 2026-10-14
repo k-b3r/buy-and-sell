@@ -1,6 +1,5 @@
 // Typed fetch helper for the VPS server's resource routes (GET /settings,
-// PUT /collect-keywords, ...). Replaces the single POST /query rpc() in
-// queries.ts one feature at a time.
+// PUT /collect-keywords, ...).
 //
 // SERVER-ONLY. Reads REFRESH_API_KEY and must never be imported by a client
 // component: the browser calls same-origin /api/* and never sees the key.

@@ -157,10 +157,9 @@ export interface DiscountNotification {
 
 // Written by the root pipeline's detectAndRecordDiscountNotifications (see
 // discount-notifications.ts) right after a listing first
-// gets a product_id - not queried live here, just displayed. No
-// unstable_cache wrapper (unlike most of cachedQueries.ts): a bell badge
-// showing a stale count defeats the point, and this table is small/indexed
-// enough that a plain read is cheap.
+// gets a product_id - not queried live here, just displayed. Not cached by
+// the server's routes: a bell badge showing a stale count defeats the point,
+// and this table is small/indexed enough that a plain read is cheap.
 export async function getDiscountNotifications(db: QueryClient, limit = 20): Promise<DiscountNotification[]> {
   const result = await db.query(
     `SELECT dn.id, dn.listing_id, dn.product_id, l.title, l.primary_photo_url, l.stored_photo_urls,

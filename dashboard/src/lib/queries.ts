@@ -1,22 +1,21 @@
 // Server-side data access for the dashboard.
 //
-// The SQL used to live here. It now lives in the feature modules
-// (src/modules/*/queries.ts, settings in src/platform/settings.ts), on the
-// box that owns the database: Postgres moved off Neon onto that VPS and
-// listens on localhost only, so this app - running as Vercel Lambdas - has no
-// route to it. Each function below names a query the server has whitelisted (see
-// server/routes/query.ts) and gets rows back over the same authenticated
-// tunnel /logs and /worker-control already use. No SQL crosses the network,
-// so a leaked REFRESH_API_KEY can only run the queries this app ships.
+// The SQL lives in the feature modules (src/modules/*/queries.ts, settings in
+// src/platform/settings.ts), on the box that owns the database: Postgres
+// listens on the VPS's localhost only, so this app - running as Vercel
+// Lambdas - has no route to it. Each function below calls one of the server's
+// resource routes (src/modules/*/routes.ts, mounted by server/index.ts)
+// through api() over an authenticated tunnel. No SQL crosses the network, and
+// the server caches the reads itself (300 s TTL, tag invalidation).
 //
 // SERVER-ONLY. Everything here reads REFRESH_API_KEY and must never be
 // imported by a client component - the pure pricing predicates a browser
 // needs live in ./shared.generated.ts, which is safe to import anywhere.
 //
-// Adding a query means adding it to its module's queries.ts AND to that route's
-// REGISTRY, then adding the wrapper here. The two packages share no import
-// path: the row types come from ./shared.generated (scripts/gen-dashboard-shared.ts),
-// re-exported here next to the calls that return them.
+// Adding a read means adding its route to the module's routes.ts, then the
+// wrapper here. The two packages share no import path: the row types come
+// from ./shared.generated (scripts/gen-dashboard-shared.ts), re-exported here
+// next to the calls that return them.
 
 import type {
   CategoryWeeklySoldCounts,
