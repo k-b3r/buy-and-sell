@@ -27,6 +27,7 @@ const CURATED_DATA_FILES = [
 // prettier-ignore
 const STORE_ENFORCED_MODULES = [
   'catalog',
+  'pricing',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store
