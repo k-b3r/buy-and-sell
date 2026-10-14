@@ -3,7 +3,7 @@ import { JUNK_PRICE_FLOOR, MAGNITUDE_OUTLIER_RATIO, MIN_PEER_SAMPLE } from '../c
 // Shared SQL fragments: the SQL side of the junk-price, magnitude-outlier and
 // clean-median rules in clean-median.ts, the peer-listing scope, and the
 // price laterals catalog and collection queries join. Constant strings and
-// pure builders only, no `.query(` here. Exported through pricing/index.ts.
+// pure builders only, no database calls. Exported through pricing/index.ts.
 
 // SQL equivalent of isPlaceholderPrice (clean-median.ts), negated - the single
 // source-of-truth snippet every SQL price filter uses.
