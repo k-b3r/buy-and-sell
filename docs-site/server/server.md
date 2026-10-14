@@ -114,6 +114,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## server/routes/settings.ts
+
+**Interactions:** imports `../../src/platform/settings`, `../../src/platform/settings-schema`, `../../src/platform/storage`
+
+### `createSettingsRouter(db: QueryClient): Router`
+
+_(undocumented)_
+
 ## server/routes/workerControl.ts
 
 **Interactions:** imports `../../src/platform/delay`, `../app`, `./logs`

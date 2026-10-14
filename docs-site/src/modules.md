@@ -552,6 +552,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/collection/routes.ts
+
+**Interactions:** imports `../../platform/storage`, `./queries`, `./schemas`
+
+### `createCollectionRouter(db: QueryClient): Router`
+
+_(undocumented)_
+
 ## src/modules/collection/run.ts
 
 **Interactions:** imports `../../platform/review`, `../../platform/storage`, `./driver`, `./extract/detail`, `./extract/grid`, `./listings`, `./location`, `./paginate`, `./photos`, `./wall`
