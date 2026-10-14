@@ -44,6 +44,7 @@ const RUN_FREE_MODULES = [
   'catalog',
   'real-estate',
   'pricing',
+  'collection',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store

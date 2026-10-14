@@ -1,6 +1,6 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 
-// collect.ts's --cycle search-query list - editable via the Settings page's
+// The collect worker's --cycle search-query list - editable via the Settings page's
 // collect tab (add/remove rows, not per-field number knobs like the rest of
 // settings, hence its own table/endpoint instead of a settings row).
 export interface CollectKeyword {

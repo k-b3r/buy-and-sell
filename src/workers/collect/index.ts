@@ -5,8 +5,9 @@ import { realDelay } from '../../platform/delay'
 import { runWorkerProcess } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
-import { createListingPhotos, resolveProxy, runCollection } from '../../modules/collection'
+import { createListingPhotos, resolveProxy } from '../../modules/collection'
 import { runCollectLaps } from './laps'
+import { runCollection } from './run'
 
 async function main() {
   loadEnvFile()
@@ -22,9 +23,9 @@ async function main() {
   // still overrides it exactly as before.
   const explicitQuery = !cycle ? rest[0] : undefined
   const maxItemsArg = rest[cycle ? 0 : 1]
-  // collect.ts's pagination loop treats an unset maxItems as "just the first
+  // run.ts's pagination loop treats an unset maxItems as "just the first
   // page" (its target defaults to whatever the first batch happened to
-  // contain, not a real cap) - confirmed live 2026-08-28: every collect.ts
+  // contain, not a real cap) - confirmed live 2026-08-28: every run.ts
   // caller here (manual `pnpm run collect` with no args, and the
   // dashboard's Start button, which spawns with zero args) hit exactly that
   // and silently never paginated past page 1. An explicit CLI arg always

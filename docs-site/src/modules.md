@@ -314,22 +314,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/collection/collect.ts
-
-**Interactions:** imports `../../platform/review`, `../../platform/storage`, `./driver`, `./extract/detail`, `./extract/grid`, `./listings`, `./location`, `./paginate`, `./photos`, `./store/listings`, `./wall`
-
-### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
-
-_(undocumented)_
-
-### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
-
-_(undocumented)_
-
-### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
-
-_(undocumented)_
-
 ## src/modules/collection/driver.ts
 
 **Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./extract/grid`, `./paginate`, `./photos`
@@ -382,7 +366,15 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+
+_(undocumented)_
+
 ### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
+
+_(undocumented)_
+
+### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
 
 _(undocumented)_
 
@@ -438,11 +430,39 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+### `extractGridListings(html: string): GridListing[]`
 
 _(undocumented)_
 
-### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
+### `looksLikeListing(obj: unknown): obj is Record<string, unknown>`
+
+_(undocumented)_
+
+### `extractDetailFields(html: string): Record<string, unknown>`
+
+_(undocumented)_
+
+### `extractCursor(html: string): PageCursor | null`
+
+_(undocumented)_
+
+### `extractLsd(html: string): string | null`
+
+_(undocumented)_
+
+### `parsePaginationResponse(json: string): PaginationPage | null`
+
+_(undocumented)_
+
+### `isWithinServiceArea(listing: Record<string, unknown>): boolean`
+
+_(undocumented)_
+
+### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
 
 _(undocumented)_
 
@@ -496,6 +516,18 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/collection/page-state.ts
+
+**Interactions:** imports `./driver`, `./extract/detail`, `./wall`
+
+### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
 ## src/modules/collection/paginate.ts
 
 ### `extractCursor(html: string): PageCursor | null`
@@ -512,7 +544,7 @@ _(undocumented)_
 
 ## src/modules/collection/photo-backfill.ts
 
-**Interactions:** imports `./collect`, `./driver`, `./extract/detail`, `./listings`, `./proxy`, `./store/listings`
+**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./page-state`, `./proxy`, `./store/listings`
 
 ### `requireBackfillProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ResolvedProxy>`
 
@@ -544,13 +576,9 @@ _(undocumented)_
 
 ## src/modules/collection/recheck.ts
 
-**Interactions:** imports `./collect`, `./driver`, `./extract/detail`, `./listings`, `./store/listings`
+**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./page-state`, `./store/listings`
 
 ### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
-
-_(undocumented)_
-
-### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
 
 _(undocumented)_
 

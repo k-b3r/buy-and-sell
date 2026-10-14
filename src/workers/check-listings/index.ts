@@ -10,11 +10,11 @@ import {
   getDealCheckCandidates,
   putDealsFirst,
   resolveProxy,
-  runCheckListings,
 } from '../../modules/collection'
 import { getDealListingIds } from '../../modules/pricing'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 import { parseLimitArg } from '../../platform/limit-arg'
+import { runCheckListings } from './run'
 
 // How many top-ranked /deals listings are considered for priority checking.
 const DEALS_PRIORITY_POOL = 200
