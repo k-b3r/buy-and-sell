@@ -21,15 +21,15 @@ Shape stays modular monolith; module boundary unchanged. This spec only fixes th
 
 A module folder contains:
 
-| Path                      | Holds                                                       | Rule                                                                                                                                       |
-| ------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `index.ts`                | public API                                                  | unchanged; only what callers outside use                                                                                                   |
-| `schemas.ts`, `routes.ts` | zod schemas, express router                                 | transport; only `server/` imports `routes.ts` (existing depcruise rule)                                                                    |
-| `<capability>.ts`         | one capability: prompt, parse, decide, loop                 | noun names (`extraction`, `enrichment`, `merge`, `model-mismatch`). No `run-`, no verb prefix. Calls `store/` and injected clients. No SQL |
-| `<capability>/`           | same, split when the file passes the line hint              | `prompt.ts`, `parse.ts`, and `<capability>.ts` for the loop. Never `run.ts`                                                                |
-| `store/<entity>.ts`       | every `.query(` call, params, row mapping                   | one file per entity or read model. No decisions (no retry, ranking, "should we"). Takes `db: DbClient` or `QueryClient`                    |
-| `store/*.test.ts`         | query-shape and param assertions                            | the query is the contract                                                                                                                  |
-| `extract/`                | existing DOM extractors in collection, real-estate, catalog | unchanged                                                                                                                                  |
+| Path                      | Holds                                                       | Rule                                                                                                                                                                   |
+| ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`                | public API                                                  | unchanged; only what callers outside use                                                                                                                               |
+| `schemas.ts`, `routes.ts` | zod schemas, express router                                 | transport; only `server/` imports `routes.ts` (existing depcruise rule)                                                                                                |
+| `<capability>.ts`         | one capability: prompt, parse, decide                       | noun names (`extraction`, `enrichment`, `merge`, `model-mismatch`). No `run-`, no verb prefix. Calls `store/` and injected clients. No SQL. No `run*` loop (see below) |
+| `<capability>/`           | same, split when the file passes the line hint              | `prompt.ts`, `parse.ts`, and `<capability>.ts` for the decisions. Never `run.ts`                                                                                       |
+| `store/<entity>.ts`       | every `.query(` call, params, row mapping                   | one file per entity or read model. No decisions (no retry, ranking, "should we"). Takes `db: DbClient` or `QueryClient`                                                |
+| `store/*.test.ts`         | query-shape and param assertions                            | the query is the contract                                                                                                                                              |
+| `extract/`                | existing DOM extractors in collection, real-estate, catalog | unchanged                                                                                                                                                              |
 
 Existing rules kept: tests next to the file, injected `db`/`logger`/`delay`, constant SQL fragments allowed anywhere (only `.query(` calls are restricted).
 
@@ -38,6 +38,16 @@ Shared SQL fragments (pricing's price laterals, outlier and clean-median CTEs, u
 ### Lint rule (tool)
 
 In `eslint.config.js` (repo-specific block): `no-restricted-syntax` on `CallExpression[callee.property.name='query']` for `src/modules/**/*.ts`, off for `src/modules/**/store/**` and `*.test.ts`. A baseline list turns the rule off for modules not yet migrated, so it can land with the catalog PR. Each later PR removes its module from the baseline; empty baseline = done. Covered by `tests/lint-config.test.ts`.
+
+### Run loops live in the caller (decision 2026-10-14)
+
+`src/modules/*` hold only business logic: decisions, prompts, parsing, `store/`. An orchestration loop named `run*` (batching, pacing, retry, stop conditions) is called by exactly one worker or util `index.ts` and has no other caller, so it moves out of the module into the caller's folder as a sibling `run.ts` (`src/workers/enrich-products/run.ts`). `index.ts` stays pure wiring (the thin-entry lint rules apply to `index.ts` only); `run.ts` and its `run.test.ts` sit next to it.
+
+- Modules export capabilities: what a loop uses from a module (store functions, prompt and parse helpers, types, constants) is exported by name through the module's `index.ts`. `run.ts` imports from `modules/<name>` index only, no deep imports, no `export *`, no unused exports (knip).
+- Loop tests move with the loop (`run.test.ts`); helper tests stay with the module.
+- Fit check: unchanged (modular monolith). A loop with a second caller, or logic worth testing apart from the loop, is a capability and stays in the module under a noun name.
+- Enforced by `no-restricted-syntax` in `eslint.config.js` (an `export` of a function, const or specifier named `/^run[A-Z]/` in `src/modules/**`, tests excepted), applied to the modules listed in `RUN_FREE_MODULES` (one per line; each module's PR appends its own). Covered by `tests/lint-config.test.ts`.
+- Order: catalog and real-estate first; collection and pricing in their own PRs.
 
 ## File map
 
@@ -51,8 +61,8 @@ Function allocation inside `store/` is proposed; the PR for each module settles 
 | `queries.ts` (5 db, 466 loc)                                      | `store/product-list.ts` (summaries, tree, sold counts), `store/product-detail.ts`                                                                                                |
 | `review-queue.ts` (2 db)                                          | `store/review-queue.ts`                                                                                                                                                          |
 | `product-merge.ts` (3 db + logic)                                 | `merge.ts` (decisions, alias rules) + SQL into `store/products.ts`                                                                                                               |
-| `run-enrichment.ts` + `enrichment.ts`                             | `enrichment.ts` (prompt, parse, loop)                                                                                                                                            |
-| `run-extraction.ts` + `extraction.ts` + prompt from `products.ts` | `extraction/` (`prompt.ts`, `parse.ts`, `extraction.ts`): would pass ~500 lines merged                                                                                           |
+| `run-enrichment.ts` + `enrichment.ts`                             | `enrichment.ts` (prompt, parse); the loop moves to `src/workers/enrich-products/run.ts` (see Run loops)                                                                          |
+| `run-extraction.ts` + `extraction.ts` + prompt from `products.ts` | `extraction.ts` (prompt, schema, parse); the loop moves to `src/workers/extract-products/run.ts` (see Run loops)                                                                 |
 | `run-model-mismatches.ts` + `model-mismatch.ts`                   | `model-mismatch.ts`                                                                                                                                                              |
 | `products.ts` (normalization, categories)                         | `products.ts`, minus the extraction prompt                                                                                                                                       |
 | `variant-alias-rules.ts`                                          | unchanged (data table)                                                                                                                                                           |
@@ -94,7 +104,7 @@ Tier 1 refactor PRs, behavior-preserving, one logical change per commit, `git mv
 1. Catalog (pilot): moves, merges, `store/` split, lint rule with baseline for the other three modules.
 2. Pricing. 3. Collection. 4. Real-estate; baseline removed.
 
-Per PR checklist (rename safety, `refactoring.md`): imports, `vi.mock` paths, string references (a comment in `src/workers/extract-products/index.ts:70` names `modules/catalog/run-extraction.ts`), `docs-site/` via `pnpm gen-arch-doc` (not hand-edited), knip, `tests/lint-config.test.ts`, `CONTEXT.md`.
+Per PR checklist (rename safety, `refactoring.md`): imports, `vi.mock` paths, string references (a comment in `src/workers/extract-products/index.ts` named `modules/catalog/run-extraction.ts`, now `run.ts`), `docs-site/` via `pnpm gen-arch-doc` (not hand-edited), knip, `tests/lint-config.test.ts`, `CONTEXT.md`.
 
 ### Sequencing
 
