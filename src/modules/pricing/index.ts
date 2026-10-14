@@ -80,7 +80,7 @@ export {
   notificationIdParamSchema,
   priceExclusionReasonSchema,
 } from './schemas'
-export { runVerifyDiscountNotifications } from './run-discount-verification'
+export { runVerifyDiscountNotifications } from './discount-verification'
 export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
 export {
   getListingPricesByProduct,
@@ -90,8 +90,7 @@ export {
 } from './price-history'
 export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
-export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
-export { runPriceLookup } from './run-price-lookup'
+export { ensureProductPriced, PriceLookupFailedError, runPriceLookup } from './price-lookup'
 export type { TriageCandidate, TriageConfidence, TriageRow, TriageSummaryRow } from './price-triage'
 export {
   applyTriageVerdicts,
@@ -101,5 +100,5 @@ export {
   saveTriageRows,
 } from './price-triage'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
-export type { PriceReviewCandidate } from './price-review'
-export { runPriceReview } from './run-price-review'
+export type { PriceReviewCandidate } from './price-review/prompt'
+export { runPriceReview } from './price-review/price-review'

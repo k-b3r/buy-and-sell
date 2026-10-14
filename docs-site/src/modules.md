@@ -706,7 +706,7 @@ _(undocumented)_
 
 ## src/modules/pricing/discount-verification.ts
 
-**Interactions:** imports `../../platform/llm-clients`, `./discount-notifications`, `./price-rules`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./discount-notifications`, `./price-rules`
 
 ### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
 
@@ -717,6 +717,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
+
+_(undocumented)_
+
+### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
 
 _(undocumented)_
 
@@ -998,7 +1002,7 @@ _(undocumented)_
 
 ## src/modules/pricing/listing-price-review.ts
 
-**Interactions:** imports `../../platform/storage`, `./clean-median`, `./negotiable-keywords`, `./price-review`
+**Interactions:** imports `../../platform/storage`, `./clean-median`, `./negotiable-keywords`, `./price-review/parse`, `./price-review/prompt`
 
 ### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
 
@@ -1056,7 +1060,7 @@ _(undocumented)_
 
 ## src/modules/pricing/price-lookup.ts
 
-**Interactions:** imports `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./generic-products`, `./price-history`
+**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./clean-median`, `./exclusion`, `./generic-products`, `./price-history`
 
 ### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
 
@@ -1098,21 +1102,35 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
+
+_(undocumented)_
+
 ### `class PriceLookupFailedError`
 
 _(undocumented)_
 
-## src/modules/pricing/price-review.ts
-
-### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
-
-_(undocumented)_
+## src/modules/pricing/price-review/parse.ts
 
 ### `extractDescriptionPrice(description: string | null): number | null`
 
 _(undocumented)_
 
 ### `descriptionPriceDiverges(description: string | null, priceAmount: number, factor = DESCRIPTION_PRICE_DIVERGENCE_FACTOR): boolean`
+
+_(undocumented)_
+
+## src/modules/pricing/price-review/price-review.ts
+
+**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../../../platform/storage`, `../listing-price-review`, `./prompt`
+
+### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/price-review/prompt.ts
+
+### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
 
 _(undocumented)_
 
@@ -1251,30 +1269,6 @@ _(undocumented)_
 **Interactions:** imports `../../platform/settings`, `../../platform/storage`, `../catalog`, `./deals`, `./exclusion`, `./queries`, `./schemas`
 
 ### `createPricingRouter(db: QueryClient, cache: CacheInvalidator): Router`
-
-_(undocumented)_
-
-## src/modules/pricing/run-discount-verification.ts
-
-**Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./discount-notifications`, `./discount-verification`
-
-### `runVerifyDiscountNotifications(deps: DiscountVerificationDeps, candidates: DiscountVerificationCandidate[], options: DiscountVerificationOptions = {}): Promise<void>`
-
-_(undocumented)_
-
-## src/modules/pricing/run-price-lookup.ts
-
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `./price-lookup`
-
-### `runPriceLookup(deps: PriceLookupRunDeps, products: PriceLookupCandidate[], pacingDelayMs = DEFAULT_PACING_DELAY_MS): Promise<void>`
-
-_(undocumented)_
-
-## src/modules/pricing/run-price-review.ts
-
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `../../platform/storage`, `./listing-price-review`, `./price-review`
-
-### `runPriceReview(deps: PriceReviewDeps, candidates: PriceReviewCandidate[], batchSize = DEFAULT_BATCH_SIZE): Promise<void>`
 
 _(undocumented)_
 
