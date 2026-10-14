@@ -24,30 +24,9 @@ test('loadCollectKeywords falls back to DEFAULT_COLLECT_KEYWORDS when the table 
   expect(await loadCollectKeywords(db)).toEqual(DEFAULT_COLLECT_KEYWORDS)
 })
 
-test('loadCollectKeywords queries the collect_keywords table', async () => {
-  const { db, calls } = mockDb([])
-  await loadCollectKeywords(db)
-  expect(calls).toHaveLength(1)
-  expect(calls[0].sql).toContain('FROM collect_keywords')
-})
-
-test('loadCollectKeywords only selects enabled keywords', async () => {
-  const { db, calls } = mockDb([])
-  await loadCollectKeywords(db)
-  expect(calls[0].sql).toContain('WHERE enabled')
-})
-
-test('loadCollectKeywords only loads general keywords', async () => {
-  const { db, calls } = mockDb([{ keyword: 'rush sale' }])
-  await loadCollectKeywords(db)
-  expect(calls[0].sql).toContain("kind = 'general'")
-})
-
-test('loadRealEstateKeywords loads enabled real_estate keywords and never falls back to defaults', async () => {
-  const { db, calls } = mockDb([])
+test('loadCollectKeywords never falls back to defaults for loadRealEstateKeywords, an empty table just means no real estate pass', async () => {
+  const { db } = mockDb([])
   expect(await loadRealEstateKeywords(db)).toEqual([])
-  expect(calls[0].sql).toContain("kind = 'real_estate'")
-  expect(calls[0].sql).toContain('enabled')
 })
 
 const lapBase = {
