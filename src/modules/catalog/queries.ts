@@ -207,7 +207,7 @@ export async function getSubCategoryTree(db: QueryClient): Promise<SubCategoryTr
   }))
 }
 
-interface ProductListingSummary {
+export interface ProductListingSummary {
   id: string
   title: string
   price_amount: number | null

@@ -1,5 +1,5 @@
 import { isListingPriceNegotiable } from '../pricing'
-import type { ProductDetail } from './queries'
+import type { ProductListingSummary } from './queries'
 import type { ListingsFilters, ListingSortKey } from './schemas'
 
 // Filter, sort and page one product's listings for the dashboard's listings
@@ -7,13 +7,11 @@ import type { ListingsFilters, ListingSortKey } from './schemas'
 // so is_repost and the discount figures were computed before any of this and
 // can't change here.
 
-type Listing = ProductDetail['listings'][number]
-
 export const LISTINGS_PAGE_SIZE = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface ListingsPage {
-  listings: Listing[]
+  listings: ProductListingSummary[]
   nextOffset: number | null
   matchedCount: number
   allIds: string[]
@@ -36,9 +34,9 @@ function compareNullable(a: number | null, b: number | null, direction: 1 | -1):
   return (a - b) * direction
 }
 
-const listedAtMs = (l: Listing): number | null => (l.listed_at ? Date.parse(l.listed_at) : null)
+const listedAtMs = (l: ProductListingSummary): number | null => (l.listed_at ? Date.parse(l.listed_at) : null)
 
-const COMPARATORS: Record<ListingSortKey, (a: Listing, b: Listing) => number> = {
+const COMPARATORS: Record<ListingSortKey, (a: ProductListingSummary, b: ProductListingSummary) => number> = {
   discount_desc: (a, b) => compareNullable(a.discount_percent, b.discount_percent, -1),
   discount_asc: (a, b) => compareNullable(a.discount_percent, b.discount_percent, 1),
   price_asc: (a, b) => compareNullable(a.price_amount, b.price_amount, 1),
@@ -47,7 +45,7 @@ const COMPARATORS: Record<ListingSortKey, (a: Listing, b: Listing) => number> = 
   listed_oldest: (a, b) => compareNullable(listedAtMs(a), listedAtMs(b), 1),
 }
 
-function matchesFilters(l: Listing, f: ListingsFilters, now: number): boolean {
+function matchesFilters(l: ProductListingSummary, f: ListingsFilters, now: number): boolean {
   if (f.hideSold && l.sold_at) return false
   if (f.negotiableOnly && !isListingPriceNegotiable(l.price_amount, l.price_review, l.discount_percent)) return false
   if (f.selectedBand !== null && !isInDiscountBand(l.discount_percent, f.selectedBand)) return false
@@ -62,7 +60,7 @@ function matchesFilters(l: Listing, f: ListingsFilters, now: number): boolean {
 // listing-detail modal's prev/next cycling covers every match, not only the
 // pages loaded so far.
 export function paginateListings(
-  listings: Listing[],
+  listings: ProductListingSummary[],
   filters: ListingsFilters,
   offset: number,
   now: number = Date.now(),

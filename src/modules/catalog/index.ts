@@ -5,6 +5,7 @@
 export { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
 export { PRODUCT_CATEGORIES } from './products'
 export { getEnrichmentCandidates, getExtractionCandidates } from './product-storage'
+export type { ListingsPage } from './listings-page'
 export type { CategoryWeeklySoldCounts, ProductDetail, ProductSummary, SubCategoryTreeEntry } from './queries'
 export { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
 export type { ProductNeedingReview } from './review-queue'

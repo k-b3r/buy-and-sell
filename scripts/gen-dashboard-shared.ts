@@ -29,6 +29,7 @@ const SHARED_SOURCES: SharedSource[] = [
       'ProductDetail',
       'ProductNeedingReview',
       'CategoryWeeklySoldCounts',
+      'ListingsPage',
     ],
   },
   { index: 'src/modules/collection/index.ts', names: ['ListingDetail', 'SavedListingSummary'] },
