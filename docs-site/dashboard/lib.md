@@ -23,31 +23,11 @@ _(undocumented)_
 
 **Interactions:** imports `./queries`
 
-### `getProductSummariesCached(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
-
-_(undocumented)_
-
-### `getSubCategoryTreeCached(): Promise<SubCategoryTreeEntry[]>`
-
-_(undocumented)_
-
-### `getProductDetailCached(productId: number): Promise<ProductDetail | null>`
-
-_(undocumented)_
-
 ### `getListingDetailCached(listingId: string): Promise<ListingDetail | null>`
 
 _(undocumented)_
 
 ### `getSavedListingsCached(): Promise<SavedListingSummary[]>`
-
-_(undocumented)_
-
-### `getSoldCountsBySubCategoryCached(): Promise<CategoryWeeklySoldCounts[]>`
-
-_(undocumented)_
-
-### `getProductsNeedingReviewCached(): Promise<ProductNeedingReview[]>`
 
 _(undocumented)_
 
@@ -87,9 +67,9 @@ _(undocumented)_
 
 **Interactions:** imports `./api`, `./shared.generated`
 
-### `getProductSummaries(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number; limit?: number } = {}): Promise<ProductSummary[]>`
+### `getProductSummaries(options: { search?: string; categories?: string[]; subCategories?: string[]; offset?: number } = {}): Promise<{ products: ProductSummary[]; nextOffset: number | null }>`
 
-_(undocumented)_
+One page of the product list (the server fixes the page size).
 
 ### `getSubCategoryTree(): Promise<SubCategoryTreeEntry[]>`
 
@@ -130,6 +110,10 @@ _(undocumented)_
 ### `getProductDetail(productId: number): Promise<ProductDetail | null>`
 
 _(undocumented)_
+
+### `getProductListingsPage(productId: number, queryString: string): Promise<ListingsPage>`
+
+First page of a product's listings; `queryString` is buildListingsQueryString's output.
 
 ### `getListingDetail(listingId: string): Promise<ListingDetail | null>`
 

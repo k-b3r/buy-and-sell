@@ -80,6 +80,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/catalog/listings-page.ts
+
+**Interactions:** imports `../pricing`, `./queries`, `./schemas`
+
+### `paginateListings(listings: ProductListingSummary[], filters: ListingsFilters, offset: number, now: number = Date.now()): ListingsPage`
+
+_(undocumented)_
+
 ## src/modules/catalog/model-mismatch.ts
 
 ### `findModelCodeMismatches(title: string, productText: string): ModelCodeMismatch[]`
@@ -205,6 +213,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `markProductReviewed(db: QueryClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/catalog/routes.ts
+
+**Interactions:** imports `../../platform/storage`, `./listings-page`, `./queries`, `./review-queue`, `./schemas`
+
+### `createCatalogRouter(db: QueryClient, cache: RouteCache): Router`
 
 _(undocumented)_
 

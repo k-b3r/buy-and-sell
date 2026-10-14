@@ -108,7 +108,7 @@ _(undocumented)_
 
 ## dashboard/src/app/page.tsx
 
-**Interactions:** imports `./ProductListClient`, `@/lib/cachedQueries`, `@/lib/queries`
+**Interactions:** imports `./ProductListClient`, `@/lib/queries`
 
 ### `default({ searchParams, }: { searchParams: Promise<{ q?: string; category?: string | string[]; subCategory?: string | string[] }> }): Promise<React.JSX.Element>`
 
