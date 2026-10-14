@@ -15,6 +15,7 @@ export interface ServerRoute {
 const SERVER_ROUTES: readonly ServerRoute[] = [
   { pattern: '/api/settings' },
   { pattern: '/api/collect-keywords' },
+  { pattern: '/api/real-estate' },
   { pattern: '/api/listings/:id/save' },
 ]
 

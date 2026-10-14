@@ -110,14 +110,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## dashboard/src/app/api/real-estate/route.ts
-
-**Interactions:** imports `@/lib/queries`, `@/lib/realEstate`
-
-### `GET(request: Request): Promise<NextResponse<{ listings: RealEstateListing[]; nextPage: number | null; }>>`
-
-_(undocumented)_
-
 ## dashboard/src/app/api/refresh-job/cancel/route.ts
 
 ### `POST(): Promise<NextResponse<any>>`

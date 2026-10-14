@@ -1299,3 +1299,11 @@ _(undocumented)_
 ### `getRealEstateListings(db: DbClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
 
 _(undocumented)_
+
+## src/modules/real-estate/routes.ts
+
+**Interactions:** imports `../../platform/storage`, `./queries`, `./schemas`
+
+### `createRealEstateRouter(db: DbClient): Router`
+
+_(undocumented)_

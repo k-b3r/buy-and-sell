@@ -195,6 +195,29 @@ export function getListingProductId(listingId: string): Promise<number | null> {
   return rpc('getListingProductId', [listingId])
 }
 
-export function getRealEstateListings(filters: RealEstateFilters = {}): Promise<RealEstateListing[]> {
-  return rpc('getRealEstateListings', [filters])
+// Filter field -> the URL param GET /real-estate (and /api/real-estate) reads.
+const REAL_ESTATE_PARAMS = [
+  ['listingType', 'kind'],
+  ['propertyType', 'type'],
+  ['area', 'area'],
+  ['project', 'project'],
+  ['minPrice', 'min'],
+  ['maxPrice', 'max'],
+  ['minSqm', 'sqm'],
+  ['sort', 'sort'],
+  ['view', 'view'],
+] as const
+
+export async function getRealEstateListings(filters: RealEstateFilters = {}): Promise<RealEstateListing[]> {
+  const query = new URLSearchParams()
+  for (const [field, param] of REAL_ESTATE_PARAMS) {
+    const value = filters[field]
+    if (value !== undefined) query.set(param, String(value))
+  }
+  if (filters.includeRoomShares) query.set('rooms', '1')
+  // The server owns the page size; only the page number crosses the wire.
+  const pageSize = filters.limit ?? 30
+  query.set('page', String(Math.floor((filters.offset ?? 0) / pageSize) + 1))
+  const { listings } = await api<{ listings: RealEstateListing[] }>(`/real-estate?${query}`)
+  return listings
 }
