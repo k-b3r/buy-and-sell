@@ -2,7 +2,7 @@
 // enrichment, categories, dedup/merge, model-code mismatch detection) and the
 // catalog dashboard queries. Only what callers outside this folder use;
 // everything else is internal (enforced by dependency-cruiser).
-export { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
+export { mergeDuplicateProducts, mergeProductVariantAliases } from './merge'
 export { PRODUCT_CATEGORIES } from './products'
 export { getEnrichmentCandidates } from './store/enrichment'
 export { getExtractionCandidates } from './store/extraction'
