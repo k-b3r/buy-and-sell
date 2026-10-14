@@ -185,7 +185,7 @@ export function planMismatchReassignment(listing: MatchedListingNames): Mismatch
 }
 
 // Read-only by design, same as detect-generic-products - a full catalog scan
-// is broad/heuristic enough (see model-mismatch.ts) that it belongs in front
+// is broad/heuristic enough (see the rules above) that it belongs in front
 // of a human before any row gets reassigned, not applied live. Each flagged
 // row here is a candidate for the same manual fix already done once for
 // listing 1000000000000002, not an auto-fix target.
