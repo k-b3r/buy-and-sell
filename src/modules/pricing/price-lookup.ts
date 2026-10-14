@@ -2,8 +2,8 @@ import type { Logger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
 import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
-import type { PriceCheckSource } from './price-history'
-import { insertPriceCheck } from './price-history'
+import type { PriceCheckSource } from './store/price-history'
+import { insertPriceCheck } from './store/price-history'
 import { excludeFromPricing } from './exclusion'
 import { detectGenericBaseModel } from './generic-products'
 import { isJunkPrice } from './clean-median'
@@ -301,7 +301,7 @@ export interface ProductPricingResult {
 // Ensures a product has retail/secondhand pricing, unconditionally attempting
 // both (callers are responsible for skipping this call entirely when a
 // product already has pricing or is already excluded - see
-// getProductPricingStatus in price-history.ts). Shared by price-lookup.ts's
+// getProductPricingStatus in store/price-history.ts). Shared by price-lookup.ts's
 // own backfill loop and extract-products.ts's inline per-listing trigger, so
 // both go through identical provider chains and exclusion rules.
 export async function ensureProductPriced(

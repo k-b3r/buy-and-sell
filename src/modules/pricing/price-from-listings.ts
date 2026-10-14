@@ -1,7 +1,7 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { ListingPricesForProductCondition } from './price-history'
-import { insertPriceCheck } from './price-history'
+import type { ListingPricesForProductCondition } from './store/price-history'
+import { insertPriceCheck } from './store/price-history'
 import type { PriceRange } from './price-lookup'
 import { isJunkPrice, MIN_PEER_SAMPLE } from './clean-median'
 

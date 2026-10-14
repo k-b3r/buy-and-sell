@@ -85,7 +85,7 @@ export {
   getPriceLookupCandidates,
   getProductPricingStatus,
   insertPriceCheck,
-} from './price-history'
+} from './store/price-history'
 export { runPriceFromListings } from './price-from-listings'
 export type { PriceLookupCandidate, PriceLookupClients, PriceRange, ProductPricingResult } from './price-lookup'
 export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'

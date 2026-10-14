@@ -1,6 +1,6 @@
-import type { DbClient } from '../../platform/storage'
-import type { PriceLookupCandidate, PriceRange } from './price-lookup'
-import { MIN_PEER_SAMPLE } from './clean-median'
+import type { DbClient } from '../../../platform/storage'
+import type { PriceLookupCandidate, PriceRange } from '../price-lookup'
+import { MIN_PEER_SAMPLE } from '../clean-median'
 
 // Always an INSERT, never an upsert — each price check is a new point in the
 // product's price history, not a replacement of the last one. This is what
