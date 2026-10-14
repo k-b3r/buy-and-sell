@@ -96,33 +96,6 @@ export async function getSavedListings(db: QueryClient): Promise<SavedListingSum
   }))
 }
 
-// collect.ts's --cycle search-query list - editable via the Settings page's
-// collect tab (add/remove rows, not per-field number knobs like the rest of
-// settings, hence its own table/endpoint instead of a settings row).
-export interface CollectKeyword {
-  keyword: string
-  enabled: boolean
-}
-
-export async function getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]> {
-  const result = await db.query(
-    `SELECT keyword, enabled FROM collect_keywords WHERE kind = 'general' ORDER BY keyword`,
-    [],
-  )
-  return (result.rows as CollectKeyword[]).map((r) => ({ keyword: r.keyword, enabled: r.enabled }))
-}
-
-// Full-list replace rather than a diffed add/remove - the table is a
-// handful of rows edited rarely from one shared dashboard, so the simplicity
-// of "save the whole list" outweighs the cost of a delete-then-insert.
-export async function replaceCollectKeywords(db: QueryClient, keywords: CollectKeyword[]): Promise<void> {
-  await db.query(`DELETE FROM collect_keywords WHERE kind = 'general'`, [])
-  if (keywords.length === 0) return
-  const valuesSql = keywords.map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`).join(', ')
-  const params = keywords.flatMap((k) => [k.keyword, k.enabled])
-  await db.query(`INSERT INTO collect_keywords (keyword, enabled) VALUES ${valuesSql}`, params)
-}
-
 // The server's listing refresh route needs the listing's product id to name
 // the product cache tag it drops after a refresh.
 export async function getListingProductId(db: QueryClient, listingId: string): Promise<number | null> {

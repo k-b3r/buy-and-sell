@@ -2,13 +2,8 @@ import express from 'express'
 import type { Router } from 'express'
 import type { QueryClient } from '../../platform/storage'
 import { getListingDetail } from './listing-detail'
-import {
-  getCollectKeywords,
-  getSavedListings,
-  replaceCollectKeywords,
-  saveListing,
-  unsaveListing,
-} from './store/dashboard'
+import { getSavedListings, saveListing, unsaveListing } from './store/dashboard'
+import { getCollectKeywords, replaceCollectKeywords } from './store/keywords'
 import { collectKeywordsSchema, saveListingQuerySchema } from './schemas'
 
 // The slice of the server's cache (server/cache.ts) this router needs. Declared
