@@ -3,13 +3,14 @@ import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
-import type { DiscountVerificationCandidate, DiscountPolicyThresholds } from './discount-notifications'
+import type { DiscountPolicyThresholds } from './discount-policy'
+import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
+import type { DiscountVerificationCandidate } from './store/discount-notifications'
 import {
-  DEFAULT_DISCOUNT_POLICY,
   markDiscountNotificationAttempted,
   markDiscountNotificationVerified,
   rejectDiscountNotification,
-} from './discount-notifications'
+} from './store/discount-notifications'
 import { isNewCondition } from './price-rules'
 
 const DEFAULT_PACING_DELAY_MS = 1000

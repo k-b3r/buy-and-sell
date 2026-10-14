@@ -4,7 +4,7 @@ import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../../
 import type { DbClient } from '../../../platform/storage'
 import type { DelayFn } from '../../../platform/delay'
 import { realDelay } from '../../../platform/delay'
-import { upsertListingPriceReview } from '../listing-price-review'
+import { upsertListingPriceReview } from '../store/listing-price-review'
 import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './prompt'
 import type { PriceReviewCandidate } from './prompt'
 

@@ -97,7 +97,7 @@ src/
                                         # run loop, recheck, listing upsert, listing photos, collect keywords
       index.ts                          # public API; browser.ts is the only other entry (Playwright)
     pricing/                            # price lookup, price review, clean median, discounts,
-                                        # generic-product check, pricing dashboard queries
+                                        # generic-product check; store/ holds all SQL (queries, shared fragments)
       index.ts                          # public API — nothing imports its internals (dependency-cruiser)
     real-estate/                        # extraction, real_estate_details, price history, dashboard query
       index.ts                          # public API — nothing imports its internals (dependency-cruiser)

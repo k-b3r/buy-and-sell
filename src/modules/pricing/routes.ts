@@ -5,16 +5,15 @@ import { getAllSettings } from '../../platform/settings'
 import type { QueryClient } from '../../platform/storage'
 import { markProductReviewed, productIdParamSchema } from '../catalog'
 import { getDeals } from './deals'
-import { excludeProductFromReview, includeInPricing } from './exclusion'
+import { excludeProductFromReview } from './exclusion'
+import { getExcludedProducts, getExclusionSummary, includeInPricing } from './store/exclusion'
 import {
   getDiscountNotifications,
-  getExcludedProducts,
-  getExclusionSummary,
   getUnreadDiscountNotificationCount,
   markAllDiscountNotificationsRead,
   markDiscountNotificationRead,
-  setManualPrice,
-} from './queries'
+} from './store/discount-notifications'
+import { setManualPrice } from './store/price-history'
 import { dealsQuerySchema, excludedProductsQuerySchema, manualPriceSchema, notificationIdParamSchema } from './schemas'
 
 // HTTP edge of the pricing feature, mounted by server/index.ts only (the

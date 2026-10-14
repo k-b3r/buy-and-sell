@@ -1,5 +1,5 @@
-import type { DbClient } from '../../platform/storage'
-import { insertPriceCheck, getListingPricesByProduct, getPriceLookupCandidates } from './price-history'
+import type { DbClient, QueryClient } from '../../../platform/storage'
+import { insertPriceCheck, getListingPricesByProduct, getPriceLookupCandidates, setManualPrice } from './price-history'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -170,4 +170,35 @@ test('getListingPricesByProduct skips price-lookup-excluded products and flagged
   expect(calls[0].sql).toContain('NOT p.price_lookup_excluded')
   expect(calls[0].sql).toContain('l.flagged_removed_at IS NULL')
   expect(calls[0].sql).not.toContain('sold_at')
+})
+
+test('setManualPrice inserts a manual_new_retail row into product_price_history', async () => {
+  let capturedSql = ''
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      capturedSql = sql
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await setManualPrice(db, 12, { kind: 'new', priceLow: 1500, priceHigh: 2000 })
+
+  expect(capturedSql).toContain('INSERT INTO product_price_history')
+  expect(capturedParams).toEqual([12, 1500, 2000, 'manual_new_retail'])
+})
+
+test('setManualPrice inserts a manual_secondhand row into product_price_history', async () => {
+  let capturedParams: unknown[] = []
+  const db: QueryClient = {
+    query: async (_sql, params) => {
+      capturedParams = params
+      return { rows: [] }
+    },
+  }
+
+  await setManualPrice(db, 12, { kind: 'secondhand', priceLow: 800, priceHigh: 1200 })
+
+  expect(capturedParams).toEqual([12, 800, 1200, 'manual_secondhand'])
 })
