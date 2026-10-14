@@ -15,7 +15,7 @@ import { createWorkerControlHandler } from './routes/workerControl'
 import { invalidateAfterQuery } from './queryInvalidation'
 import { createQueryHandler } from './routes/query'
 import { createSettingsRouter } from './routes/settings'
-import { createRefreshHandlers } from './refreshHandlers'
+import { createRefreshHandlers, createRefreshRouter } from './refreshHandlers'
 
 // Run from within server/ (`pnpm start` / `pnpm dev`) - .env is resolved
 // relative to CWD, so this expects server/.env, a separate file from the
@@ -44,6 +44,7 @@ async function main() {
       createCollectionRouter(pool, cache),
       createCatalogRouter(pool, cache),
       createRealEstateRouter(pool),
+      createRefreshRouter(refreshHandlers),
     ],
     routes: {
       'POST /refresh': refreshHandlers.refresh,

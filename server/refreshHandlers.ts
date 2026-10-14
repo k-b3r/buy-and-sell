@@ -1,3 +1,5 @@
+import express from 'express'
+import type { Router } from 'express'
 import type { ListingPhotos } from '../src/modules/collection'
 import { launchBrowserDriver } from '../src/modules/collection/browser'
 import { realDelay } from '../src/platform/delay'
@@ -67,4 +69,25 @@ export function createRefreshHandlers({ db, photos, logger, env, cache }: Refres
     jobStatus: createRefreshJobStatusHandler(jobs),
     cancelJob: createCancelRefreshJobHandler(jobs),
   }
+}
+
+// The id-in-path form of the two body-driven refresh routes (POST /refresh with
+// { id }, POST /refresh-product with { productId }, which stay mounted as they
+// are), so the browser's /api/listings/:id/refresh and /api/products/:id/refresh
+// rewrite straight to the server with no body to build.
+export function createRefreshRouter(handlers: Pick<RefreshHandlers, 'refresh' | 'refreshProduct'>): Router {
+  const router = express.Router()
+
+  router.post('/listings/:id/refresh', async (req, res) => {
+    const result = await handlers.refresh({ id: req.params.id })
+    res.status(result.statusCode).json(result.body)
+  })
+
+  // A non-numeric id becomes NaN, which the handler answers with its usual 400.
+  router.post('/products/:id/refresh', async (req, res) => {
+    const result = await handlers.refreshProduct({ productId: Number(req.params.id) })
+    res.status(result.statusCode).json(result.body)
+  })
+
+  return router
 }
