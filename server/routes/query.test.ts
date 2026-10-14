@@ -37,7 +37,7 @@ test('settings and collect-keywords queries are served by their resource routes,
 })
 
 test('listing detail, saved listings and save toggles are served by their resource routes, not the whitelist', () => {
-  for (const name of ['getListingDetail', 'getSavedListings', 'saveListing', 'unsaveListing']) {
+  for (const name of ['getListingDetail', 'getSavedListings', 'saveListing', 'unsaveListing', 'getListingProductId']) {
     expect(QUERY_NAMES).not.toContain(name)
   }
 })

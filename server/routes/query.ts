@@ -8,7 +8,6 @@ import {
   getSubCategoryTree,
   markProductReviewed,
 } from '../../src/modules/catalog'
-import { getListingProductId } from '../../src/modules/collection'
 import {
   getComparableListings,
   getDeals,
@@ -61,7 +60,6 @@ const REGISTRY = {
   getUnreadDiscountNotificationCount,
   markDiscountNotificationRead,
   markAllDiscountNotificationsRead,
-  getListingProductId,
 } satisfies Record<string, (db: QueryClient, ...args: never[]) => Promise<unknown>>
 
 export type QueryName = keyof typeof REGISTRY
