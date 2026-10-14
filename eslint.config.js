@@ -43,6 +43,7 @@ const STORE_ENFORCED_MODULES = [
 const RUN_FREE_MODULES = [
   'catalog',
   'real-estate',
+  'pricing',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store
