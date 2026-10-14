@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import { findProductIdsByNormalizedName, mergeDuplicateProduct } from './product-storage'
+import { findProductIdsByNormalizedName, mergeDuplicateProduct } from './store/products'
 import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from './products'
 
 interface ProductRow {

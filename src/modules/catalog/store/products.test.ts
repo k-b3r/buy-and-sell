@@ -1,4 +1,4 @@
-import type { DbClient } from '../../platform/storage'
+import type { DbClient } from '../../../platform/storage'
 import {
   findOrCreateProduct,
   updateListingProductIds,
@@ -9,7 +9,7 @@ import {
   mergeDuplicateProduct,
   findProductIdsByNormalizedName,
   getProductMatchedListings,
-} from './product-storage'
+} from './products'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

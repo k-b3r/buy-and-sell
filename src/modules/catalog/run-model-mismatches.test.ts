@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { ProductMatchedListing } from './product-storage'
+import type { ProductMatchedListing } from './store/products'
 import { detectModelMismatches, reassignModelMismatches } from './run-model-mismatches'
 
 function listing(overrides: Partial<ProductMatchedListing>): ProductMatchedListing {

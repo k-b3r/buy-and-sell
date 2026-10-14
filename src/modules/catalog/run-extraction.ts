@@ -18,8 +18,8 @@ import {
   insertDiscountNotifications,
   PriceLookupFailedError,
 } from '../pricing'
-import type { ExtractionCandidate } from './product-storage'
-import { findOrCreateProduct, updateListingProductIds } from './product-storage'
+import type { ExtractionCandidate } from './store/products'
+import { findOrCreateProduct, updateListingProductIds } from './store/products'
 import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from './products'
 import type { ExtractedListing } from './extraction'
 import { parseExtractionItem } from './extraction'

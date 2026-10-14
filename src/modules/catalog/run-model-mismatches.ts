@@ -1,7 +1,7 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import { findListingModelMismatches, matchedProductText, planMismatchReassignment } from './model-mismatch'
-import { findProductIdsByNormalizedName, getProductMatchedListings, updateListingProductIds } from './product-storage'
+import { findProductIdsByNormalizedName, getProductMatchedListings, updateListingProductIds } from './store/products'
 import { normalizeBaseModel } from './products'
 
 // Read-only by design, same as detect-generic-products - a full catalog scan

@@ -4,7 +4,7 @@
 // everything else is internal (enforced by dependency-cruiser).
 export { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
 export { PRODUCT_CATEGORIES } from './products'
-export { getEnrichmentCandidates, getExtractionCandidates } from './product-storage'
+export { getEnrichmentCandidates, getExtractionCandidates } from './store/products'
 export type { ListingsPage } from './listings-page'
 export type { CategoryWeeklySoldCounts, ProductDetail, ProductSummary, SubCategoryTreeEntry } from './queries'
 export { getProductDetail, getProductSummaries, getSoldCountsBySubCategory, getSubCategoryTree } from './queries'
