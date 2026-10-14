@@ -92,6 +92,7 @@ src/
     catalog/                            # products: extraction, enrichment, categories, dedup/merge,
                                         # model-code mismatches, catalog dashboard queries
       index.ts                          # public API — nothing imports its internals (dependency-cruiser)
+      store/                            # every SQL query, one file per entity (lint-enforced, see CONTEXT.md)
     collection/                         # browser, proxy/tunnel, pagination, wall detection, extraction,
                                         # run loop, recheck, listing upsert, listing photos, collect keywords
       index.ts                          # public API; browser.ts is the only other entry (Playwright)

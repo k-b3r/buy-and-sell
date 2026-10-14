@@ -1,4 +1,4 @@
-import { mergeDuplicateProducts, mergeProductVariantAliases } from './product-merge'
+import { mergeDuplicateProducts, mergeProductVariantAliases } from './merge'
 import type { DbClient } from '../../platform/storage'
 
 function scriptedDb(script: (sql: string, params: unknown[]) => unknown): {

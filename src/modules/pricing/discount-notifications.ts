@@ -28,7 +28,7 @@ export interface NewDiscountNotification {
 }
 
 // Real-market-price-first discount decision for a single listing, made in
-// catalog/run-extraction.ts right after its product has (or already had)
+// catalog/extraction.ts right after its product has (or already had)
 // retail/secondhand pricing ensured - the "trigger is retail pricing
 // becoming available" design (2026-08-31), replacing the old
 // batch-of-siblings-only check that could never fire on a product's first

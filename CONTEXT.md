@@ -228,3 +228,10 @@ Also found: **grounding quota is pooled by model generation _family_, not per in
 Split it into its own repo only when one of these holds: it gains a primary data source the item side doesn't use (e.g. BIR zonal scraping becomes its main input); it needs its own deploy cadence, DB, or runtime; or item-side modules haven't imported it for a sustained period. The module boundary makes that extraction mechanical.
 
 Cleanup plan: `docs/architecture-cleanup-plan.md`.
+
+**Decision (2026-10-14): inside a module, capability files plus a `store/` folder** (`docs/specs/2026-10-14-module-layout.md`). Fit check unchanged: the architecture stays a modular monolith and the module boundary does not move; this only fixes the inside of a module. `store/` is a layer folder, but bounded by one feature module, so one change still lives in one top-level folder. Chosen because it makes "all SQL" greppable and lintable. Rules:
+
+- Every `.query(` call lives in `src/modules/<module>/store/<entity>.ts` (one file per entity or read model: params, row mapping, no decisions). Decisions (ranking, retry, "should we") stay in `<capability>.ts`, which calls `store/` and injected clients.
+- Capability files are nouns (`extraction`, `enrichment`, `merge`, `model-mismatch`), no `run-` prefix. A capability becomes a folder only past the shared `max-lines` hint (400 non-blank, non-comment lines): catalog's extraction is about 355 merged, so it stays one file.
+- Enforced by `no-restricted-syntax` in `eslint.config.js`, applied to the modules listed in `STORE_ENFORCED_MODULES` (one per line; each module's migration PR appends its own). Catalog is the pilot.
+- Types shared by a capability and its store (candidates, write models) are defined in `store/` and imported by the capability, so imports run one way.
