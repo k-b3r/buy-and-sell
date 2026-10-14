@@ -121,8 +121,9 @@ test('lint config lets store/ files and tests call .query()', async () => {
   }
 }, 60_000)
 
-test('lint config leaves modules not yet listed in STORE_ENFORCED_MODULES free to call .query() anywhere', async () => {
-  for (const file of ['src/modules/pricing/deals.ts', 'src/modules/collection/listings.ts']) {
+// A made-up module name, so the test stays true as real modules join the list.
+test('lint config leaves modules not listed in STORE_ENFORCED_MODULES free to call .query() anywhere', async () => {
+  for (const file of ['src/modules/unlisted-example/deals.ts', 'src/modules/unlisted-example/routes.ts']) {
     expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
       file,
       expect.not.arrayContaining([QUERY_SELECTOR]),
