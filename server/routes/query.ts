@@ -8,13 +8,7 @@ import {
   getSubCategoryTree,
   markProductReviewed,
 } from '../../src/modules/catalog'
-import {
-  getListingDetail,
-  getListingProductId,
-  getSavedListings,
-  saveListing,
-  unsaveListing,
-} from '../../src/modules/collection'
+import { getListingProductId } from '../../src/modules/collection'
 import {
   getComparableListings,
   getDeals,
@@ -58,15 +52,11 @@ const REGISTRY = {
   getExclusionSummary,
   getExcludedProducts,
   getProductDetail,
-  getListingDetail,
   getSoldComparablePrice,
   getPeerMedianPrice,
   getComparableListings,
   getDeals,
-  saveListing,
-  unsaveListing,
   getSoldCountsBySubCategory,
-  getSavedListings,
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
   markDiscountNotificationRead,

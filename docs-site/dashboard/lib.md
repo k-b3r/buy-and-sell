@@ -35,14 +35,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getListingDetailCached(listingId: string): Promise<ListingDetail | null>`
-
-_(undocumented)_
-
-### `getSavedListingsCached(): Promise<SavedListingSummary[]>`
-
-_(undocumented)_
-
 ### `getSoldCountsBySubCategoryCached(): Promise<CategoryWeeklySoldCounts[]>`
 
 _(undocumented)_
@@ -144,14 +136,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getDeals(discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
-
-_(undocumented)_
-
-### `saveListing(listingId: string): Promise<void>`
-
-_(undocumented)_
-
-### `unsaveListing(listingId: string): Promise<void>`
 
 _(undocumented)_
 

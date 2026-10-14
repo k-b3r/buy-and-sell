@@ -40,3 +40,14 @@ export const collectKeywordsSchema = z
     }
     return result.keywords
   })
+
+// ?productId on save/unsave names the product whose cached detail embeds this
+// listing's saved flag, so the route can drop that cache entry without a
+// lookup round trip. Absent for a listing with no product.
+export const saveListingQuerySchema = z.object({
+  productId: z
+    .string()
+    .regex(/^[1-9]\d*$/, 'productId must be a positive integer')
+    .transform(Number)
+    .optional(),
+})

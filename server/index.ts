@@ -7,6 +7,7 @@ import { createListingPhotos } from '../src/modules/collection'
 import { createCollectionRouter } from '../src/modules/collection/routes'
 import { createRealEstateRouter } from '../src/modules/real-estate/routes'
 import { createApp } from './app'
+import { createCache } from './cache'
 import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
@@ -27,6 +28,7 @@ async function main() {
   const logger = createLogger('server.log', secretsFromEnv(process.env))
   const pool = createDbPool(dbUrl)
   const photos = createListingPhotos({ ...photoIo, logger })
+  const cache = createCache()
 
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
@@ -35,7 +37,7 @@ async function main() {
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
-    routers: [createSettingsRouter(pool), createCollectionRouter(pool), createRealEstateRouter(pool)],
+    routers: [createSettingsRouter(pool), createCollectionRouter(pool, cache), createRealEstateRouter(pool)],
     routes: {
       'POST /refresh': refreshHandlers.refresh,
       'POST /refresh-product': refreshHandlers.refreshProduct,

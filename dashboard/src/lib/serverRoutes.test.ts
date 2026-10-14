@@ -70,3 +70,15 @@ test('resolveServerPath leaves unmigrated siblings of a migrated pattern to Next
 test('resolveServerPath uses the per-entry server path, filling in its params', () => {
   expect(resolveServerPath(ROUTES, '/api/products/42/refresh')).toBe('/refresh/products/42')
 })
+
+test('serverRouteTarget sends the listing save toggle to the server, keeping the productId query', () => {
+  expect(serverRouteTarget('/api/listings/123/save', '?productId=7', BASE)?.toString()).toBe(
+    'https://vps.test/listings/123/save?productId=7',
+  )
+})
+
+test('isServerRoute leaves the listing refresh to its Next handler', () => {
+  expect(isServerRoute('/api/listings/123/save')).toBe(true)
+  expect(isServerRoute('/api/listings/123/refresh')).toBe(false)
+  expect(isServerRoute('/api/listings/123')).toBe(false)
+})

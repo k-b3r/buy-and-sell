@@ -77,11 +77,11 @@ function EvidenceSection({
 // sections are independent (a listing can have real sold comps AND active
 // peers) rather than only showing whichever tier "won" the reference price.
 //
-// Defaults guard against a real prod crash (confirmed live 2026-09-02):
-// getListingDetail is wrapped in unstable_cache, which persists across
-// deploys - a listing cached before this field existed comes back with
-// recentSales/similarListings undefined until its 5min TTL expires, not
-// just in some hypothetical caller.
+// Defaults guard against a real prod crash (confirmed live 2026-09-02): a
+// cached listing detail from before these fields existed came back with
+// recentSales/similarListings undefined until its 5min TTL expired. The cache
+// is now the server's in-memory one, which a server restart clears, so this
+// only bites if the dashboard ships ahead of the server that adds a field.
 export default function PriceEvidence({
   recentSales = [],
   similarListings = [],

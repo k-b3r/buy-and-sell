@@ -21,14 +21,6 @@ export { createListingPhotos } from './photos'
 export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'
 export type { CollectKeyword, ListingDetail, SavedListingSummary } from './queries'
-export {
-  getCollectKeywords,
-  getListingDetail,
-  getListingProductId,
-  getSavedListings,
-  replaceCollectKeywords,
-  saveListing,
-  unsaveListing,
-} from './queries'
+export { getCollectKeywords, getListingDetail, getListingProductId, replaceCollectKeywords } from './queries'
 export { checkOneListing, runCheckListings } from './recheck'
 export { runCollection } from './run'

@@ -52,7 +52,7 @@ _(undocumented)_
 
 ## dashboard/src/app/listings/[id]/page.tsx
 
-**Interactions:** imports `./ListingDetailContent`, `@/lib/cachedQueries`
+**Interactions:** imports `./ListingDetailContent`, `@/lib/queries`
 
 ### `default({ params, searchParams, }: { params: Promise<{ id: string }> searchParams: Promise<{ back?: string }> }): Promise<React.JSX.Element>`
 
