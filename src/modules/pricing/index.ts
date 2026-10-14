@@ -29,8 +29,6 @@ export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './dea
 export { getDealListingIds, getDeals } from './deals'
 export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
 export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
-export type { ExcludedProduct, ExclusionReasonCount } from './queries'
-export { getExcludedProducts, getExclusionSummary } from './queries'
 export type { DiscountNotification, DiscountVerificationCandidate } from './store/discount-notifications'
 export {
   getDiscountNotifications,
@@ -47,14 +45,17 @@ export { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
 export type { VerificationClients } from './discount-verification'
 export type { GenericReason } from './generic-products'
 export { detectGenericBaseModel, groupGenericBaseModels } from './generic-products'
+export type { ExcludedProduct, ExclusionReasonCount } from './store/exclusion'
 export {
   applyEligibilityFromEnrichment,
   excludeFromPricing,
-  excludeProductFromReview,
+  getExcludedProducts,
+  getExclusionSummary,
   getUnexcludedBaseModels,
   includeInPricing,
-  LOOKUP_OUTCOME_REASONS,
-} from './exclusion'
+} from './store/exclusion'
+export { excludeProductFromReview } from './exclusion'
+export { LOOKUP_OUTCOME_REASONS } from './exclusion-reasons'
 export { excludeIneligibleCategories } from './ineligible-categories'
 export type { ManualPrice } from './schemas'
 export {

@@ -4,7 +4,7 @@ import type { Logger } from '../../platform/logger'
 import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
 import { toNullableNumber } from '../../platform/rows'
 import type { DbClient } from '../../platform/storage'
-import { includeInPricing } from './exclusion'
+import { includeInPricing } from './store/exclusion'
 
 // One-off LLM triage of products excluded from price lookup (BUY-60): per
 // product a verdict (retry the lookup or keep it excluded) plus a rough

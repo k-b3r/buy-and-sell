@@ -4,7 +4,7 @@ import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platfor
 import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './store/price-history'
 import { insertPriceCheck } from './store/price-history'
-import { excludeFromPricing } from './exclusion'
+import { excludeFromPricing } from './store/exclusion'
 import { detectGenericBaseModel } from './generic-products'
 import { isJunkPrice } from './clean-median'
 
