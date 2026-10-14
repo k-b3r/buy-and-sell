@@ -80,7 +80,7 @@ export {
   notificationIdParamSchema,
   priceExclusionReasonSchema,
 } from './schemas'
-export { runVerifyDiscountNotifications } from './run-discount-verification'
+export { runVerifyDiscountNotifications } from './discount-verification'
 export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
 export {
   getListingPricesByProduct,
