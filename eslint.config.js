@@ -27,6 +27,7 @@ const CURATED_DATA_FILES = [
 // prettier-ignore
 const STORE_ENFORCED_MODULES = [
   'catalog',
+  'collection',
   'real-estate',
 ]
 

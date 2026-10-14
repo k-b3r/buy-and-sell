@@ -298,6 +298,22 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/collection/collect.ts
+
+**Interactions:** imports `../../platform/review`, `../../platform/storage`, `./driver`, `./extract/detail`, `./extract/grid`, `./listings`, `./location`, `./paginate`, `./photos`, `./store/listings`, `./wall`
+
+### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
+
+_(undocumented)_
+
 ## src/modules/collection/driver.ts
 
 **Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./extract/grid`, `./paginate`, `./photos`
@@ -346,6 +362,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `putDealsFirst(deals: CheckListingsCandidate[], backlog: CheckListingsCandidate[], limit: number): CheckListingsCandidate[]`
+
+_(undocumented)_
+
 ### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
 
 _(undocumented)_
@@ -366,10 +386,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `putDealsFirst(deals: CheckListingsCandidate[], backlog: CheckListingsCandidate[], limit: number): CheckListingsCandidate[]`
-
-_(undocumented)_
-
 ### `backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number>`
 
 _(undocumented)_
@@ -386,15 +402,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]>`
-
-_(undocumented)_
-
 ### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
 
 _(undocumented)_
 
 ### `getListingProductId(db: QueryClient, listingId: string): Promise<number | null>`
+
+_(undocumented)_
+
+### `getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]>`
 
 _(undocumented)_
 
@@ -416,13 +432,9 @@ _(undocumented)_
 
 ## src/modules/collection/keywords.ts
 
-**Interactions:** imports `../../platform/storage`
+**Interactions:** imports `../../platform/storage`, `./store/keywords`
 
 ### `loadCollectKeywords(db: DbClient): Promise<string[]>`
-
-_(undocumented)_
-
-### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
 
 _(undocumented)_
 
@@ -430,23 +442,23 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+## src/modules/collection/listing-detail.ts
+
+**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `../pricing`, `./store/dashboard`
+
+### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
+
+_(undocumented)_
+
 ## src/modules/collection/listings.ts
 
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `../pricing`, `../real-estate`, `./photos`
+**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `../pricing`, `../real-estate`, `./photos`, `./store/listings`
 
 ### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
-
-_(undocumented)_
-
-### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
-
-_(undocumented)_
-
-### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
-
-_(undocumented)_
-
-### `getDealCheckCandidates(db: DbClient, ids: string[], minHoursSinceCheck: number): Promise<CheckListingsCandidate[]>`
 
 _(undocumented)_
 
@@ -454,39 +466,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
-
-_(undocumented)_
-
-### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
-
-_(undocumented)_
-
-### `markListingAlive(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `markListingSold(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `flagListingRemoved(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-### `deleteListing(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
 ### `refreshListingFields({ db, photos, logger }: { db: DbClient; photos: ListingPhotos; logger: Logger }, storedPhotoIds: string[] | null, listing: Record<string, unknown>): Promise<void>`
-
-_(undocumented)_
-
-### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
-
-_(undocumented)_
-
-### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
 
@@ -516,7 +496,7 @@ _(undocumented)_
 
 ## src/modules/collection/photo-backfill.ts
 
-**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./proxy`, `./run`
+**Interactions:** imports `./collect`, `./driver`, `./extract/detail`, `./listings`, `./proxy`, `./store/listings`
 
 ### `requireBackfillProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ResolvedProxy>`
 
@@ -546,11 +526,35 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/collection/queries.ts
+## src/modules/collection/recheck.ts
 
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `../pricing`
+**Interactions:** imports `./collect`, `./driver`, `./extract/detail`, `./listings`, `./store/listings`
 
-### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
+### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
+
+_(undocumented)_
+
+### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/routes.ts
+
+**Interactions:** imports `../../platform/storage`, `./listing-detail`, `./schemas`, `./store/dashboard`, `./store/keywords`
+
+### `createCollectionRouter(db: QueryClient, cache: RouteCache): Router`
+
+_(undocumented)_
+
+## src/modules/collection/store/dashboard.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `../../pricing`
+
+### `getListingDetailRow(db: QueryClient, listingId: string): Promise<Row | undefined>`
+
+_(undocumented)_
+
+### `getSiblingMedianRow(db: QueryClient, listingId: string): Promise<Row | undefined>`
 
 _(undocumented)_
 
@@ -566,6 +570,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `getListingProductId(db: QueryClient, listingId: string): Promise<number | null>`
+
+_(undocumented)_
+
+## src/modules/collection/store/keywords.ts
+
+**Interactions:** imports `../../../platform/storage`
+
 ### `getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]>`
 
 _(undocumented)_
@@ -574,43 +586,67 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `getListingProductId(db: QueryClient, listingId: string): Promise<number | null>`
+### `getEnabledGeneralKeywords(db: DbClient): Promise<string[]>`
 
 _(undocumented)_
 
-## src/modules/collection/recheck.ts
-
-**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./run`
-
-### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
+### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
 
 _(undocumented)_
 
-### `runCheckListings(io: ListingPageIo, candidates: CheckListingsCandidate[], { softWallTimeoutMs = 5000, pacingMinMs = 2000, pacingMaxMs = 4000 }: Partial<RecheckTiming> = {}): Promise<void>`
+## src/modules/collection/store/listings.ts
+
+**Interactions:** imports `../../../platform/storage`, `../../real-estate`
+
+### `upsertListingRow(db: DbClient, f: ListingFields, sourcePhotoIds: string[] | null, rawJson: Record<string, unknown>): Promise<void>`
 
 _(undocumented)_
 
-## src/modules/collection/routes.ts
-
-**Interactions:** imports `../../platform/storage`, `./queries`, `./schemas`
-
-### `createCollectionRouter(db: QueryClient, cache: RouteCache): Router`
+### `updateListingFields(db: DbClient, f: ListingFields, rawJson: Record<string, unknown>, photoUpdate: PhotoUpdate | null): Promise<PriorPriceRow | undefined>`
 
 _(undocumented)_
 
-## src/modules/collection/run.ts
-
-**Interactions:** imports `../../platform/review`, `../../platform/storage`, `./driver`, `./extract/detail`, `./extract/grid`, `./listings`, `./location`, `./paginate`, `./photos`, `./wall`
-
-### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
+### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
 
 _(undocumented)_
 
-### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
+### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
 
 _(undocumented)_
 
-### `runCollection(io: CollectionRunIo, options: RunOptions): Promise<void>`
+### `getDealCheckCandidates(db: DbClient, ids: string[], minHoursSinceCheck: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getListingCheckCandidatesForProduct(db: DbClient, productId: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+### `getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null>`
+
+_(undocumented)_
+
+### `markListingAlive(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `markListingSold(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `flagListingRemoved(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `deleteListing(db: DbClient, id: string): Promise<void>`
+
+_(undocumented)_
+
+### `getBackfillCandidates(db: DbClient): Promise<BackfillCandidate[]>`
+
+_(undocumented)_
+
+### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
 
 _(undocumented)_
 

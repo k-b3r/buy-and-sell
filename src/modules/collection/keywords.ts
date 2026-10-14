@@ -1,4 +1,5 @@
 import type { DbClient } from '../../platform/storage'
+import { getEnabledGeneralKeywords } from './store/keywords'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent
 // listings, the actual "buy-and-sell opportunity" signal this project is
@@ -23,25 +24,13 @@ export const DEFAULT_COLLECT_KEYWORDS = [
 // but skipped here; the dashboard API refuses to save a list with none
 // enabled, so the empty fallback below is only reachable via a manual DB edit.
 export async function loadCollectKeywords(db: DbClient): Promise<string[]> {
-  const result = (await db.query(
-    "SELECT keyword FROM collect_keywords WHERE enabled AND kind = 'general' ORDER BY keyword",
-    [],
-  )) as {
-    rows: { keyword: string }[]
-  }
-  if (result.rows.length === 0) return DEFAULT_COLLECT_KEYWORDS
-  return result.rows.map((r) => r.keyword)
+  const keywords = await getEnabledGeneralKeywords(db)
+  return keywords.length === 0 ? DEFAULT_COLLECT_KEYWORDS : keywords
 }
 
 // Real estate phrases only. No default fallback - an empty list just means no
 // real estate pass, never a lap with zero queries (the general list guards that).
-export async function loadRealEstateKeywords(db: DbClient): Promise<string[]> {
-  const result = (await db.query(
-    "SELECT keyword FROM collect_keywords WHERE enabled AND kind = 'real_estate' ORDER BY keyword",
-    [],
-  )) as { rows: { keyword: string }[] }
-  return result.rows.map((r) => r.keyword)
-}
+export { loadRealEstateKeywords } from './store/keywords'
 
 export interface LapQuery {
   query: string
