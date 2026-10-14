@@ -3,11 +3,12 @@
 // browser.ts (Playwright) is deliberately absent: it is the module's second
 // entry, imported by path only where a browser is launched, so a light import
 // never loads the browser.
-export type { BrowserDriver, DriverFactory, PageDriver, PageIo } from './driver'
+export type { BrowserDriver, DriverFactory, ListingPageIo, PageDriver, PageIo } from './driver'
 export { isBrowserUnusableError } from './driver'
 export type { LapQuery } from './keywords'
 export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
 export { putDealsFirst, upsertListing } from './listings'
+export type { CheckListingsCandidate } from './store/listings'
 export {
   getBackfillCandidates,
   getCollectedListingIds,
@@ -27,7 +28,7 @@ export type { SavedListingSummary } from './store/dashboard'
 export { getListingProductId } from './store/dashboard'
 export type { CollectKeyword } from './store/keywords'
 export { getCollectKeywords, replaceCollectKeywords } from './store/keywords'
-export { checkOneListing, runCheckListings } from './recheck'
+export { checkOneListing } from './recheck'
 export type { GridListing } from './extract/grid'
 export { extractGridListings, looksLikeListing } from './extract/grid'
 export { extractDetailFields } from './extract/detail'
