@@ -27,6 +27,7 @@ const CURATED_DATA_FILES = [
 // prettier-ignore
 const STORE_ENFORCED_MODULES = [
   'catalog',
+  'real-estate',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store
