@@ -130,6 +130,12 @@ _(undocumented)_
 
 _(undocumented)_
 
+## dashboard/src/app/revalidateProduct.ts
+
+### `revalidateProduct(productId: number): Promise<void>`
+
+_(undocumented)_
+
 ## dashboard/src/app/robots.ts
 
 ### `default(): MetadataRoute.Robots`
@@ -137,6 +143,8 @@ _(undocumented)_
 _(undocumented)_
 
 ## dashboard/src/app/SaveButton.tsx
+
+**Interactions:** imports `./revalidateProduct`
 
 ### `default({ listingId, productId, initialSaved, variant = 'button', onToggle, }: { listingId: string productId: number | null initialSaved: boolean variant?: 'button' | 'icon' onToggle?: (saved: boolean) => void }): React.JSX.Element`
 
