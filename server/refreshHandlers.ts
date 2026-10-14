@@ -4,6 +4,7 @@ import { realDelay } from '../src/platform/delay'
 import type { Logger } from '../src/platform/logger'
 import type { QueryClient } from '../src/platform/storage'
 import type { RouteHandler } from './app'
+import type { Cache } from './cache'
 import { createJobStore } from './jobState'
 import { createProxyGuard, type ProxyGuardEnv } from './proxyGuard'
 import { createRefreshLock } from './refreshLock'
@@ -19,6 +20,8 @@ export interface RefreshHandlersDeps {
   logger: Logger
   // Read once in server/index.ts and injected, like the proxy guard's env.
   env: ProxyGuardEnv
+  // The handlers drop the listing and product reads their writes make stale.
+  cache: Pick<Cache, 'invalidate'>
 }
 
 export interface RefreshHandlers {
@@ -30,7 +33,7 @@ export interface RefreshHandlers {
 
 // Builds every handler that drives a browser refresh, with the shared lock,
 // pacer and job store behind them. server/index.ts maps each one to its route.
-export function createRefreshHandlers({ db, photos, logger, env }: RefreshHandlersDeps): RefreshHandlers {
+export function createRefreshHandlers({ db, photos, logger, env, cache }: RefreshHandlersDeps): RefreshHandlers {
   // Shared across the single-listing and bulk product-refresh handlers -
   // this VPS can't run two concurrent Chromium instances (~2GB RAM), so
   // either use case must lock the other out. jobs is likewise one shared
@@ -55,6 +58,7 @@ export function createRefreshHandlers({ db, photos, logger, env }: RefreshHandle
     pacer: refreshPacer,
     driverFactory: launchBrowserDriver,
     tunnelCheck: proxyGuard,
+    cache,
   }
 
   return {

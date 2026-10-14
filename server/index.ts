@@ -4,7 +4,7 @@ import { createLogger } from '../src/platform/logger'
 import { secretsFromEnv } from '../src/platform/redact'
 import { createDbPool } from '../src/platform/storage'
 import { createCatalogRouter } from '../src/modules/catalog/routes'
-import { createListingPhotos, getListingProductId } from '../src/modules/collection'
+import { createListingPhotos } from '../src/modules/collection'
 import { createCollectionRouter } from '../src/modules/collection/routes'
 import { createRealEstateRouter } from '../src/modules/real-estate/routes'
 import { createApp } from './app'
@@ -12,7 +12,7 @@ import { createCache } from './cache'
 import { loadServerConfig } from './config'
 import { createLogsHandler } from './routes/logs'
 import { createWorkerControlHandler } from './routes/workerControl'
-import { invalidateAfterJobStatus, invalidateAfterListingRefresh, invalidateAfterQuery } from './queryInvalidation'
+import { invalidateAfterQuery } from './queryInvalidation'
 import { createQueryHandler } from './routes/query'
 import { createSettingsRouter } from './routes/settings'
 import { createRefreshHandlers } from './refreshHandlers'
@@ -35,7 +35,7 @@ async function main() {
   // Add a new use case by adding an entry here (e.g. "POST /some-route":
   // createSomeHandler(...)) - createApp handles auth/JSON parsing/routing
   // for every entry uniformly, so a new route only ever needs its own logic.
-  const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env })
+  const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env, cache })
   const app = createApp({
     apiKey,
     log: (msg) => logger.error(msg),
@@ -46,11 +46,9 @@ async function main() {
       createRealEstateRouter(pool),
     ],
     routes: {
-      'POST /refresh': invalidateAfterListingRefresh(refreshHandlers.refresh, cache, (id) =>
-        getListingProductId(pool, id),
-      ),
+      'POST /refresh': refreshHandlers.refresh,
       'POST /refresh-product': refreshHandlers.refreshProduct,
-      'GET /refresh-job': invalidateAfterJobStatus(refreshHandlers.jobStatus, cache),
+      'GET /refresh-job': refreshHandlers.jobStatus,
       'POST /refresh-job/cancel': refreshHandlers.cancelJob,
       'POST /logs': createLogsHandler(),
       'POST /worker-control': createWorkerControlHandler(),

@@ -1,10 +1,11 @@
 import type { DelayFn } from '../../src/platform/delay'
 import type { Logger } from '../../src/platform/logger'
 import type { QueryClient } from '../../src/platform/storage'
-import { getListingCheckCandidate } from '../../src/modules/collection'
+import { getListingCheckCandidate, getListingProductId } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
 import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
 import type { RouteHandler, RouteResult } from '../app'
+import type { Cache } from '../cache'
 import type { RefreshPacer } from '../refreshPacer'
 import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
@@ -21,10 +22,13 @@ export interface RefreshDeps {
   pacer: RefreshPacer
   driverFactory: DriverFactory
   tunnelCheck: () => Promise<TunnelCheckResult>
+  // Refreshes rewrite listing and product rows, so the reads cached by the
+  // resource routes are dropped here, where the write happens.
+  cache: Pick<Cache, 'invalidate'>
 }
 
 export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
-  const { db, photos, logger, delay, pacer, driverFactory, tunnelCheck } = deps
+  const { db, photos, logger, delay, pacer, driverFactory, tunnelCheck, cache } = deps
   return async function handleRefresh(body: unknown): Promise<RouteResult> {
     const id = (body as Record<string, unknown> | null)?.id
     if (typeof id !== 'string' || id.trim() === '') {
@@ -59,6 +63,7 @@ export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
       return { statusCode: 429, body: { error: 'a refresh is already in progress, try again shortly' } }
     }
 
+    let status: string
     try {
       const { driver, close } = await driverFactory(tunnel.proxy)
       try {
@@ -70,7 +75,7 @@ export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
           candidate,
           settings['check_listings.soft_wall_timeout_ms'],
         )
-        return { statusCode: 200, body: { status: result.status } }
+        status = result.status
       } finally {
         await close()
       }
@@ -78,5 +83,13 @@ export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
       pacer.recordActionComplete()
       pacer.release()
     }
+
+    // After the pacer is released: the lookup must not hold up the next
+    // queued refresh. A failed lookup only leaves the product's cached page to
+    // its TTL, so it must not turn a finished refresh into an error.
+    cache.invalidate(`listing:${id}`, 'products-list')
+    const productId = await getListingProductId(db, id).catch(() => null)
+    if (productId !== null) cache.invalidate(`product:${productId}`)
+    return { statusCode: 200, body: { status } }
   }
 }

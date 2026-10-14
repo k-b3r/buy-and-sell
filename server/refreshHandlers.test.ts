@@ -10,6 +10,7 @@ function handlers() {
     photos: {} as ListingPhotos,
     logger: noopLogger,
     env: {},
+    cache: { invalidate() {} },
   })
 }
 
