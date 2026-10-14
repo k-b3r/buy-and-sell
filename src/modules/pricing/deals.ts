@@ -4,7 +4,9 @@ import { medianCtes, notJunkPriceSql, notMagnitudeOutlierSql, peerListingSql } f
 import { SECONDHAND_PRICE_LATERAL } from './price-rules'
 import { repostKeySql } from './repost'
 
-type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
+// Strongest evidence first.
+export const DEALS_CONFIDENCE_TIERS = ['sold_comps', 'peer_listings', 'llm_estimate'] as const
+export type DealsConfidenceTier = (typeof DEALS_CONFIDENCE_TIERS)[number]
 
 const CONFIDENCE_TIER_RANK: Record<DealsConfidenceTier, number> = {
   sold_comps: 3,

@@ -67,22 +67,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `setManualPrice(productId: number, price: { kind: 'new' | 'secondhand'; priceLow: number; priceHigh: number }): Promise<void>`
-
-_(undocumented)_
-
-### `markProductReviewed(productId: number): Promise<void>`
-
-_(undocumented)_
-
-### `excludeProductFromReview(productId: number, reason: string): Promise<void>`
-
-_(undocumented)_
-
-### `includeInPricing(productId: number): Promise<void>`
-
-_(undocumented)_
-
 ### `getExclusionSummary(): Promise<ExclusionReasonCount[]>`
 
 _(undocumented)_
@@ -107,39 +91,15 @@ First page of a product's listings; `queryString` is buildListingsQueryString's 
 
 _(undocumented)_
 
-### `getSoldComparablePrice(productId: number): Promise<SoldComparablePrice | null>`
+### `getDeals(filters: Omit<DealsFilters, 'limit'> = {}): Promise<{ deals: DealListing[]; nextOffset: number | null }>`
 
-_(undocumented)_
-
-### `getPeerMedianPrice(productId: number): Promise<PeerMedianPrice | null>`
-
-_(undocumented)_
-
-### `getDeals(discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
-
-_(undocumented)_
+One page of ranked deals; the server applies the live discount-policy floors and fixes the page size.
 
 ### `getSoldCountsBySubCategory(): Promise<CategoryWeeklySoldCounts[]>`
 
 _(undocumented)_
 
 ### `getSavedListings(): Promise<SavedListingSummary[]>`
-
-_(undocumented)_
-
-### `getDiscountNotifications(limit?: number): Promise<DiscountNotification[]>`
-
-_(undocumented)_
-
-### `getUnreadDiscountNotificationCount(): Promise<number>`
-
-_(undocumented)_
-
-### `markDiscountNotificationRead(id: number): Promise<void>`
-
-_(undocumented)_
-
-### `markAllDiscountNotificationsRead(): Promise<void>`
 
 _(undocumented)_
 

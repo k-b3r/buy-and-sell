@@ -38,14 +38,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## server/queryInvalidation.ts
-
-**Interactions:** imports `./app`, `./cache`
-
-### `invalidateAfterQuery(handler: RouteHandler, cache: Invalidator): RouteHandler`
-
-POST /query: after a successful product mutation, drop its catalog caches.
-
 ## server/rateLimiter.ts
 
 ### `createRateLimiter(maxFailures: number, windowMs: number, now: () => number = Date.now): RateLimiter`
@@ -88,7 +80,7 @@ _(undocumented)_
 
 ## server/routes/query.ts
 
-**Interactions:** imports `../../src/modules/pricing`, `../../src/platform/storage`, `../app`
+**Interactions:** imports `../../src/platform/storage`, `../app`
 
 ### `createQueryHandler(db: QueryClient, log: (msg: string) => void = console.error): RouteHandler`
 

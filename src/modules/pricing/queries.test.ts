@@ -166,26 +166,6 @@ test('setManualPrice inserts a manual_secondhand row into product_price_history'
   expect(capturedParams).toEqual([12, 800, 1200, 'manual_secondhand'])
 })
 
-test('setManualPrice rejects positional wire args from an older dashboard instead of inserting a null-priced row', async () => {
-  let queried = false
-  const db: QueryClient = {
-    query: async () => {
-      queried = true
-      return { rows: [] }
-    },
-  }
-  const setManualPriceOverWire = setManualPrice as (db: QueryClient, ...args: unknown[]) => Promise<void>
-
-  await expect(setManualPriceOverWire(db, 12, 'new', 1500, 2000)).rejects.toThrow('setManualPrice')
-  await expect(setManualPriceOverWire(db, 12, { kind: 'used', priceLow: 1500, priceHigh: 2000 })).rejects.toThrow(
-    'setManualPrice',
-  )
-  await expect(setManualPriceOverWire(db, 12, { kind: 'new', priceLow: '1500', priceHigh: 2000 })).rejects.toThrow(
-    'setManualPrice',
-  )
-  expect(queried).toBe(false)
-})
-
 test('getSoldComparablePrice returns the clean median and sample size when at least 3 sold comps exist', async () => {
   const db: QueryClient = {
     query: async () => ({ rows: [{ sample_size: '4', clean_median_price: '15000' }] }),

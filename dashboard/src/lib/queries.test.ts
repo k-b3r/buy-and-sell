@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { getProductDetail, getProductSummaries, getRealEstateListings, markProductReviewed } from './queries'
+import {
+  getDeals,
+  getExcludedProducts,
+  getExclusionSummary,
+  getProductDetail,
+  getProductSummaries,
+  getRealEstateListings,
+} from './queries'
 
 const fetchMock = vi.fn()
 
@@ -75,11 +82,59 @@ test('getProductDetail unwraps the product and passes null through for an unknow
   expect(new URL(fetchMock.mock.calls[0][0] as string).pathname).toBe('/products/999')
 })
 
-test('markProductReviewed posts to the product mark-reviewed route', async () => {
-  fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })))
+test('getDeals sends the filters as URL params and returns the page with its next offset', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ deals: [{ listing_id: 'a' }], nextOffset: 30 })))
 
-  await markProductReviewed(7)
+  const page = await getDeals({
+    search: 'iphone',
+    categories: ['Phones', 'Laptops'],
+    minProfitPesos: 2500,
+    minConfidenceTier: 'sold_comps',
+    maxDaysListed: 14,
+    addedWithinHours: 6,
+    soldOnly: true,
+    lowConfidenceOnly: true,
+    offset: 30,
+  })
 
-  expect(new URL(fetchMock.mock.calls[0][0] as string).pathname).toBe('/products/7/mark-reviewed')
-  expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' })
+  expect(page).toEqual({ deals: [{ listing_id: 'a' }], nextOffset: 30 })
+  const url = new URL(fetchMock.mock.calls[0][0] as string)
+  expect(url.pathname).toBe('/deals')
+  expect(url.searchParams.getAll('category')).toEqual(['Phones', 'Laptops'])
+  expect(Object.fromEntries(url.searchParams)).toMatchObject({
+    search: 'iphone',
+    minProfit: '2500',
+    minTier: 'sold_comps',
+    maxDaysListed: '14',
+    addedWithinHours: '6',
+    soldOnly: 'true',
+    lowConfidence: 'true',
+    offset: '30',
+  })
+})
+
+test('getDeals sends no params when no filters are given', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ deals: [], nextOffset: null })))
+
+  await getDeals()
+
+  expect(new URL(fetchMock.mock.calls[0][0] as string).search).toBe('')
+})
+
+test('getExcludedProducts asks for one reason with its paging and unwraps the products', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ products: [{ id: 1 }] })))
+
+  const products = await getExcludedProducts('groq_generic', { offset: 50, limit: 50 })
+
+  expect(products).toEqual([{ id: 1 }])
+  const url = new URL(fetchMock.mock.calls[0][0] as string)
+  expect(url.pathname).toBe('/price-exclusions')
+  expect(Object.fromEntries(url.searchParams)).toEqual({ reason: 'groq_generic', offset: '50', limit: '50' })
+})
+
+test('getExclusionSummary unwraps the reason groups', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ summary: [{ reason: 'x', count: 1, retry: false }] })))
+
+  expect(await getExclusionSummary()).toEqual([{ reason: 'x', count: 1, retry: false }])
+  expect(new URL(fetchMock.mock.calls[0][0] as string).pathname).toBe('/price-exclusions/summary')
 })
