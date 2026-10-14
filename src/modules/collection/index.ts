@@ -7,14 +7,14 @@ export type { BrowserDriver, DriverFactory, PageDriver } from './driver'
 export { isBrowserUnusableError } from './driver'
 export type { LapQuery } from './keywords'
 export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
+export { putDealsFirst } from './listings'
 export {
   getBackfillCandidates,
   getCheckListingsCandidates,
   getDealCheckCandidates,
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
-  putDealsFirst,
-} from './listings'
+} from './store/listings'
 export { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 export type { ListingPhotos } from './photos'
 export { createListingPhotos } from './photos'

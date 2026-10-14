@@ -1,7 +1,8 @@
 import type { ListingPageIo } from './driver'
 import { extractDetailFields } from './extract/detail'
-import type { CheckListingsCandidate } from './listings'
-import { deleteListing, flagListingRemoved, markListingAlive, markListingSold, refreshListingFields } from './listings'
+import type { CheckListingsCandidate } from './store/listings'
+import { deleteListing, flagListingRemoved, markListingAlive, markListingSold } from './store/listings'
+import { refreshListingFields } from './listings'
 import { resolveDetailPage } from './collect'
 
 export type CheckOneListingResult =

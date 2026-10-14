@@ -6,7 +6,8 @@ import { extractDetailFields } from './extract/detail'
 import { extractCursor, extractLsd, parsePaginationResponse } from './paginate'
 import { isWithinServiceArea, MAX_SERVICE_RADIUS_KM } from './location'
 import type { DbClient } from '../../platform/storage'
-import { upsertListing, getCollectedListingIds } from './listings'
+import { upsertListing } from './listings'
+import { getCollectedListingIds } from './store/listings'
 import type { ListingPhotos } from './photos'
 
 export interface RunOptions {
