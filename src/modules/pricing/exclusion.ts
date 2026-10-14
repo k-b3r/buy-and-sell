@@ -13,7 +13,7 @@ import type { DbClient } from '../../platform/storage'
 //   retail_not_found - no provider found a retail price (ensureProductPriced)
 //   manual_review - a human excluded it from the needs-review page
 // exa_no_result is retired (historical rows only).
-const PRICE_EXCLUSION_REASONS = [
+export const PRICE_EXCLUSION_REASONS = [
   'real_estate',
   'too_generic',
   'parts_accessory',
