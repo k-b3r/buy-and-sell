@@ -39,6 +39,7 @@ import type {
   SoldComparablePrice,
   SubCategoryTreeEntry,
 } from './shared.generated'
+import { api } from './api'
 
 export type {
   CategoryWeeklySoldCounts,
@@ -193,8 +194,9 @@ export function markAllDiscountNotificationsRead(): Promise<void> {
   return rpc('markAllDiscountNotificationsRead')
 }
 
-export function getAllSettings(): Promise<SettingRow[]> {
-  return rpc('getAllSettings')
+export async function getAllSettings(): Promise<SettingRow[]> {
+  const { settings } = await api<{ settings: SettingRow[] }>('/settings')
+  return settings
 }
 
 export function updateSettings(updates: { key: string; value: number }[]): Promise<void> {
