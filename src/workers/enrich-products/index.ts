@@ -5,8 +5,9 @@ import { realDelay } from '../../platform/delay'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { secretsFromEnv } from '../../platform/redact'
-import { getEnrichmentCandidates, runProductEnrichment } from '../../modules/catalog'
+import { getEnrichmentCandidates } from '../../modules/catalog'
 import { applyEligibilityFromEnrichment } from '../../modules/pricing'
+import { runProductEnrichment } from './run'
 
 async function main() {
   loadEnvFile()

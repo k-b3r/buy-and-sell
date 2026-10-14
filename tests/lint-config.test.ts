@@ -92,6 +92,8 @@ test('lint config leaves entry-point tests out of the size limit', async () => {
   expect(severity(await rule('server/routes/workerControl.test.ts', 'max-lines'))).toBe(0)
 }, 60_000)
 
+const RUN_EXPORT_MARKER = '[id.name=/^run[A-Z]/]'
+const isRunExportSelector = (selector: string) => selector.includes(RUN_EXPORT_MARKER)
 const QUERY_SELECTOR = "CallExpression[callee.property.name='query']"
 
 test('lint config bans .query() calls outside store/ in modules listed in STORE_ENFORCED_MODULES', async () => {
@@ -134,7 +136,45 @@ test('lint config leaves modules not listed in STORE_ENFORCED_MODULES free to ca
 test('lint config keeps every other restricted-syntax ban in enforced modules, so the store block cannot drift from the shared list', async () => {
   const enforced = selectors(await rule('src/modules/catalog/merge.ts', 'no-restricted-syntax'))
   const shared = selectors(await rule('src/modules/unlisted-example/deals.ts', 'no-restricted-syntax'))
-  expect(enforced.filter((selector) => selector !== QUERY_SELECTOR)).toEqual(shared)
+  expect(enforced.filter((selector) => selector !== QUERY_SELECTOR && !isRunExportSelector(selector))).toEqual(shared)
+}, 60_000)
+
+const RUN_EXPORT_CODE = [
+  'export async function runThing() {}',
+  'export const runOther = async () => {}',
+  'function runThird() {}',
+  'export { runThird }',
+].join('\n')
+
+async function runExportMessages(file: string, code = RUN_EXPORT_CODE) {
+  const [result] = await eslint.lintText(code, { filePath: path.join(repoRoot, file) })
+  return result.messages.filter((m) => m.ruleId === 'no-restricted-syntax')
+}
+
+test('lint config bans run* exports in modules listed in RUN_FREE_MODULES', async () => {
+  for (const file of ['src/modules/catalog/merge.ts', 'src/modules/real-estate/extractor.ts']) {
+    expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
+      file,
+      expect.arrayContaining([expect.stringContaining(RUN_EXPORT_MARKER), QUERY_SELECTOR]),
+    ])
+  }
+}, 60_000)
+
+test('lint reports every exported run* function, const and specifier in a run-free module', async () => {
+  expect(await runExportMessages('src/modules/catalog/merge.ts')).toHaveLength(3)
+}, 60_000)
+
+test('lint allows run* names that are not exported, not followed by a capital, or in module tests', async () => {
+  expect(
+    await runExportMessages('src/modules/catalog/merge.ts', 'function runLocal() {}\nexport const running = 1\n'),
+  ).toHaveLength(0)
+  expect(await runExportMessages('src/modules/catalog/merge.test.ts')).toHaveLength(0)
+}, 60_000)
+
+test('lint allows run* exports in modules not listed in RUN_FREE_MODULES and in worker run.ts files', async () => {
+  for (const file of ['src/modules/unlisted-example/loop.ts', 'src/workers/enrich-products/run.ts']) {
+    expect([file, await runExportMessages(file)]).toEqual([file, expect.not.arrayContaining([expect.anything()])])
+  }
 }, 60_000)
 
 test('lint reports a .query() call outside store/ in an enforced module and accepts it inside store/', async () => {
