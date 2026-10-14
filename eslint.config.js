@@ -42,6 +42,7 @@ const STORE_ENFORCED_MODULES = [
 // prettier-ignore
 const RUN_FREE_MODULES = [
   'catalog',
+  'real-estate',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store
