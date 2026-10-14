@@ -38,6 +38,24 @@ _(undocumented)_
 
 _(undocumented)_
 
+## server/queryInvalidation.ts
+
+**Interactions:** imports `./app`, `./cache`
+
+### `invalidateAfterQuery(handler: RouteHandler, cache: Invalidator): RouteHandler`
+
+POST /query: after a successful product mutation, drop its catalog caches.
+
+### `invalidateAfterJobStatus(handler: RouteHandler, cache: Invalidator): RouteHandler`
+
+GET /refresh-job: a finished (or cancelled, which can still have written
+some listings) bulk job changed its product, so drop that product's caches.
+Idempotent, so it is fine to run on every poll that sees the final status.
+
+### `invalidateAfterListingRefresh(handler: RouteHandler, cache: Invalidator, getProductId: (listingId: string) => Promise<number | null>): RouteHandler`
+
+POST /refresh: a re-checked listing changes its product's page and the list.
+
 ## server/rateLimiter.ts
 
 ### `createRateLimiter(maxFailures: number, windowMs: number, now: () => number = Date.now): RateLimiter`
