@@ -12,7 +12,13 @@ export interface ServerRoute {
   serverPath?: string
 }
 
-const SERVER_ROUTES: readonly ServerRoute[] = [{ pattern: '/api/settings' }, { pattern: '/api/collect-keywords' }]
+const SERVER_ROUTES: readonly ServerRoute[] = [
+  { pattern: '/api/settings' },
+  { pattern: '/api/collect-keywords' },
+  { pattern: '/api/products' },
+  { pattern: '/api/products/:id/listings' },
+  { pattern: '/api/products/:id/mark-reviewed' },
+]
 
 function matchSegments(pattern: string, pathname: string): Record<string, string> | null {
   const want = pattern.split('/')
