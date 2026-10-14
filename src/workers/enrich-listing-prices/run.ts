@@ -1,12 +1,11 @@
-import type { Logger } from '../../../platform/logger'
-import type { GroqClient } from '../../../platform/llm-clients'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../../platform/llm-clients'
-import type { DbClient } from '../../../platform/storage'
-import type { DelayFn } from '../../../platform/delay'
-import { realDelay } from '../../../platform/delay'
-import { upsertListingPriceReview } from '../store/listing-price-review'
-import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './prompt'
-import type { PriceReviewCandidate } from './prompt'
+import type { Logger } from '../../platform/logger'
+import type { GroqClient } from '../../platform/llm-clients'
+import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
+import type { DbClient } from '../../platform/storage'
+import type { DelayFn } from '../../platform/delay'
+import { realDelay } from '../../platform/delay'
+import type { PriceReviewCandidate } from '../../modules/pricing'
+import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA, upsertListingPriceReview } from '../../modules/pricing'
 
 const DEFAULT_BATCH_SIZE = 35
 const MODEL = 'openai/gpt-oss-120b'
@@ -21,7 +20,7 @@ interface RawPriceReviewItem {
   reasoning?: unknown
 }
 
-export interface PriceReviewDeps {
+interface PriceReviewDeps {
   groq: GroqClient
   db: DbClient
   logger: Logger

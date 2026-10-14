@@ -70,6 +70,7 @@ export {
   priceExclusionReasonSchema,
 } from './schemas'
 export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
+export { upsertListingPriceReview } from './store/listing-price-review'
 export {
   getListingPricesByProduct,
   getPriceLookupCandidates,
@@ -92,4 +93,4 @@ export type { TriageSummaryRow } from './store/price-triage'
 export { getTriageCandidates, getTriageSummary, saveTriageRows } from './store/price-triage'
 export { computeRepostIds, repostKey, repostKeySql } from './repost'
 export type { PriceReviewCandidate } from './price-review/prompt'
-export { runPriceReview } from './price-review/price-review'
+export { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review/prompt'
