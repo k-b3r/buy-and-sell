@@ -108,3 +108,29 @@ test('a handler that throws behind the id-path routes answers an opaque JSON 500
   expect(logged[0]).toContain('relation "listings" does not exist')
   expect(logged[1]).toContain('browser crashed')
 })
+
+test('the id-path refresh routes answer 401 without the bearer key and run the handler with it', async () => {
+  const seen: unknown[] = []
+  const app = authedApp({
+    refresh: async (body) => {
+      seen.push(body)
+      return { statusCode: 200, body: { status: 'alive' } }
+    },
+    refreshProduct: async (body) => {
+      seen.push(body)
+      return { statusCode: 200, body: { productId: 2, total: 3 } }
+    },
+  })
+
+  const noKeyListing = await request(app).post('/listings/1/refresh')
+  const noKeyProduct = await request(app).post('/products/2/refresh').set('authorization', 'Bearer wrong-key')
+  expect(noKeyListing.status).toBe(401)
+  expect(noKeyProduct.status).toBe(401)
+  expect(seen).toEqual([])
+
+  const listing = await request(app).post('/listings/1/refresh').set('authorization', `Bearer ${API_KEY}`)
+  const product = await request(app).post('/products/2/refresh').set('authorization', `Bearer ${API_KEY}`)
+  expect(listing.body).toEqual({ status: 'alive' })
+  expect(product.body).toEqual({ productId: 2, total: 3 })
+  expect(seen).toEqual([{ id: '1' }, { productId: 2 }])
+})
