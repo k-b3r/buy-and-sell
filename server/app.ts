@@ -1,4 +1,6 @@
-import { createServer, type IncomingMessage, type Server } from 'node:http'
+import { timingSafeEqual } from 'node:crypto'
+import express from 'express'
+import type { ErrorRequestHandler, Express, RequestHandler, Router } from 'express'
 import { createRateLimiter } from './rateLimiter'
 import type { RateLimiter } from './rateLimiter'
 
@@ -9,11 +11,9 @@ export interface RouteResult {
 
 export type RouteHandler = (body: unknown) => Promise<RouteResult>
 
-// Key format: "METHOD /path" (e.g. "POST /refresh") - exact match only, no
-// path params. Every route on this server is body-driven (ids/etc arrive in
-// the JSON body, not the URL), which is enough for what's here and what's
-// anticipated - a path-param matcher can be added if a future use case
-// genuinely needs one, not before.
+// Key format: "METHOD /path" (e.g. "POST /refresh"), matched exactly. Handlers
+// here are body-driven and have no path params; a feature that needs params
+// or a query string mounts an express Router (AppOptions.routers) instead.
 export type RouteTable = Record<string, RouteHandler>
 
 // Bearer token has no built-in lockout - without this, an internet-facing
@@ -23,99 +23,97 @@ export type RouteTable = Record<string, RouteHandler>
 // (a typo or two) but slow enough to make guessing a real secret impractical.
 const MAX_AUTH_FAILURES = 10
 const AUTH_FAILURE_WINDOW_MS = 5 * 60 * 1000
+const MAX_BODY_BYTES = '1mb'
+const BEARER_PREFIX = 'Bearer '
 
-// Pure routing/auth/JSON-parsing core, no Node http types involved - testable
-// directly without spinning up a real server or faking IncomingMessage/
-// ServerResponse. createApp below is just a thin Node adapter around this.
-export interface AppContext {
-  routes: RouteTable
+export interface AppOptions {
   apiKey: string
-  rateLimiter: RateLimiter
+  // Where handler failures go (detail stays in the box's log, never the response).
+  log: (msg: string) => void
+  routes?: RouteTable
+  routers?: Router[]
+  rateLimiter?: RateLimiter
 }
 
-export interface AppRequest {
-  method: string | undefined
-  url: string | undefined
-  authHeader: string | undefined
-  rawBody: string
-  clientIp: string
+function tokenMatches(header: string | undefined, apiKey: string): boolean {
+  if (!header?.startsWith(BEARER_PREFIX)) return false
+  const given = Buffer.from(header.slice(BEARER_PREFIX.length))
+  const expected = Buffer.from(apiKey)
+  return given.length === expected.length && timingSafeEqual(given, expected)
 }
 
-export async function handleRequest(
-  { routes, apiKey, rateLimiter }: AppContext,
-  { method, url, authHeader, rawBody, clientIp }: AppRequest,
-): Promise<RouteResult> {
-  const handler = routes[`${method} ${url}`]
-  if (!handler) {
-    return { statusCode: 404, body: { error: 'not found' } }
-  }
-
-  if (rateLimiter.isBlocked(clientIp)) {
-    return { statusCode: 429, body: { error: 'too many failed attempts, try again later' } }
-  }
-
-  // Every route on this server is private - it's a personal companion
-  // service to the collector scripts, nothing here is meant to be public.
-  // One shared secret for all routes, checked here once, so a new route
-  // never has to reimplement auth itself.
-  if (authHeader !== `Bearer ${apiKey}`) {
-    rateLimiter.recordFailure(clientIp)
-    return { statusCode: 401, body: { error: 'unauthorized' } }
-  }
-  rateLimiter.recordSuccess(clientIp)
-
-  let body: unknown
-  try {
-    body = JSON.parse(rawBody || '{}')
-  } catch {
-    return { statusCode: 400, body: { error: 'invalid JSON body' } }
-  }
-  // createApp's request listener can't await safely, so a rejection here
-  // would be unhandled and take down the whole server process.
-  try {
-    return await handler(body)
-  } catch (err) {
-    console.error(`${method} ${url} handler failed:`, err)
-    return { statusCode: 500, body: { error: 'internal error' } }
-  }
-}
-
-// x-forwarded-for is only trustworthy once this sits behind a proxy/tunnel
-// (Cloudflare Tunnel, per the plan this is a step toward) - until then it's
-// unset and this falls back to the raw socket address, same as today.
-function clientIpFrom(req: IncomingMessage): string {
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string' && forwarded.length > 0) return forwarded.split(',')[0].trim()
-  return req.socket.remoteAddress ?? 'unknown'
-}
-
-// Generic JSON-in/JSON-out HTTP app - register a route table, get a plain
-// Node http.Server back. New use cases add an entry to the route table
-// passed in at the call site (see index.ts), not a change to this file.
-export function createApp(apiKey: string, routes: RouteTable): Server {
-  const app: AppContext = {
-    routes,
-    apiKey,
-    rateLimiter: createRateLimiter(MAX_AUTH_FAILURES, AUTH_FAILURE_WINDOW_MS),
-  }
-
-  return createServer((req, res) => {
-    let raw = ''
-    req.on('data', (chunk) => {
-      raw += chunk
-    })
-    req.on('end', () => void respond())
-
-    async function respond() {
-      const result = await handleRequest(app, {
-        method: req.method,
-        url: req.url,
-        authHeader: req.headers.authorization,
-        rawBody: raw,
-        clientIp: clientIpFrom(req),
-      })
-      res.writeHead(result.statusCode, { 'content-type': 'application/json' })
-      res.end(JSON.stringify(result.body))
+function authMiddleware(apiKey: string, rateLimiter: RateLimiter): RequestHandler {
+  return (req, res, next) => {
+    const ip = req.ip ?? 'unknown'
+    // Checked before the token, so a blocked IP is refused even with the right key.
+    if (rateLimiter.isBlocked(ip)) {
+      res.status(429).json({ error: 'too many failed attempts, try again later' })
+      return
     }
+    // Every route on this server is private - it's a personal companion
+    // service to the collector scripts, nothing here is meant to be public.
+    // One shared secret for all routes, checked here once, so a new route
+    // never has to reimplement auth itself.
+    if (!tokenMatches(req.headers.authorization, apiKey)) {
+      rateLimiter.recordFailure(ip)
+      res.status(401).json({ error: 'unauthorized' })
+      return
+    }
+    rateLimiter.recordSuccess(ip)
+    next()
+  }
+}
+
+function tableRouter(routes: RouteTable): Router {
+  const router = express.Router({ caseSensitive: true, strict: true })
+  for (const [key, handler] of Object.entries(routes)) {
+    const [method, path] = key.split(' ', 2)
+    router[method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete'](path, async (req, res) => {
+      // An empty body is {} - handlers read fields off it unconditionally.
+      const result = await handler(req.body ?? {})
+      res.status(result.statusCode).json(result.body)
+    })
+  }
+  return router
+}
+
+function errorMiddleware(log: (msg: string) => void): ErrorRequestHandler {
+  return (err, req, res, _next) => {
+    const type = (err as { type?: string }).type
+    if (type === 'entity.parse.failed') {
+      res.status(400).json({ error: 'invalid JSON body' })
+    } else if (type === 'entity.too.large') {
+      res.status(413).json({ error: 'body too large' })
+    } else {
+      log(`${req.method} ${req.path} failed: ${err instanceof Error ? err.message : String(err)}`)
+      res.status(500).json({ error: 'internal error' })
+    }
+  }
+}
+
+// JSON-in/JSON-out express app: rate limit and bearer auth for every request,
+// then the legacy route table and any feature routers. New features mount a
+// Router; the table exists so existing handlers keep working unchanged.
+export function createApp({
+  apiKey,
+  log,
+  routes = {},
+  routers = [],
+  rateLimiter = createRateLimiter(MAX_AUTH_FAILURES, AUTH_FAILURE_WINDOW_MS),
+}: AppOptions): Express {
+  const app = express()
+  app.disable('x-powered-by')
+  // Sits behind a Cloudflare Tunnel (loopback): trust it for the client IP so
+  // the rate limiter keys on the real caller, not on 127.0.0.1.
+  app.set('trust proxy', 'loopback')
+  app.use(authMiddleware(apiKey, rateLimiter))
+  // type: always - the old server JSON.parsed any body regardless of content type.
+  app.use(express.json({ limit: MAX_BODY_BYTES, type: () => true }))
+  app.use(tableRouter(routes))
+  for (const router of routers) app.use(router)
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'not found' })
   })
+  app.use(errorMiddleware(log))
+  return app
 }

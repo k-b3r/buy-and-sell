@@ -1,161 +1,195 @@
-import { handleRequest } from './app'
-import type { AppRequest, RouteTable } from './app'
+import express from 'express'
+import request from 'supertest'
+import { createApp } from './app'
+import type { RouteTable } from './app'
 import { createRateLimiter } from './rateLimiter'
 import type { RateLimiter } from './rateLimiter'
 
 const API_KEY = 'test-secret'
-const IP = '1.2.3.4'
+const AUTH = `Bearer ${API_KEY}`
 
 function freshLimiter() {
   return createRateLimiter(10, 5 * 60 * 1000)
 }
 
-function app(routes: RouteTable, rateLimiter: RateLimiter = freshLimiter()) {
-  return { routes, apiKey: API_KEY, rateLimiter }
+function app(routes: RouteTable, rateLimiter: RateLimiter = freshLimiter(), log: (msg: string) => void = () => {}) {
+  return createApp({ apiKey: API_KEY, routes, rateLimiter, log })
 }
 
-// An authenticated POST /refresh with an empty JSON body from IP, overridable per test.
-function req(overrides: Partial<AppRequest> = {}): AppRequest {
-  return {
-    method: 'POST',
-    url: '/refresh',
-    authHeader: `Bearer ${API_KEY}`,
-    rawBody: '{}',
-    clientIp: IP,
-    ...overrides,
-  }
-}
+const ok = async () => ({ statusCode: 200, body: { ok: true } })
 
-test('routes a matching method+path to its handler and returns the parsed body to it', async () => {
+test('routes a matching method and path to its handler and passes the parsed body', async () => {
   let receivedBody: unknown
-  const routes: RouteTable = {
+  const server = app({
     'POST /refresh': async (body) => {
       receivedBody = body
       return { statusCode: 200, body: { ok: true } }
     },
-  }
+  })
 
-  const result = await handleRequest(app(routes), req({ rawBody: '{"id":"123"}' }))
+  const res = await request(server).post('/refresh').set('authorization', AUTH).send({ id: '123' })
 
-  expect(result).toEqual({ statusCode: 200, body: { ok: true } })
+  expect(res.status).toBe(200)
+  expect(res.body).toEqual({ ok: true })
   expect(receivedBody).toEqual({ id: '123' })
 })
 
-test('404s for an unregistered method+path combination', async () => {
-  const server = app({ 'POST /refresh': async () => ({ statusCode: 200, body: {} }) })
+test('404s for an unregistered method and path combination', async () => {
+  const server = app({ 'POST /refresh': ok })
 
-  expect(await handleRequest(server, req({ method: 'GET', rawBody: '' }))).toEqual({
-    statusCode: 404,
-    body: { error: 'not found' },
-  })
-  expect(await handleRequest(server, req({ url: '/nope', rawBody: '' }))).toEqual({
-    statusCode: 404,
-    body: { error: 'not found' },
-  })
+  const wrongMethod = await request(server).get('/refresh').set('authorization', AUTH)
+  const wrongPath = await request(server).post('/nope').set('authorization', AUTH)
+
+  expect(wrongMethod.status).toBe(404)
+  expect(wrongMethod.body).toEqual({ error: 'not found' })
+  expect(wrongPath.status).toBe(404)
 })
 
 test('rejects a wrong or missing bearer token for a route that exists', async () => {
-  const routes: RouteTable = { 'POST /refresh': async () => ({ statusCode: 200, body: {} }) }
+  const server = app({ 'POST /refresh': ok })
 
-  expect(await handleRequest(app(routes), req({ authHeader: 'Bearer wrong' }))).toEqual({
-    statusCode: 401,
-    body: { error: 'unauthorized' },
-  })
-  expect(await handleRequest(app(routes), req({ authHeader: undefined }))).toEqual({
-    statusCode: 401,
-    body: { error: 'unauthorized' },
-  })
+  const wrong = await request(server).post('/refresh').set('authorization', 'Bearer wrong')
+  const missing = await request(server).post('/refresh')
+
+  expect(wrong.status).toBe(401)
+  expect(wrong.body).toEqual({ error: 'unauthorized' })
+  expect(missing.status).toBe(401)
 })
 
-test('400s on an invalid JSON body for an authenticated, matching route', async () => {
-  const routes: RouteTable = { 'POST /refresh': async () => ({ statusCode: 200, body: {} }) }
+test('400s on an invalid JSON body for an authenticated request', async () => {
+  const server = app({ 'POST /refresh': ok })
 
-  const result = await handleRequest(app(routes), req({ rawBody: 'not json' }))
+  const res = await request(server)
+    .post('/refresh')
+    .set('authorization', AUTH)
+    .set('content-type', 'application/json')
+    .send('not json')
 
-  expect(result).toEqual({ statusCode: 400, body: { error: 'invalid JSON body' } })
+  expect(res.status).toBe(400)
+  expect(res.body).toEqual({ error: 'invalid JSON body' })
+})
+
+test('parses a JSON body even without a JSON content type, as the old server did', async () => {
+  let receivedBody: unknown
+  const server = app({
+    'POST /logs': async (body) => {
+      receivedBody = body
+      return { statusCode: 200, body: {} }
+    },
+  })
+
+  await request(server)
+    .post('/logs')
+    .set('authorization', AUTH)
+    .set('content-type', 'text/plain')
+    .send('{"worker":"collect"}')
+
+  expect(receivedBody).toEqual({ worker: 'collect' })
 })
 
 test('treats an empty body as {}', async () => {
   let receivedBody: unknown
-  const routes: RouteTable = {
+  const server = app({
     'POST /refresh': async (body) => {
       receivedBody = body
       return { statusCode: 200, body: {} }
     },
-  }
+  })
 
-  await handleRequest(app(routes), req({ rawBody: '' }))
+  await request(server).post('/refresh').set('authorization', AUTH)
 
   expect(receivedBody).toEqual({})
 })
 
-test('a second route can be registered independently and gets the same auth for free', async () => {
+test('a second route can be registered independently and gets the same auth', async () => {
   const server = app({
     'POST /refresh': async () => ({ statusCode: 200, body: { from: 'refresh' } }),
-    'POST /other-thing': async () => ({ statusCode: 200, body: { from: 'other-thing' } }),
+    'GET /other-thing': async () => ({ statusCode: 200, body: { from: 'other-thing' } }),
   })
 
-  const refresh = await handleRequest(server, req())
-  const other = await handleRequest(server, req({ url: '/other-thing' }))
-  const otherUnauthed = await handleRequest(server, req({ url: '/other-thing', authHeader: 'Bearer wrong' }))
+  const other = await request(server).get('/other-thing').set('authorization', AUTH)
+  const otherUnauthed = await request(server).get('/other-thing').set('authorization', 'Bearer wrong')
 
-  expect(refresh.body).toEqual({ from: 'refresh' })
   expect(other.body).toEqual({ from: 'other-thing' })
-  expect(otherUnauthed).toEqual({ statusCode: 401, body: { error: 'unauthorized' } })
+  expect(otherUnauthed.status).toBe(401)
+})
+
+test('mounts an express router behind the same auth', async () => {
+  const router = express.Router()
+  router.get('/things/:id', (req, res) => {
+    res.json({ id: req.params.id })
+  })
+  const server = createApp({ apiKey: API_KEY, routers: [router], rateLimiter: freshLimiter(), log: () => {} })
+
+  const authed = await request(server).get('/things/7').set('authorization', AUTH)
+  const unauthed = await request(server).get('/things/7')
+
+  expect(authed.body).toEqual({ id: '7' })
+  expect(unauthed.status).toBe(401)
 })
 
 test('an IP gets 429 after repeated auth failures, even with the correct token', async () => {
-  const server = app(
-    { 'POST /refresh': async () => ({ statusCode: 200, body: {} }) },
-    createRateLimiter(3, 5 * 60 * 1000),
-  )
+  const server = app({ 'POST /refresh': ok }, createRateLimiter(3, 5 * 60 * 1000))
 
-  await handleRequest(server, req({ authHeader: 'Bearer wrong' }))
-  await handleRequest(server, req({ authHeader: 'Bearer wrong' }))
-  await handleRequest(server, req({ authHeader: 'Bearer wrong' }))
+  for (let i = 0; i < 3; i++) await request(server).post('/refresh').set('authorization', 'Bearer wrong')
+  const res = await request(server).post('/refresh').set('authorization', AUTH)
 
-  const result = await handleRequest(server, req())
-
-  expect(result).toEqual({ statusCode: 429, body: { error: 'too many failed attempts, try again later' } })
+  expect(res.status).toBe(429)
+  expect(res.body).toEqual({ error: 'too many failed attempts, try again later' })
 })
 
-test('rate limiting is per-IP - one IP failing does not block another', async () => {
-  const server = app(
-    { 'POST /refresh': async () => ({ statusCode: 200, body: { ok: true } }) },
-    createRateLimiter(2, 5 * 60 * 1000),
-  )
+test('rate limiting is per client IP - one IP failing does not block another', async () => {
+  const server = app({ 'POST /refresh': ok }, createRateLimiter(2, 5 * 60 * 1000))
 
-  await handleRequest(server, req({ authHeader: 'Bearer wrong', clientIp: '1.1.1.1' }))
-  await handleRequest(server, req({ authHeader: 'Bearer wrong', clientIp: '1.1.1.1' }))
+  for (let i = 0; i < 2; i++) {
+    await request(server).post('/refresh').set('authorization', 'Bearer wrong').set('x-forwarded-for', '1.1.1.1')
+  }
+  const otherIp = await request(server).post('/refresh').set('authorization', AUTH).set('x-forwarded-for', '2.2.2.2')
+  const blockedIp = await request(server).post('/refresh').set('authorization', AUTH).set('x-forwarded-for', '1.1.1.1')
 
-  const otherIp = await handleRequest(server, req({ clientIp: '2.2.2.2' }))
-
-  expect(otherIp).toEqual({ statusCode: 200, body: { ok: true } })
+  expect(otherIp.status).toBe(200)
+  expect(blockedIp.status).toBe(429)
 })
 
 test('a successful request clears prior failures, so the IP is not left blocked', async () => {
-  const server = app(
-    { 'POST /refresh': async () => ({ statusCode: 200, body: { ok: true } }) },
-    createRateLimiter(2, 5 * 60 * 1000),
-  )
+  const server = app({ 'POST /refresh': ok }, createRateLimiter(2, 5 * 60 * 1000))
 
-  await handleRequest(server, req({ authHeader: 'Bearer wrong' }))
-  await handleRequest(server, req())
-  await handleRequest(server, req({ authHeader: 'Bearer wrong' }))
+  await request(server).post('/refresh').set('authorization', 'Bearer wrong')
+  await request(server).post('/refresh').set('authorization', AUTH)
+  await request(server).post('/refresh').set('authorization', 'Bearer wrong')
+  const res = await request(server).post('/refresh').set('authorization', AUTH)
 
-  const result = await handleRequest(server, req())
-
-  expect(result.statusCode).toBe(200)
+  expect(res.status).toBe(200)
 })
 
-test('a handler that throws becomes a 500 instead of an unhandled rejection that would crash the server', async () => {
-  const routes: RouteTable = {
-    'POST /refresh': async () => {
-      throw new Error('boom')
+test('a handler that throws becomes a 500 with no detail, and the error is logged', async () => {
+  const logged: string[] = []
+  const server = app(
+    {
+      'POST /refresh': async () => {
+        throw new Error('relation "listings" does not exist')
+      },
     },
-  }
+    freshLimiter(),
+    (msg) => logged.push(msg),
+  )
 
-  const result = await handleRequest(app(routes), req())
+  const res = await request(server).post('/refresh').set('authorization', AUTH)
 
-  expect(result).toEqual({ statusCode: 500, body: { error: 'internal error' } })
+  expect(res.status).toBe(500)
+  expect(res.body).toEqual({ error: 'internal error' })
+  expect(logged.join('\n')).toContain('POST /refresh failed')
+  expect(logged.join('\n')).toContain('relation "listings" does not exist')
+})
+
+test('413s a body over the size limit', async () => {
+  const server = app({ 'POST /refresh': ok })
+
+  const res = await request(server)
+    .post('/refresh')
+    .set('authorization', AUTH)
+    .set('content-type', 'application/json')
+    .send(JSON.stringify({ blob: 'x'.repeat(2 * 1024 * 1024) }))
+
+  expect(res.status).toBe(413)
 })
