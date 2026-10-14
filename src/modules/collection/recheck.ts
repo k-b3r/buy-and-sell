@@ -3,7 +3,7 @@ import { extractDetailFields } from './extract/detail'
 import type { CheckListingsCandidate } from './store/listings'
 import { deleteListing, flagListingRemoved, markListingAlive, markListingSold } from './store/listings'
 import { refreshListingFields } from './listings'
-import { resolveDetailPage } from './collect'
+import { resolveDetailPage } from './page-state'
 
 export type CheckOneListingResult =
   { status: 'sold' } | { status: 'alive' } | { status: 'flagged' } | { status: 'removed' } | { status: 'hard-block' }
