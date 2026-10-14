@@ -34,7 +34,7 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 
 ## Dashboard
 
-- `review` No direct DB access: all SQL lives in the modules' `queries.ts` (settings in `src/platform/settings.ts`) behind the named-query whitelist in `server/routes/query.ts`.
+- `review` No direct DB access: all SQL lives in the modules' `queries.ts` (settings in `src/platform/settings.ts`), exposed only through the modules' `routes.ts` routers that `server/index.ts` mounts (the dashboard calls them with `dashboard/src/lib/api.ts`).
 
 ## Data
 

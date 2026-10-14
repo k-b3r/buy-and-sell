@@ -120,9 +120,9 @@ src/
     merge-duplicate-products/, price-from-listings/, triage-excluded-products/
   each worker/util dir: index.ts entrypoint, wiring only (ESLint blocks oversized or complex ones);
   workers loop via runWorker, collect via its own laps.ts
-server/                                 # VPS HTTP server: auth, named-query whitelist, refresh, worker control
+server/                                 # VPS HTTP server: auth, module routers, refresh, worker control
   routes/                               # one handler per route, wiring only (same ESLint limits)
-dashboard/                              # Next.js app, thin RPC client over server/
+dashboard/                              # Next.js app, thin client over server/'s resource routes
 db/schema.sql                           # single source of schema truth
 scripts/                                # gen-arch-doc, deploy, backup, tunnel
 tests/                                  # integration/, e2e/, lint-config.test.ts
