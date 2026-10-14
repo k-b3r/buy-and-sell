@@ -19,6 +19,34 @@ const CURATED_DATA_FILES = [
   'src/modules/pricing/generic-products.ts',
 ]
 
+// Modules whose SQL lives only under their own store/ folder
+// (docs/specs/2026-10-14-module-layout.md). A module joins the rule once its
+// `.query(` calls are migrated; one module per line so concurrent migrations
+// append without merge conflicts. Once every module is listed, drop the list
+// and apply the rule to src/modules/**.
+// prettier-ignore
+const STORE_ENFORCED_MODULES = [
+  'catalog',
+]
+
+// A later no-restricted-syntax block replaces the shared list, so the store
+// block restates it (the shared config does not export it) next to the new
+// selector; tests/lint-config.test.ts fails if the two drift apart.
+const STORE_ONLY_SQL = {
+  selector: "CallExpression[callee.property.name='query']",
+  message:
+    'SQL lives in the module store/ folder (docs/specs/2026-10-14-module-layout.md): move this .query() call there.',
+}
+const SHARED_RESTRICTED_SYNTAX = [
+  { selector: 'ExportAllDeclaration', message: 'List exports explicitly; never export *.' },
+  { selector: 'ExportDefaultDeclaration', message: 'Use named exports.' },
+  {
+    selector:
+      "NewExpression[callee.name='Promise'] > ArrowFunctionExpression > CallExpression[callee.name='setTimeout']",
+    message: 'Inject a delay function so tests can pass a no-op; only the delay module sleeps.',
+  },
+]
+
 export default [
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
@@ -64,6 +92,11 @@ export default [
       'max-lines': ['error', { max: ENTRY_POINT_MAX_LINES, skipBlankLines: true, skipComments: true }],
       complexity: ['error', ENTRY_POINT_MAX_COMPLEXITY],
     },
+  },
+  {
+    files: STORE_ENFORCED_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
+    ignores: ['**/store/**', '**/*.test.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL] },
   },
   // The logger is the console sink everything else goes through; its `line` is already redacted.
   { files: ['src/platform/logger.ts'], rules: { 'no-console': 'off' } },
