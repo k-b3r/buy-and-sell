@@ -1,4 +1,15 @@
-import { collectKeywordsSchema } from './schemas'
+import { collectKeywordsSchema, saveListingQuerySchema } from './schemas'
+
+test('saveListingQuerySchema accepts a missing productId and a positive integer one', () => {
+  expect(saveListingQuerySchema.safeParse({})).toEqual({ success: true, data: {} })
+  expect(saveListingQuerySchema.safeParse({ productId: '42' })).toEqual({ success: true, data: { productId: 42 } })
+})
+
+test('saveListingQuerySchema rejects a productId that is not a positive integer', () => {
+  for (const productId of ['abc', '0', '-3', '1.5', '', ['1', '2']]) {
+    expect(saveListingQuerySchema.safeParse({ productId }).success).toBe(false)
+  }
+})
 
 function errorOf(input: unknown): string | undefined {
   const result = collectKeywordsSchema.safeParse(input)
