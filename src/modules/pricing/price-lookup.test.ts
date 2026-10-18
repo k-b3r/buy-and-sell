@@ -379,6 +379,16 @@ test('lookupPrice throws a non-quota PriceLookupFailedError when every provider 
   expect(isQuotaError(err)).toBe(false)
 })
 
+test('lookupPrice throws a quota error when one provider hits quota and the others find no price', async () => {
+  const clients = fakeClients({
+    gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(429)) },
+  })
+
+  const result = lookupPrice({ clients, logger: fakeLogger() }, 'retail', product)
+
+  await expect(result).rejects.toThrow(QuotaExhaustedError)
+})
+
 test('lookupPrice falls through a quota error to the next provider that has a price', async () => {
   const clients = fakeClients({
     gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(429)) },
@@ -392,13 +402,13 @@ test('lookupPrice falls through a quota error to the next provider that has a pr
   expect(result?.source).toBe('exa_new_retail')
 })
 
-test('lookupPrice returns null when one provider really answers not found, even if the others hit quota', async () => {
+test('lookupPrice throws a quota error when one provider answers not found and the others hit quota', async () => {
   const clients = fakeClients({
     gemini: { generateJson: async () => ({}), generateGroundedText: throwing(httpError(429)) },
     exa: { searchStructured: throwing(httpError(402)) },
   })
 
-  expect(await lookupPrice({ clients, logger: fakeLogger() }, 'retail', product)).toBeNull()
+  await expect(lookupPrice({ clients, logger: fakeLogger() }, 'retail', product)).rejects.toThrow(QuotaExhaustedError)
 })
 
 test('ensureProductPriced leaves the product unexcluded and throws when the retail chain fails on quota', async () => {
