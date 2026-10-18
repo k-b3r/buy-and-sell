@@ -1,6 +1,6 @@
 import type { DbClient } from '../../../platform/storage'
 import { getRealEstateCandidates, upsertRealEstateDetails } from './details'
-import type { RealEstateFields } from '../extraction'
+import type { RealEstateFields } from '../types'
 
 function recordingDb(rows: unknown[] = []): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

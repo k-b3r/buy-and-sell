@@ -1,13 +1,7 @@
 import type { DbClient } from '../../platform/storage'
 import type { Logger } from '../../platform/logger'
+import type { PriorPriceRow } from './types'
 import { getRealEstatePriceHistoryState, insertPriceHistoryAt, insertPriceHistoryNow } from './store/price-history'
-
-// The listing's price before a refresh, as returned by the refresh UPDATE.
-export interface PriorPriceRow {
-  old_price_amount: string | number | null
-  old_price_currency: string | null
-  old_first_seen_at: string | Date
-}
 
 // Real estate only: every other category returns early at the probe, so the
 // non-real-estate path pays nothing unless its price actually changed (and

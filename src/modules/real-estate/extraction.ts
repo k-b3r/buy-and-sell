@@ -1,8 +1,32 @@
-const PROPERTY_TYPES = ['house_and_lot', 'condo', 'land', 'commercial', 'other'] as const
-const LISTING_TYPES = ['sale', 'rent'] as const
-const PRICE_BASES = ['total', 'per_sqm', 'monthly', 'equity', 'unresolved'] as const
-const RE_CONFIDENCES = ['high', 'medium', 'low'] as const
-const RE_TAGS = ['pasalo', 'foreclosure', 'rfo', 'preselling', 'has_title', 'furnished', 'room_share'] as const
+import type {
+  ListingType,
+  PriceBasis,
+  PropertyType,
+  RealEstateCandidate,
+  RealEstateConfidence,
+  RealEstateFields,
+  RealEstateTag,
+} from './types'
+
+const PROPERTY_TYPES = [
+  'house_and_lot',
+  'condo',
+  'land',
+  'commercial',
+  'other',
+] as const satisfies readonly PropertyType[]
+const LISTING_TYPES = ['sale', 'rent'] as const satisfies readonly ListingType[]
+const PRICE_BASES = ['total', 'per_sqm', 'monthly', 'equity', 'unresolved'] as const satisfies readonly PriceBasis[]
+const RE_CONFIDENCES = ['high', 'medium', 'low'] as const satisfies readonly RealEstateConfidence[]
+const RE_TAGS = [
+  'pasalo',
+  'foreclosure',
+  'rfo',
+  'preselling',
+  'has_title',
+  'furnished',
+  'room_share',
+] as const satisfies readonly RealEstateTag[]
 
 // The 16 cities plus the one municipality (Pateros) of Metro Manila.
 export const NCR_LGUS = [
@@ -24,35 +48,6 @@ export const NCR_LGUS = [
   'Taguig',
   'Valenzuela',
 ] as const
-
-type PropertyType = (typeof PROPERTY_TYPES)[number]
-type ListingType = (typeof LISTING_TYPES)[number]
-type PriceBasis = (typeof PRICE_BASES)[number]
-type RealEstateConfidence = (typeof RE_CONFIDENCES)[number]
-type RealEstateTag = (typeof RE_TAGS)[number]
-
-export interface RealEstateCandidate {
-  id: string
-  title: string
-  description: string | null
-  price_amount: number | null
-  source_hash: string
-}
-
-export interface RealEstateFields {
-  listing_type: ListingType | null
-  property_type: PropertyType
-  price_php: number | null
-  price_basis: PriceBasis
-  lot_sqm: number | null
-  floor_sqm: number | null
-  bedrooms: number | null
-  bathrooms: number | null
-  project_name: string | null
-  area_text: string | null
-  tags: RealEstateTag[]
-  confidence: RealEstateConfidence
-}
 
 const UNIT_MULTIPLIER: Record<string, number> = { million: 1e6, mil: 1e6, mn: 1e6, m: 1e6, thousand: 1e3, k: 1e3 }
 const SHORTHAND = /(?:₱|php\.?|\bp)?\s?(\d+(?:[.,]\d+)?)\s?(million|mil|mn|m|thousand|k)\b/gi
