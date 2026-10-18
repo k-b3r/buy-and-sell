@@ -38,6 +38,7 @@
     "docs:check": "pnpm gen-arch-doc && git diff --exit-code -- docs-site",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server && tsc --noEmit -p dashboard",
     "check": "pnpm format:check && pnpm lint && pnpm depcruise && pnpm knip && pnpm typecheck && pnpm test",
+    "test:db": "./scripts/test-db.sh",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test"
   },
