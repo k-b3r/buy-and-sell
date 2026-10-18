@@ -1,6 +1,6 @@
-import { isListingPriceNegotiable } from '../pricing'
-import type { ProductListingSummary } from './types'
-import type { ListingsFilters, ListingSortKey } from './schemas'
+import { isListingPriceNegotiable } from '../../pricing'
+import type { ProductListingSummary } from '../types'
+import type { ListingsFilters, ListingSortKey } from '../schemas'
 
 // Filter, sort and page one product's listings for the dashboard's listings
 // view. Runs over the product's FULL listing set (the cached product detail),

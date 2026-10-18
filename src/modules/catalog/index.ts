@@ -9,7 +9,7 @@ export { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem 
 export { getEnrichmentCandidates, upsertProductEnrichment } from './store/enrichment'
 export { findOrCreateProduct, updateListingProductIds, updateProductCategories } from './store/products'
 export { getExtractionCandidates } from './store/extraction'
-export type { ListingsPage } from './listings-page'
+export type { ListingsPage } from './domain/listings-page'
 export type { ProductDetail } from './product-detail'
 export { getProductDetail } from './product-detail'
 export type { ProductSummary } from './product-list'
