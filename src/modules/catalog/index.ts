@@ -3,7 +3,7 @@
 // catalog dashboard queries. Only what callers outside this folder use;
 // everything else is internal (enforced by dependency-cruiser).
 export type { EnrichmentCandidate, ExtractionCandidate } from './types'
-export { mergeDuplicateProducts, mergeProductVariantAliases } from './merge'
+export { mergeDuplicateProducts, mergeProductVariantAliases } from './app/merge'
 export { PRODUCT_CATEGORIES } from './domain/products'
 export { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './domain/enrichment'
 export { getEnrichmentCandidates, upsertProductEnrichment } from './store/enrichment'

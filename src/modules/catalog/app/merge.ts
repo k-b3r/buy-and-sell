@@ -1,13 +1,13 @@
-import type { DbClient } from '../../platform/storage'
-import type { ProductAliasRule } from './types'
-import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from './domain/products'
+import type { DbClient } from '../../../platform/storage'
+import type { ProductAliasRule } from '../types'
+import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from '../domain/products'
 import {
   findProductIdsByNormalizedName,
   findProductsByBaseModel,
   mergeDuplicateProduct,
   renameProduct,
   renameProductBaseModel,
-} from './store/products'
+} from '../store/products'
 
 // Retroactive fix for duplicates CANONICAL_BASE_MODEL now prevents at
 // extraction time. Renames in place when nothing collides. When the
