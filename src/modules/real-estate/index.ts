@@ -9,7 +9,7 @@ export type {
   RealEstateListing,
 } from './types'
 export { getRealEstateCandidates, upsertRealEstateDetails } from './store/details'
-export { EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS, extractRealEstateBatch } from './extractor'
-export { recordRealEstatePriceChange } from './price-history'
+export { EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS, extractRealEstateBatch } from './app/extractor'
+export { recordRealEstatePriceChange } from './app/price-history'
 export { getRealEstateListings } from './store/listings'
 export { REAL_ESTATE_PAGE_SIZE, realEstateQuerySchema } from './schemas'

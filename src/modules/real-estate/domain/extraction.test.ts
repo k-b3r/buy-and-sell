@@ -6,7 +6,7 @@ import {
   NCR_LGUS,
   parseRealEstateResponse,
 } from './extraction'
-import type { RealEstateCandidate } from './types'
+import type { RealEstateCandidate } from '../types'
 
 const candidate = (over: Partial<RealEstateCandidate> = {}): RealEstateCandidate => ({
   id: '1',

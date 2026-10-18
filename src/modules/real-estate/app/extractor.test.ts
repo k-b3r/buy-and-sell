@@ -1,8 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { extractRealEstateBatch, EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS } from './extractor'
-import type { JsonModelClient } from './types'
-import { createLogger } from '../../platform/logger'
-import type { RealEstateCandidate } from './types'
+import { createLogger } from '../../../platform/logger'
+import type { JsonModelClient, RealEstateCandidate } from '../types'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
 afterEach(() => {

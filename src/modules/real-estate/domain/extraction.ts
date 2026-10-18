@@ -6,7 +6,7 @@ import type {
   RealEstateConfidence,
   RealEstateFields,
   RealEstateTag,
-} from './types'
+} from '../types'
 
 const PROPERTY_TYPES = [
   'house_and_lot',
