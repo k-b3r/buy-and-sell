@@ -1,4 +1,4 @@
-import { readFileSync, rmSync, existsSync } from 'node:fs'
+import { readFileSync, rmSync } from 'node:fs'
 import type { PageDriver } from '../../modules/collection'
 import { createListingPhotos } from '../../modules/collection'
 import type { DbClient } from '../../platform/storage'
@@ -11,7 +11,7 @@ const LOG_PATH = 'data/tmp-run.log'
 const noDelay = async () => {}
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {
