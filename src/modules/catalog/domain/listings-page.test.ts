@@ -1,6 +1,6 @@
 import { LISTINGS_PAGE_SIZE, paginateListings } from './listings-page'
 import type { ListingsFilters } from '../schemas'
-import type { ProductDetail } from '../product-detail'
+import type { ProductDetail } from '../types'
 
 type Listing = ProductDetail['listings'][number]
 

@@ -1,6 +1,6 @@
 // Types shared by this module's own files. Row types stay in store/.
 
-import type { ListingPriceReview } from '../pricing'
+import type { DiscountBand, ListingPriceReview } from '../pricing'
 
 export interface EnrichmentCandidate {
   id: number
@@ -73,4 +73,21 @@ export interface ProductAliasRule {
   aliasVariant: string | null
   canonicalBase: string
   canonicalVariant: string | null
+}
+
+export interface ProductDetail {
+  id: number
+  base_model: string
+  variant_tier: string | null
+  new_price_low: number | null
+  new_price_high: number | null
+  secondhand_price_low: number | null
+  secondhand_price_high: number | null
+  secondhand_price_source: string | null
+  best_discount_percent: number | null
+  discounted_listing_count: number
+  discount_bands: DiscountBand[]
+  pricing_excluded_reason: string | null
+  enrichment: ProductEnrichment | null
+  listings: ProductListingSummary[]
 }

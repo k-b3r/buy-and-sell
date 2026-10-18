@@ -1,5 +1,3 @@
-import type { QueryClient } from '../../platform/storage'
-import type { DiscountBand } from '../pricing'
 import {
   computeListingDiscount,
   computeMedians,
@@ -7,30 +5,36 @@ import {
   isPriceInvalidated,
   resolveSecondhandPrice,
   summarizeDiscounts,
-} from '../pricing'
-import type { ProductEnrichment, ProductListingSummary } from './types'
-import { getProductDetailRows } from './store/product-detail'
+} from '../../pricing'
+import type { ProductDetail, ProductEnrichment, ProductListingSummary } from '../types'
 
-export interface ProductDetail {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  new_price_low: number | null
-  new_price_high: number | null
-  secondhand_price_low: number | null
-  secondhand_price_high: number | null
-  secondhand_price_source: string | null
-  best_discount_percent: number | null
-  discounted_listing_count: number
-  discount_bands: DiscountBand[]
-  pricing_excluded_reason: string | null
-  enrichment: ProductEnrichment | null
-  listings: ProductListingSummary[]
+// What assembleProductDetail reads from the fetched rows. The store's row
+// types satisfy it structurally; the used_price_* and trained_* fields stay
+// raw because pricing's resolveSecondhandPrice decides which one wins.
+export interface ProductDetailSource {
+  product: {
+    id: number
+    base_model: string
+    variant_tier: string | null
+    price_lookup_excluded: boolean
+    pricing_excluded_reason: string | null
+    new_price_low: number | null
+    new_price_high: number | null
+    used_price_low: unknown
+    used_price_high: unknown
+    used_price_source: unknown
+    has_trained_price_knowledge: unknown
+    trained_price_low: unknown
+    trained_price_high: unknown
+    enrichment: ProductEnrichment | null
+  }
+  listings: (Omit<ProductListingSummary, 'discount_percent' | 'reference_price' | 'is_repost'> & {
+    // Counts toward the product's peer price median (pricing's peerListingSql).
+    is_peer: boolean
+  })[]
 }
 
-export async function getProductDetail(db: QueryClient, productId: number): Promise<ProductDetail | null> {
-  const rows = await getProductDetailRows(db, productId)
-  if (!rows) return null
+export function assembleProductDetail(rows: ProductDetailSource): ProductDetail {
   const { product } = rows
 
   const rawListings = rows.listings.map(({ is_peer: _isPeer, ...listing }) => listing)
