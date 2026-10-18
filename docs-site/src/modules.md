@@ -314,6 +314,14 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/collection/check-candidates.ts
+
+**Interactions:** imports `../../platform/storage`, `../pricing`, `./listings`, `./store/listings`
+
+### `selectCheckCandidates(db: DbClient, settings: Record<string, number>, limit: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
 ## src/modules/collection/driver.ts
 
 **Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./extract/grid`, `./paginate`, `./photos`
@@ -362,11 +370,11 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `putDealsFirst(deals: CheckListingsCandidate[], backlog: CheckListingsCandidate[], limit: number): CheckListingsCandidate[]`
+### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
 
 _(undocumented)_
 
-### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+### `selectCheckCandidates(db: DbClient, settings: Record<string, number>, limit: number): Promise<CheckListingsCandidate[]>`
 
 _(undocumented)_
 
@@ -375,14 +383,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getCollectedListingIds(db: DbClient): Promise<Set<string>>`
-
-_(undocumented)_
-
-### `getCheckListingsCandidates(db: DbClient, limit: number, reRecheckMinDays = 0): Promise<CheckListingsCandidate[]>`
-
-_(undocumented)_
-
-### `getDealCheckCandidates(db: DbClient, ids: string[], minHoursSinceCheck: number): Promise<CheckListingsCandidate[]>`
 
 _(undocumented)_
 
