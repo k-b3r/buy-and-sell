@@ -1,12 +1,12 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../../platform/rows'
 import type { DealListing, DealsConfidenceTier, DealsFilters } from '../types'
-import { repostKeySql } from '../domain/repost'
 import {
   medianCtes,
   notJunkPriceSql,
   notMagnitudeOutlierSql,
   peerListingSql,
+  repostKeySql,
   SECONDHAND_PRICE_LATERAL,
 } from './fragments'
 
