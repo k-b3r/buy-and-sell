@@ -11,6 +11,7 @@ Project layer on top of the global [k-b3r/agent-config standards](https://github
 ## Architecture
 
 - `tool` Module boundaries: ESLint + `.dependency-cruiser.cjs` (`pnpm depcruise`). Every `src/modules/*` folder is a public API automatically; heavy SDKs (Playwright, sharp/S3, pg, groq-sdk, @google/genai) load only from their owner file.
+- `tool` Module tiers (`moduleTiers` in `.dependency-cruiser.cjs`): a `src/modules/*` module imports only modules in lower tiers, never its own tier, and only through its `index.ts`. Order, lowest first: `real-estate`, `pricing`, `catalog`, `collection`. The order follows the real imports: `catalog` and `collection` read pricing, and `collection` reads real-estate, while `real-estate` and `pricing` import no module. Code two modules share goes down to `src/platform` (e.g. `product-id.ts`), not sideways. A new module must be added to the tier list or `pnpm depcruise` fails.
 - `tool` Entry points stay thin: `max-lines` and `complexity` are errors (not hints) for `src/workers/*/index.ts`, `src/utils/*/index.ts` and `server/routes/*` (`eslint.config.js`, covered by `tests/lint-config.test.ts`).
 
 ## Design

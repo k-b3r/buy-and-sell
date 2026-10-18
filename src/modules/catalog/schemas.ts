@@ -16,12 +16,6 @@ const offsetSchema = z.preprocess(
     .transform((raw) => (raw === undefined ? 0 : Number(raw))),
 )
 
-/** Product id path param: a positive integer, no sign, no leading zeros. */
-export const productIdParamSchema = z
-  .string()
-  .regex(/^[1-9]\d*$/, 'id must be a positive integer')
-  .transform(Number)
-
 /** GET /products: search text, category and sub-category filters, paging offset. */
 export const productListQuerySchema = z
   .object({

@@ -196,7 +196,7 @@ _(undocumented)_
 
 ## src/modules/catalog/routes.ts
 
-**Interactions:** imports `../../platform/storage`, `./listings-page`, `./product-detail`, `./product-list`, `./schemas`, `./store/product-list`, `./store/review-queue`
+**Interactions:** imports `../../platform/product-id`, `../../platform/storage`, `./listings-page`, `./product-detail`, `./product-list`, `./schemas`, `./store/product-list`, `./store/review-queue`
 
 ### `createCatalogRouter(db: QueryClient, cache: RouteCache): Router`
 
@@ -1198,7 +1198,7 @@ _(undocumented)_
 
 ## src/modules/pricing/routes.ts
 
-**Interactions:** imports `../../platform/settings`, `../../platform/storage`, `../catalog`, `./deals`, `./exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
+**Interactions:** imports `../../platform/product-id`, `../../platform/settings`, `../../platform/storage`, `./deals`, `./exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
 
 ### `createPricingRouter(db: QueryClient, cache: CacheInvalidator): Router`
 
@@ -1293,6 +1293,10 @@ _(undocumented)_
 _(undocumented)_
 
 ### `includeInPricing(db: DbClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
+### `dismissReview(db: QueryClient, productId: number): Promise<void>`
 
 _(undocumented)_
 

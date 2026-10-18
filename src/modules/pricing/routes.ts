@@ -2,11 +2,11 @@ import express from 'express'
 import type { Response, Router } from 'express'
 import type { z } from 'zod'
 import { getAllSettings } from '../../platform/settings'
+import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
-import { markProductReviewed, productIdParamSchema } from '../catalog'
 import { getDeals } from './deals'
 import { excludeProductFromReview } from './exclusion'
-import { getExcludedProducts, getExclusionSummary, includeInPricing } from './store/exclusion'
+import { dismissReview, getExcludedProducts, getExclusionSummary, includeInPricing } from './store/exclusion'
 import {
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
@@ -124,7 +124,7 @@ export function createPricingRouter(db: QueryClient, cache: CacheInvalidator): R
     const price = manualPriceSchema.safeParse(req.body ?? {})
     if (!price.success) return badRequest(res, price.error.issues)
     await setManualPrice(db, id.data, price.data)
-    await markProductReviewed(db, id.data)
+    await dismissReview(db, id.data)
     cache.invalidate('needs-review', 'products-list', `product:${id.data}`)
     res.json({ ok: true })
   })

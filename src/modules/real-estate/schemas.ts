@@ -19,6 +19,22 @@ function nonNegativeNumber(value: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
+type RealEstateQuery = Partial<
+  Record<'kind' | 'type' | 'area' | 'project' | 'min' | 'max' | 'sqm' | 'sort' | 'view' | 'rooms' | 'page', string>
+>
+
+// Text and number filters, split out of realEstateQuerySchema's transform to keep its complexity down.
+function applyTextAndNumberFilters(q: RealEstateQuery, filters: RealEstateFilters): void {
+  for (const key of TEXT_FILTERS) {
+    const text = q[key]?.trim()
+    if (text) filters[key] = text
+  }
+  for (const [param, key] of NUMBER_FILTERS) {
+    const value = nonNegativeNumber(q[param])
+    if (value !== undefined) filters[key] = value
+  }
+}
+
 // Query string of GET /real-estate, i.e. the /real-estate page's own URL
 // params (the grid's infinite scroll passes them straight through). A value
 // the dashboard's parseRealEstateFilters ignored (unknown kind, junk number,
@@ -48,14 +64,7 @@ export const realEstateQuerySchema = z
     }
     if (q.kind === 'sale' || q.kind === 'rent') filters.listingType = q.kind
     if (q.type && PROPERTY_TYPES.includes(q.type)) filters.propertyType = q.type
-    for (const key of TEXT_FILTERS) {
-      const text = q[key]?.trim()
-      if (text) filters[key] = text
-    }
-    for (const [param, key] of NUMBER_FILTERS) {
-      const value = nonNegativeNumber(q[param])
-      if (value !== undefined) filters[key] = value
-    }
+    applyTextAndNumberFilters(q, filters)
     if (q.sort && (SORTS as readonly string[]).includes(q.sort)) filters.sort = q.sort as RealEstateFilters['sort']
     if (q.view === 'review') filters.view = 'review'
     if (q.rooms === '1') filters.includeRoomShares = true
