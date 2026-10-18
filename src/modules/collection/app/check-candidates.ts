@@ -1,6 +1,6 @@
 import type { DbClient } from '../../../platform/storage'
 import { getDealListingIds } from '../../pricing'
-import { putDealsFirst } from './listings'
+import { putDealsFirst } from '../domain/deals-first'
 import { getCheckListingsCandidates, getDealCheckCandidates } from '../store/listings'
 import type { CheckListingsCandidate } from '../store/listings'
 
