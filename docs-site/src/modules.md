@@ -302,9 +302,89 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/collection/browser.ts
+## src/modules/collection/app/check-candidates.ts
 
-**Interactions:** imports `./driver`, `./extract/grid`, `./paginate`
+**Interactions:** imports `../../../platform/storage`, `../../pricing`, `../domain/deals-first`, `../store/listings`
+
+### `selectCheckCandidates(db: DbClient, settings: Record<string, number>, limit: number): Promise<CheckListingsCandidate[]>`
+
+_(undocumented)_
+
+## src/modules/collection/app/keywords.ts
+
+**Interactions:** imports `../../../platform/storage`, `../store/keywords`
+
+### `loadCollectKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
+
+_(undocumented)_
+
+## src/modules/collection/app/listing-detail.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `../../pricing`, `../domain/listing-detail`, `../store/dashboard`, `../types`
+
+### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
+
+_(undocumented)_
+
+## src/modules/collection/app/listings.ts
+
+**Interactions:** imports `../../../platform/logger`, `../../../platform/storage`, `../../pricing`, `../../real-estate`, `../domain/listing-fields`, `../store/listings`, `../types`
+
+### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
+
+_(undocumented)_
+
+### `refreshListingFields({ db, photos, logger }: { db: DbClient; photos: ListingPhotos; logger: Logger }, storedPhotoIds: string[] | null, listing: Record<string, unknown>): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/collection/app/page-state.ts
+
+**Interactions:** imports `../domain/extract-detail`, `../domain/wall`, `../types`
+
+### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
+
+_(undocumented)_
+
+## src/modules/collection/app/photo-backfill.ts
+
+**Interactions:** imports `../clients/proxy`, `../domain/extract-detail`, `../store/listings`, `../types`, `./listings`, `./page-state`
+
+### `requireBackfillProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ResolvedProxy>`
+
+_(undocumented)_
+
+### `backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number>`
+
+_(undocumented)_
+
+## src/modules/collection/app/photos.ts
+
+**Interactions:** imports `../../../platform/errors`, `../types`
+
+### `createListingPhotos({ store, fetchBytes, compress, logger }: ListingPhotosIo): ListingPhotos`
+
+_(undocumented)_
+
+## src/modules/collection/app/recheck.ts
+
+**Interactions:** imports `../domain/extract-detail`, `../store/listings`, `../types`, `./listings`, `./page-state`
+
+### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
+
+_(undocumented)_
+
+## src/modules/collection/clients/browser.ts
+
+**Interactions:** imports `../domain/extract-grid`, `../domain/paginate`, `../types`
 
 ### `shouldBlockResource(resourceType: string): boolean`
 
@@ -314,29 +394,49 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/collection/check-candidates.ts
+## src/modules/collection/clients/httpProxy.ts
 
-**Interactions:** imports `../../platform/storage`, `../pricing`, `./listings`, `./store/listings`
-
-### `selectCheckCandidates(db: DbClient, settings: Record<string, number>, limit: number): Promise<CheckListingsCandidate[]>`
+### `checkHttpProxyAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: HttpConnect } = {}): Promise<boolean>`
 
 _(undocumented)_
 
-## src/modules/collection/driver.ts
+## src/modules/collection/clients/proxy.ts
 
-**Interactions:** imports `../../platform/delay`, `../../platform/logger`, `../../platform/storage`, `./extract/grid`, `./paginate`, `./photos`
+**Interactions:** imports `../types`, `./httpProxy`, `./tunnel`
+
+### `createDefaultProxyChecker(checkers: { socks5: ProxyChecker; http: ProxyChecker } = { socks5: checkTunnelAlive, http: checkHttpProxyAlive }): ProxyChecker`
+
+_(undocumented)_
+
+### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
+
+_(undocumented)_
+
+## src/modules/collection/clients/tunnel.ts
+
+### `checkTunnelAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: SocksConnect } = {}): Promise<boolean>`
+
+_(undocumented)_
+
+## src/modules/collection/domain/browser-errors.ts
 
 ### `isBrowserUnusableError(err: unknown): boolean`
 
 _(undocumented)_
 
-## src/modules/collection/extract/detail.ts
+## src/modules/collection/domain/deals-first.ts
+
+### `putDealsFirst(deals: T[], backlog: T[], limit: number): T[]`
+
+_(undocumented)_
+
+## src/modules/collection/domain/extract-detail.ts
 
 ### `extractDetailFields(html: string): Record<string, unknown>`
 
 _(undocumented)_
 
-## src/modules/collection/extract/grid.ts
+## src/modules/collection/domain/extract-grid.ts
 
 ### `looksLikeListing(obj: unknown): obj is Record<string, unknown>`
 
@@ -346,9 +446,65 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/collection/httpProxy.ts
+## src/modules/collection/domain/lap-plan.ts
 
-### `checkHttpProxyAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: HttpConnect } = {}): Promise<boolean>`
+**Interactions:** imports `../types`
+
+### `planLapQueries(input: LapPlanInput): LapQuery[]`
+
+_(undocumented)_
+
+## src/modules/collection/domain/listing-detail.ts
+
+**Interactions:** imports `../../../platform/rows`, `../../pricing`, `../types`
+
+### `toListingDetail(row: Row, medianRow: Row | undefined, recentSales: ComparableListing[], similarListings: ComparableListing[]): ListingDetail`
+
+_(undocumented)_
+
+## src/modules/collection/domain/listing-fields.ts
+
+**Interactions:** imports `../types`
+
+### `parseListingFields(listing: Record<string, unknown>): ListingFields`
+
+_(undocumented)_
+
+### `extractPhotoIds(listing: Record<string, unknown>): string[] | null`
+
+_(undocumented)_
+
+### `photoIdsEqual(a: string[], b: string[]): boolean`
+
+_(undocumented)_
+
+## src/modules/collection/domain/location.ts
+
+### `distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number`
+
+_(undocumented)_
+
+### `isWithinServiceArea(listing: Record<string, unknown>): boolean`
+
+_(undocumented)_
+
+## src/modules/collection/domain/paginate.ts
+
+### `extractCursor(html: string): PageCursor | null`
+
+_(undocumented)_
+
+### `extractLsd(html: string): string | null`
+
+_(undocumented)_
+
+### `parsePaginationResponse(json: string): PaginationPage | null`
+
+_(undocumented)_
+
+## src/modules/collection/domain/wall.ts
+
+### `detectPageState(html: string): PageState`
 
 _(undocumented)_
 
@@ -466,125 +622,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/collection/keywords.ts
-
-**Interactions:** imports `../../platform/storage`, `./store/keywords`
-
-### `loadCollectKeywords(db: DbClient): Promise<string[]>`
-
-_(undocumented)_
-
-### `planLapQueries(input: LapPlanInput): LapQuery[]`
-
-_(undocumented)_
-
-### `loadRealEstateKeywords(db: DbClient): Promise<string[]>`
-
-_(undocumented)_
-
-## src/modules/collection/listing-detail.ts
-
-**Interactions:** imports `../../platform/rows`, `../../platform/storage`, `../pricing`, `./store/dashboard`
-
-### `getListingDetail(db: QueryClient, listingId: string): Promise<ListingDetail | null>`
-
-_(undocumented)_
-
-## src/modules/collection/listings.ts
-
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `../pricing`, `../real-estate`, `./photos`, `./store/listings`
-
-### `upsertListing(db: DbClient, listing: Record<string, unknown>): Promise<void>`
-
-_(undocumented)_
-
-### `putDealsFirst(deals: CheckListingsCandidate[], backlog: CheckListingsCandidate[], limit: number): CheckListingsCandidate[]`
-
-_(undocumented)_
-
-### `refreshListingFields({ db, photos, logger }: { db: DbClient; photos: ListingPhotos; logger: Logger }, storedPhotoIds: string[] | null, listing: Record<string, unknown>): Promise<void>`
-
-_(undocumented)_
-
-## src/modules/collection/location.ts
-
-### `distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number`
-
-_(undocumented)_
-
-### `isWithinServiceArea(listing: Record<string, unknown>): boolean`
-
-_(undocumented)_
-
-## src/modules/collection/page-state.ts
-
-**Interactions:** imports `./driver`, `./extract/detail`, `./wall`
-
-### `resolvePageState({ driver, logger, delay }: PageIo, { fetchHtml, hasContent }: PageRead, softWallTimeoutMs: number): Promise<PageStateResult>`
-
-_(undocumented)_
-
-### `resolveDetailPage(io: PageIo, softWallTimeoutMs: number): Promise<PageStateResult>`
-
-_(undocumented)_
-
-## src/modules/collection/paginate.ts
-
-### `extractCursor(html: string): PageCursor | null`
-
-_(undocumented)_
-
-### `extractLsd(html: string): string | null`
-
-_(undocumented)_
-
-### `parsePaginationResponse(json: string): PaginationPage | null`
-
-_(undocumented)_
-
-## src/modules/collection/photo-backfill.ts
-
-**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./page-state`, `./proxy`, `./store/listings`
-
-### `requireBackfillProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ResolvedProxy>`
-
-_(undocumented)_
-
-### `backfillListingPhotos(io: ListingPageIo, candidates: BackfillCandidate[]): Promise<number>`
-
-_(undocumented)_
-
-## src/modules/collection/photos.ts
-
-**Interactions:** imports `../../platform/errors`, `../../platform/images`, `../../platform/logger`
-
-### `createListingPhotos({ store, fetchBytes, compress, logger }: ListingPhotosIo): ListingPhotos`
-
-_(undocumented)_
-
-## src/modules/collection/proxy.ts
-
-**Interactions:** imports `./httpProxy`, `./tunnel`
-
-### `createDefaultProxyChecker(checkers: { socks5: ProxyChecker; http: ProxyChecker } = { socks5: checkTunnelAlive, http: checkHttpProxyAlive }): ProxyChecker`
-
-_(undocumented)_
-
-### `resolveProxy(env: ProxyEnv, checker: ProxyChecker = defaultProxyChecker): Promise<ProxyResolution>`
-
-_(undocumented)_
-
-## src/modules/collection/recheck.ts
-
-**Interactions:** imports `./driver`, `./extract/detail`, `./listings`, `./page-state`, `./store/listings`
-
-### `checkOneListing(io: ListingPageIo, candidate: CheckListingsCandidate, softWallTimeoutMs = 5000): Promise<CheckOneListingResult>`
-
-_(undocumented)_
-
 ## src/modules/collection/routes.ts
 
-**Interactions:** imports `../../platform/storage`, `./listing-detail`, `./schemas`, `./store/dashboard`, `./store/keywords`
+**Interactions:** imports `../../platform/storage`, `./app/listing-detail`, `./schemas`, `./store/dashboard`, `./store/keywords`
 
 ### `createCollectionRouter(db: QueryClient, cache: RouteCache): Router`
 
@@ -620,7 +660,7 @@ _(undocumented)_
 
 ## src/modules/collection/store/keywords.ts
 
-**Interactions:** imports `../../../platform/storage`
+**Interactions:** imports `../../../platform/storage`, `../types`
 
 ### `getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]>`
 
@@ -640,7 +680,7 @@ _(undocumented)_
 
 ## src/modules/collection/store/listings.ts
 
-**Interactions:** imports `../../../platform/storage`, `../../real-estate`
+**Interactions:** imports `../../../platform/storage`, `../../real-estate`, `../types`
 
 ### `upsertListingRow(db: DbClient, f: ListingFields, sourcePhotoIds: string[] | null, rawJson: Record<string, unknown>): Promise<void>`
 
@@ -691,18 +731,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `markListingPhotosUnavailable(db: DbClient, id: string): Promise<void>`
-
-_(undocumented)_
-
-## src/modules/collection/tunnel.ts
-
-### `checkTunnelAlive(proxyUrl: string, options: { timeoutMs?: number destination?: { host: string; port: number } connect?: SocksConnect } = {}): Promise<boolean>`
-
-_(undocumented)_
-
-## src/modules/collection/wall.ts
-
-### `detectPageState(html: string): PageState`
 
 _(undocumented)_
 
