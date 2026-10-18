@@ -244,10 +244,12 @@ export class PriceLookupFailedError extends Error {
 // Gemini-first 2026-09-02 (see buildGeminiPrompt's comment). A provider that
 // errors, finds nothing, or answers with a too-wide range falls through to
 // the next; a too-wide range from the last one is dropped, not returned.
-// Contract: null means at least one provider really answered "no usable
-// price". When every provider errored instead, it throws: a
-// QuotaExhaustedError if any error was quota/credits (fatal, stop the run,
-// per llm-clients' error-classification.ts), else a PriceLookupFailedError.
+// Contract: a usable price always wins, even if another provider hit quota.
+// Without one, any quota/credits error throws a QuotaExhaustedError (fatal,
+// stop the run, per llm-clients' error-classification.ts), whatever the other
+// providers answered: a rate-limited provider might have found the price.
+// Else null means at least one provider really answered "no usable price", and
+// when every provider errored it throws a PriceLookupFailedError.
 export async function lookupPrice(
   deps: Pick<PriceLookupDeps, 'clients' | 'logger'>,
   kind: PriceKind,
@@ -274,11 +276,18 @@ export async function lookupPrice(
       )
     }
   }
+  const fatal = errors.find((err) => isQuotaError(err) || isCreditsError(err))
+  if (fatal) {
+    throw new QuotaExhaustedError(
+      `${prefix}: ${kind} provider quota exhausted (${errors.map(errorMessage).join('; ')})`,
+      {
+        cause: fatal,
+      },
+    )
+  }
   if (errors.length < stages.length) return null
 
   const summary = `${prefix}: every ${kind} provider failed (${errors.map(errorMessage).join('; ')})`
-  const fatal = errors.find((err) => isQuotaError(err) || isCreditsError(err))
-  if (fatal) throw new QuotaExhaustedError(summary, { cause: fatal })
   throw new PriceLookupFailedError(summary, { cause: errors.at(-1) })
 }
 
