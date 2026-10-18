@@ -800,6 +800,66 @@ test('a quota failure across the whole pricing chain stops the run, leaving the 
   expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
 })
 
+test('a quota failure mid-run keeps the earlier batches assigned and leaves the failing batch and later listings untouched', async () => {
+  const logger = createLogger(LOG_PATH)
+  const batches = [
+    [
+      { id: '1', base_model: 'iPhone 13' },
+      { id: '2', base_model: 'Sony WH-1000XM4' },
+    ],
+    [
+      { id: '3', base_model: 'Dyson V8' },
+      { id: '4', base_model: 'RTX 3060' },
+    ],
+    [{ id: '5', base_model: 'Canon EOS R6' }],
+  ]
+  let groqCalls = 0
+  const groq: GroqClient = {
+    generateJson: async () => {
+      groqCalls += 1
+      return { results: batches[groqCalls - 1] }
+    },
+  }
+  const candidates: ExtractionCandidate[] = [
+    candidate({ id: '1', title: 'iPhone 13' }),
+    candidate({ id: '2', title: 'Sony WH-1000XM4' }),
+    candidate({ id: '3', title: 'Dyson V8' }),
+    candidate({ id: '4', title: 'RTX 3060' }),
+    candidate({ id: '5', title: 'Canon EOS R6' }),
+  ]
+  const { db: inner, calls } = fakeDbWithCalls()
+  // Products 1-3 already have retail pricing from an earlier run, so only the new product 4
+  // reaches the pricing providers, and every one of them returns a quota error.
+  const db: DbClient = {
+    query: async (sql, params) => {
+      const [productId] = params as [number]
+      if (sql.includes('product_price_history') && sql.includes('price_lookup_excluded') && productId <= 3) {
+        return { rows: [{ price_lookup_excluded: false, price_low: '10000', price_high: '12000', condition: 'New' }] }
+      }
+      return inner.query(sql, params)
+    },
+  }
+
+  const run = runProductExtraction(
+    { clients: { ...pricingFailingClients(429), groq }, db, logger, delay: async () => {} },
+    candidates,
+    { batchSize: 2 },
+  )
+
+  await expect(run).rejects.toThrow(QuotaExhaustedError)
+  // Batch 1 is saved in one UPDATE. Batch 2 is not, although listing 3 was handled before listing 4 hit quota.
+  expect(calls.filter((c) => c.sql.startsWith('UPDATE listings')).map((c) => c.params)).toEqual([['1', 1, '2', 2]])
+  // Batch 3 never reaches Groq, so its product is never created.
+  expect(groqCalls).toBe(2)
+  expect(calls.filter((c) => c.sql.startsWith('INSERT INTO products')).map((c) => c.params[0])).toEqual([
+    'iPhone 13',
+    'Sony WH-1000XM4',
+    'Dyson V8',
+    'RTX 3060',
+  ])
+  expect(calls.some((c) => c.sql.startsWith('UPDATE products SET price_lookup_excluded'))).toBe(false)
+})
+
 test('a transient failure across the whole pricing chain still assigns the listing and leaves the product unexcluded', async () => {
   const logger = createLogger(LOG_PATH)
   const candidates: ExtractionCandidate[] = [candidate({ id: '1', title: 'RTX 3060' })]
