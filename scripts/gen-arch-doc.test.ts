@@ -49,10 +49,10 @@ test('flags an undocumented function with a null description', () => {
 
 test('records in-repo relative imports as interactions, skips package imports', () => {
   const project = makeProject()
-  project.createSourceFile('/repo/src/modules/catalog/products.ts', `export function getProduct(): void {}\n`)
+  project.createSourceFile('/repo/src/modules/catalog/domain/products.ts', `export function getProduct(): void {}\n`)
   project.createSourceFile(
     '/repo/src/workers/foo/index.ts',
-    `import { getProduct } from '../../modules/catalog/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
+    `import { getProduct } from '../../modules/catalog/domain/products'\nimport { z } from 'zod'\n\nexport function run(): void {}\n`,
   )
 
   const domains = extractArchitecture(project, {
@@ -62,7 +62,7 @@ test('records in-repo relative imports as interactions, skips package imports', 
   })
   const fooModule = domains.flatMap((d) => d.modules).find((m) => m.path.endsWith('foo/index.ts'))
 
-  expect(fooModule?.imports).toEqual(['../../modules/catalog/products'])
+  expect(fooModule?.imports).toEqual(['../../modules/catalog/domain/products'])
 })
 
 test('treats @/ specifiers as in-repo when isInRepoImport allows it', () => {
@@ -114,7 +114,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
     modules: [
       {
         path: 'src/workers/foo/index.ts',
-        imports: ['../../modules/catalog/products'],
+        imports: ['../../modules/catalog/domain/products'],
         functions: [
           { name: 'run', signature: 'run(): void', description: null, isClass: false },
           {
@@ -130,7 +130,7 @@ test('renderDomainMarkdown renders a single domain page: title, module, function
 
   expect(md).toContain('# workers')
   expect(md).toContain('## src/workers/foo/index.ts')
-  expect(md).toContain('**Interactions:** imports `../../modules/catalog/products`')
+  expect(md).toContain('**Interactions:** imports `../../modules/catalog/domain/products`')
   expect(md).toContain('### `run(): void`')
   expect(md).toContain('_(undocumented)_')
   expect(md).toContain('### `enrichProduct(id: number): Promise<void>`')
