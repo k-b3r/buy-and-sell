@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { expect, test, afterEach, describe } from 'vitest'
 import { runVerifyDiscountNotifications } from './run'
 import { createLogger } from '../../platform/logger'
@@ -9,7 +9,7 @@ describe('runVerifyDiscountNotifications', () => {
   const LOG_PATH = 'data/tmp-verify-discount-notifications.log'
 
   afterEach(() => {
-    if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+    rmSync(LOG_PATH, { force: true })
   })
 
   function notImplemented(): never {

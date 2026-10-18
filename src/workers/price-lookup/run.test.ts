@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { expect, test, afterEach, describe } from 'vitest'
 import { runPriceLookup } from './run'
 import type { PriceLookupCandidate, PriceLookupClients } from '../../modules/pricing'
@@ -12,7 +12,7 @@ describe('runPriceLookup', () => {
   const LOG_PATH = 'data/tmp-price-lookup.log'
 
   afterEach(() => {
-    if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+    rmSync(LOG_PATH, { force: true })
   })
 
   // runPriceLookup is a thin loop now - all provider-chain/exclusion behavior
