@@ -3,6 +3,7 @@ import { LOOKUP_OUTCOME_REASONS } from '../exclusion-reasons'
 import {
   applyEligibilityFromEnrichment,
   deleteExclusionOverride,
+  dismissReview,
   excludeFromPricing,
   getExcludedProducts,
   getExclusionSummary,
@@ -133,4 +134,16 @@ test('getExcludedProducts pages one reason most listings first, defaulting to th
   expect(calls[0].sql).toContain('LIMIT $2 OFFSET $3')
   expect(calls[0].params).toEqual(['too_generic', 50, 0])
   expect(calls[1].params).toEqual(['unknown', 10, 100])
+})
+
+test('dismissReview clears price_lookup_review_status and stamps price_lookup_review_dismissed_at for one product', async () => {
+  const { db, calls } = mockDb()
+
+  await dismissReview(db, 12)
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain('price_lookup_review_status = NULL')
+  expect(calls[0].sql).toContain('price_lookup_review_dismissed_at = now()')
+  expect(calls[0].sql).toContain('WHERE id = $1')
+  expect(calls[0].params).toEqual([12])
 })
