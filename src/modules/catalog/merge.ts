@@ -1,6 +1,6 @@
 import type { DbClient } from '../../platform/storage'
 import type { ProductAliasRule } from './types'
-import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from './products'
+import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from './domain/products'
 import {
   findProductIdsByNormalizedName,
   findProductsByBaseModel,

@@ -1,6 +1,6 @@
 import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
 import { PRODUCT_CATEGORIES } from './products'
-import type { EnrichmentCandidate } from './types'
+import type { EnrichmentCandidate } from '../types'
 
 test('buildEnrichmentPrompt includes each product id/label, and sibling variants only when present', () => {
   const products: EnrichmentCandidate[] = [

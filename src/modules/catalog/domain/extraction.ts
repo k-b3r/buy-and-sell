@@ -1,4 +1,4 @@
-import type { ExtractionCandidate } from './types'
+import type { ExtractionCandidate } from '../types'
 import {
   CANONICAL_BASE_MODEL,
   normalizeBaseModel,

@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import { normalizeBaseModel } from './products'
+import { normalizeBaseModel } from './domain/products'
 import { findProductIdsByNormalizedName, getProductMatchedListings, updateListingProductIds } from './store/products'
 
 // Catches the failure mode found manually in listing 1000000000000002
