@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { runPriceFromListings } from './run'
 import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
@@ -6,7 +6,7 @@ import type { DbClient } from '../../platform/storage'
 const LOG_PATH = 'data/tmp-price-from-listings.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

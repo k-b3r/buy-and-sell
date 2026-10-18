@@ -1,10 +1,10 @@
-import { readFileSync, rmSync, existsSync } from 'node:fs'
+import { readFileSync, rmSync } from 'node:fs'
 import { createLogger, MAX_LOG_LINES } from './logger'
 
 const LOG_PATH = 'data/tmp-logger.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 test('info/warn/error write human-readable timestamped lines to file', () => {
