@@ -1448,6 +1448,10 @@ _(undocumented)_
 
 _(undocumented)_
 
+### `recordRetailMissForOverridden(db: DbClient, productId: number): Promise<void>`
+
+_(undocumented)_
+
 ### `getPriceLookupCandidates(db: DbClient): Promise<PriceLookupCandidate[]>`
 
 _(undocumented)_
