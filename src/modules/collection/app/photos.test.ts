@@ -1,5 +1,5 @@
-import type { Logger } from '../../platform/logger'
-import type { ImageStore, FetchBytes, CompressImage } from '../../platform/images'
+import type { Logger } from '../../../platform/logger'
+import type { ImageStore, FetchBytes, CompressImage } from '../../../platform/images'
 import { createListingPhotos } from './photos'
 
 // Identity pass-through — real compression (sharp) is exercised in

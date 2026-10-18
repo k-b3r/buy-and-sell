@@ -1,11 +1,11 @@
-import type { DbClient } from '../../platform/storage'
-import type { Logger } from '../../platform/logger'
-import { recordRealEstatePriceChange } from '../real-estate'
-import type { ListingFields, ListingPhotos } from './types'
-import type { CheckListingsCandidate, PhotoUpdate } from './store/listings'
-import { updateListingFields, upsertListingRow } from './store/listings'
+import type { DbClient } from '../../../platform/storage'
+import type { Logger } from '../../../platform/logger'
+import { recordRealEstatePriceChange } from '../../real-estate'
+import type { ListingFields, ListingPhotos } from '../types'
+import type { CheckListingsCandidate, PhotoUpdate } from '../store/listings'
+import { updateListingFields, upsertListingRow } from '../store/listings'
 // Negotiable-keyword flagging is pricing's rule, run on every listing write.
-import { flagNegotiableFromKeywords } from '../pricing'
+import { flagNegotiableFromKeywords } from '../../pricing'
 
 function extractField(listing: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {

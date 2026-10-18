@@ -1,6 +1,6 @@
 import { existsSync, rmSync } from 'node:fs'
-import type { PageDriver } from './types'
-import { createLogger } from '../../platform/logger'
+import type { PageDriver } from '../types'
+import { createLogger } from '../../../platform/logger'
 import { resolvePageState } from './page-state'
 
 const LOG_PATH = 'data/tmp-page-state.log'

@@ -1,6 +1,6 @@
-import type { DbClient } from '../../platform/storage'
-import type { LapPlanInput, LapQuery } from './types'
-import { getEnabledGeneralKeywords } from './store/keywords'
+import type { DbClient } from '../../../platform/storage'
+import type { LapPlanInput, LapQuery } from '../types'
+import { getEnabledGeneralKeywords } from '../store/keywords'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent
 // listings, the actual "buy-and-sell opportunity" signal this project is
@@ -31,7 +31,7 @@ export async function loadCollectKeywords(db: DbClient): Promise<string[]> {
 
 // Real estate phrases only. No default fallback - an empty list just means no
 // real estate pass, never a lap with zero queries (the general list guards that).
-export { loadRealEstateKeywords } from './store/keywords'
+export { loadRealEstateKeywords } from '../store/keywords'
 
 export function planLapQueries(input: LapPlanInput): LapQuery[] {
   const plan: LapQuery[] = input.general.map((query) => ({ query, maxItems: input.defaultMaxItems }))

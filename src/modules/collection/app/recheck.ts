@@ -1,7 +1,7 @@
-import type { ListingPageIo } from './types'
-import { extractDetailFields } from './domain/extract-detail'
-import type { CheckListingsCandidate } from './store/listings'
-import { deleteListing, flagListingRemoved, markListingAlive, markListingSold } from './store/listings'
+import type { ListingPageIo } from '../types'
+import { extractDetailFields } from '../domain/extract-detail'
+import type { CheckListingsCandidate } from '../store/listings'
+import { deleteListing, flagListingRemoved, markListingAlive, markListingSold } from '../store/listings'
 import { refreshListingFields } from './listings'
 import { resolveDetailPage } from './page-state'
 

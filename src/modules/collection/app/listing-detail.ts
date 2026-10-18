@@ -1,6 +1,6 @@
-import type { QueryClient } from '../../platform/storage'
-import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../platform/rows'
-import type { ComparableListing, ListingPriceReview } from '../pricing'
+import type { QueryClient } from '../../../platform/storage'
+import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
+import type { ComparableListing, ListingPriceReview } from '../../pricing'
 import {
   computeListingDiscount,
   getComparableListings,
@@ -8,8 +8,8 @@ import {
   getSoldComparablePrice,
   isPriceInvalidated,
   toPriceReview,
-} from '../pricing'
-import { getListingDetailRow, getSiblingMedianRow } from './store/dashboard'
+} from '../../pricing'
+import { getListingDetailRow, getSiblingMedianRow } from '../store/dashboard'
 
 export interface ListingDetail {
   id: string

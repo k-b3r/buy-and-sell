@@ -1,5 +1,5 @@
-import { summarizeError } from '../../platform/errors'
-import type { ListingPhotos, ListingPhotosIo } from './types'
+import { summarizeError } from '../../../platform/errors'
+import type { ListingPhotos, ListingPhotosIo } from '../types'
 
 interface StoredPhoto {
   key: string
