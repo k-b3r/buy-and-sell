@@ -1404,7 +1404,25 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/real-estate/extraction.ts
+## src/modules/real-estate/app/extractor.ts
+
+**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../domain/extraction`, `../types`
+
+### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
+
+_(undocumented)_
+
+## src/modules/real-estate/app/price-history.ts
+
+**Interactions:** imports `../../../platform/logger`, `../../../platform/storage`, `../store/price-history`, `../types`
+
+### `recordRealEstatePriceChange(db: DbClient, logger: Logger, change: ListingPriceChange): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/real-estate/domain/extraction.ts
+
+**Interactions:** imports `../types`
 
 ### `parsePriceShorthand(text: string): number[]`
 
@@ -1423,14 +1441,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
-
-_(undocumented)_
-
-## src/modules/real-estate/extractor.ts
-
-**Interactions:** imports `../../platform/delay`, `../../platform/llm-clients`, `../../platform/logger`, `./extraction`
-
-### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
 _(undocumented)_
 
@@ -1456,14 +1466,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/real-estate/price-history.ts
-
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./store/price-history`
-
-### `recordRealEstatePriceChange(db: DbClient, logger: Logger, change: ListingPriceChange): Promise<void>`
-
-_(undocumented)_
-
 ## src/modules/real-estate/routes.ts
 
 **Interactions:** imports `../../platform/storage`, `./schemas`, `./store/listings`
@@ -1474,7 +1476,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/store/details.ts
 
-**Interactions:** imports `../../../platform/storage`, `../extraction`
+**Interactions:** imports `../../../platform/storage`, `../types`
 
 ### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
 
@@ -1486,7 +1488,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/store/listings.ts
 
-**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`
+**Interactions:** imports `../../../platform/rows`, `../../../platform/storage`, `../types`
 
 ### `getRealEstateListings(db: DbClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
 

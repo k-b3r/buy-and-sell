@@ -1,13 +1,8 @@
-import type { Logger } from '../../platform/logger'
-import type { DelayFn } from '../../platform/delay'
-import { withRetryAndSplit } from '../../platform/llm-clients'
-import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from './extraction'
-import type { RealEstateCandidate, RealEstateFields } from './extraction'
-
-// The I/O port this module needs from an LLM client; a Groq pool satisfies it.
-export interface JsonModelClient {
-  generateJson(prompt: string, schema: object): Promise<unknown>
-}
+import type { Logger } from '../../../platform/logger'
+import type { DelayFn } from '../../../platform/delay'
+import { withRetryAndSplit } from '../../../platform/llm-clients'
+import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from '../domain/extraction'
+import type { JsonModelClient, RealEstateCandidate, RealEstateFields } from '../types'
 
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 3000

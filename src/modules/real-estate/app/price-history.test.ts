@@ -1,5 +1,5 @@
-import type { DbClient } from '../../platform/storage'
-import type { Logger } from '../../platform/logger'
+import type { DbClient } from '../../../platform/storage'
+import type { Logger } from '../../../platform/logger'
 import { recordRealEstatePriceChange } from './price-history'
 
 function historyDb(opts: { realEstate: boolean; hasHistory: boolean; failProbe?: boolean }): {

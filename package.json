@@ -91,6 +91,9 @@
       "src/workers/*/index.ts",
       "src/utils/*/index.ts"
     ],
-    "appDbEnv": "DATABASE_URL"
+    "appDbEnv": "DATABASE_URL",
+    "untestedExempt": [
+      "src/modules/*/types.ts"
+    ]
   }
 }

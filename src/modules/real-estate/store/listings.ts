@@ -1,43 +1,6 @@
 import type { DbClient } from '../../../platform/storage'
+import type { RealEstateFilters, RealEstateListing } from '../types'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
-
-export interface RealEstateFilters {
-  listingType?: 'sale' | 'rent'
-  propertyType?: string
-  area?: string
-  project?: string
-  minPrice?: number
-  maxPrice?: number
-  minSqm?: number
-  sort?: 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
-  view?: 'main' | 'review'
-  includeRoomShares?: boolean
-  limit?: number
-  offset?: number
-}
-
-export interface RealEstateListing {
-  id: string
-  title: string
-  primary_photo_url: string | null
-  listed_at: string | null
-  first_seen_at: string
-  listed_price: number | null
-  listing_type: 'sale' | 'rent' | null
-  property_type: string
-  price_php: number | null
-  price_basis: string
-  lot_sqm: number | null
-  floor_sqm: number | null
-  bedrooms: number | null
-  bathrooms: number | null
-  project_name: string | null
-  area_text: string | null
-  tags: string[]
-  confidence: string
-  price_per_sqm: number | null
-  needs_review: boolean
-}
 
 const REAL_ESTATE_SORTS: Record<NonNullable<RealEstateFilters['sort']>, string> = {
   newest: 'COALESCE(x.listed_at, x.first_seen_at) DESC',

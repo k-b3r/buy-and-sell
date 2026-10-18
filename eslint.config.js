@@ -19,34 +19,6 @@ const CURATED_DATA_FILES = [
   'src/modules/pricing/generic-products.ts',
 ]
 
-// Modules whose SQL lives only under their own store/ folder
-// (docs/specs/2026-10-14-module-layout.md). A module joins the rule once its
-// `.query(` calls are migrated; one module per line so concurrent migrations
-// append without merge conflicts. Once every module is listed, drop the list
-// and apply the rule to src/modules/**.
-// prettier-ignore
-const STORE_ENFORCED_MODULES = [
-  'catalog',
-  'collection',
-  'real-estate',
-  'pricing',
-]
-
-// Modules that hold only business logic (decisions, prompts, parsing, store/):
-// the `run*` orchestration loops live in the one worker/util that calls them,
-// as a sibling run.ts (docs/specs/2026-10-14-module-layout.md). One module per
-// line so concurrent migrations append without merge conflicts. Every module
-// listed here must also be in STORE_ENFORCED_MODULES (the run block restates
-// the store ban). Once every module is listed, drop the list and apply the rule
-// to src/modules/**.
-// prettier-ignore
-const RUN_FREE_MODULES = [
-  'catalog',
-  'real-estate',
-  'pricing',
-  'collection',
-]
-
 // A later no-restricted-syntax block replaces the shared list, so the store
 // block restates it (the shared config does not export it) next to the new
 // selector; tests/lint-config.test.ts fails if the two drift apart.
@@ -74,44 +46,57 @@ const SHARED_RESTRICTED_SYNTAX = [
   },
 ]
 
+// Pure code (CODING_STANDARDS.md > Architecture). The shared config bans clock and
+// randomness there with no-restricted-syntax selectors, but a later block replaces
+// that list, so the module blocks below restate it (read back from the shared
+// config) for domain/ files.
+const PURE_CORE_PATHS = ['src/modules/*/domain/**']
+
+const sharedConfig = baseConfig({
+  tsconfigRootDir: import.meta.dirname,
+  pureCorePaths: PURE_CORE_PATHS,
+  // SQL takes values as $n parameters; only constant fragments (SCREAMING_CASE, or names ending Sql/Clause/Placeholder) may be interpolated.
+  parameterizedSqlFiles: ['src/modules/**/*.ts', 'server/**/*.ts'],
+  sqlFragment: '^[A-Z][A-Z0-9_]*$|(Sql|SQL|Ctes|Lateral|Clause|Placeholder)\\b|^params\\.length( - [12])?$',
+  // Domain code logs through the injected Logger, which redacts secrets.
+  noConsoleFiles: ['src/modules/**/*.ts', 'src/platform/**/*.ts'],
+  allowDefaultProject: [
+    'docs-site/.vitepress/config.ts',
+    'scripts/*.ts',
+    'vitest.config.ts',
+    'vitest.integration.config.ts',
+    'dashboard/vitest.config.mts',
+  ],
+  entryPoints: [
+    'src/workers/*/index.ts',
+    'src/utils/*/index.ts',
+    'server/index.ts',
+    'scripts/*.ts',
+    // Framework app: follows Next.js conventions (server components read env).
+    'dashboard/**',
+  ],
+  delayModules: ['src/platform/delay.ts'],
+  // Next.js pages, layouts and components default-export by convention; vitepress
+  // and Playwright's globalSetup require a default export.
+  defaultExportAllowed: ['dashboard/**', 'docs-site/.vitepress/config.ts', 'tests/integration/global-setup.ts'],
+  ignores: [
+    'dashboard/.next/**',
+    'dashboard/next-env.d.ts',
+    'docs-site/.vitepress/dist/**',
+    'docs-site/.vitepress/cache/**',
+    'dashboard/public/**',
+    '.claude/**',
+    'data/**',
+    'fixtures/**',
+  ],
+})
+
+// Relies on the shared config passing the same array reference through; the domain/ test in tests/lint-config.test.ts fails if that breaks.
+const pureCoreBlock = sharedConfig.find((block) => block.files === PURE_CORE_PATHS)
+const PURE_CORE_SYNTAX = pureCoreBlock?.rules?.['no-restricted-syntax']?.slice(1) ?? []
+
 export default [
-  ...baseConfig({
-    tsconfigRootDir: import.meta.dirname,
-    // SQL takes values as $n parameters; only constant fragments (SCREAMING_CASE, or names ending Sql/Clause/Placeholder) may be interpolated.
-    parameterizedSqlFiles: ['src/modules/**/*.ts', 'server/**/*.ts'],
-    sqlFragment: '^[A-Z][A-Z0-9_]*$|(Sql|SQL|Ctes|Lateral|Clause|Placeholder)\\b|^params\\.length( - [12])?$',
-    // Domain code logs through the injected Logger, which redacts secrets.
-    noConsoleFiles: ['src/modules/**/*.ts', 'src/platform/**/*.ts'],
-    allowDefaultProject: [
-      'docs-site/.vitepress/config.ts',
-      'scripts/*.ts',
-      'vitest.config.ts',
-      'vitest.integration.config.ts',
-      'dashboard/vitest.config.mts',
-    ],
-    entryPoints: [
-      'src/workers/*/index.ts',
-      'src/utils/*/index.ts',
-      'server/index.ts',
-      'scripts/*.ts',
-      // Framework app: follows Next.js conventions (server components read env).
-      'dashboard/**',
-    ],
-    delayModules: ['src/platform/delay.ts'],
-    // Next.js pages, layouts and components default-export by convention; vitepress
-    // and Playwright's globalSetup require a default export.
-    defaultExportAllowed: ['dashboard/**', 'docs-site/.vitepress/config.ts', 'tests/integration/global-setup.ts'],
-    ignores: [
-      'dashboard/.next/**',
-      'dashboard/next-env.d.ts',
-      'docs-site/.vitepress/dist/**',
-      'docs-site/.vitepress/cache/**',
-      'dashboard/public/**',
-      '.claude/**',
-      'data/**',
-      'fixtures/**',
-    ],
-  }),
+  ...sharedConfig,
   {
     files: ENTRY_POINT_FILES,
     ignores: ['**/*.test.ts'],
@@ -121,14 +106,16 @@ export default [
     },
   },
   {
-    files: STORE_ENFORCED_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
+    files: ['src/modules/**/*.ts'],
     ignores: ['**/store/**', '**/*.test.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL] },
+    rules: {
+      'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL, NO_RUN_EXPORT],
+    },
   },
   {
-    files: RUN_FREE_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
-    ignores: ['**/store/**', '**/*.test.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL, NO_RUN_EXPORT] },
+    files: PURE_CORE_PATHS,
+    ignores: ['**/*.test.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...PURE_CORE_SYNTAX, STORE_ONLY_SQL, NO_RUN_EXPORT] },
   },
   // The logger is the console sink everything else goes through; its `line` is already redacted.
   { files: ['src/platform/logger.ts'], rules: { 'no-console': 'off' } },
