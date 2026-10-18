@@ -63,7 +63,7 @@ export function paginateListings(
   listings: ProductListingSummary[],
   filters: ListingsFilters,
   offset: number,
-  now: number = Date.now(),
+  now: number,
 ): ListingsPage {
   const visible = listings.filter((l) => matchesFilters(l, filters, now)).sort(COMPARATORS[filters.sortKey])
   const end = offset + LISTINGS_PAGE_SIZE
