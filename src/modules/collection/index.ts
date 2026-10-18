@@ -3,9 +3,20 @@
 // browser.ts (Playwright) is deliberately absent: it is the module's second
 // entry, imported by path only where a browser is launched, so a light import
 // never loads the browser.
-export type { BrowserDriver, DriverFactory, ListingPageIo, PageDriver, PageIo } from './driver'
+export type {
+  BrowserDriver,
+  CollectKeyword,
+  DriverFactory,
+  LapQuery,
+  ListingPageIo,
+  ListingPhotos,
+  PageDriver,
+  PageIo,
+  ProxyChecker,
+  ProxyEnv,
+  ResolvedProxy,
+} from './types'
 export { isBrowserUnusableError } from './driver'
-export type { LapQuery } from './keywords'
 export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
 export { upsertListing } from './listings'
 export { selectCheckCandidates } from './check-candidates'
@@ -17,15 +28,12 @@ export {
   getListingCheckCandidatesForProduct,
 } from './store/listings'
 export { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
-export type { ListingPhotos } from './photos'
 export { createListingPhotos } from './photos'
-export type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 export { defaultProxyChecker, resolveProxy } from './proxy'
 export type { ListingDetail } from './listing-detail'
 export { getListingDetail } from './listing-detail'
 export type { SavedListingSummary } from './store/dashboard'
 export { getListingProductId } from './store/dashboard'
-export type { CollectKeyword } from './store/keywords'
 export { getCollectKeywords, replaceCollectKeywords } from './store/keywords'
 export { checkOneListing } from './recheck'
 export type { GridListing } from './extract/grid'

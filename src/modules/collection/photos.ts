@@ -1,34 +1,5 @@
 import { summarizeError } from '../../platform/errors'
-import type { CompressImage, FetchBytes, ImageStore } from '../../platform/images'
-import type { Logger } from '../../platform/logger'
-
-// A listing's re-hosted photo carousel, stored under listings/<id>/. Built once
-// per entry point from platform/images' real I/O (createR2ImageStore,
-// defaultFetchBytes, defaultCompressImage) so this module, and so its index,
-// never loads sharp or the S3 SDK.
-export interface ListingPhotos {
-  // Returns the public URLs of the photos that made it, in carousel order.
-  save(listingId: string, photos: unknown): Promise<string[]>
-  // save, plus pruneUnused to delete the listing's stored objects the new set
-  // no longer uses (fewer photos, or a photo whose extension changed). The
-  // caller runs pruneUnused only once its DB row points at the new urls, so a
-  // failed write never leaves the row pointing at deleted objects. It deletes
-  // nothing when the new set saved nothing; a failed delete is logged, never thrown.
-  replace(listingId: string, photos: unknown): Promise<ReplacedPhotos>
-  deleteAll(listingId: string): Promise<void>
-}
-
-interface ReplacedPhotos {
-  urls: string[]
-  pruneUnused(): Promise<void>
-}
-
-export interface ListingPhotosIo {
-  store: ImageStore
-  fetchBytes: FetchBytes
-  compress: CompressImage
-  logger: Logger
-}
+import type { ListingPhotos, ListingPhotosIo } from './types'
 
 interface StoredPhoto {
   key: string

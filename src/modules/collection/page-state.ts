@@ -1,4 +1,4 @@
-import type { PageIo } from './driver'
+import type { PageIo } from './types'
 import { detectPageState } from './wall'
 import { extractDetailFields } from './extract/detail'
 

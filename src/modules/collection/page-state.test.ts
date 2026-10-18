@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from 'node:fs'
-import type { PageDriver } from './driver'
+import type { PageDriver } from './types'
 import { createLogger } from '../../platform/logger'
 import { resolvePageState } from './page-state'
 

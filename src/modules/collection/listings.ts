@@ -1,8 +1,8 @@
 import type { DbClient } from '../../platform/storage'
 import type { Logger } from '../../platform/logger'
 import { recordRealEstatePriceChange } from '../real-estate'
-import type { ListingPhotos } from './photos'
-import type { CheckListingsCandidate, ListingFields, PhotoUpdate } from './store/listings'
+import type { ListingFields, ListingPhotos } from './types'
+import type { CheckListingsCandidate, PhotoUpdate } from './store/listings'
 import { updateListingFields, upsertListingRow } from './store/listings'
 // Negotiable-keyword flagging is pricing's rule, run on every listing write.
 import { flagNegotiableFromKeywords } from '../pricing'

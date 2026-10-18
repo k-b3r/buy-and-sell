@@ -1,9 +1,8 @@
-import type { ListingPageIo } from './driver'
+import type { ListingPageIo, ProxyChecker, ProxyEnv, ResolvedProxy } from './types'
 import { extractDetailFields } from './extract/detail'
 import type { BackfillCandidate } from './store/listings'
 import { markListingPhotosUnavailable } from './store/listings'
 import { upsertListing } from './listings'
-import type { ProxyChecker, ProxyEnv, ResolvedProxy } from './proxy'
 import { defaultProxyChecker, resolveProxy } from './proxy'
 import { resolveDetailPage } from './page-state'
 

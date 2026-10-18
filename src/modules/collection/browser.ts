@@ -1,5 +1,5 @@
 import { chromium, type Page } from 'playwright'
-import type { BrowserDriver, BrowserProxy, PageDriver } from './driver'
+import type { BrowserDriver, BrowserProxy, PageDriver } from './types'
 import type { GridListing } from './extract/grid'
 import type { PageCursor } from './paginate'
 

@@ -2,7 +2,7 @@ import type { DbClient } from '../../platform/storage'
 import type { Logger } from '../../platform/logger'
 import type { ImageStore, FetchBytes, CompressImage } from '../../platform/images'
 import { upsertListing, putDealsFirst, refreshListingFields } from './listings'
-import type { ListingPhotos } from './photos'
+import type { ListingPhotos } from './types'
 import { createListingPhotos } from './photos'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

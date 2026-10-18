@@ -1,4 +1,5 @@
 import type { DbClient } from '../../platform/storage'
+import type { LapPlanInput, LapQuery } from './types'
 import { getEnabledGeneralKeywords } from './store/keywords'
 
 // Motivated-seller phrasing — these skew toward underpriced/urgent
@@ -32,25 +33,6 @@ export async function loadCollectKeywords(db: DbClient): Promise<string[]> {
 // real estate pass, never a lap with zero queries (the general list guards that).
 export { loadRealEstateKeywords } from './store/keywords'
 
-export interface LapQuery {
-  query: string
-  maxItems: number
-}
-
-export interface LapPlanInput {
-  general: string[]
-  realEstate: string[]
-  lap: number
-  reEnabled: number
-  reEveryNLaps: number
-  reMaxItems: number
-  defaultMaxItems: number
-}
-
-// General keywords always run first, in the same order and with the same cap
-// as before. The real estate pass is appended only when the flag is on and the
-// lap is due (lap 1, then every Nth) - so with the flag at its default of 0
-// this returns exactly today's list.
 export function planLapQueries(input: LapPlanInput): LapQuery[] {
   const plan: LapQuery[] = input.general.map((query) => ({ query, maxItems: input.defaultMaxItems }))
   const due =
