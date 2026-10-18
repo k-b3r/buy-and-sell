@@ -18,7 +18,7 @@ export interface ListingsPage {
 }
 
 // Bands are decade-wide floors (10, 20, ...), see summarizeDiscounts in
-// pricing/price-rules.ts: a listing belongs to a band if its percent falls in
+// pricing/domain/price-rules.ts: a listing belongs to a band if its percent falls in
 // [bandFloor, bandFloor + 10).
 function isInDiscountBand(percent: number | null, bandFloor: number): boolean {
   return percent !== null && percent >= bandFloor && percent < bandFloor + 10

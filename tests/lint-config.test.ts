@@ -78,7 +78,7 @@ test('lint config leaves curated data lists out of the size limit but keeps thei
   for (const file of [
     'src/modules/catalog/variant-alias-rules.ts',
     'src/modules/pricing/ineligible-categories.ts',
-    'src/modules/pricing/generic-products.ts',
+    'src/modules/pricing/domain/generic-products.ts',
   ]) {
     expect([file, severity(await rule(file, 'max-lines')), severity(await rule(file, 'complexity'))]).toEqual([
       file,
