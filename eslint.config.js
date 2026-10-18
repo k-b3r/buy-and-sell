@@ -19,34 +19,6 @@ const CURATED_DATA_FILES = [
   'src/modules/pricing/generic-products.ts',
 ]
 
-// Modules whose SQL lives only under their own store/ folder
-// (docs/specs/2026-10-14-module-layout.md). A module joins the rule once its
-// `.query(` calls are migrated; one module per line so concurrent migrations
-// append without merge conflicts. Once every module is listed, drop the list
-// and apply the rule to src/modules/**.
-// prettier-ignore
-const STORE_ENFORCED_MODULES = [
-  'catalog',
-  'collection',
-  'real-estate',
-  'pricing',
-]
-
-// Modules that hold only business logic (decisions, prompts, parsing, store/):
-// the `run*` orchestration loops live in the one worker/util that calls them,
-// as a sibling run.ts (docs/specs/2026-10-14-module-layout.md). One module per
-// line so concurrent migrations append without merge conflicts. Every module
-// listed here must also be in STORE_ENFORCED_MODULES (the run block restates
-// the store ban). Once every module is listed, drop the list and apply the rule
-// to src/modules/**.
-// prettier-ignore
-const RUN_FREE_MODULES = [
-  'catalog',
-  'real-estate',
-  'pricing',
-  'collection',
-]
-
 // A later no-restricted-syntax block replaces the shared list, so the store
 // block restates it (the shared config does not export it) next to the new
 // selector; tests/lint-config.test.ts fails if the two drift apart.
@@ -121,12 +93,7 @@ export default [
     },
   },
   {
-    files: STORE_ENFORCED_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
-    ignores: ['**/store/**', '**/*.test.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL] },
-  },
-  {
-    files: RUN_FREE_MODULES.map((module) => `src/modules/${module}/**/*.ts`),
+    files: ['src/modules/**/*.ts'],
     ignores: ['**/store/**', '**/*.test.ts'],
     rules: { 'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX, STORE_ONLY_SQL, NO_RUN_EXPORT] },
   },
