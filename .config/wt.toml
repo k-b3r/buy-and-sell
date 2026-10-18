@@ -1,0 +1,7 @@
+# Worktrunk project config. Copies .env and node_modules (see .worktreeinclude)
+# from the main worktree, then syncs deps against the lockfile.
+[[post-start]]
+copy = "wt step copy-ignored"
+
+[[post-start]]
+install = "pnpm install --prefer-offline --frozen-lockfile"
