@@ -1,5 +1,5 @@
 import type { ListingPageIo } from './types'
-import { extractDetailFields } from './extract/detail'
+import { extractDetailFields } from './domain/extract-detail'
 import type { CheckListingsCandidate } from './store/listings'
 import { deleteListing, flagListingRemoved, markListingAlive, markListingSold } from './store/listings'
 import { refreshListingFields } from './listings'

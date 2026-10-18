@@ -1,6 +1,6 @@
 import type { PageIo } from './types'
-import { detectPageState } from './wall'
-import { extractDetailFields } from './extract/detail'
+import { detectPageState } from './domain/wall'
+import { extractDetailFields } from './domain/extract-detail'
 
 type PageStateResult =
   { status: 'ok'; html: string } | { status: 'stop'; reason: 'soft-wall-persisted' | 'hard-block' | 'unrecognized' }

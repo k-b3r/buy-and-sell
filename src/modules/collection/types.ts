@@ -4,8 +4,8 @@ import type { DelayFn } from '../../platform/delay'
 import type { ImageStore, CompressImage, FetchBytes } from '../../platform/images'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { GridListing } from './extract/grid'
-import type { PageCursor } from './paginate'
+import type { GridListing } from './domain/extract-grid'
+import type { PageCursor } from './domain/paginate'
 
 // The collect worker's --cycle search-query list - editable via the Settings page's
 // collect tab (add/remove rows, not per-field number knobs like the rest of

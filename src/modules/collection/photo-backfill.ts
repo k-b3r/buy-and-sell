@@ -1,5 +1,5 @@
 import type { ListingPageIo, ProxyChecker, ProxyEnv, ResolvedProxy } from './types'
-import { extractDetailFields } from './extract/detail'
+import { extractDetailFields } from './domain/extract-detail'
 import type { BackfillCandidate } from './store/listings'
 import { markListingPhotosUnavailable } from './store/listings'
 import { upsertListing } from './listings'

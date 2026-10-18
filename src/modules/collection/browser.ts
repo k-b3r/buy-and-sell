@@ -1,12 +1,12 @@
 import { chromium, type Page } from 'playwright'
 import type { BrowserDriver, BrowserProxy, PageDriver } from './types'
-import type { GridListing } from './extract/grid'
-import type { PageCursor } from './paginate'
+import type { GridListing } from './domain/extract-grid'
+import type { PageCursor } from './domain/paginate'
 
 const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
 
-// Only the embedded JSON in the page is ever read (see extract/grid.ts,
-// extract/detail.ts) — actual photos are downloaded separately via plain
+// Only the embedded JSON in the page is ever read (see domain/extract-grid.ts,
+// domain/extract-detail.ts) — actual photos are downloaded separately via plain
 // fetch() in images.ts, never through the browser. So Chromium rendering
 // real images/fonts/stylesheets/media for every navigation is pure wasted
 // CPU/memory/bandwidth. Deliberately NOT blocking 'fetch'/'xhr' — the
