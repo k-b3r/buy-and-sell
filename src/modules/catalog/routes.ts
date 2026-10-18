@@ -1,13 +1,14 @@
 import express from 'express'
 import type { Response, Router } from 'express'
 import type { z } from 'zod'
+import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
 import { paginateListings } from './listings-page'
 import { getProductDetail } from './product-detail'
 import { getProductSummaries } from './product-list'
 import { getSoldCountsBySubCategory, getSubCategoryTree } from './store/product-list'
 import { getProductsNeedingReview, markProductReviewed } from './store/review-queue'
-import { listingsQuerySchema, productIdParamSchema, productListQuerySchema } from './schemas'
+import { listingsQuerySchema, productListQuerySchema } from './schemas'
 
 // HTTP edge of the catalog feature, mounted by server/index.ts only (the
 // module's index.ts does not export it, so workers never load express).

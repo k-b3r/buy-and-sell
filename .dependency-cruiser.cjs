@@ -30,6 +30,8 @@ const sharedRules = baseRules({
     { packages: ['groq-sdk'], owner: 'src/platform/llm-clients/groq-sdk.ts' },
     { packages: ['@google/genai'], owner: 'src/platform/llm-clients/gemini-sdk.ts' },
   ],
+  // Tier order, lowest first (CODING_STANDARDS.md): a module imports only lower tiers.
+  moduleTiers: { dir: 'src/modules', tiers: [['real-estate'], ['pricing'], ['catalog'], ['collection']] },
   inner: ['src/modules', 'src/platform'],
   entryPoints: ['src/workers', 'src/utils', 'server'],
 })

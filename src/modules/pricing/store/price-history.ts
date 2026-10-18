@@ -176,7 +176,7 @@ export async function getListingPricesByProduct(db: DbClient): Promise<ListingPr
 // source (see NEW_PRICE_LATERAL/SECONDHAND_PRICE_LATERAL) permanently, not
 // just until the next automated run. Append-only like every other
 // product_price_history writer; doesn't touch price_lookup_review_status
-// itself (the API route pairs this with markProductReviewed). The range is
+// itself (the API route pairs this with dismissReview). The range is
 // validated at the boundary (manualPriceSchema).
 export async function setManualPrice(db: QueryClient, productId: number, price: ManualPrice): Promise<void> {
   const { kind, priceLow, priceHigh } = price

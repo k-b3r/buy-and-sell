@@ -65,6 +65,16 @@ export async function includeInPricing(db: DbClient, productId: number): Promise
   )
 }
 
+// A human's "no exclusion needed" on a needs_review product: clears the flag and
+// stamps the dismissal so applyEligibilityFromEnrichment won't re-flag it. Same
+// write as catalog's markProductReviewed, kept here so pricing doesn't import catalog.
+export async function dismissReview(db: QueryClient, productId: number): Promise<void> {
+  await db.query(
+    `UPDATE products SET price_lookup_review_status = NULL, price_lookup_review_dismissed_at = now() WHERE id = $1`,
+    [productId],
+  )
+}
+
 // The automatic, LLM-driven path alongside the curated lists:
 // product_enrichment.is_specific_product/confidence instead of a
 // human-maintained list. High-confidence "not a real product" auto-excludes;

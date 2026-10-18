@@ -23,5 +23,5 @@ export { detectModelMismatches, reassignModelMismatches } from './model-mismatch
 export type { ExtractedListing } from './extraction'
 export { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA, parseExtractionItem } from './extraction'
 export type { ListingSortKey, ListingsFilters } from './schemas'
-export { listingsQuerySchema, productIdParamSchema, productListQuerySchema } from './schemas'
+export { listingsQuerySchema, productListQuerySchema } from './schemas'
 export { PRODUCT_VARIANT_ALIAS_RULES } from './variant-alias-rules'
