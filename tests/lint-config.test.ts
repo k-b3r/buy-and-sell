@@ -176,6 +176,31 @@ test('lint allows run* exports in worker run.ts files and outside src/modules', 
   }
 }, 60_000)
 
+test('lint config keeps the pure-core bans and the module bans together in domain/ files', async () => {
+  const domain = selectors(await rule('src/modules/real-estate/domain/extraction.ts', 'no-restricted-syntax'))
+  expect(domain).toEqual(
+    expect.arrayContaining([
+      QUERY_SELECTOR,
+      "NewExpression[callee.name='Date'][arguments.length=0]",
+      "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+      "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+      expect.stringContaining(RUN_EXPORT_MARKER),
+    ]),
+  )
+  expect(
+    selectors(await rule('src/modules/real-estate/domain/extraction.test.ts', 'no-restricted-syntax')),
+  ).not.toContain("CallExpression[callee.object.name='Math'][callee.property.name='random']")
+}, 60_000)
+
+test('lint config bans fetch and process in domain/ files only', async () => {
+  const globalsIn = async (file: string) =>
+    ((await rule(file, 'no-restricted-globals'))?.slice(1) as { name: string }[] | undefined)?.map((g) => g.name) ?? []
+  expect(await globalsIn('src/modules/real-estate/domain/extraction.ts')).toEqual(
+    expect.arrayContaining(['fetch', 'process']),
+  )
+  expect(await globalsIn('src/modules/real-estate/app/extractor.ts')).not.toContain('fetch')
+}, 60_000)
+
 test('lint reports a .query() call outside store/ in a module and accepts it inside store/', async () => {
   const code = 'export async function f(db: { query(sql: string): Promise<unknown> }) { await db.query("SELECT 1") }\n'
   const outside = await eslint.lintText(code, { filePath: path.join(repoRoot, 'src/modules/catalog/merge.ts') })
