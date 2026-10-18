@@ -1,4 +1,4 @@
-import { existsSync, rmSync, readFileSync } from 'node:fs'
+import { rmSync, readFileSync } from 'node:fs'
 import { runProductEnrichment } from './run'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../platform/llm-clients'
@@ -8,7 +8,7 @@ import type { EnrichmentCandidate } from '../../modules/catalog'
 const LOG_PATH = 'data/tmp-enrich.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function fakeGroq(response: unknown): GroqClient {

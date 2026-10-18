@@ -1,4 +1,4 @@
-import { existsSync, rmSync, readFileSync } from 'node:fs'
+import { rmSync, readFileSync } from 'node:fs'
 import { runPriceReview } from './run'
 import { createLogger } from '../../platform/logger'
 import type { GroqClient } from '../../platform/llm-clients'
@@ -8,7 +8,7 @@ import type { PriceReviewCandidate } from '../../modules/pricing'
 const LOG_PATH = 'data/tmp-enrich-listing-prices.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 const noDelay = async () => {}

@@ -1,4 +1,4 @@
-import { existsSync, rmSync, readFileSync } from 'node:fs'
+import { rmSync, readFileSync } from 'node:fs'
 import { runProductExtraction } from './run'
 import type { ExtractionClients } from './run'
 import { createLogger } from '../../platform/logger'
@@ -10,7 +10,7 @@ import type { ExtractionCandidate } from '../../modules/catalog'
 const LOG_PATH = 'data/tmp-extract.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 // A bare array response is auto-wrapped in the {results: [...]} envelope
