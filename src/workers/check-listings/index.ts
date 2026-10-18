@@ -4,20 +4,10 @@ import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { realDelay } from '../../platform/delay'
 import { secretsFromEnv } from '../../platform/redact'
-import {
-  createListingPhotos,
-  getCheckListingsCandidates,
-  getDealCheckCandidates,
-  putDealsFirst,
-  resolveProxy,
-} from '../../modules/collection'
-import { getDealListingIds } from '../../modules/pricing'
+import { createListingPhotos, resolveProxy, selectCheckCandidates } from '../../modules/collection'
 import { r2PhotoIoFromEnv } from '../../platform/r2-photos'
 import { parseLimitArg } from '../../platform/limit-arg'
 import { runCheckListings } from './run'
-
-// How many top-ranked /deals listings are considered for priority checking.
-const DEALS_PRIORITY_POOL = 200
 
 async function main() {
   loadEnvFile()
@@ -69,20 +59,7 @@ async function main() {
 
       return async ({ settings }) => {
         const limit = explicitLimit ?? settings['check_listings.limit_default']
-        const backlog = await getCheckListingsCandidates(db, limit, settings['check_listings.re_recheck_min_days'])
-        let candidates = backlog
-        if (settings['check_listings.deals_priority_enabled'] >= 1) {
-          const dealIds = await getDealListingIds(
-            db,
-            {
-              minProfitPesos: settings['discount_policy.min_profit_pesos'],
-              minPricePesos: settings['discount_policy.min_price_pesos'],
-            },
-            DEALS_PRIORITY_POOL,
-          )
-          const deals = await getDealCheckCandidates(db, dealIds, settings['check_listings.deals_recheck_min_hours'])
-          candidates = putDealsFirst(deals, backlog, limit)
-        }
+        const candidates = await selectCheckCandidates(db, settings, limit)
         return {
           dryRun: `would call Facebook to check ${candidates.length} listings`,
           run: async () => {

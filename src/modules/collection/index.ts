@@ -7,13 +7,12 @@ export type { BrowserDriver, DriverFactory, ListingPageIo, PageDriver, PageIo } 
 export { isBrowserUnusableError } from './driver'
 export type { LapQuery } from './keywords'
 export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
-export { putDealsFirst, upsertListing } from './listings'
+export { upsertListing } from './listings'
+export { selectCheckCandidates } from './check-candidates'
 export type { CheckListingsCandidate } from './store/listings'
 export {
   getBackfillCandidates,
   getCollectedListingIds,
-  getCheckListingsCandidates,
-  getDealCheckCandidates,
   getListingCheckCandidate,
   getListingCheckCandidatesForProduct,
 } from './store/listings'
