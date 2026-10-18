@@ -137,7 +137,13 @@ test('getExcludedProducts pages one reason most listings first, defaulting to th
 })
 
 test('dismissReview clears price_lookup_review_status and stamps price_lookup_review_dismissed_at for one product', async () => {
-  const { db, calls } = mockDb()
+  const calls: { sql: string; params: unknown[] }[] = []
+  const db: QueryClient = {
+    query: async (sql, params) => {
+      calls.push({ sql, params })
+      return { rows: [] }
+    },
+  }
 
   await dismissReview(db, 12)
 
