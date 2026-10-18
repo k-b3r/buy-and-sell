@@ -16,7 +16,7 @@ export type {
   ProxyEnv,
   ResolvedProxy,
 } from './types'
-export { isBrowserUnusableError } from './driver'
+export { isBrowserUnusableError } from './domain/browser-errors'
 export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './keywords'
 export { upsertListing } from './listings'
 export { selectCheckCandidates } from './check-candidates'
