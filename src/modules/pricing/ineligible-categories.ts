@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
-import type { PriceExclusionReason } from './exclusion-reasons'
+import type { PriceExclusionReason } from './types'
 import { excludeFromPricing } from './store/exclusion'
 
 // Applied by a manual script, NOT a continuously-running worker, deliberately

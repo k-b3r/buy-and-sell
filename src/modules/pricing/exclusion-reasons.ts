@@ -1,3 +1,5 @@
+import type { PriceExclusionReason } from './types'
+
 // Reasons for products.price_lookup_excluded: every write of the flag goes
 // through store/exclusion.ts with a reason from this list. The signals behind
 // those reasons stay separate on purpose (they're genuinely different
@@ -20,9 +22,7 @@ export const PRICE_EXCLUSION_REASONS = [
   'groq_generic',
   'retail_not_found',
   'manual_review',
-] as const
-
-export type PriceExclusionReason = (typeof PRICE_EXCLUSION_REASONS)[number]
+] as const satisfies readonly PriceExclusionReason[]
 
 // Reasons that record a failed price search, not a verdict on the product,
 // including retired ones still on old rows. Including such a product is a

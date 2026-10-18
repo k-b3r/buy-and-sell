@@ -1,6 +1,6 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../../platform/rows'
-import type { DealListing, DealsConfidenceTier, DealsFilters } from '../deals'
+import type { DealListing, DealsConfidenceTier, DealsFilters } from '../types'
 import { repostKeySql } from '../repost'
 import {
   medianCtes,

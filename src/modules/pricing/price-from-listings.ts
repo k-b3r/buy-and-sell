@@ -1,4 +1,4 @@
-import type { PriceRange } from './price-lookup'
+import type { PriceRange } from './types'
 import { isJunkPrice, MIN_PEER_SAMPLE } from './clean-median'
 
 // Junk prices would badly skew a naive min/max.

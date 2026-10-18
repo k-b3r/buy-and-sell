@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import type { PriceReviewCandidate } from './price-review/prompt'
+import type { PriceReviewCandidate } from './types'
 import { descriptionPriceDiverges } from './price-review/parse'
 import { matchesNegotiableKeyword } from './negotiable-keywords'
 import { getPriceReviewRows, upsertKeywordNegotiable } from './store/listing-price-review'

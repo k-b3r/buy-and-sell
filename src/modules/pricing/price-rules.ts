@@ -1,10 +1,6 @@
 import { toNullableNumber } from '../../platform/rows'
+import type { DiscountBand, ListingPriceReview } from './types'
 import { isJunkPrice, isMagnitudeOutlier, isPlaceholderPrice, MIN_PEER_SAMPLE } from './clean-median'
-
-export interface DiscountBand {
-  bandFloor: number
-  count: number
-}
 
 export interface DiscountSummary {
   bestDiscountPercent: number | null
@@ -101,12 +97,6 @@ export function toPriceReview(r: Record<string, unknown>): ListingPriceReview | 
     price_low: toNullableNumber(r.price_review_low),
     price_high: toNullableNumber(r.price_review_high),
   }
-}
-
-export interface ListingPriceReview {
-  is_negotiable: boolean
-  price_low: number | null
-  price_high: number | null
 }
 
 // Three independent sources of "don't trust this as a firm price": the LLM

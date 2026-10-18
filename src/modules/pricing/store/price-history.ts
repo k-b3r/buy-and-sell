@@ -1,5 +1,5 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
-import type { PriceLookupCandidate, PriceRange } from '../price-lookup'
+import type { PriceLookupCandidate, PriceRange } from '../types'
 import type { ManualPrice } from '../schemas'
 import { MIN_PEER_SAMPLE } from '../clean-median'
 

@@ -13,7 +13,7 @@ import {
   ensureProductPriced,
   PriceLookupFailedError,
 } from './price-lookup'
-import type { PriceLookupCandidate, PriceLookupClients } from './price-lookup'
+import type { PriceLookupCandidate, PriceLookupClients } from './types'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'

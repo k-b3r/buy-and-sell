@@ -1,26 +1,16 @@
-import type { Logger } from '../../platform/logger'
-import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
 import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platform/llm-clients'
-import type { DbClient } from '../../platform/storage'
 import type { PriceCheckSource } from './store/price-history'
 import { insertPriceCheck } from './store/price-history'
+import type {
+  PriceLookupCandidate,
+  PriceLookupClients,
+  PriceLookupDeps,
+  PriceRange,
+  ProductPricingResult,
+} from './types'
 import { excludeFromPricing } from './store/exclusion'
 import { detectGenericBaseModel } from './generic-products'
 import { isJunkPrice } from './clean-median'
-
-export interface PriceRange {
-  low: number
-  high: number
-  currency: string
-}
-
-export interface PriceLookupCandidate {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  description: string | null
-  sibling_variants: string[]
-}
 
 const WIDE_SPREAD_RATIO = 4
 
@@ -169,12 +159,6 @@ export function parseTavilyPriceAnswer(text: string | null): PriceRange | null {
 // extract-products.ts's inline per-listing call, so both go through
 // identical provider chains and exclusion rules. ----
 
-export interface PriceLookupClients {
-  gemini: GeminiClient
-  exa: ExaClient
-  tavily: TavilyClient
-}
-
 export interface PriceLookupResult {
   price: PriceRange
   source: PriceCheckSource
@@ -293,18 +277,6 @@ export async function lookupPrice(
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
-}
-
-export interface PriceLookupDeps {
-  clients: PriceLookupClients
-  db: DbClient
-  logger: Logger
-}
-
-export interface ProductPricingResult {
-  retail: PriceRange | null
-  secondhand: PriceRange | null
-  excluded: boolean
 }
 
 // Ensures a product has retail/secondhand pricing, unconditionally attempting

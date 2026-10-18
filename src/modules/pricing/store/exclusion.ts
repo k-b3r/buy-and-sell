@@ -1,6 +1,6 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 import { LOOKUP_OUTCOME_REASONS } from '../exclusion-reasons'
-import type { PriceExclusionReason } from '../exclusion-reasons'
+import type { PriceExclusionReason } from '../types'
 
 // The one owner of the products.price_lookup_excluded write: every write of
 // the flag goes through this file, with a reason from exclusion-reasons.ts.

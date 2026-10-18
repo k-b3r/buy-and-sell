@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { DEALS_CONFIDENCE_TIERS } from './deals'
-import type { DealsConfidenceTier } from './deals'
+import type { DealsConfidenceTier } from './types'
 import { PRICE_EXCLUSION_REASONS } from './exclusion-reasons'
 
 // Request parsing for the pricing routes. Query input is Express's req.query
