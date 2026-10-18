@@ -1,5 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
-import { loadCollectKeywords, loadRealEstateKeywords, planLapQueries, DEFAULT_COLLECT_KEYWORDS } from './keywords'
+import { loadCollectKeywords, loadRealEstateKeywords, DEFAULT_COLLECT_KEYWORDS } from './keywords'
 
 function mockDb(rows: { keyword: string }[]): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -27,32 +27,4 @@ test('loadCollectKeywords falls back to DEFAULT_COLLECT_KEYWORDS when the table 
 test('loadCollectKeywords never falls back to defaults for loadRealEstateKeywords, an empty table just means no real estate pass', async () => {
   const { db } = mockDb([])
   expect(await loadRealEstateKeywords(db)).toEqual([])
-})
-
-const lapBase = {
-  general: ['rush sale', 'preloved'],
-  realEstate: ['house and lot'],
-  reEveryNLaps: 3,
-  reMaxItems: 50,
-  defaultMaxItems: 100,
-}
-
-test('planLapQueries returns only general keywords, unchanged, while the real estate flag is off', () => {
-  const plan = planLapQueries({ ...lapBase, lap: 1, reEnabled: 0 })
-  expect(plan).toEqual([
-    { query: 'rush sale', maxItems: 100 },
-    { query: 'preloved', maxItems: 100 },
-  ])
-})
-
-test('planLapQueries appends the real estate pass on lap 1 and every Nth lap, capped by reMaxItems', () => {
-  expect(planLapQueries({ ...lapBase, lap: 1, reEnabled: 1 }).at(-1)).toEqual({ query: 'house and lot', maxItems: 50 })
-  expect(planLapQueries({ ...lapBase, lap: 2, reEnabled: 1 })).toHaveLength(2)
-  expect(planLapQueries({ ...lapBase, lap: 3, reEnabled: 1 })).toHaveLength(2)
-  expect(planLapQueries({ ...lapBase, lap: 4, reEnabled: 1 })).toHaveLength(3)
-})
-
-test('planLapQueries keeps general keywords first so their order never changes', () => {
-  const plan = planLapQueries({ ...lapBase, lap: 1, reEnabled: 1 })
-  expect(plan.slice(0, 2).map((p) => p.query)).toEqual(['rush sale', 'preloved'])
 })

@@ -17,7 +17,8 @@ export type {
   ResolvedProxy,
 } from './types'
 export { isBrowserUnusableError } from './domain/browser-errors'
-export { loadCollectKeywords, loadRealEstateKeywords, planLapQueries } from './app/keywords'
+export { loadCollectKeywords, loadRealEstateKeywords } from './app/keywords'
+export { planLapQueries } from './domain/lap-plan'
 export { upsertListing } from './app/listings'
 export { selectCheckCandidates } from './app/check-candidates'
 export type { CheckListingsCandidate } from './store/listings'
