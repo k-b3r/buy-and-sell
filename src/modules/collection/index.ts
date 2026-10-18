@@ -1,6 +1,6 @@
 // Public API of the collection module: only what callers outside this folder
 // use. Everything else is internal (enforced by dependency-cruiser).
-// browser.ts (Playwright) is deliberately absent: it is the module's second
+// clients/browser.ts (Playwright) is deliberately absent: it is the module's second
 // entry, imported by path only where a browser is launched, so a light import
 // never loads the browser.
 export type {
@@ -29,7 +29,7 @@ export {
 } from './store/listings'
 export { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 export { createListingPhotos } from './photos'
-export { defaultProxyChecker, resolveProxy } from './proxy'
+export { defaultProxyChecker, resolveProxy } from './clients/proxy'
 export type { ListingDetail } from './listing-detail'
 export { getListingDetail } from './listing-detail'
 export type { SavedListingSummary } from './store/dashboard'

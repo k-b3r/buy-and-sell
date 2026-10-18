@@ -83,7 +83,7 @@ export interface BrowserProxy {
   password?: string
 }
 
-// launchBrowserDriver's shape (browser.ts), injected where tests swap in a fake browser.
+// launchBrowserDriver's shape (clients/browser.ts), injected where tests swap in a fake browser.
 export type DriverFactory = (proxy?: BrowserProxy) => Promise<BrowserDriver>
 
 export type ProxyChecker = (proxyUrl: string) => Promise<boolean>

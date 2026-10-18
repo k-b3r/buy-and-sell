@@ -1,6 +1,6 @@
 import { checkTunnelAlive } from './tunnel'
 import { checkHttpProxyAlive } from './httpProxy'
-import type { ProxyChecker, ProxyEnv, ProxyResolution, ResolvedProxy } from './types'
+import type { ProxyChecker, ProxyEnv, ProxyResolution, ResolvedProxy } from '../types'
 
 // Webshare supports both protocols; SOCKS_PROXY (the ssh tunnel) is always
 // socks5. Dispatch on scheme so WEBSHARE_PROXY can be either without the

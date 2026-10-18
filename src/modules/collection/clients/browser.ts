@@ -1,7 +1,7 @@
 import { chromium, type Page } from 'playwright'
-import type { BrowserDriver, BrowserProxy, PageDriver } from './types'
-import type { GridListing } from './domain/extract-grid'
-import type { PageCursor } from './domain/paginate'
+import type { BrowserDriver, BrowserProxy, PageDriver } from '../types'
+import type { GridListing } from '../domain/extract-grid'
+import type { PageCursor } from '../domain/paginate'
 
 const DASMARINAS_CAVITE_COORDS = { latitude: 14.3294, longitude: 120.9367 }
 
@@ -18,7 +18,7 @@ export function shouldBlockResource(resourceType: string): boolean {
 }
 
 // Collection's browser entry: the one place a Chromium gets launched. Callers
-// route through whichever residential proxy they resolved (see proxy.ts and
+// route through whichever residential proxy they resolved (see clients/proxy.ts and
 // server/proxyGuard.ts); headless is only turned off for local inspection.
 export async function launchBrowserDriver(
   proxy?: BrowserProxy,

@@ -3,7 +3,7 @@ import { extractDetailFields } from './domain/extract-detail'
 import type { BackfillCandidate } from './store/listings'
 import { markListingPhotosUnavailable } from './store/listings'
 import { upsertListing } from './listings'
-import { defaultProxyChecker, resolveProxy } from './proxy'
+import { defaultProxyChecker, resolveProxy } from './clients/proxy'
 import { resolveDetailPage } from './page-state'
 
 // Stricter than collect/check-listings, which skip the egress check when no

@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { createDbPool } from '../../platform/storage'
 import { loadEnvFile } from '../../platform/env'
-import { launchBrowserDriver } from '../../modules/collection/browser'
+import { launchBrowserDriver } from '../../modules/collection/clients/browser'
 import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 import {
