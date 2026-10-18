@@ -1,4 +1,4 @@
-import type { PriceExclusionReason } from './types'
+import type { PriceExclusionReason } from '../types'
 
 // Reasons for products.price_lookup_excluded: every write of the flag goes
 // through store/exclusion.ts with a reason from this list. The signals behind

@@ -1,5 +1,5 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
-import { LOOKUP_OUTCOME_REASONS } from '../exclusion-reasons'
+import { LOOKUP_OUTCOME_REASONS } from '../domain/exclusion-reasons'
 import type { PriceExclusionReason } from '../types'
 
 // The one owner of the products.price_lookup_excluded write: every write of

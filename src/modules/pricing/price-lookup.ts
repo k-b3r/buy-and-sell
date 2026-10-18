@@ -9,8 +9,8 @@ import type {
   ProductPricingResult,
 } from './types'
 import { excludeFromPricing } from './store/exclusion'
-import { detectGenericBaseModel } from './generic-products'
-import { isJunkPrice } from './clean-median'
+import { detectGenericBaseModel } from './domain/generic-products'
+import { isJunkPrice } from './domain/clean-median'
 
 const WIDE_SPREAD_RATIO = 4
 

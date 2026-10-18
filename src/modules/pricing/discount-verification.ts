@@ -1,7 +1,7 @@
-import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
+import { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
 import type { DiscountPolicyThresholds, VerificationClients } from './types'
 import type { DiscountVerificationCandidate } from './store/discount-notifications'
-import { isNewCondition } from './price-rules'
+import { isNewCondition } from './domain/price-rules'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }

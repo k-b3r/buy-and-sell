@@ -1,4 +1,4 @@
-import type { PriceReviewCandidate } from '../types'
+import type { PriceReviewCandidate } from '../../types'
 
 function formatListingLine(l: PriceReviewCandidate): string {
   return `[id: ${l.id}] title: "${l.title}" recorded_price: ₱${l.price_amount} desc: "${l.description ?? ''}"`

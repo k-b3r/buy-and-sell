@@ -1,4 +1,4 @@
-import type { DiscountPolicyThresholds } from './types'
+import type { DiscountPolicyThresholds } from '../types'
 
 // Discount detection and verification thresholds, shared by the decision
 // (discount-notifications.ts), the verification loop and the store's

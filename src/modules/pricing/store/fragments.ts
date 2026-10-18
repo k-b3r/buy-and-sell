@@ -1,4 +1,4 @@
-import { JUNK_PRICE_FLOOR, MAGNITUDE_OUTLIER_RATIO, MIN_PEER_SAMPLE } from '../clean-median'
+import { JUNK_PRICE_FLOOR, MAGNITUDE_OUTLIER_RATIO, MIN_PEER_SAMPLE } from '../domain/clean-median'
 
 // Shared SQL fragments: the SQL side of the junk-price, magnitude-outlier and
 // clean-median rules in clean-median.ts, the peer-listing scope, and the

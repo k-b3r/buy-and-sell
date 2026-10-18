@@ -1,5 +1,5 @@
-import { toNullableNumber } from '../../platform/rows'
-import type { DiscountBand, ListingPriceReview } from './types'
+import { toNullableNumber } from '../../../platform/rows'
+import type { DiscountBand, ListingPriceReview } from '../types'
 import { isJunkPrice, isMagnitudeOutlier, isPlaceholderPrice, MIN_PEER_SAMPLE } from './clean-median'
 
 export interface DiscountSummary {
