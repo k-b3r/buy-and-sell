@@ -1,5 +1,5 @@
 import { isListingPriceNegotiable } from '../pricing'
-import type { ProductListingSummary } from './product-detail'
+import type { ProductListingSummary } from './types'
 import type { ListingsFilters, ListingSortKey } from './schemas'
 
 // Filter, sort and page one product's listings for the dashboard's listings

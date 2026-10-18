@@ -2,13 +2,12 @@
 // enrichment, categories, dedup/merge, model-code mismatch detection) and the
 // catalog dashboard queries. Only what callers outside this folder use;
 // everything else is internal (enforced by dependency-cruiser).
+export type { EnrichmentCandidate, ExtractionCandidate } from './types'
 export { mergeDuplicateProducts, mergeProductVariantAliases } from './merge'
 export { PRODUCT_CATEGORIES } from './products'
 export { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
-export type { EnrichmentCandidate } from './store/enrichment'
 export { getEnrichmentCandidates, upsertProductEnrichment } from './store/enrichment'
 export { findOrCreateProduct, updateListingProductIds, updateProductCategories } from './store/products'
-export type { ExtractionCandidate } from './store/extraction'
 export { getExtractionCandidates } from './store/extraction'
 export type { ListingsPage } from './listings-page'
 export type { ProductDetail } from './product-detail'

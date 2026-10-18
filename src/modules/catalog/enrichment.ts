@@ -1,5 +1,5 @@
 import { isProductCategory, PRODUCT_CATEGORIES } from './products'
-import type { EnrichmentCandidate, EnrichmentData } from './store/enrichment'
+import type { EnrichmentCandidate, EnrichmentData } from './types'
 
 function formatProductLine(p: EnrichmentCandidate): string {
   const label = p.variant_tier ? `${p.base_model} (${p.variant_tier})` : p.base_model

@@ -1,5 +1,5 @@
 import type { QueryClient } from '../../platform/storage'
-import type { DiscountBand, ListingPriceReview } from '../pricing'
+import type { DiscountBand } from '../pricing'
 import {
   computeListingDiscount,
   computeMedians,
@@ -8,31 +8,8 @@ import {
   resolveSecondhandPrice,
   summarizeDiscounts,
 } from '../pricing'
-import type { ProductEnrichment } from './store/product-detail'
+import type { ProductEnrichment, ProductListingSummary } from './types'
 import { getProductDetailRows } from './store/product-detail'
-
-export interface ProductListingSummary {
-  id: string
-  title: string
-  price_amount: number | null
-  primary_photo_url: string | null
-  condition: string | null
-  sold_at: string | null
-  listed_at: string | null
-  price_review: ListingPriceReview | null
-  discount_percent: number | null
-  reference_price: number | null
-  is_saved: boolean
-  // Shares its normalized title with another listing of this product
-  // (pricing's computeRepostIds over the full set, before any dashboard
-  // filtering or paging).
-  is_repost: boolean
-  // The model's own reasoning for why this exact listing cleared the
-  // verification gate (discount-verification.ts's VerificationOutcome,
-  // 'verified' case) - null for any listing that never got a verified
-  // discount_notifications row, not just an unflagged one.
-  verification_reasoning: string | null
-}
 
 export interface ProductDetail {
   id: number
