@@ -1,6 +1,6 @@
 import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platform/llm-clients'
 import type { PriceCheckSource } from './store/price-history'
-import { insertPriceCheck } from './store/price-history'
+import { insertPriceCheck, recordRetailMissForOverridden } from './store/price-history'
 import type {
   PriceLookupCandidate,
   PriceLookupClients,
@@ -316,6 +316,7 @@ export async function ensureProductPriced(
     // text-pattern check above, per direct instruction (2026-08-31) - not
     // worth trying secondhand either.
     await excludeFromPricing(db, { productId: product.id }, 'retail_not_found')
+    await recordRetailMissForOverridden(db, product.id)
     logger.warn(
       `product ${product.id} (${label}): retail price not found via any provider, excluding from pricing entirely`,
     )

@@ -57,6 +57,22 @@ export async function insertPriceCheck(db: DbClient, check: PriceCheck): Promise
   )
 }
 
+// A retail miss on a product a human included over a judgment
+// (price_exclusion_overrides): the override keeps winning, so the product is
+// not flagged excluded, and this marker row (no price, no condition, a source
+// no price lateral reads) is what getPriceLookupCandidates' NOT EXISTS then
+// sees, so the miss is not paid for again every lap. A product without an
+// override is excluded instead and gets no row. One statement, so the
+// override check and the insert can't disagree.
+export async function recordRetailMissForOverridden(db: DbClient, productId: number): Promise<void> {
+  await db.query(
+    `INSERT INTO product_price_history (product_id, source)
+     SELECT $1, 'retail_not_found'
+     WHERE EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = $1)`,
+    [productId],
+  )
+}
+
 // Retail and secondhand prices (both Gemini->Exa->Tavily) come from
 // one lap through this same candidate set now, so every non-excluded product
 // is a candidate regardless of listing count. Skips any product with a price
