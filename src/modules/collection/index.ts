@@ -8,6 +8,7 @@ export type {
   CollectKeyword,
   DriverFactory,
   LapQuery,
+  ListingDetail,
   ListingPageIo,
   ListingPhotos,
   PageDriver,
@@ -31,7 +32,6 @@ export {
 export { backfillListingPhotos, requireBackfillProxy } from './app/photo-backfill'
 export { createListingPhotos } from './app/photos'
 export { defaultProxyChecker, resolveProxy } from './clients/proxy'
-export type { ListingDetail } from './app/listing-detail'
 export { getListingDetail } from './app/listing-detail'
 export type { SavedListingSummary } from './store/dashboard'
 export { getListingProductId } from './store/dashboard'

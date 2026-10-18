@@ -4,6 +4,7 @@ import type { DelayFn } from '../../platform/delay'
 import type { ImageStore, CompressImage, FetchBytes } from '../../platform/images'
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
+import type { ComparableListing, ListingPriceReview } from '../pricing'
 import type { GridListing } from './domain/extract-grid'
 import type { PageCursor } from './domain/paginate'
 
@@ -132,4 +133,28 @@ export interface ListingPhotosIo {
   fetchBytes: FetchBytes
   compress: CompressImage
   logger: Logger
+}
+
+export interface ListingDetail {
+  id: string
+  title: string
+  price_amount: number | null
+  price_currency: string | null
+  description: string | null
+  condition: string | null
+  location_city: string | null
+  listed_at: string | null
+  last_seen_at: string | null
+  photo_urls: string[]
+  product_id: number | null
+  base_model: string | null
+  variant_tier: string | null
+  sold_at: string | null
+  price_review: ListingPriceReview | null
+  discount_percent: number | null
+  reference_price: number | null
+  is_saved: boolean
+  verification_reasoning: string | null
+  recent_sales: ComparableListing[]
+  similar_listings: ComparableListing[]
 }
