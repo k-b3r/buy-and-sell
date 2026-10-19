@@ -17,7 +17,7 @@ export interface DiscountNotification {
 }
 
 // Written by the root pipeline's detectAndRecordDiscountNotifications (see
-// discount-notifications.ts) right after a listing first
+// app/discount-notifications.ts) right after a listing first
 // gets a product_id - not queried live here, just displayed. Not cached by
 // the server's routes: a bell badge showing a stale count defeats the point,
 // and this table is small/indexed enough that a plain read is cheap.
