@@ -1,5 +1,5 @@
-import type { DbClient } from '../../platform/storage'
-import { peerListingSql } from './store/fragments'
+import type { DbClient } from '../../../platform/storage'
+import { peerListingSql } from '../store/fragments'
 import { decideListingDiscount } from './discount-notifications'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

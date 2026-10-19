@@ -126,6 +126,13 @@ export interface DiscountPolicyThresholds {
   minPricePesos: number
 }
 
+export interface DiscountCheckListing {
+  id: string
+  productId: number
+  condition: string | null
+  priceAmount: number | null
+}
+
 export interface NewDiscountNotification {
   listingId: string
   productId: number

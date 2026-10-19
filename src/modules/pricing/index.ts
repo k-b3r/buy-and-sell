@@ -42,7 +42,7 @@ export {
   rejectDiscountNotification,
 } from './store/discount-notifications'
 export type { NewDiscountNotification } from './types'
-export { decideListingDiscount } from './discount-notifications'
+export { decideListingDiscount } from './app/discount-notifications'
 export type { DiscountPolicyThresholds } from './types'
 export { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
 export type { DiscountVerificationCandidate, VerificationClients } from './types'
