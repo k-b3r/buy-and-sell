@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs'
-import { createLogger } from '../../platform/logger'
-import type { DbClient } from '../../platform/storage'
+import { createLogger } from '../../../platform/logger'
+import type { DbClient } from '../../../platform/storage'
 import { excludeIneligibleCategories } from './ineligible-categories'
 
 const LOG_PATH = 'data/tmp-ineligible-categories.log'

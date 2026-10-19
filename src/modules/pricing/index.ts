@@ -61,7 +61,7 @@ export {
 } from './store/exclusion'
 export { excludeProductFromReview } from './exclusion'
 export { LOOKUP_OUTCOME_REASONS } from './domain/exclusion-reasons'
-export { excludeIneligibleCategories } from './ineligible-categories'
+export { excludeIneligibleCategories } from './app/ineligible-categories'
 export type { ManualPrice } from './schemas'
 export {
   dealsQuerySchema,
