@@ -5,7 +5,7 @@ import { getAllSettings } from '../../platform/settings'
 import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
 import { getDeals } from './app/deals'
-import { excludeProductFromReview } from './exclusion'
+import { excludeProductFromReview } from './app/exclusion'
 import { dismissReview, getExcludedProducts, getExclusionSummary, includeInPricing } from './store/exclusion'
 import {
   getDiscountNotifications,

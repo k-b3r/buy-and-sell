@@ -59,7 +59,7 @@ export {
   getUnexcludedBaseModels,
   includeInPricing,
 } from './store/exclusion'
-export { excludeProductFromReview } from './exclusion'
+export { excludeProductFromReview } from './app/exclusion'
 export { LOOKUP_OUTCOME_REASONS } from './domain/exclusion-reasons'
 export { excludeIneligibleCategories } from './app/ineligible-categories'
 export type { ManualPrice } from './schemas'
@@ -70,7 +70,7 @@ export {
   notificationIdParamSchema,
   priceExclusionReasonSchema,
 } from './schemas'
-export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
+export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './app/listing-price-review'
 export { upsertListingPriceReview } from './store/listing-price-review'
 export type { ListingPricesForProductCondition } from './store/price-history'
 export {
