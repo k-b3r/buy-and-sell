@@ -1,6 +1,6 @@
 import { applyTriageVerdicts, buildTriagePrompt, parseTriageItem } from './price-triage'
 import type { DbClient } from '../../platform/storage'
-import type { TriageCandidate } from './price-triage'
+import type { TriageCandidate } from './types'
 
 const candidate = (overrides: Partial<TriageCandidate> = {}): TriageCandidate => ({
   id: 7,

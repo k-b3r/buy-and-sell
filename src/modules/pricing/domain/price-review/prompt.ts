@@ -1,9 +1,4 @@
-export interface PriceReviewCandidate {
-  id: string
-  title: string
-  description: string | null
-  price_amount: number
-}
+import type { PriceReviewCandidate } from '../../types'
 
 function formatListingLine(l: PriceReviewCandidate): string {
   return `[id: ${l.id}] title: "${l.title}" recorded_price: ₱${l.price_amount} desc: "${l.description ?? ''}"`
@@ -51,10 +46,3 @@ export const PRICE_REVIEW_RESPONSE_SCHEMA = {
   required: ['results'],
   additionalProperties: false,
 } as const
-
-export interface PriceReviewData {
-  isNegotiable: boolean
-  priceLow: number | null
-  priceHigh: number | null
-  reasoning: string
-}

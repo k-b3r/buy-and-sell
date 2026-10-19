@@ -1,5 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
-import type { PriceReviewData } from '../price-review/prompt'
+import type { PriceReviewData } from '../types'
 import { medianCtes, notPlaceholderPriceSql } from './fragments'
 
 // A flagged listing before the JS divergence filter: priceSuspicious is the

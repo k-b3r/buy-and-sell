@@ -16,7 +16,7 @@ const ENTRY_POINT_MAX_COMPLEXITY = 13
 const CURATED_DATA_FILES = [
   'src/modules/catalog/domain/variant-alias-rules.ts',
   'src/modules/pricing/ineligible-categories.ts',
-  'src/modules/pricing/generic-products.ts',
+  'src/modules/pricing/domain/generic-products.ts',
 ]
 
 // A later no-restricted-syntax block replaces the shared list, so the store

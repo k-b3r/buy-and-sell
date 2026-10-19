@@ -1,7 +1,7 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull } from '../../../platform/rows'
-import { DEFAULT_DISCOUNT_POLICY } from '../discount-policy'
-import type { NewDiscountNotification } from '../discount-notifications'
+import { DEFAULT_DISCOUNT_POLICY } from '../domain/discount-policy'
+import type { NewDiscountNotification } from '../types'
 
 export interface DiscountNotification {
   id: number

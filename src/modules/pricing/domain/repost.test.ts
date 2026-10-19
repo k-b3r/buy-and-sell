@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { computeRepostIds, repostKey, repostKeySql } from './repost'
+import { computeRepostIds, repostKey } from './repost'
 
 test('computeRepostIds flags both listings when their titles are byte-identical', () => {
   const result = computeRepostIds([
@@ -52,10 +52,4 @@ test('repostKey keys an untitled listing on its own id so untitled listings neve
 test('repostKey strips surrounding tabs, newlines and non-breaking spaces, not just plain spaces', () => {
   expect(repostKey({ id: 'a', title: '\t\u00a0iPhone 13\u3000\n ' })).toBe('iphone 13')
   expect(repostKey({ id: 'a', title: 'iPhone\u00a013' })).toBe('iphone\u00a013')
-})
-
-test('repostKeySql strips surrounding whitespace with a regex, lowercases, and falls back to the id column', () => {
-  const sql = repostKeySql('title', 'listing_id')
-  expect(sql).toMatch(/^COALESCE\(lower\(regexp_replace\(title, '.+', '', 'g'\)\), listing_id\)$/)
-  expect(sql).toContain('\\u00a0')
 })

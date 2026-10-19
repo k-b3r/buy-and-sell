@@ -1,20 +1,12 @@
-import type { GeminiClient, OpenRouterClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
-import type { DiscountPolicyThresholds } from './discount-policy'
-import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
+import { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
+import type { DiscountPolicyThresholds, VerificationClients } from './types'
 import type { DiscountVerificationCandidate } from './store/discount-notifications'
-import { isNewCondition } from './price-rules'
+import { isNewCondition } from './domain/price-rules'
 
 export type VerificationOutcome =
   | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
   | { outcome: 'rejected'; reasoning: string }
   | { outcome: 'pending'; reasoning: string }
-
-export interface VerificationClients {
-  tavily: TavilyClient
-  exa: ExaClient
-  gemini: GeminiClient
-  openrouter: OpenRouterClient
-}
 
 // base_model alone is often too generic to search accurately - "HP Laptop"/
 // "Desktop" spans a huge price range by spec, and the extraction step that

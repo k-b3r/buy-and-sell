@@ -1,5 +1,5 @@
 import type { DbClient } from '../../platform/storage'
-import type { PriceExclusionReason } from './exclusion-reasons'
+import type { PriceExclusionReason } from './types'
 import { deleteExclusionOverride, excludeFromPricing } from './store/exclusion'
 
 // Needs-review page's alternative to markProductReviewed: a human looked and

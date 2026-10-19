@@ -6,6 +6,7 @@ import {
   notPlaceholderPriceSql,
   notMagnitudeOutlierSql,
   peerListingSql,
+  repostKeySql,
 } from './fragments'
 
 test('peerListingSql keeps active listings, listings sold in the last 30 days and listings flagged removed in the last 30 days', () => {
@@ -57,4 +58,10 @@ test('medianCtes with clean false emits only the raw median, skipping the second
 test('DISCOUNT_SUMMARY_LATERAL takes the product median over peer listings only, never for an excluded product', () => {
   expect(DISCOUNT_SUMMARY_LATERAL).toContain(peerListingSql('pl'))
   expect(DISCOUNT_SUMMARY_LATERAL).toContain('NOT p.price_lookup_excluded')
+})
+
+test('repostKeySql strips surrounding whitespace with a regex, lowercases, and falls back to the id column', () => {
+  const sql = repostKeySql('title', 'listing_id')
+  expect(sql).toMatch(/^COALESCE\(lower\(regexp_replace\(title, '.+', '', 'g'\)\), listing_id\)$/)
+  expect(sql).toContain('\\u00a0')
 })

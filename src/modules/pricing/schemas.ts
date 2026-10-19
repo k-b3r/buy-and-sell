@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { DEALS_CONFIDENCE_TIERS } from './deals'
-import type { DealsConfidenceTier } from './deals'
-import { PRICE_EXCLUSION_REASONS } from './exclusion-reasons'
+import type { DealsConfidenceTier } from './types'
+import { PRICE_EXCLUSION_REASONS } from './domain/exclusion-reasons'
 
 // Request parsing for the pricing routes. Query input is Express's req.query
 // (a repeated param arrives as an array, a single one as a string), so every

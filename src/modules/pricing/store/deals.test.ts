@@ -1,8 +1,7 @@
 import { expect, test } from 'vitest'
 import { queryDeals } from './deals'
 import type { DealsQuery } from './deals'
-import { notMagnitudeOutlierSql, peerListingSql } from './fragments'
-import { repostKeySql } from '../repost'
+import { notMagnitudeOutlierSql, peerListingSql, repostKeySql } from './fragments'
 import type { QueryClient } from '../../../platform/storage'
 
 const dealsQuery = (overrides: Partial<DealsQuery> = {}): DealsQuery => ({

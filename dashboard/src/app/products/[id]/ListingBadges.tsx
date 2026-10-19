@@ -60,7 +60,7 @@ function discountBadgeStyle(percent: number): CSSProperties {
 
 // null covers both "not enough sibling listings to compare" and "this
 // listing's price is itself a magnitude outlier / placeholder" - see
-// computeListingDiscount in src/modules/pricing/price-rules.ts. Zero is a real
+// computeListingDiscount in src/modules/pricing/domain/price-rules.ts. Zero is a real
 // result (priced exactly at the reference), just not worth a badge.
 // reasoning is the model's own verification writeup
 // (src/modules/pricing/discount-verification.ts's VerificationOutcome, 'verified' case) - only present for a listing that

@@ -1,5 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
-import type { TriageRow } from '../price-triage'
+import type { TriageRow } from '../types'
 import {
   getRetryVerdictProductIds,
   getTriageCandidates,

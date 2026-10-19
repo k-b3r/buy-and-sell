@@ -284,9 +284,7 @@ export interface DealListing {
   is_low_confidence: boolean
 }
 
-export type DealsConfidenceTier = (typeof DEALS_CONFIDENCE_TIERS)[number]
-
-export const DEALS_CONFIDENCE_TIERS = ['sold_comps', 'peer_listings', 'llm_estimate'] as const
+export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
 
 export interface DealsDiscountPolicyFloors {
   minProfitPesos: number

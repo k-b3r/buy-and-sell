@@ -1,14 +1,9 @@
+import type { DiscountPolicyThresholds } from '../types'
+
 // Discount detection and verification thresholds, shared by the decision
 // (discount-notifications.ts), the verification loop and the store's
-// candidate query default.
-export interface DiscountPolicyThresholds {
-  highDiscountThresholdPercent: number
-  minProfitPesos: number
-  minPricePesos: number
-}
-
-// Operator-tunable via the dashboard Settings page (discount_policy.* keys,
-// src/platform/settings.ts) - callers load live values with loadSettings
+// candidate query default. Operator-tunable via the dashboard Settings page
+// (discount_policy.* keys, src/platform/settings.ts) - callers load live values with loadSettings
 // and pass them through explicitly; these are just the fallback defaults
 // (also the settings table's seed values, db/schema.sql) for callers that
 // don't pass thresholds at all (e.g. direct test calls).
