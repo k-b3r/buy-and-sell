@@ -1,21 +1,6 @@
 import type { DbClient } from '../../../platform/storage'
 import type { PriorPriceRow } from '../../real-estate'
-
-export interface ListingFields {
-  id: string
-  title: string | null
-  priceAmount: number | null
-  priceCurrency: string | null
-  description: string | null
-  condition: string | null
-  categoryId: string | null
-  locationLat: number | null
-  locationLng: number | null
-  locationCity: string | null
-  primaryPhotoUrl: string | null
-  storedPhotoUrls: string[] | null
-  listedAt: Date | null
-}
+import type { ListingFields } from '../types'
 
 export async function upsertListingRow(
   db: DbClient,

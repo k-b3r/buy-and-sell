@@ -1,4 +1,4 @@
-import { launchBrowserDriver } from '../../modules/collection/browser'
+import { launchBrowserDriver } from '../../modules/collection/clients/browser'
 import { autoApprove } from '../../platform/review'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { realDelay } from '../../platform/delay'

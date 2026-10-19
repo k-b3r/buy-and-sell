@@ -46,7 +46,7 @@ _(undocumented)_
 
 ## server/refreshHandlers.ts
 
-**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/browser`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./cache`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
+**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/clients/browser`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./cache`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
 
 ### `createRefreshHandlers({ db, photos, logger, env, cache }: RefreshHandlersDeps): RefreshHandlers`
 

@@ -1,53 +1,14 @@
 import type { DbClient, QueryClient } from '../../platform/storage'
+import type { DealListing, DealsConfidenceTier, DealsDiscountPolicyFloors, DealsFilters } from './types'
 import { queryDealListingIds, queryDeals } from './store/deals'
 import type { DealsQuery } from './store/deals'
 
 // Strongest evidence first.
-export const DEALS_CONFIDENCE_TIERS = ['sold_comps', 'peer_listings', 'llm_estimate'] as const
-export type DealsConfidenceTier = (typeof DEALS_CONFIDENCE_TIERS)[number]
-
-export interface DealListing {
-  listing_id: string
-  title: string
-  ask_price: number
-  photo_url: string | null
-  product_id: number | null
-  base_model: string | null
-  variant_tier: string | null
-  category: string | null
-  sub_category: string | null
-  reference_price: number | null
-  tier: DealsConfidenceTier | null
-  // Count of comparable listings behind the winning tier - sold listings for
-  // sold_comps, active peer listings for peer_listings, null for
-  // llm_estimate (nothing to count) or no tier at all.
-  comp_count: number | null
-  profit_pesos: number | null
-  discount_percent: number | null
-  days_listed: number | null
-  is_saved: boolean
-  is_low_confidence: boolean
-}
-
-export interface DealsDiscountPolicyFloors {
-  minProfitPesos: number
-  minPricePesos: number
-}
-
-export interface DealsFilters {
-  search?: string
-  categories?: string[]
-  minProfitPesos?: number
-  minConfidenceTier?: DealsConfidenceTier
-  maxDaysListed?: number
-  // Hours since our collector first saw the listing (first_seen_at), not the
-  // seller's FB posting date that maxDaysListed uses.
-  addedWithinHours?: number
-  soldOnly?: boolean
-  lowConfidenceOnly?: boolean
-  offset?: number
-  limit?: number
-}
+export const DEALS_CONFIDENCE_TIERS = [
+  'sold_comps',
+  'peer_listings',
+  'llm_estimate',
+] as const satisfies readonly DealsConfidenceTier[]
 
 const DEALS_DEFAULT_LIMIT = 30
 

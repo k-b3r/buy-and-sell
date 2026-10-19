@@ -1,6 +1,6 @@
 import type { DbClient } from '../../../platform/storage'
 import { toNullableNumber } from '../../../platform/rows'
-import type { TriageCandidate, TriageRow } from '../price-triage'
+import type { TriageCandidate, TriageRow } from '../types'
 
 const MAX_SAMPLE_TITLES = 3
 

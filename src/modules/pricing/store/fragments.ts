@@ -1,9 +1,17 @@
-import { JUNK_PRICE_FLOOR, MAGNITUDE_OUTLIER_RATIO, MIN_PEER_SAMPLE } from '../clean-median'
+import { JUNK_PRICE_FLOOR, MAGNITUDE_OUTLIER_RATIO, MIN_PEER_SAMPLE } from '../domain/clean-median'
+import { EDGE_WHITESPACE } from '../domain/repost'
 
 // Shared SQL fragments: the SQL side of the junk-price, magnitude-outlier and
-// clean-median rules in clean-median.ts, the peer-listing scope, and the
-// price laterals catalog and collection queries join. Constant strings and
-// pure builders only, no database calls. Exported through pricing/index.ts.
+// clean-median rules in clean-median.ts, the peer-listing scope, the repost
+// key (domain/repost.ts's JS side), and the price laterals catalog and
+// collection queries join. Constant strings and pure builders only, no
+// database calls. Exported through pricing/index.ts.
+
+// SQL side of repostKey (domain/repost.ts): same edge-whitespace regex, same
+// lowercase, id fallback for an untitled listing. The deals page groups by it.
+export function repostKeySql(titleColumn: string, idColumn: string): string {
+  return `COALESCE(lower(regexp_replace(${titleColumn}, '${EDGE_WHITESPACE}', '', 'g')), ${idColumn})`
+}
 
 // SQL equivalent of isPlaceholderPrice (clean-median.ts), negated - the single
 // source-of-truth snippet every SQL price filter uses.

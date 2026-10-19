@@ -4,7 +4,7 @@
 // median, discount, price laterals) that catalog and collection queries build
 // on, and the generic-product check that decides what is too vague to
 // price. Everything else is internal (enforced by dependency-cruiser).
-export { computeMedians, isJunkPrice, isPlaceholderPrice, MIN_PEER_SAMPLE } from './clean-median'
+export { computeMedians, isJunkPrice, isPlaceholderPrice, MIN_PEER_SAMPLE } from './domain/clean-median'
 export {
   DISCOUNT_SUMMARY_LATERAL,
   medianCtes,
@@ -15,7 +15,7 @@ export {
   peerListingSql,
   SECONDHAND_PRICE_LATERAL,
 } from './store/fragments'
-export type { DiscountBand, ListingPriceReview } from './price-rules'
+export type { DiscountBand, ListingPriceReview } from './types'
 export {
   computeListingDiscount,
   isListingPriceNegotiable,
@@ -24,8 +24,8 @@ export {
   summarizeDiscounts,
   toDiscountBands,
   toPriceReview,
-} from './price-rules'
-export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './deals'
+} from './domain/price-rules'
+export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './types'
 export { getDealListingIds, getDeals } from './deals'
 export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
 export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
@@ -41,14 +41,14 @@ export {
   markDiscountNotificationVerified,
   rejectDiscountNotification,
 } from './store/discount-notifications'
-export type { NewDiscountNotification } from './discount-notifications'
+export type { NewDiscountNotification } from './types'
 export { decideListingDiscount } from './discount-notifications'
-export type { DiscountPolicyThresholds } from './discount-policy'
-export { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
-export type { VerificationClients } from './discount-verification'
+export type { DiscountPolicyThresholds } from './types'
+export { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
+export type { VerificationClients } from './types'
 export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
-export type { GenericReason } from './generic-products'
-export { detectGenericBaseModel, groupGenericBaseModels } from './generic-products'
+export type { GenericReason } from './domain/generic-products'
+export { detectGenericBaseModel, groupGenericBaseModels } from './domain/generic-products'
 export type { ExcludedProduct, ExclusionReasonCount } from './store/exclusion'
 export {
   applyEligibilityFromEnrichment,
@@ -59,7 +59,7 @@ export {
   includeInPricing,
 } from './store/exclusion'
 export { excludeProductFromReview } from './exclusion'
-export { LOOKUP_OUTCOME_REASONS } from './exclusion-reasons'
+export { LOOKUP_OUTCOME_REASONS } from './domain/exclusion-reasons'
 export { excludeIneligibleCategories } from './ineligible-categories'
 export type { ManualPrice } from './schemas'
 export {
@@ -79,19 +79,20 @@ export {
   insertPriceCheck,
   setManualPrice,
 } from './store/price-history'
-export { computePriceRangeFromPrices } from './price-from-listings'
+export { computePriceRangeFromPrices } from './domain/price-from-listings'
 export type {
   PriceLookupCandidate,
   PriceLookupClients,
   PriceLookupDeps,
   PriceRange,
   ProductPricingResult,
-} from './price-lookup'
+} from './types'
 export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
-export type { TriageCandidate, TriageConfidence, TriageRow } from './price-triage'
+export type { TriageCandidate, TriageConfidence, TriageRow } from './types'
 export { applyTriageVerdicts, buildTriagePrompt, parseTriageItem, TRIAGE_RESPONSE_SCHEMA } from './price-triage'
 export type { TriageSummaryRow } from './store/price-triage'
 export { getTriageCandidates, getTriageSummary, saveTriageRows } from './store/price-triage'
-export { computeRepostIds, repostKey, repostKeySql } from './repost'
-export type { PriceReviewCandidate } from './price-review/prompt'
-export { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review/prompt'
+export { computeRepostIds, repostKey } from './domain/repost'
+export { repostKeySql } from './store/fragments'
+export type { PriceReviewCandidate } from './types'
+export { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './domain/price-review/prompt'

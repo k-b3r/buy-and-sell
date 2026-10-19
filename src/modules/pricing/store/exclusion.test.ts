@@ -1,5 +1,5 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
-import { LOOKUP_OUTCOME_REASONS } from '../exclusion-reasons'
+import { LOOKUP_OUTCOME_REASONS } from '../domain/exclusion-reasons'
 import {
   applyEligibilityFromEnrichment,
   deleteExclusionOverride,

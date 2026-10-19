@@ -14,7 +14,7 @@ import {
   getBackfillCandidates,
   markListingPhotosUnavailable,
 } from './listings'
-import type { ListingFields } from './listings'
+import type { ListingFields } from '../types'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []

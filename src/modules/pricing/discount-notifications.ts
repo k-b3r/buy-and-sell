@@ -1,10 +1,9 @@
 import type { DbClient } from '../../platform/storage'
-import type { PriceRange } from './price-lookup'
-import { isJunkPrice, isMagnitudeOutlier } from './clean-median'
+import type { DiscountPolicyThresholds, NewDiscountNotification, PriceRange } from './types'
+import { isJunkPrice, isMagnitudeOutlier } from './domain/clean-median'
 import { getProductCleanMedian } from './store/comparables'
-import { isNewCondition } from './price-rules'
-import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
-import type { DiscountPolicyThresholds } from './discount-policy'
+import { isNewCondition } from './domain/price-rules'
+import { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
 
 // decideListingDiscount's fallback reference when real secondhand market data
 // isn't available yet: the same peer median the deals page uses.
@@ -18,13 +17,6 @@ export interface DiscountCheckListing {
   productId: number
   condition: string | null
   priceAmount: number | null
-}
-
-export interface NewDiscountNotification {
-  listingId: string
-  productId: number
-  discountPercent: number
-  referencePrice: number
 }
 
 // Real-market-price-first discount decision for a single listing, made in

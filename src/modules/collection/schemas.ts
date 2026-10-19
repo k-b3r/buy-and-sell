@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { CollectKeyword } from './store/keywords'
+import type { CollectKeyword } from './types'
 
 const NOT_AN_ARRAY = 'keywords must be a non-empty array'
 

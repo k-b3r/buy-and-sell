@@ -1,4 +1,5 @@
 import type { DbClient } from '../../platform/storage'
+import type { TriageCandidate, TriageConfidence, TriageRow } from './types'
 import { includeInPricing } from './store/exclusion'
 import { getRetryVerdictProductIds, getTriagedReasons, markTriageApplied } from './store/price-triage'
 
@@ -7,31 +8,7 @@ import { getRetryVerdictProductIds, getTriagedReasons, markTriageApplied } from 
 // new-retail estimate, logged to product_pricing_triage. Nothing changes
 // pricing until a human reviews the log and runs applyTriageVerdicts.
 
-export interface TriageCandidate {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  category: string | null
-  description: string | null
-  reason: string
-  listing_count: number
-  median_ask: number | null
-  sample_titles: string[]
-}
-
 type Verdict = 'retry' | 'keep_excluded'
-export type TriageConfidence = 'high' | 'medium' | 'low'
-
-export interface TriageRow {
-  productId: number
-  previousReason: string
-  verdict: Verdict
-  isSpecificProduct: boolean
-  confidence: TriageConfidence
-  priceLow: number | null
-  priceHigh: number | null
-  reasoning: string
-}
 
 export const TRIAGE_RESPONSE_SCHEMA = {
   type: 'object',
