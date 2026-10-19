@@ -36,15 +36,80 @@ const sharedRules = baseRules({
   entryPoints: ['src/workers', 'src/utils', 'server'],
 })
 
+// baseOptions() cruises the runtime graph, where `import type` is erased and no
+// rule can see it. domain/ must not even name a store row or a DbClient, so this
+// repo cruises the compilation graph instead and the shared rules, which guard
+// what actually loads, opt back out of type-only edges.
+const runtimeOnly = (rule) => ({ ...rule, to: { ...rule.to, dependencyTypesNot: ['type-only'] } })
+
+// Reachability rules accept only path/pathNot (dependency-cruiser rejects
+// dependencyTypesNot on them), so their type-only edges cannot be filtered:
+// every module index that re-exports a port type (DbClient, ImageStore) now
+// reaches platform/storage.ts or platform/images.ts through store/ and types.ts.
+// Those two owners get a direct-import rule below; the reachable rule keeps the
+// owners that no index type-imports.
+const TYPE_IMPORTED_HEAVY_OWNERS = ['src/platform/images', 'src/platform/storage']
+const indexStaysLight = sharedRules.find((rule) => rule.name === 'index-stays-light')
+const isTypeImportedOwner = (ownerPath) => TYPE_IMPORTED_HEAVY_OWNERS.some((owner) => ownerPath.includes(owner))
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
     // server/ reaches past a module's index.ts for routes.ts only.
-    ...sharedRules.map((rule) =>
-      rule.name.startsWith('no-deep-imports-into-src-modules-')
-        ? { ...rule, to: { ...rule.to, pathNot: [...rule.to.pathNot, MODULE_ROUTES] } }
-        : rule,
-    ),
+    ...sharedRules
+      .filter((rule) => rule.name !== 'index-stays-light')
+      .map(runtimeOnly)
+      .map((rule) =>
+        rule.name.startsWith('no-deep-imports-into-src-modules-')
+          ? { ...rule, to: { ...rule.to, pathNot: [...rule.to.pathNot, MODULE_ROUTES] } }
+          : rule,
+      ),
+    ...(indexStaysLight
+      ? [
+          {
+            ...indexStaysLight,
+            to: {
+              ...indexStaysLight.to,
+              path: indexStaysLight.to.path.filter((ownerPath) => !isTypeImportedOwner(ownerPath)),
+            },
+          },
+          {
+            name: 'index-does-not-import-heavy-deps',
+            severity: 'error',
+            comment:
+              'An index.ts is the light entry to its folder: import heavy deps (Playwright, sharp/S3, pg, LLM SDKs) only from their owner file, and never from the index. Type-only imports load nothing and stay allowed.',
+            from: indexStaysLight.from,
+            to: { path: indexStaysLight.to.path, dependencyTypesNot: ['type-only'] },
+          },
+        ]
+      : []),
+    // domain/ is pure code: no store, clients or app, not even for a type, and no
+    // storage or logger. Those enter through the module's ports (types.ts).
+    {
+      name: 'domain-no-effects',
+      severity: 'error',
+      comment:
+        "domain/ is pure: it never imports store/, clients/ or app/ (its own module's or another's), nor platform/storage or platform/logger, not even as a type. Take them in as arguments through types.ts ports.",
+      from: { path: '^src/modules/[^/]+/domain/' },
+      to: {
+        path: ['^src/modules/[^/]+/(store|clients|app)/', '^src/platform/(storage|logger)(\\.ts|/)'],
+      },
+    },
+    // Entry points wire and loop; they reach a module through its index.ts (server/
+    // may also use routes.ts). They never import domain/, store/, clients/ or app/.
+    // browser.ts is the one exception: it owns Playwright and BUY-113 decides whether
+    // that entry point moves; until then callers import it by path.
+    {
+      name: 'entries-through-module-api',
+      severity: 'error',
+      comment:
+        "Entry points go through a module's index.ts (server/ may also use routes.ts); they never import domain/, store/, clients/ or app/ directly. Exception: collection/clients/browser.ts, the Playwright entry (BUY-113).",
+      from: { path: '^(src/(workers|utils)|server|scripts)/' },
+      to: {
+        path: ['^src/modules/[^/]+/(domain|store|clients|app)/'],
+        pathNot: ['^src/modules/collection/clients/browser\\.ts$'],
+      },
+    },
     {
       name: 'module-routes-only-from-server',
       severity: 'error',
@@ -53,5 +118,7 @@ module.exports = {
       to: { path: MODULE_ROUTES },
     },
   ],
-  options: baseOptions({ exclude: ['^dashboard/', '^docs-site/'] }),
+  // `specify` keeps type-only edges in the graph and marks them, so domain-no-effects
+  // sees `import type`; the runtimeOnly wrapper above keeps the shared rules honest.
+  options: { ...baseOptions({ exclude: ['^dashboard/', '^docs-site/'] }), tsPreCompilationDeps: 'specify' },
 }
