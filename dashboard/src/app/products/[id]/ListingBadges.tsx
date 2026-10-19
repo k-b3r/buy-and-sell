@@ -63,7 +63,7 @@ function discountBadgeStyle(percent: number): CSSProperties {
 // computeListingDiscount in src/modules/pricing/domain/price-rules.ts. Zero is a real
 // result (priced exactly at the reference), just not worth a badge.
 // reasoning is the model's own verification writeup
-// (src/modules/pricing/discount-verification.ts's VerificationOutcome, 'verified' case) - only present for a listing that
+// (src/modules/pricing/types.ts's VerificationOutcome, 'verified' case) - only present for a listing that
 // actually triggered and passed a discount_notifications check, not every
 // listing with a nonzero discount_percent (that's a plain stats comparison,
 // computed for all of them regardless of verification).

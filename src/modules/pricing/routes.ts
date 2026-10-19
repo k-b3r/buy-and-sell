@@ -92,7 +92,7 @@ export function createPricingRouter(db: QueryClient, cache: CacheInvalidator): R
   })
 
   // A human agrees with the low-confidence hunch that this needs_review
-  // product isn't a real priceable product (see exclusion.ts).
+  // product isn't a real priceable product (see app/exclusion.ts).
   router.post('/products/:id/exclude', async (req, res) => {
     const id = productIdParamSchema.safeParse(req.params.id)
     if (!id.success) return badRequest(res, id.error.issues)

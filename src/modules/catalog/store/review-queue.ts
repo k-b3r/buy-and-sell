@@ -62,7 +62,7 @@ export interface ProductNeedingReview {
 }
 
 // price_lookup_review_status = 'needs_review' is set by
-// applyEligibilityFromEnrichment (src/modules/pricing/exclusion.ts)
+// applyEligibilityFromEnrichment (src/modules/pricing/store/exclusion.ts)
 // when Groq's own confidence in identifying the product came back 'low' - see
 // db/schema.sql's comment on the column. Never auto-resolves; this is the
 // admin review page that comment says doesn't exist yet.

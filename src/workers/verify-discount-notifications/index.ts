@@ -56,7 +56,7 @@ async function main() {
     loopDelayKey: 'verify_discount.loop_delay_ms',
     setup: ({ logger, db }) => {
       const breaker = createGatewayBreaker()
-      // Exa is now the primary market-context source (see discount-verification.ts's
+      // Exa is now the primary market-context source (see pricing/clients/market-context.ts's
       // fetchFreshMarketContext comment) - its credits ran out mid-investigation
       // (2026-08-31, real 402), so multiple keys are worth having on hand here
       // (see loadExaApiKeys).

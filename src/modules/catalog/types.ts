@@ -56,7 +56,7 @@ export interface ProductListingSummary {
   // filtering or paging).
   is_repost: boolean
   // The model's own reasoning for why this exact listing cleared the
-  // verification gate (discount-verification.ts's VerificationOutcome,
+  // verification gate (pricing/types.ts's VerificationOutcome,
   // 'verified' case) - null for any listing that never got a verified
   // discount_notifications row, not just an unflagged one.
   verification_reasoning: string | null
