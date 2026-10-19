@@ -19,3 +19,4 @@ playwright-report
 # Local handoff and held-findings files (in .git/info/exclude, never committed)
 SESSION_RESUME.md
 TODOS.md
+TRACKER_OUTBOX.md
