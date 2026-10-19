@@ -744,9 +744,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/pricing/deals.ts
+## src/modules/pricing/app/deals.ts
 
-**Interactions:** imports `../../platform/storage`, `./store/deals`, `./types`
+**Interactions:** imports `../../../platform/storage`, `../domain/deals`, `../store/deals`, `../types`
 
 ### `getDeals(db: QueryClient, discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters = {}): Promise<DealListing[]>`
 
@@ -756,27 +756,63 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/pricing/discount-notifications.ts
+## src/modules/pricing/app/discount-notifications.ts
 
-**Interactions:** imports `../../platform/storage`, `./domain/clean-median`, `./domain/discount-policy`, `./domain/price-rules`, `./store/comparables`, `./types`
+**Interactions:** imports `../../../platform/storage`, `../domain/discount-decision`, `../domain/discount-policy`, `../store/comparables`, `../types`
 
 ### `decideListingDiscount(db: DbClient, listing: DiscountCheckListing, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<NewDiscountNotification | null>`
 
 _(undocumented)_
 
-## src/modules/pricing/discount-verification.ts
+## src/modules/pricing/app/discount-verification.ts
 
-**Interactions:** imports `./domain/discount-policy`, `./domain/price-rules`, `./store/discount-notifications`, `./types`
-
-### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
-
-_(undocumented)_
-
-### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
-
-_(undocumented)_
+**Interactions:** imports `../clients/market-context`, `../domain/discount-policy`, `../domain/discount-verification`, `../types`
 
 ### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
+
+_(undocumented)_
+
+## src/modules/pricing/app/exclusion.ts
+
+**Interactions:** imports `../../../platform/storage`, `../store/exclusion`, `../types`
+
+### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/app/ineligible-categories.ts
+
+**Interactions:** imports `../../../platform/logger`, `../../../platform/storage`, `../domain/ineligible-categories`, `../store/exclusion`, `../types`
+
+### `excludeIneligibleCategories(db: DbClient, logger: Logger): Promise<void>`
+
+_(undocumented)_
+
+## src/modules/pricing/app/listing-price-review.ts
+
+**Interactions:** imports `../../../platform/storage`, `../domain/negotiable-keywords`, `../domain/price-review/parse`, `../store/listing-price-review`, `../types`
+
+### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
+
+_(undocumented)_
+
+### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<string | null>`
+
+_(undocumented)_
+
+## src/modules/pricing/app/price-triage.ts
+
+**Interactions:** imports `../../../platform/storage`, `../store/exclusion`, `../store/price-triage`, `../types`
+
+### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
+
+_(undocumented)_
+
+## src/modules/pricing/clients/market-context.ts
+
+**Interactions:** imports `../domain/discount-verification`, `../types`
+
+### `fetchFreshMarketContext(candidate: DiscountVerificationCandidate, clients: Pick<VerificationClients, 'tavily' | 'exa' | 'gemini'>): Promise<{ text: string; source: string } | null>`
 
 _(undocumented)_
 
@@ -795,6 +831,50 @@ _(undocumented)_
 _(undocumented)_
 
 ### `computeMedians(rawPrices: (number | null)[]): { rawMedian: number | null cleanMedian: number | null sampleSize: number }`
+
+_(undocumented)_
+
+## src/modules/pricing/domain/deals.ts
+
+**Interactions:** imports `../types`
+
+### `resolveDealsQuery(discountPolicy: DealsDiscountPolicyFloors, filters: DealsFilters): DealsQuery`
+
+_(undocumented)_
+
+## src/modules/pricing/domain/discount-decision.ts
+
+**Interactions:** imports `../types`, `./clean-median`, `./price-rules`
+
+### `isCheckablePrice(priceAmount: number | null, thresholds: DiscountPolicyThresholds): priceAmount is number`
+
+_(undocumented)_
+
+### `pickReferencePrice(condition: string | null, pricing: { retail: PriceRange | null; secondhand: PriceRange | null }): number | null | 'peer'`
+
+_(undocumented)_
+
+### `decideDiscount(listing: DiscountCheckListing, priceAmount: number, referencePrice: number | null, thresholds: DiscountPolicyThresholds): NewDiscountNotification | null`
+
+_(undocumented)_
+
+## src/modules/pricing/domain/discount-verification.ts
+
+**Interactions:** imports `../types`, `./discount-policy`, `./price-rules`
+
+### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
+
+_(undocumented)_
+
+### `buildVerificationPrompt(candidate: DiscountVerificationCandidate, marketContext: string, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): string`
+
+_(undocumented)_
+
+### `parseVerificationResponse(raw: unknown): ParsedVerificationResponse | null`
+
+_(undocumented)_
+
+### `precheckDiscountCandidate(candidate: DiscountVerificationCandidate, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): PrecheckOutcome`
 
 _(undocumented)_
 
@@ -876,6 +956,18 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/pricing/domain/price-triage.ts
+
+**Interactions:** imports `../types`
+
+### `buildTriagePrompt(batch: TriageCandidate[]): string`
+
+_(undocumented)_
+
+### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
+
+_(undocumented)_
+
 ## src/modules/pricing/domain/repost.ts
 
 ### `repostKey(listing: { id: string; title: string | null }): string`
@@ -883,14 +975,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `computeRepostIds(listings: { id: string; title: string | null }[]): Set<string>`
-
-_(undocumented)_
-
-## src/modules/pricing/exclusion.ts
-
-**Interactions:** imports `../../platform/storage`, `./store/exclusion`, `./types`
-
-### `excludeProductFromReview(db: DbClient, productId: number, reason: PriceExclusionReason): Promise<void>`
 
 _(undocumented)_
 
@@ -1108,15 +1192,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
-
-_(undocumented)_
-
 ### `buildTriagePrompt(batch: TriageCandidate[]): string`
 
 _(undocumented)_
 
 ### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
+
+_(undocumented)_
+
+### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
 
 _(undocumented)_
 
@@ -1145,26 +1229,6 @@ _(undocumented)_
 _(undocumented)_
 
 ### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
-
-_(undocumented)_
-
-## src/modules/pricing/ineligible-categories.ts
-
-**Interactions:** imports `../../platform/logger`, `../../platform/storage`, `./store/exclusion`, `./types`
-
-### `excludeIneligibleCategories(db: DbClient, logger: Logger): Promise<void>`
-
-_(undocumented)_
-
-## src/modules/pricing/listing-price-review.ts
-
-**Interactions:** imports `../../platform/storage`, `./domain/negotiable-keywords`, `./domain/price-review/parse`, `./store/listing-price-review`, `./types`
-
-### `getPriceReviewCandidates(db: DbClient): Promise<PriceReviewCandidate[]>`
-
-_(undocumented)_
-
-### `flagNegotiableFromKeywords(db: DbClient, listingId: string, title: string | null, description: string | null): Promise<string | null>`
 
 _(undocumented)_
 
@@ -1216,25 +1280,9 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/pricing/price-triage.ts
-
-**Interactions:** imports `../../platform/storage`, `./store/exclusion`, `./store/price-triage`, `./types`
-
-### `buildTriagePrompt(batch: TriageCandidate[]): string`
-
-_(undocumented)_
-
-### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
-
-_(undocumented)_
-
-### `applyTriageVerdicts(db: DbClient, minConfidence: TriageConfidence, reasons?: string[]): Promise<number>`
-
-_(undocumented)_
-
 ## src/modules/pricing/routes.ts
 
-**Interactions:** imports `../../platform/product-id`, `../../platform/settings`, `../../platform/storage`, `./deals`, `./exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
+**Interactions:** imports `../../platform/product-id`, `../../platform/settings`, `../../platform/storage`, `./app/deals`, `./app/exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
 
 ### `createPricingRouter(db: QueryClient, cache: CacheInvalidator): Router`
 
