@@ -1,7 +1,7 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull } from '../../../platform/rows'
 import { DEFAULT_DISCOUNT_POLICY } from '../domain/discount-policy'
-import type { NewDiscountNotification } from '../types'
+import type { DiscountVerificationCandidate, NewDiscountNotification } from '../types'
 
 export interface DiscountNotification {
   id: number
@@ -17,7 +17,7 @@ export interface DiscountNotification {
 }
 
 // Written by the root pipeline's detectAndRecordDiscountNotifications (see
-// discount-notifications.ts) right after a listing first
+// app/discount-notifications.ts) right after a listing first
 // gets a product_id - not queried live here, just displayed. Not cached by
 // the server's routes: a bell badge showing a stale count defeats the point,
 // and this table is small/indexed enough that a plain read is cheap.
@@ -82,17 +82,6 @@ export async function insertDiscountNotifications(
      ON CONFLICT (listing_id) DO NOTHING`,
     params,
   )
-}
-
-export interface DiscountVerificationCandidate {
-  id: number
-  listing_id: string
-  title: string | null
-  description: string | null
-  condition: string | null
-  price_amount: number
-  base_model: string
-  is_specific_product: boolean | null
 }
 
 // Pending = verified_at IS NULL. Backoff (1hr) on last_verification_attempt_at

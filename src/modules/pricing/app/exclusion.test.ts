@@ -1,4 +1,4 @@
-import type { DbClient } from '../../platform/storage'
+import type { DbClient } from '../../../platform/storage'
 import { excludeProductFromReview } from './exclusion'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

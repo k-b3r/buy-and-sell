@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { getDealListingIds, getDeals } from './deals'
-import type { QueryClient } from '../../platform/storage'
+import type { QueryClient } from '../../../platform/storage'
 
 const DEFAULT_DISCOUNT_POLICY_FLOORS = { minProfitPesos: 1000, minPricePesos: 500 }
 

@@ -4,8 +4,8 @@ import type { z } from 'zod'
 import { getAllSettings } from '../../platform/settings'
 import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
-import { getDeals } from './deals'
-import { excludeProductFromReview } from './exclusion'
+import { getDeals } from './app/deals'
+import { excludeProductFromReview } from './app/exclusion'
 import { dismissReview, getExcludedProducts, getExclusionSummary, includeInPricing } from './store/exclusion'
 import {
   getDiscountNotifications,
@@ -92,7 +92,7 @@ export function createPricingRouter(db: QueryClient, cache: CacheInvalidator): R
   })
 
   // A human agrees with the low-confidence hunch that this needs_review
-  // product isn't a real priceable product (see exclusion.ts).
+  // product isn't a real priceable product (see app/exclusion.ts).
   router.post('/products/:id/exclude', async (req, res) => {
     const id = productIdParamSchema.safeParse(req.params.id)
     if (!id.success) return badRequest(res, id.error.issues)

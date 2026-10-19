@@ -15,7 +15,7 @@ const ENTRY_POINT_MAX_COMPLEXITY = 13
 // logic, so max-lines says nothing useful here; complexity still applies.
 const CURATED_DATA_FILES = [
   'src/modules/catalog/domain/variant-alias-rules.ts',
-  'src/modules/pricing/ineligible-categories.ts',
+  'src/modules/pricing/domain/ineligible-categories.ts',
   'src/modules/pricing/domain/generic-products.ts',
 ]
 

@@ -46,7 +46,23 @@ export interface VerificationClients {
   openrouter: OpenRouterClient
 }
 
-// Strongest evidence first: DEALS_CONFIDENCE_TIERS (deals.ts) is this union's
+export interface DiscountVerificationCandidate {
+  id: number
+  listing_id: string
+  title: string | null
+  description: string | null
+  condition: string | null
+  price_amount: number
+  base_model: string
+  is_specific_product: boolean | null
+}
+
+export type VerificationOutcome =
+  | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
+  | { outcome: 'rejected'; reasoning: string }
+  | { outcome: 'pending'; reasoning: string }
+
+// Strongest evidence first: DEALS_CONFIDENCE_TIERS (domain/deals.ts) is this union's
 // runtime list.
 export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
 
@@ -93,6 +109,15 @@ export interface DealsFilters {
   limit?: number
 }
 
+// The deals query with its floors resolved: minProfitPesos is already the
+// higher of the policy floor and the caller's filter (see getDeals).
+export interface DealsQuery extends Omit<DealsFilters, 'minProfitPesos' | 'offset' | 'limit'> {
+  minProfitPesos: number
+  minPricePesos: number
+  offset: number
+  limit: number
+}
+
 export interface DiscountBand {
   bandFloor: number
   count: number
@@ -108,6 +133,13 @@ export interface DiscountPolicyThresholds {
   highDiscountThresholdPercent: number
   minProfitPesos: number
   minPricePesos: number
+}
+
+export interface DiscountCheckListing {
+  id: string
+  productId: number
+  condition: string | null
+  priceAmount: number | null
 }
 
 export interface NewDiscountNotification {

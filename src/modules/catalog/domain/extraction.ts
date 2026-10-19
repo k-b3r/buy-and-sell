@@ -148,7 +148,7 @@ export function parseExtractionItem(raw: unknown, batch: ExtractionCandidate[]):
   // product row ever gets created for aliases already on this list. Only
   // catches known aliases; a brand-new one extraction turns up still
   // needs a human to spot it and add an entry (same gap as
-  // pricing's ineligible-categories.ts curated list) - merge.ts
+  // pricing's domain/ineligible-categories.ts curated list) - merge.ts
   // remains the manual retroactive fix for whatever slips through.
   const mappedBaseModel = CANONICAL_BASE_MODEL[item.base_model] ?? item.base_model
   // Base+variant aliases too (BUY-59): found live 2026-10-08, 24 of these

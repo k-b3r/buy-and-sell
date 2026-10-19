@@ -6,7 +6,7 @@ import { createLogger } from '../../platform/logger'
 import { secretsFromEnv } from '../../platform/redact'
 
 // Applies the pricing module's curated price-ineligible list. Rerun after
-// editing that list (src/modules/pricing/ineligible-categories.ts).
+// editing that list (src/modules/pricing/domain/ineligible-categories.ts).
 async function main() {
   loadEnvFile()
   const dbUrl = process.env.DATABASE_URL

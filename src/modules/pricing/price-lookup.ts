@@ -84,7 +84,7 @@ export function parseGeminiPriceResponse(text: string): PriceRange | null {
 
 // ---- Exa: fallback 1 for both retail and secondhand (after Gemini) ----
 // Per a live head-to-head against Tavily (2026-08-31, 15 real candidates,
-// see discount-verification.ts's fetchFreshMarketContext comment for the
+// see clients/market-context.ts's fetchFreshMarketContext comment for the
 // full record) - Exa cited sources and abstained honestly when it lacked
 // real data, where Tavily confidently fabricated numbers with no citation
 // trail. Both chains: Gemini first (see above), Exa fallback 1, Tavily
@@ -116,7 +116,7 @@ const EXA_PRICE_SCHEMA = {
 } as const
 
 // Exa's /search with outputSchema returns the structured result at
-// response.output.content - same shape discount-verification.ts's
+// response.output.content - same shape clients/market-context.ts's
 // EXA_SUMMARY_SCHEMA call already relies on.
 export function parseExaPriceResponse(response: unknown): PriceRange | null {
   if (typeof response !== 'object' || response === null) return null

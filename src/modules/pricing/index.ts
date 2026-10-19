@@ -26,10 +26,10 @@ export {
   toPriceReview,
 } from './domain/price-rules'
 export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './types'
-export { getDealListingIds, getDeals } from './deals'
+export { getDealListingIds, getDeals } from './app/deals'
 export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
 export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
-export type { DiscountNotification, DiscountVerificationCandidate } from './store/discount-notifications'
+export type { DiscountNotification } from './store/discount-notifications'
 export {
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
@@ -42,11 +42,12 @@ export {
   rejectDiscountNotification,
 } from './store/discount-notifications'
 export type { NewDiscountNotification } from './types'
-export { decideListingDiscount } from './discount-notifications'
+export { decideListingDiscount } from './app/discount-notifications'
 export type { DiscountPolicyThresholds } from './types'
 export { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
-export type { VerificationClients } from './types'
-export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
+export type { DiscountVerificationCandidate, VerificationClients } from './types'
+export { precheckDiscountCandidate } from './domain/discount-verification'
+export { verifyDiscountCandidate } from './app/discount-verification'
 export type { GenericReason } from './domain/generic-products'
 export { detectGenericBaseModel, groupGenericBaseModels } from './domain/generic-products'
 export type { ExcludedProduct, ExclusionReasonCount } from './store/exclusion'
@@ -58,9 +59,9 @@ export {
   getUnexcludedBaseModels,
   includeInPricing,
 } from './store/exclusion'
-export { excludeProductFromReview } from './exclusion'
+export { excludeProductFromReview } from './app/exclusion'
 export { LOOKUP_OUTCOME_REASONS } from './domain/exclusion-reasons'
-export { excludeIneligibleCategories } from './ineligible-categories'
+export { excludeIneligibleCategories } from './app/ineligible-categories'
 export type { ManualPrice } from './schemas'
 export {
   dealsQuerySchema,
@@ -69,7 +70,7 @@ export {
   notificationIdParamSchema,
   priceExclusionReasonSchema,
 } from './schemas'
-export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './listing-price-review'
+export { flagNegotiableFromKeywords, getPriceReviewCandidates } from './app/listing-price-review'
 export { upsertListingPriceReview } from './store/listing-price-review'
 export type { ListingPricesForProductCondition } from './store/price-history'
 export {
@@ -89,7 +90,8 @@ export type {
 } from './types'
 export { ensureProductPriced, PriceLookupFailedError } from './price-lookup'
 export type { TriageCandidate, TriageConfidence, TriageRow } from './types'
-export { applyTriageVerdicts, buildTriagePrompt, parseTriageItem, TRIAGE_RESPONSE_SCHEMA } from './price-triage'
+export { buildTriagePrompt, parseTriageItem, TRIAGE_RESPONSE_SCHEMA } from './domain/price-triage'
+export { applyTriageVerdicts } from './app/price-triage'
 export type { TriageSummaryRow } from './store/price-triage'
 export { getTriageCandidates, getTriageSummary, saveTriageRows } from './store/price-triage'
 export { computeRepostIds, repostKey } from './domain/repost'
