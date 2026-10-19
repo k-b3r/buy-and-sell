@@ -94,6 +94,9 @@
     "appDbEnv": "DATABASE_URL",
     "untestedExempt": [
       "src/modules/*/types.ts"
+    ],
+    "generatedPaths": [
+      "docs-site/**"
     ]
   }
 }
