@@ -1,7 +1,7 @@
 import type { QueryClient } from '../../../platform/storage'
 import { toIsoOrNull, toNullableNumber } from '../../../platform/rows'
 import type { DiscountBand } from '../../pricing'
-import { PRODUCT_CATEGORIES } from '../products'
+import { PRODUCT_CATEGORIES } from '../domain/products'
 import {
   DISCOUNT_SUMMARY_LATERAL,
   medianCtes,
