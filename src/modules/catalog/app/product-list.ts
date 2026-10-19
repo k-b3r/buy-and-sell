@@ -1,8 +1,8 @@
-import type { QueryClient } from '../../platform/storage'
-import type { DiscountBand } from '../pricing'
-import { resolveSecondhandPrice } from '../pricing'
-import type { ProductSummaryOptions } from './store/product-list'
-import { getProductSummaryRows } from './store/product-list'
+import type { QueryClient } from '../../../platform/storage'
+import type { DiscountBand } from '../../pricing'
+import { resolveSecondhandPrice } from '../../pricing'
+import type { ProductSummaryOptions } from '../store/product-list'
+import { getProductSummaryRows } from '../store/product-list'
 
 export interface ProductSummary {
   id: number

@@ -3,9 +3,9 @@ import type { Response, Router } from 'express'
 import type { z } from 'zod'
 import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
-import { paginateListings } from './listings-page'
-import { getProductDetail } from './product-detail'
-import { getProductSummaries } from './product-list'
+import { paginateListings } from './domain/listings-page'
+import { getProductDetail } from './app/product-detail'
+import { getProductSummaries } from './app/product-list'
 import { getSoldCountsBySubCategory, getSubCategoryTree } from './store/product-list'
 import { getProductsNeedingReview, markProductReviewed } from './store/review-queue'
 import { listingsQuerySchema, productListQuerySchema } from './schemas'
@@ -71,7 +71,7 @@ export function createCatalogRouter(db: QueryClient, cache: RouteCache): Router 
       res.status(404).json({ listings: [], nextOffset: null, matchedCount: 0, allIds: [] })
       return
     }
-    res.json(paginateListings(product.listings, query.data.filters, query.data.offset))
+    res.json(paginateListings(product.listings, query.data.filters, query.data.offset, Date.now()))
   })
 
   // A human looked at this needs_review product and it's fine as-is: clears
