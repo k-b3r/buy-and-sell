@@ -1,7 +1,7 @@
-import type { Logger } from '../../platform/logger'
-import type { DbClient } from '../../platform/storage'
-import type { ImageStore } from '../../platform/images'
-import type { PageDriver } from './driver'
+import type { Logger } from '../../../platform/logger'
+import type { DbClient } from '../../../platform/storage'
+import type { ImageStore } from '../../../platform/images'
+import type { PageDriver } from '../types'
 import { backfillListingPhotos, requireBackfillProxy } from './photo-backfill'
 import { createListingPhotos } from './photos'
 

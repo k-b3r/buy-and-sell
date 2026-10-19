@@ -1,7 +1,7 @@
 import express from 'express'
 import type { Router } from 'express'
 import type { ListingPhotos } from '../src/modules/collection'
-import { launchBrowserDriver } from '../src/modules/collection/browser'
+import { launchBrowserDriver } from '../src/modules/collection/clients/browser'
 import { realDelay } from '../src/platform/delay'
 import type { Logger } from '../src/platform/logger'
 import type { QueryClient } from '../src/platform/storage'

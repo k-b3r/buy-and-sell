@@ -1,8 +1,8 @@
-import type { DbClient } from '../../platform/storage'
-import { getDealListingIds } from '../pricing'
-import { putDealsFirst } from './listings'
-import { getCheckListingsCandidates, getDealCheckCandidates } from './store/listings'
-import type { CheckListingsCandidate } from './store/listings'
+import type { DbClient } from '../../../platform/storage'
+import { getDealListingIds } from '../../pricing'
+import { putDealsFirst } from '../domain/deals-first'
+import { getCheckListingsCandidates, getDealCheckCandidates } from '../store/listings'
+import type { CheckListingsCandidate } from '../store/listings'
 
 // How many top-ranked /deals listings are considered for priority checking.
 const DEALS_PRIORITY_POOL = 200

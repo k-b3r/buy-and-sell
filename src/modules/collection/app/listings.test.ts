@@ -1,8 +1,8 @@
-import type { DbClient } from '../../platform/storage'
-import type { Logger } from '../../platform/logger'
-import type { ImageStore, FetchBytes, CompressImage } from '../../platform/images'
-import { upsertListing, putDealsFirst, refreshListingFields } from './listings'
-import type { ListingPhotos } from './photos'
+import type { DbClient } from '../../../platform/storage'
+import type { Logger } from '../../../platform/logger'
+import type { ImageStore, FetchBytes, CompressImage } from '../../../platform/images'
+import { upsertListing, refreshListingFields } from './listings'
+import type { ListingPhotos } from '../types'
 import { createListingPhotos } from './photos'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
@@ -447,12 +447,4 @@ test('refreshListingFields hands the prior price to real estate price history wh
   expect(inserts).toHaveLength(2)
   expect(inserts[0].params).toEqual(['12345', 5000000, 'PHP', '2026-08-20T00:00:00.000Z'])
   expect(inserts[1].params).toEqual(['12345', 4500000, 'PHP'])
-})
-
-test('putDealsFirst puts deal candidates ahead of the backlog, drops duplicates and caps at the limit', () => {
-  const c = (id: string) => ({ id, flagged_removed_at: null, source_photo_ids: null })
-
-  const merged = putDealsFirst([c('d1'), c('d2')], [c('a'), c('d1'), c('b'), c('d3')], 4)
-
-  expect(merged.map((x) => x.id)).toEqual(['d1', 'd2', 'a', 'b'])
 })
