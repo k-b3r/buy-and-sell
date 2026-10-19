@@ -1,12 +1,6 @@
-import { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
-import type { DiscountPolicyThresholds, VerificationClients } from './types'
-import type { DiscountVerificationCandidate } from './store/discount-notifications'
-import { isNewCondition } from './domain/price-rules'
-
-export type VerificationOutcome =
-  | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
-  | { outcome: 'rejected'; reasoning: string }
-  | { outcome: 'pending'; reasoning: string }
+import { DEFAULT_DISCOUNT_POLICY } from './discount-policy'
+import type { DiscountPolicyThresholds, DiscountVerificationCandidate } from '../types'
+import { isNewCondition } from './price-rules'
 
 // base_model alone is often too generic to search accurately - "HP Laptop"/
 // "Desktop" spans a huge price range by spec, and the extraction step that
@@ -28,65 +22,7 @@ export function buildPriceQuery(candidate: DiscountVerificationCandidate): strin
   return `${kind} of ${label} in the Philippines`
 }
 
-const EXA_SUMMARY_SCHEMA = {
-  type: 'object',
-  properties: { summary: { type: 'string' } },
-  required: ['summary'],
-} as const
-
-// Tries Exa first, then Tavily, then Gemini grounding — first provider to
-// return real (non-empty) text wins. A provider that errors or comes back
-// empty falls through to the next one rather than failing the whole
-// candidate; only exhausting all three means "no fresh data available right
-// now." Exa-first (not Tavily-first) per a live head-to-head comparison
-// (2026-08-31, 15 real candidates): Exa cited sources and abstained honestly
-// when it lacked real secondhand data, where Tavily confidently fabricated
-// numbers with no citation trail - caught concretely wrong Tavily answers
-// (a "secondhand" price higher than Exa's own cited new-retail price on a
-// monitor; a raw USD figure returned for a PHP-scoped query on a watch).
-// Exa costs ~$0.007/call vs Tavily's free tier, but this worker's own
-// verify_discount.lap_limit_default (3 candidates/lap by default) keeps
-// that cost trivial - accuracy matters more here since this gates a real
-// buy decision.
-async function fetchFreshMarketContext(
-  candidate: DiscountVerificationCandidate,
-  clients: Pick<VerificationClients, 'tavily' | 'exa' | 'gemini'>,
-): Promise<{ text: string; source: string } | null> {
-  const query = buildPriceQuery(candidate)
-
-  try {
-    const exaResult = (await clients.exa.searchStructured(
-      query,
-      'Summarize the current market price context.',
-      EXA_SUMMARY_SCHEMA,
-    )) as {
-      output?: { content?: { summary?: string } }
-    }
-    const summary = exaResult.output?.content?.summary
-    if (summary && summary.trim().length > 0) return { text: summary, source: 'exa' }
-  } catch {
-    // fall through to Tavily
-  }
-
-  try {
-    const tavilyResult = await clients.tavily.search(query)
-    const text = tavilyResult.answer ?? tavilyResult.results.map((r) => r.content).join('\n')
-    if (text.trim().length > 0) return { text, source: 'tavily' }
-  } catch {
-    // fall through to Gemini
-  }
-
-  try {
-    const text = await clients.gemini.generateGroundedText(`Search for the ${query}. Summarize what you find.`)
-    if (text.trim().length > 0) return { text, source: 'gemini_grounding' }
-  } catch {
-    // all three exhausted
-  }
-
-  return null
-}
-
-function buildVerificationPrompt(
+export function buildVerificationPrompt(
   candidate: DiscountVerificationCandidate,
   marketContext: string,
   thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
@@ -112,7 +48,7 @@ Determine:
 Respond with the structured fields only.`
 }
 
-const VERIFICATION_RESPONSE_SCHEMA = {
+export const VERIFICATION_RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     still_discounted: { type: 'boolean' },
@@ -133,7 +69,7 @@ const VERIFICATION_RESPONSE_SCHEMA = {
   additionalProperties: false,
 } as const
 
-interface ParsedVerificationResponse {
+export interface ParsedVerificationResponse {
   stillDiscounted: boolean
   freshPriceLow: number
   freshPriceHigh: number
@@ -142,7 +78,7 @@ interface ParsedVerificationResponse {
   reasoning: string
 }
 
-function parseVerificationResponse(raw: unknown): ParsedVerificationResponse | null {
+export function parseVerificationResponse(raw: unknown): ParsedVerificationResponse | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
   if (
@@ -206,41 +142,4 @@ export function precheckDiscountCandidate(
     return { outcome: 'pending', reasoning: 'Product enrichment not yet available.' }
   }
   return { outcome: 'proceed' }
-}
-
-export async function verifyDiscountCandidate(
-  candidate: DiscountVerificationCandidate,
-  clients: VerificationClients,
-  thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY,
-): Promise<VerificationOutcome> {
-  const pre = precheckDiscountCandidate(candidate, thresholds)
-  if (pre.outcome !== 'proceed') return pre
-
-  const context = await fetchFreshMarketContext(candidate, clients)
-  if (context === null) {
-    return { outcome: 'pending', reasoning: 'No fresh market data available from any provider.' }
-  }
-
-  let raw: unknown
-  try {
-    raw = await clients.openrouter.generateJson(
-      buildVerificationPrompt(candidate, context.text, thresholds),
-      VERIFICATION_RESPONSE_SCHEMA,
-    )
-  } catch {
-    return { outcome: 'pending', reasoning: 'Verification judgement call failed.' }
-  }
-
-  const parsed = parseVerificationResponse(raw)
-  if (parsed === null) {
-    return { outcome: 'pending', reasoning: 'Verification judgement returned a malformed response.' }
-  }
-
-  if (!parsed.stillDiscounted || parsed.conditionExplainsLowPrice || !parsed.meetsProfitBar) {
-    return { outcome: 'rejected', reasoning: parsed.reasoning }
-  }
-
-  const referencePrice = parsed.freshPriceLow
-  const discountPercent = Math.round(((referencePrice - candidate.price_amount) / referencePrice) * 100)
-  return { outcome: 'verified', discountPercent, referencePrice, source: context.source, reasoning: parsed.reasoning }
 }

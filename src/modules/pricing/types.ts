@@ -46,6 +46,22 @@ export interface VerificationClients {
   openrouter: OpenRouterClient
 }
 
+export interface DiscountVerificationCandidate {
+  id: number
+  listing_id: string
+  title: string | null
+  description: string | null
+  condition: string | null
+  price_amount: number
+  base_model: string
+  is_specific_product: boolean | null
+}
+
+export type VerificationOutcome =
+  | { outcome: 'verified'; discountPercent: number; referencePrice: number; source: string; reasoning: string }
+  | { outcome: 'rejected'; reasoning: string }
+  | { outcome: 'pending'; reasoning: string }
+
 // Strongest evidence first: DEALS_CONFIDENCE_TIERS (deals.ts) is this union's
 // runtime list.
 export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'

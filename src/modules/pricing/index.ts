@@ -29,7 +29,7 @@ export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './typ
 export { getDealListingIds, getDeals } from './deals'
 export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
 export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
-export type { DiscountNotification, DiscountVerificationCandidate } from './store/discount-notifications'
+export type { DiscountNotification } from './store/discount-notifications'
 export {
   getDiscountNotifications,
   getUnreadDiscountNotificationCount,
@@ -45,8 +45,9 @@ export type { NewDiscountNotification } from './types'
 export { decideListingDiscount } from './discount-notifications'
 export type { DiscountPolicyThresholds } from './types'
 export { DEFAULT_DISCOUNT_POLICY } from './domain/discount-policy'
-export type { VerificationClients } from './types'
-export { precheckDiscountCandidate, verifyDiscountCandidate } from './discount-verification'
+export type { DiscountVerificationCandidate, VerificationClients } from './types'
+export { precheckDiscountCandidate } from './domain/discount-verification'
+export { verifyDiscountCandidate } from './app/discount-verification'
 export type { GenericReason } from './domain/generic-products'
 export { detectGenericBaseModel, groupGenericBaseModels } from './domain/generic-products'
 export type { ExcludedProduct, ExclusionReasonCount } from './store/exclusion'
