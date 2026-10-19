@@ -19,8 +19,8 @@ const MODULE_ROUTES = '^src/modules/[^/]+/routes\\.ts$'
 const sharedRules = baseRules({
   publicApis: ['src/platform/llm-clients', ...modules],
   heavyDeps: [
-    // Only collection/browser.ts launches a browser; everything else imports it from there.
-    { packages: ['playwright', 'playwright-core'], owner: 'src/modules/collection/browser.ts' },
+    // Only collection/clients/browser.ts launches a browser; everything else imports it from there.
+    { packages: ['playwright', 'playwright-core'], owner: 'src/modules/collection/clients/browser.ts' },
     // sharp and the S3 client are heavy native/SDK deps; platform/images.ts owns them.
     { packages: ['sharp', '@aws-sdk/client-s3'], owner: 'src/platform/images.ts' },
     // One place creates DB pools; everything else takes an injected DbClient.

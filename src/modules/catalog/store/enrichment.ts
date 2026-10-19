@@ -1,22 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
-
-export interface EnrichmentCandidate {
-  id: number
-  base_model: string
-  variant_tier: string | null
-  sibling_variants: string[]
-  category: string | null
-}
-
-export interface EnrichmentData {
-  description: string
-  valueDrivers: string
-  hasTrainedPriceKnowledge: boolean
-  trainedPriceLow: number | null
-  trainedPriceHigh: number | null
-  isSpecificProduct: boolean
-  confidence: 'high' | 'low'
-}
+import type { EnrichmentCandidate, EnrichmentData } from '../types'
 
 export async function getEnrichmentCandidates(db: DbClient): Promise<EnrichmentCandidate[]> {
   const result = (await db.query(

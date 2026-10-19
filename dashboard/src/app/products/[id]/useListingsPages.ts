@@ -7,7 +7,7 @@ import {
 } from './listingsFilters'
 
 // Listings are fetched page-by-page from /api/products/[id]/listings
-// (catalog/listings-page.ts's paginateListings) - same infinite-scroll shape
+// (catalog/domain/listings-page.ts's paginateListings) - same infinite-scroll shape
 // as ProductListClient.tsx's products fetch. `listings` only ever holds the
 // pages loaded so far; matchedCount/allIds come from the server on every
 // fetch and always describe the *entire* filtered/sorted set.
