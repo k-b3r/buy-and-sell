@@ -38,3 +38,11 @@ test('dependency-cruiser bans store, clients and app imports from a module domai
     'domain-no-effects: src/modules/catalog/domain/names-store.ts -> src/modules/catalog/store/rows.ts',
   ])
 }, 60_000)
+
+test('dependency-cruiser sends entry points through a module index, browser excepted', async () => {
+  expect(await violations('depcruise-entries', ['src', 'server', 'scripts'], 'entries-through-module-api')).toEqual([
+    'entries-through-module-api: scripts/gen-arch-doc.ts -> src/modules/collection/app/use.ts',
+    'entries-through-module-api: src/utils/backfill/index.ts -> src/modules/collection/store/rows.ts',
+    'entries-through-module-api: src/workers/collect/index.ts -> src/modules/collection/domain/collect.ts',
+  ])
+}, 60_000)

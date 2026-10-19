@@ -95,6 +95,21 @@ module.exports = {
         path: ['^src/modules/[^/]+/(store|clients|app)/', '^src/platform/(storage|logger)(\\.ts|/)'],
       },
     },
+    // Entry points wire and loop; they reach a module through its index.ts (server/
+    // may also use routes.ts). They never import domain/, store/, clients/ or app/.
+    // browser.ts is the one exception: it owns Playwright and BUY-113 decides whether
+    // that entry point moves; until then callers import it by path.
+    {
+      name: 'entries-through-module-api',
+      severity: 'error',
+      comment:
+        "Entry points go through a module's index.ts (server/ may also use routes.ts); they never import domain/, store/, clients/ or app/ directly. Exception: collection/clients/browser.ts, the Playwright entry (BUY-113).",
+      from: { path: '^(src/(workers|utils)|server|scripts)/' },
+      to: {
+        path: ['^src/modules/[^/]+/(domain|store|clients|app)/'],
+        pathNot: ['^src/modules/collection/clients/browser\\.ts$'],
+      },
+    },
     {
       name: 'module-routes-only-from-server',
       severity: 'error',
