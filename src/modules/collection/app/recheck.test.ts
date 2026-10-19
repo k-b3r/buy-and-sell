@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { checkOneListing } from './recheck'
 import { createLogger } from '../../../platform/logger'
 import type { PageDriver } from '../types'
@@ -11,7 +11,7 @@ const LOG_PATH = 'data/tmp-check-listings.log'
 const noDelay = async () => {}
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {

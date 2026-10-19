@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { expect, test, afterEach } from 'vitest'
 import {
   isWideSpread,
@@ -154,7 +154,7 @@ test('parseTavilyPriceAnswer returns null for null or empty text', () => {
 const LOG_PATH = 'data/tmp-price-lookup-domain.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {

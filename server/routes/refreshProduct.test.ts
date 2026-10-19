@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { createRefreshProductHandler } from './refreshProduct'
 import { createRefreshLock } from '../refreshLock'
 import { createRefreshPacer } from '../refreshPacer'
@@ -12,7 +12,7 @@ const LOG_PATH = 'data/tmp-refresh-product.log'
 const noDelay = async () => {}
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function makeDriver(overrides: Partial<PageDriver> = {}): PageDriver {

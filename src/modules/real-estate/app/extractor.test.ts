@@ -1,11 +1,11 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { extractRealEstateBatch, EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS } from './extractor'
 import { createLogger } from '../../../platform/logger'
 import type { JsonModelClient, RealEstateCandidate } from '../types'
 
 const LOG_PATH = 'data/tmp-extract-real-estate.log'
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 const noDelay = async () => {}

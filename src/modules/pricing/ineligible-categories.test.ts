@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { createLogger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 import { excludeIneligibleCategories } from './ineligible-categories'
@@ -6,7 +6,7 @@ import { excludeIneligibleCategories } from './ineligible-categories'
 const LOG_PATH = 'data/tmp-ineligible-categories.log'
 
 afterEach(() => {
-  if (existsSync(LOG_PATH)) rmSync(LOG_PATH)
+  rmSync(LOG_PATH, { force: true })
 })
 
 function fakeDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
