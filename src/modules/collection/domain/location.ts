@@ -1,5 +1,5 @@
 // Hardcoded, not a per-run setting: this project only ever operates in Metro
-// Manila. FB's own filter_radius_km (see browser.ts fetchNextPage) is sent to
+// Manila. FB's own filter_radius_km (see clients/browser.ts fetchNextPage) is sent to
 // Facebook but never enforced locally, so a listing whose seller-set location
 // is nowhere near Manila can still surface in results — this is the local
 // backstop that actually rejects it.

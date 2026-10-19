@@ -1,12 +1,5 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
-
-// The collect worker's --cycle search-query list - editable via the Settings page's
-// collect tab (add/remove rows, not per-field number knobs like the rest of
-// settings, hence its own table/endpoint instead of a settings row).
-export interface CollectKeyword {
-  keyword: string
-  enabled: boolean
-}
+import type { CollectKeyword } from '../types'
 
 export async function getCollectKeywords(db: QueryClient): Promise<CollectKeyword[]> {
   const result = await db.query(

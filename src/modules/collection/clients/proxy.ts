@@ -1,7 +1,6 @@
 import { checkTunnelAlive } from './tunnel'
 import { checkHttpProxyAlive } from './httpProxy'
-
-export type ProxyChecker = (proxyUrl: string) => Promise<boolean>
+import type { ProxyChecker, ProxyEnv, ProxyResolution, ResolvedProxy } from '../types'
 
 // Webshare supports both protocols; SOCKS_PROXY (the ssh tunnel) is always
 // socks5. Dispatch on scheme so WEBSHARE_PROXY can be either without the
@@ -13,19 +12,6 @@ export function createDefaultProxyChecker(
 }
 
 export const defaultProxyChecker = createDefaultProxyChecker()
-
-export interface ResolvedProxy {
-  server: string
-  username?: string
-  password?: string
-  source: 'webshare' | 'tunnel'
-}
-
-export interface ProxyResolution {
-  ok: boolean
-  error?: string
-  proxy?: ResolvedProxy
-}
 
 function toResolvedProxy(proxyUrl: string, source: ResolvedProxy['source']): ResolvedProxy {
   const url = new URL(proxyUrl)
@@ -42,11 +28,6 @@ function toResolvedProxy(proxyUrl: string, source: ResolvedProxy['source']): Res
 // (scripts/tunnel.sh) exactly as before if Webshare is unset or unreachable.
 // Fails closed if neither works, same contract collect/check-listings/the
 // server guard already relied on for SOCKS_PROXY alone.
-export interface ProxyEnv {
-  WEBSHARE_PROXY?: string
-  SOCKS_PROXY?: string
-}
-
 export async function resolveProxy(
   env: ProxyEnv,
   checker: ProxyChecker = defaultProxyChecker,

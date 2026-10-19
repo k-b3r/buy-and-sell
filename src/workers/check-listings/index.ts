@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { launchBrowserDriver } from '../../modules/collection/browser'
+import { launchBrowserDriver } from '../../modules/collection/clients/browser'
 import { loadEnvFile, isTestRun } from '../../platform/env'
 import { runWorker } from '../../platform/worker'
 import { realDelay } from '../../platform/delay'

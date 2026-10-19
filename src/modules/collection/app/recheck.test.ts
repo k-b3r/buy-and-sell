@@ -1,9 +1,9 @@
 import { existsSync, rmSync } from 'node:fs'
 import { checkOneListing } from './recheck'
-import { createLogger } from '../../platform/logger'
-import type { PageDriver } from './driver'
-import type { DbClient } from '../../platform/storage'
-import type { ListingPhotos } from './photos'
+import { createLogger } from '../../../platform/logger'
+import type { PageDriver } from '../types'
+import type { DbClient } from '../../../platform/storage'
+import type { ListingPhotos } from '../types'
 import { createListingPhotos } from './photos'
 
 const LOG_PATH = 'data/tmp-check-listings.log'

@@ -1,6 +1,6 @@
-import type { DbClient } from '../../platform/storage'
+import type { DbClient } from '../../../platform/storage'
 import { selectCheckCandidates } from './check-candidates'
-import type { CheckListingsCandidate } from './store/listings'
+import type { CheckListingsCandidate } from '../store/listings'
 
 const candidate = (id: string): CheckListingsCandidate => ({ id, flagged_removed_at: null, source_photo_ids: null })
 
