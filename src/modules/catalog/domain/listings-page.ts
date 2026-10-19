@@ -1,6 +1,6 @@
-import { isListingPriceNegotiable } from '../pricing'
-import type { ProductListingSummary } from './product-detail'
-import type { ListingsFilters, ListingSortKey } from './schemas'
+import { isListingPriceNegotiable } from '../../pricing'
+import type { ProductListingSummary } from '../types'
+import type { ListingsFilters, ListingSortKey } from '../schemas'
 
 // Filter, sort and page one product's listings for the dashboard's listings
 // view. Runs over the product's FULL listing set (the cached product detail),
@@ -63,7 +63,7 @@ export function paginateListings(
   listings: ProductListingSummary[],
   filters: ListingsFilters,
   offset: number,
-  now: number = Date.now(),
+  now: number,
 ): ListingsPage {
   const visible = listings.filter((l) => matchesFilters(l, filters, now)).sort(COMPARATORS[filters.sortKey])
   const end = offset + LISTINGS_PAGE_SIZE

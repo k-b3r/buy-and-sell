@@ -1,12 +1,13 @@
-import type { DbClient } from '../../platform/storage'
-import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from './products'
+import type { DbClient } from '../../../platform/storage'
+import type { ProductAliasRule } from '../types'
+import { CANONICAL_BASE_MODEL, normalizeBaseModel, normalizeVariantTier } from '../domain/products'
 import {
   findProductIdsByNormalizedName,
   findProductsByBaseModel,
   mergeDuplicateProduct,
   renameProduct,
   renameProductBaseModel,
-} from './store/products'
+} from '../store/products'
 
 // Retroactive fix for duplicates CANONICAL_BASE_MODEL now prevents at
 // extraction time. Renames in place when nothing collides. When the
@@ -43,19 +44,6 @@ export async function mergeDuplicateProducts(
   }
 
   return { renamed, merged }
-}
-
-// Generalizes mergeDuplicateProducts (base_model-only rename) to also move
-// text between base_model and variant_tier - most of the duplicate-product
-// cases found in the 2026-09-02 catalog scan are exactly that (e.g.
-// "iPhone 14 Plus" [] should be "iPhone 14" [Plus]), which the simpler tool
-// can't express since it only ever rewrites base_model and assumes
-// variant_tier already matches between alias and canonical.
-export interface ProductAliasRule {
-  aliasBase: string
-  aliasVariant: string | null
-  canonicalBase: string
-  canonicalVariant: string | null
 }
 
 // Matches on the normalized columns (same ones the extraction path's own

@@ -23,7 +23,7 @@ const selectors = (entry: RuleEntry | undefined) =>
 
 test('lint config bans process.env in domain, platform and server modules', async () => {
   for (const file of [
-    'src/modules/catalog/products.ts',
+    'src/modules/catalog/domain/products.ts',
     'src/platform/storage.ts',
     'src/platform/env.ts',
     'server/routes/refresh.ts',
@@ -40,7 +40,7 @@ test('lint config lets entry points read process.env', async () => {
 }, 60_000)
 
 test('lint config bans inline sleeps, export * and default exports in domain code', async () => {
-  const found = selectors(await rule('src/modules/catalog/products.ts', 'no-restricted-syntax'))
+  const found = selectors(await rule('src/modules/catalog/domain/products.ts', 'no-restricted-syntax'))
   expect(found).toEqual(
     expect.arrayContaining([
       'ExportAllDeclaration',
@@ -65,7 +65,7 @@ test('lint config blocks oversized or complex entry points, where the shared con
 }, 60_000)
 
 test('lint config keeps size and complexity as warnings outside entry points', async () => {
-  for (const file of ['src/modules/catalog/products.ts', 'src/workers/collect/laps.ts', 'server/app.ts']) {
+  for (const file of ['src/modules/catalog/domain/products.ts', 'src/workers/collect/laps.ts', 'server/app.ts']) {
     expect([file, severity(await rule(file, 'max-lines')), severity(await rule(file, 'complexity'))]).toEqual([
       file,
       1,
@@ -76,7 +76,7 @@ test('lint config keeps size and complexity as warnings outside entry points', a
 
 test('lint config leaves curated data lists out of the size limit but keeps their complexity check', async () => {
   for (const file of [
-    'src/modules/catalog/variant-alias-rules.ts',
+    'src/modules/catalog/domain/variant-alias-rules.ts',
     'src/modules/pricing/ineligible-categories.ts',
     'src/modules/pricing/domain/generic-products.ts',
   ]) {
@@ -98,8 +98,8 @@ const QUERY_SELECTOR = "CallExpression[callee.property.name='query']"
 
 test('lint config bans .query() calls outside store/ in every module', async () => {
   for (const file of [
-    'src/modules/catalog/merge.ts',
-    'src/modules/catalog/product-list.ts',
+    'src/modules/catalog/app/merge.ts',
+    'src/modules/catalog/app/product-list.ts',
     'src/modules/catalog/routes.ts',
   ]) {
     expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
@@ -113,7 +113,7 @@ test('lint config lets store/ files and tests call .query()', async () => {
   for (const file of [
     'src/modules/catalog/store/products.ts',
     'src/modules/catalog/store/product-list.ts',
-    'src/modules/catalog/merge.test.ts',
+    'src/modules/catalog/app/merge.test.ts',
     'src/modules/catalog/store/products.test.ts',
   ]) {
     expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
@@ -133,7 +133,7 @@ test('lint config leaves code outside src/modules free to call .query()', async 
 }, 60_000)
 
 test('lint config keeps every other restricted-syntax ban in modules, so the module block cannot drift from the shared list', async () => {
-  const enforced = selectors(await rule('src/modules/catalog/merge.ts', 'no-restricted-syntax'))
+  const enforced = selectors(await rule('src/modules/catalog/app/merge.ts', 'no-restricted-syntax'))
   const shared = selectors(await rule('src/platform/settings.ts', 'no-restricted-syntax'))
   expect(enforced.filter((selector) => selector !== QUERY_SELECTOR && !isRunExportSelector(selector))).toEqual(shared)
 }, 60_000)
@@ -151,7 +151,7 @@ async function runExportMessages(file: string, code = RUN_EXPORT_CODE) {
 }
 
 test('lint config bans run* exports in every module', async () => {
-  for (const file of ['src/modules/catalog/merge.ts', 'src/modules/real-estate/app/extractor.ts']) {
+  for (const file of ['src/modules/catalog/app/merge.ts', 'src/modules/real-estate/app/extractor.ts']) {
     expect([file, selectors(await rule(file, 'no-restricted-syntax'))]).toEqual([
       file,
       expect.arrayContaining([expect.stringContaining(RUN_EXPORT_MARKER), QUERY_SELECTOR]),
@@ -160,14 +160,14 @@ test('lint config bans run* exports in every module', async () => {
 }, 60_000)
 
 test('lint reports every exported run* function, const and specifier in a module', async () => {
-  expect(await runExportMessages('src/modules/catalog/merge.ts')).toHaveLength(3)
+  expect(await runExportMessages('src/modules/catalog/app/merge.ts')).toHaveLength(3)
 }, 60_000)
 
 test('lint allows run* names that are not exported, not followed by a capital, or in module tests', async () => {
   expect(
-    await runExportMessages('src/modules/catalog/merge.ts', 'function runLocal() {}\nexport const running = 1\n'),
+    await runExportMessages('src/modules/catalog/app/merge.ts', 'function runLocal() {}\nexport const running = 1\n'),
   ).toHaveLength(0)
-  expect(await runExportMessages('src/modules/catalog/merge.test.ts')).toHaveLength(0)
+  expect(await runExportMessages('src/modules/catalog/app/merge.test.ts')).toHaveLength(0)
 }, 60_000)
 
 test('lint allows run* exports in worker run.ts files and outside src/modules', async () => {
@@ -203,7 +203,7 @@ test('lint config bans fetch and process in domain/ files only', async () => {
 
 test('lint reports a .query() call outside store/ in a module and accepts it inside store/', async () => {
   const code = 'export async function f(db: { query(sql: string): Promise<unknown> }) { await db.query("SELECT 1") }\n'
-  const outside = await eslint.lintText(code, { filePath: path.join(repoRoot, 'src/modules/catalog/merge.ts') })
+  const outside = await eslint.lintText(code, { filePath: path.join(repoRoot, 'src/modules/catalog/app/merge.ts') })
   const inside = await eslint.lintText(code, { filePath: path.join(repoRoot, 'src/modules/catalog/store/products.ts') })
   expect(outside[0].messages.filter((m) => m.ruleId === 'no-restricted-syntax')).toHaveLength(1)
   expect(inside[0].messages.filter((m) => m.ruleId === 'no-restricted-syntax')).toHaveLength(0)

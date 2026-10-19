@@ -1,5 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
-import { normalizeBaseModel, normalizeVariantTier } from '../products'
+import { normalizeBaseModel, normalizeVariantTier } from '../domain/products'
 
 // The products_base_model_variant_normalized_idx identity: one row per normalized
 // base_model + variant_tier. Every "does this product already exist" check
