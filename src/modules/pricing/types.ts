@@ -62,7 +62,7 @@ export type VerificationOutcome =
   | { outcome: 'rejected'; reasoning: string }
   | { outcome: 'pending'; reasoning: string }
 
-// Strongest evidence first: DEALS_CONFIDENCE_TIERS (deals.ts) is this union's
+// Strongest evidence first: DEALS_CONFIDENCE_TIERS (domain/deals.ts) is this union's
 // runtime list.
 export type DealsConfidenceTier = 'sold_comps' | 'peer_listings' | 'llm_estimate'
 
@@ -107,6 +107,15 @@ export interface DealsFilters {
   lowConfidenceOnly?: boolean
   offset?: number
   limit?: number
+}
+
+// The deals query with its floors resolved: minProfitPesos is already the
+// higher of the policy floor and the caller's filter (see getDeals).
+export interface DealsQuery extends Omit<DealsFilters, 'minProfitPesos' | 'offset' | 'limit'> {
+  minProfitPesos: number
+  minPricePesos: number
+  offset: number
+  limit: number
 }
 
 export interface DiscountBand {

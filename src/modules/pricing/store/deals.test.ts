@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { queryDeals } from './deals'
-import type { DealsQuery } from './deals'
+import type { DealsQuery } from '../types'
 import { notMagnitudeOutlierSql, peerListingSql, repostKeySql } from './fragments'
 import type { QueryClient } from '../../../platform/storage'
 

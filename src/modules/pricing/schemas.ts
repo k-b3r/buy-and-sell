@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEALS_CONFIDENCE_TIERS } from './deals'
+import { DEALS_CONFIDENCE_TIERS } from './domain/deals'
 import type { DealsConfidenceTier } from './types'
 import { PRICE_EXCLUSION_REASONS } from './domain/exclusion-reasons'
 

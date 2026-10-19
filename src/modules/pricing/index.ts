@@ -26,7 +26,7 @@ export {
   toPriceReview,
 } from './domain/price-rules'
 export type { DealListing, DealsDiscountPolicyFloors, DealsFilters } from './types'
-export { getDealListingIds, getDeals } from './deals'
+export { getDealListingIds, getDeals } from './app/deals'
 export type { ComparableListing, PeerMedianPrice, SoldComparablePrice } from './store/comparables'
 export { getComparableListings, getPeerMedianPrice, getSoldComparablePrice } from './store/comparables'
 export type { DiscountNotification } from './store/discount-notifications'

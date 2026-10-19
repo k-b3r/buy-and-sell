@@ -1,6 +1,6 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toNullableNumber } from '../../../platform/rows'
-import type { DealListing, DealsConfidenceTier, DealsFilters } from '../types'
+import type { DealListing, DealsConfidenceTier, DealsQuery } from '../types'
 import {
   medianCtes,
   notJunkPriceSql,
@@ -30,15 +30,6 @@ const TIER_RANK_SQL = `CASE tier WHEN 'sold_comps' THEN 3 WHEN 'peer_listings' T
 // every slot on the page. Applied to the main ranked list only, not the
 // low-confidence bucket (see lowConfidenceOnly below).
 const DEALS_CATEGORY_CAP = 10
-
-// The deals query with its floors resolved: minProfitPesos is already the
-// higher of the policy floor and the caller's filter (see getDeals).
-export interface DealsQuery extends Omit<DealsFilters, 'minProfitPesos' | 'offset' | 'limit'> {
-  minProfitPesos: number
-  minPricePesos: number
-  offset: number
-  limit: number
-}
 
 // /deals page's ranked-by-profit view of active listings. One row per
 // listing (not per product like getProductSummaries) - a product with 5
