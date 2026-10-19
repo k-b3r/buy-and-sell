@@ -2,18 +2,8 @@ import type { QueryClient } from '../../../platform/storage'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
 import type { ListingPriceReview } from '../../pricing'
 import { NEW_PRICE_LATERAL, peerListingSql, SECONDHAND_PRICE_LATERAL, toPriceReview } from '../../pricing'
+import type { ProductEnrichment } from '../types'
 import { exclusionReason } from './product-list'
-
-export interface ProductEnrichment {
-  description: string
-  value_drivers: string
-  has_trained_price_knowledge: boolean
-  trained_price_low: number | null
-  trained_price_high: number | null
-  trained_price_currency: string | null
-  model: string
-  checked_at: string
-}
 
 // The used_price_* and trained_* fields stay raw: whether a looked-up used
 // price or the model's trained guess wins is pricing's decision

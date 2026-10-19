@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { getProductDetail } from './product-detail'
-import type { QueryClient } from '../../platform/storage'
-import { peerListingSql } from '../pricing'
+import type { QueryClient } from '../../../platform/storage'
+import { peerListingSql } from '../../pricing'
 
 function fakeDb(rows: Record<string, unknown>[]): QueryClient {
   return { query: async () => ({ rows }) }

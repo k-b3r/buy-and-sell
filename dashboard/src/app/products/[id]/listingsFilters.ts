@@ -113,7 +113,7 @@ export function listingDetailHref(listingId: string, filters: ListingsFilters): 
 }
 
 // Page shape the server's /products/:id/listings route returns; filtering,
-// sorting and paging happen there (src/modules/catalog/listings-page.ts).
+// sorting and paging happen there (src/modules/catalog/domain/listings-page.ts).
 // is_repost comes from the server's pricing computeRepostIds over the
 // product's FULL listing set, so paging can't change it.
 export type { ListingsPage } from '../../../lib/queries'

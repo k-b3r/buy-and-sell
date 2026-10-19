@@ -1,12 +1,5 @@
 import type { DbClient } from '../../../platform/storage'
-
-export interface ExtractionCandidate {
-  id: string
-  title: string
-  description: string | null
-  condition: string | null
-  price_amount: number | null
-}
+import type { ExtractionCandidate } from '../types'
 
 // condition/price_amount added (2026-08-31) for the inline discount check
 // that now runs right after a listing gets its product_id, in the same
