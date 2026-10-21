@@ -84,6 +84,8 @@ test('getProductsNeedingReview queries only price_lookup_review_status = needs_r
   const result = await getProductsNeedingReview(db)
 
   expect(capturedSql).toContain("p.price_lookup_review_status = 'needs_review'")
+  // the priceless marker row must not reach the price_history JSON
+  expect(capturedSql).toContain("h.source <> 'retail_not_found'")
   expect(result).toEqual([
     {
       id: 12,

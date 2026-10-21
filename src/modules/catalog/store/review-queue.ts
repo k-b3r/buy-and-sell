@@ -83,7 +83,11 @@ export async function getProductsNeedingReview(db: QueryClient): Promise<Product
                 'condition', h.condition,
                 'checked_at', h.checked_at
               ) ORDER BY h.checked_at DESC)
-             FROM product_price_history h WHERE h.product_id = p.id) AS price_history,
+             FROM product_price_history h
+             -- retail_not_found is the priceless marker row that stops an
+             -- overridden product's lookup retrying (recordRetailMissForOverridden),
+             -- not a price check, so it is not shown.
+             WHERE h.product_id = p.id AND h.source <> 'retail_not_found') AS price_history,
             e.description, e.value_drivers, e.has_trained_price_knowledge,
             e.trained_price_low, e.trained_price_high, e.trained_price_currency,
             e.model, e.checked_at, e.confidence, e.is_specific_product
