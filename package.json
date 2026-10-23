@@ -39,6 +39,7 @@
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server && tsc --noEmit -p dashboard",
     "check": "pnpm format:check && pnpm lint && pnpm depcruise && pnpm knip && pnpm typecheck && pnpm test",
     "test:db": "./scripts/test-db.sh",
+    "test:mutation": "stryker run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test"
   },
@@ -48,6 +49,8 @@
     "@k-b3r/agent-config": "github:k-b3r/agent-config",
     "@next/eslint-plugin-next": "^16.3.8",
     "@playwright/test": "1.62.1",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.23.1",
@@ -94,6 +97,9 @@
     "appDbEnv": "DATABASE_URL",
     "generatedPaths": [
       "docs-site/**"
+    ],
+    "mutationPaths": [
+      "src/modules/*/domain/**"
     ]
   }
 }
