@@ -19,6 +19,7 @@ import { createLogger } from '../../platform/logger'
 import type { GeminiClient, ExaClient, TavilyClient } from '../../platform/llm-clients'
 import { QuotaExhaustedError, isQuotaError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
+import { getPriceLookupCandidates } from './store/price-history'
 
 const candidate: PriceLookupCandidate = {
   id: 1,
@@ -595,4 +596,64 @@ test('ensureProductPriced records both retail and secondhand when both succeed',
     null,
     null,
   ])
+})
+
+// In-memory stand-in for the three statements a retail miss touches, keyed on
+// the SQL each store function sends. Candidate selection mirrors
+// getPriceLookupCandidates: not excluded and no history row.
+function stateful(overriddenIds: number[]) {
+  const excluded = new Set<number>()
+  const history: { productId: number; source: string }[] = []
+  const db: DbClient = {
+    query: async (sql: string, params: unknown[]) => {
+      if (sql.startsWith('UPDATE products SET price_lookup_excluded')) {
+        if (!overriddenIds.includes(params[1] as number)) excluded.add(params[1] as number)
+      } else if (sql.startsWith('INSERT INTO product_price_history')) {
+        const id = params[0] as number
+        if (!sql.includes('price_exclusion_overrides') || overriddenIds.includes(id)) {
+          history.push({ productId: id, source: sql.includes("'retail_not_found'") ? 'retail_not_found' : 'priced' })
+        }
+      } else if (sql.includes('FROM products p') && sql.includes('NOT p.price_lookup_excluded')) {
+        const pending = [product].filter((p) => !excluded.has(p.id) && !history.some((h) => h.productId === p.id))
+        return { rows: pending }
+      }
+      return { rows: [] }
+    },
+  }
+  return { db, excluded, history }
+}
+
+test('an overridden product whose retail lookup misses is recorded once and is not a candidate on the next lap', async () => {
+  let providerCalls = 0
+  const clients = fakeClients({
+    gemini: {
+      generateJson: async () => ({}),
+      generateGroundedText: async () => {
+        providerCalls++
+        return GEMINI_NOT_FOUND
+      },
+    },
+  })
+  const { db, excluded, history } = stateful([product.id])
+  const deps = { clients, db, logger: fakeLogger() }
+
+  for (const lap of [1, 2]) {
+    for (const candidateProduct of await getPriceLookupCandidates(db)) {
+      await ensureProductPriced(deps, candidateProduct)
+    }
+    expect(providerCalls, `after lap ${lap}`).toBe(1)
+  }
+
+  expect(history).toEqual([{ productId: product.id, source: 'retail_not_found' }])
+  expect(excluded.has(product.id)).toBe(false)
+})
+
+test('a quota error on an overridden product records no miss', async () => {
+  const { db, history } = stateful([product.id])
+
+  await expect(
+    ensureProductPriced({ clients: quotaFailingClients(), db, logger: fakeLogger() }, product),
+  ).rejects.toThrow(QuotaExhaustedError)
+
+  expect(history).toEqual([])
 })

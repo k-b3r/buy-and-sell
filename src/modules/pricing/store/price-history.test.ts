@@ -1,5 +1,11 @@
 import type { DbClient, QueryClient } from '../../../platform/storage'
-import { insertPriceCheck, getListingPricesByProduct, getPriceLookupCandidates, setManualPrice } from './price-history'
+import {
+  insertPriceCheck,
+  getListingPricesByProduct,
+  getPriceLookupCandidates,
+  recordRetailMissForOverridden,
+  setManualPrice,
+} from './price-history'
 
 function mockDb(): { db: DbClient; calls: { sql: string; params: unknown[] }[] } {
   const calls: { sql: string; params: unknown[] }[] = []
@@ -201,4 +207,15 @@ test('setManualPrice inserts a manual_secondhand row into product_price_history'
   await setManualPrice(db, 12, { kind: 'secondhand', priceLow: 800, priceHigh: 1200 })
 
   expect(capturedParams).toEqual([12, 800, 1200, 'manual_secondhand'])
+})
+
+test('recordRetailMissForOverridden inserts a priceless marker row only when the product has an override', async () => {
+  const { db, calls } = mockDb()
+
+  await recordRetailMissForOverridden(db, 42)
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0].sql).toContain("SELECT $1, 'retail_not_found'")
+  expect(calls[0].sql).toContain('WHERE EXISTS (SELECT 1 FROM price_exclusion_overrides o WHERE o.product_id = $1)')
+  expect(calls[0].params).toEqual([42])
 })
