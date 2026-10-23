@@ -1,17 +1,11 @@
 import express from 'express'
 import type { Router } from 'express'
+import type { RouteCache } from '../../platform/cache'
 import type { QueryClient } from '../../platform/storage'
 import { getListingDetail } from './app/listing-detail'
 import { getSavedListings, saveListing, unsaveListing } from './store/dashboard'
 import { getCollectKeywords, replaceCollectKeywords } from './store/keywords'
 import { collectKeywordsSchema, saveListingQuerySchema } from './schemas'
-
-// The slice of the server's cache (server/cache.ts) this router needs. Declared
-// here because src/ cannot import server/; the server's Cache fits it as is.
-export interface RouteCache {
-  wrap<T>(key: string, tags: string[], load: () => Promise<T>): Promise<T>
-  invalidate(...tags: string[]): void
-}
 
 // HTTP edge of the collection feature, mounted by server/index.ts only (the
 // module's index.ts does not export it, so workers never load express).

@@ -1,6 +1,7 @@
 import express from 'express'
 import type { Response, Router } from 'express'
 import type { z } from 'zod'
+import type { RouteCache } from '../../platform/cache'
 import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
 import { paginateListings } from './domain/listings-page'
@@ -13,13 +14,6 @@ import { listingsQuerySchema, productListQuerySchema } from './schemas'
 // HTTP edge of the catalog feature, mounted by server/index.ts only (the
 // module's index.ts does not export it, so workers never load express).
 // Same contract the dashboard's /api/products* handlers had.
-
-// The slice of server/cache.ts this router uses. Declared here because
-// src/modules never import from server/ (the server's Cache satisfies it).
-export interface RouteCache {
-  wrap<T>(key: string, tags: string[], load: () => Promise<T>): Promise<T>
-  invalidate(...tags: string[]): void
-}
 
 const PRODUCTS_PAGE_SIZE = 30
 

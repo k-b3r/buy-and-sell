@@ -1,9 +1,24 @@
+import type { RouteCache } from '../src/platform/cache'
 import { createCache } from './cache'
 
 function fakeClock(start = 0) {
   let t = start
   return { now: () => t, advance: (ms: number) => (t += ms) }
 }
+
+// The contract the module routers depend on lives in src/platform/cache.ts
+// (src/ never imports from server/). Assigning to it here fails to compile if
+// the implementation drifts, and the round trip pins the tag behaviour the
+// routers rely on: a write drops the reads wrapped in that tag.
+test('the implementation satisfies the shared route cache contract', async () => {
+  const cache: RouteCache = createCache()
+
+  await expect(cache.wrap('key', ['tag'], async () => 'first')).resolves.toBe('first')
+  await expect(cache.wrap('key', ['tag'], async () => 'second')).resolves.toBe('first')
+
+  cache.invalidate('tag')
+  await expect(cache.wrap('key', ['tag'], async () => 'third')).resolves.toBe('third')
+})
 
 test('wrap returns the loaded value and reuses it within the ttl', async () => {
   const clock = fakeClock()

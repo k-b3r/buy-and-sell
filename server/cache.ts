@@ -1,11 +1,10 @@
+import type { RouteCache } from '../src/platform/cache'
+
 const DEFAULT_TTL_MS = 300_000
 
-export interface Cache {
-  // Returns the cached value for key, or runs load once and caches it. Entries
-  // carry tags so a mutation can drop every read it makes stale.
-  wrap<T>(key: string, tags: string[], load: () => Promise<T>): Promise<T>
-  invalidate(...tags: string[]): void
-}
+// The contract routes and handlers depend on lives in src/platform/cache.ts
+// (src/ never imports from server/); this is the in-memory implementation.
+export type Cache = RouteCache
 
 interface Entry {
   value: Promise<unknown>

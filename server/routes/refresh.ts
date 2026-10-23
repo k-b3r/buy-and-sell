@@ -1,3 +1,4 @@
+import type { CacheInvalidator } from '../../src/platform/cache'
 import type { DelayFn } from '../../src/platform/delay'
 import type { Logger } from '../../src/platform/logger'
 import type { QueryClient } from '../../src/platform/storage'
@@ -5,7 +6,6 @@ import { getListingCheckCandidate, getListingProductId } from '../../src/modules
 import { checkOneListing } from '../../src/modules/collection'
 import type { DriverFactory, ListingPhotos } from '../../src/modules/collection'
 import type { RouteHandler, RouteResult } from '../app'
-import type { Cache } from '../cache'
 import type { RefreshPacer } from '../refreshPacer'
 import type { TunnelCheckResult } from '../proxyGuard'
 import { loadSettings } from '../../src/platform/settings'
@@ -24,7 +24,7 @@ export interface RefreshDeps {
   tunnelCheck: () => Promise<TunnelCheckResult>
   // Refreshes rewrite listing and product rows, so the reads cached by the
   // resource routes are dropped here, where the write happens.
-  cache: Pick<Cache, 'invalidate'>
+  cache: CacheInvalidator
 }
 
 export function createRefreshHandler(deps: RefreshDeps): RouteHandler {

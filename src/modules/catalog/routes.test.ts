@@ -1,7 +1,7 @@
 import express from 'express'
 import request from 'supertest'
 import { createCatalogRouter } from './routes'
-import type { RouteCache } from './routes'
+import type { RouteCache } from '../../platform/cache'
 
 type Call = { sql: string; params: unknown[] }
 

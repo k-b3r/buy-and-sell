@@ -206,7 +206,7 @@ _(undocumented)_
 
 ## src/modules/catalog/routes.ts
 
-**Interactions:** imports `../../platform/product-id`, `../../platform/storage`, `./app/product-detail`, `./app/product-list`, `./domain/listings-page`, `./schemas`, `./store/product-list`, `./store/review-queue`
+**Interactions:** imports `../../platform/cache`, `../../platform/product-id`, `../../platform/storage`, `./app/product-detail`, `./app/product-list`, `./domain/listings-page`, `./schemas`, `./store/product-list`, `./store/review-queue`
 
 ### `createCatalogRouter(db: QueryClient, cache: RouteCache): Router`
 
@@ -634,7 +634,7 @@ _(undocumented)_
 
 ## src/modules/collection/routes.ts
 
-**Interactions:** imports `../../platform/storage`, `./app/listing-detail`, `./schemas`, `./store/dashboard`, `./store/keywords`
+**Interactions:** imports `../../platform/cache`, `../../platform/storage`, `./app/listing-detail`, `./schemas`, `./store/dashboard`, `./store/keywords`
 
 ### `createCollectionRouter(db: QueryClient, cache: RouteCache): Router`
 
@@ -1282,7 +1282,7 @@ _(undocumented)_
 
 ## src/modules/pricing/routes.ts
 
-**Interactions:** imports `../../platform/product-id`, `../../platform/settings`, `../../platform/storage`, `./app/deals`, `./app/exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
+**Interactions:** imports `../../platform/cache`, `../../platform/product-id`, `../../platform/settings`, `../../platform/storage`, `./app/deals`, `./app/exclusion`, `./schemas`, `./store/discount-notifications`, `./store/exclusion`, `./store/price-history`
 
 ### `createPricingRouter(db: QueryClient, cache: CacheInvalidator): Router`
 

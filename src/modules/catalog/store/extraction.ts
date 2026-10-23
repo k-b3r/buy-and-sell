@@ -3,7 +3,7 @@ import type { ExtractionCandidate } from '../types'
 
 // condition/price_amount added (2026-08-31) for the inline discount check
 // that now runs right after a listing gets its product_id, in the same
-// per-item loop - without them, extract-products.ts would need a second
+// per-item loop - without them, the extraction lap would need a second
 // per-listing round trip just to re-fetch what it already has here.
 export async function getExtractionCandidates(db: DbClient): Promise<ExtractionCandidate[]> {
   const result = (await db.query(

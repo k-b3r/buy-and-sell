@@ -6,7 +6,7 @@ import { realDelay } from '../src/platform/delay'
 import type { Logger } from '../src/platform/logger'
 import type { QueryClient } from '../src/platform/storage'
 import type { RouteHandler } from './app'
-import type { Cache } from './cache'
+import type { CacheInvalidator } from '../src/platform/cache'
 import { createJobStore } from './jobState'
 import { createProxyGuard, type ProxyGuardEnv } from './proxyGuard'
 import { createRefreshLock } from './refreshLock'
@@ -23,7 +23,7 @@ export interface RefreshHandlersDeps {
   // Read once in server/index.ts and injected, like the proxy guard's env.
   env: ProxyGuardEnv
   // The handlers drop the listing and product reads their writes make stale.
-  cache: Pick<Cache, 'invalidate'>
+  cache: CacheInvalidator
 }
 
 export interface RefreshHandlers {

@@ -1,6 +1,7 @@
 import express from 'express'
 import type { Response, Router } from 'express'
 import type { z } from 'zod'
+import type { CacheInvalidator } from '../../platform/cache'
 import { getAllSettings } from '../../platform/settings'
 import { productIdParamSchema } from '../../platform/product-id'
 import type { QueryClient } from '../../platform/storage'
@@ -22,13 +23,7 @@ import { dealsQuerySchema, excludedProductsQuerySchema, manualPriceSchema, notif
 // /api/products/:id/{exclude,include,manual-price} handlers had.
 
 // Mutations drop the catalog's cached reads (products-list, product:ID,
-// needs-review: the tags catalog/routes.ts wraps its reads in). The slice of
-// server/cache.ts this router uses; declared here because src/modules never
-// import from server/.
-export interface CacheInvalidator {
-  invalidate(...tags: string[]): void
-}
-
+// needs-review: the tags catalog/routes.ts wraps its reads in).
 const DEALS_PAGE_SIZE = 30
 const EXCLUSIONS_UI_SETTING = 'pricing.exclusions_ui_enabled'
 // Fallbacks if the settings table lacks the keys (the Settings page edits them).

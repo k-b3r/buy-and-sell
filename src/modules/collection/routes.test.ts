@@ -1,7 +1,7 @@
 import express from 'express'
 import request from 'supertest'
 import { createCollectionRouter } from './routes'
-import type { RouteCache } from './routes'
+import type { RouteCache } from '../../platform/cache'
 
 function fakeDb(rows: unknown[] = []) {
   const calls: { sql: string; params: unknown[] }[] = []
