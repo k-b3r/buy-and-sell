@@ -1,5 +1,7 @@
 # Architecture cleanup plan
 
+> **Superseded (2026-10-23):** the cleanup is done — the modules are laid out, SQL lives in each module's `store/`, the run loops sit in their callers, and the named-query registry this plan targets was deleted in #59 (the Express resource routers replaced it). Kept as history; the current rules are in `CODING_STANDARDS.md` and `CONTEXT.md` > Architecture.
+
 Goal: move from layer folders (`src/domains/marketplace/` grab-bag, `src/domains/*/storage/`, one 1900-line `server/queries.ts`) to feature modules, per `CONTEXT.md` > Architecture. Tracked on the Linear **BUY** board, one ticket = one PR.
 
 Rules for every ticket:

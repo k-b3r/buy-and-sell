@@ -1,6 +1,6 @@
 // Server-side data access for the dashboard.
 //
-// The SQL lives in the feature modules (src/modules/*/queries.ts, settings in
+// The SQL lives in the feature modules (src/modules/*/store/, settings in
 // src/platform/settings.ts), on the box that owns the database: Postgres
 // listens on the VPS's localhost only, so this app - running as Vercel
 // Lambdas - has no route to it. Each function below calls one of the server's
