@@ -12,6 +12,8 @@ _(undocumented)_
 
 ## server/cache.ts
 
+**Interactions:** imports `../src/platform/cache`
+
 ### `createCache({ ttlMs = DEFAULT_TTL_MS, now = Date.now, }: { ttlMs?: number; now?: () => number } = {}): Cache`
 
 _(undocumented)_
@@ -46,7 +48,7 @@ _(undocumented)_
 
 ## server/refreshHandlers.ts
 
-**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/clients/browser`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./cache`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
+**Interactions:** imports `../src/modules/collection`, `../src/modules/collection/clients/browser`, `../src/platform/cache`, `../src/platform/delay`, `../src/platform/logger`, `../src/platform/storage`, `./app`, `./jobState`, `./proxyGuard`, `./refreshLock`, `./refreshPacer`, `./routes/refresh`, `./routes/refreshJob`, `./routes/refreshJobCancel`, `./routes/refreshProduct`
 
 ### `createRefreshHandlers({ db, photos, logger, env, cache }: RefreshHandlersDeps): RefreshHandlers`
 
@@ -80,7 +82,7 @@ _(undocumented)_
 
 ## server/routes/refresh.ts
 
-**Interactions:** imports `../../src/modules/collection`, `../../src/platform/delay`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../app`, `../cache`, `../proxyGuard`, `../refreshPacer`
+**Interactions:** imports `../../src/modules/collection`, `../../src/platform/cache`, `../../src/platform/delay`, `../../src/platform/logger`, `../../src/platform/settings`, `../../src/platform/storage`, `../app`, `../proxyGuard`, `../refreshPacer`
 
 ### `createRefreshHandler(deps: RefreshDeps): RouteHandler`
 
