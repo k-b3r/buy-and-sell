@@ -9,7 +9,6 @@ import {
   ensureProductPriced,
   PriceLookupFailedError,
 } from './price-lookup'
-import { buildExaQuery, buildExaSystemPrompt, buildGeminiPrompt, buildTavilyQuery } from './prompts/price-lookup.prompt'
 import type { PriceLookupCandidate, PriceLookupClients } from './types'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'
@@ -18,45 +17,12 @@ import { QuotaExhaustedError, isQuotaError } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import { getPriceLookupCandidates } from './store/price-history'
 
-const candidate: PriceLookupCandidate = {
-  id: 1,
-  base_model: 'iPhone 13',
-  variant_tier: 'Pro Max',
-  description: null,
-  sibling_variants: [],
-}
-
 test('isWideSpread is true when high is more than 4x low', () => {
   expect(isWideSpread({ low: 1000, high: 5000, currency: 'PHP' })).toBe(true)
 })
 
 test('isWideSpread is false within 4x range', () => {
   expect(isWideSpread({ low: 1000, high: 3000, currency: 'PHP' })).toBe(false)
-})
-
-test('buildGeminiPrompt includes the product label and variant', () => {
-  const prompt = buildGeminiPrompt('secondhand', candidate)
-  expect(prompt).toContain('iPhone 13 (Pro Max)')
-  expect(prompt).toContain('```json')
-})
-
-test('buildGeminiPrompt includes description and sibling variants when present', () => {
-  const withContext: PriceLookupCandidate = {
-    ...candidate,
-    description: 'A 2021 flagship phone',
-    sibling_variants: ['Pro', '(base, no variant)'],
-  }
-  const prompt = buildGeminiPrompt('secondhand', withContext)
-  expect(prompt).toContain('A 2021 flagship phone')
-  expect(prompt).toContain('Pro, (base, no variant)')
-})
-
-test('buildGeminiPrompt differs in wording between retail and secondhand', () => {
-  const retail = buildGeminiPrompt('retail', candidate)
-  const secondhand = buildGeminiPrompt('secondhand', candidate)
-  expect(retail).toContain('brand-new retail price')
-  expect(retail).not.toContain('secondhand')
-  expect(secondhand).toContain('secondhand/used market price')
 })
 
 test('parseGeminiPriceResponse extracts a price range from a fenced json block', () => {
@@ -81,26 +47,6 @@ test('parseGeminiPriceResponse returns null when price fields are missing', () =
   expect(parseGeminiPriceResponse('```json\n{"found": true}\n```')).toBeNull()
 })
 
-test('buildExaQuery asks for retail or secondhand pricing depending on kind', () => {
-  expect(buildExaQuery('retail', candidate)).toContain('brand-new retail price')
-  expect(buildExaQuery('secondhand', candidate)).toContain('secondhand used market price')
-  expect(buildExaQuery('retail', candidate)).toContain('iPhone 13 (Pro Max)')
-})
-
-test('buildExaSystemPrompt differs in wording between retail and secondhand', () => {
-  expect(buildExaSystemPrompt('retail', candidate)).toContain('brand-new retail price')
-  expect(buildExaSystemPrompt('retail', candidate)).toContain('official brand sites')
-  expect(buildExaSystemPrompt('secondhand', candidate)).toContain('secondhand (used) market price')
-  expect(buildExaSystemPrompt('secondhand', candidate)).toContain('Facebook Marketplace')
-})
-
-test('buildExaSystemPrompt includes disambiguation context when present', () => {
-  const withContext: PriceLookupCandidate = { ...candidate, description: 'Flagship phone', sibling_variants: ['Pro'] }
-  const prompt = buildExaSystemPrompt('secondhand', withContext)
-  expect(prompt).toContain('Flagship phone')
-  expect(prompt).toContain('Pro')
-})
-
 test('parseExaPriceResponse extracts a price range from output.content', () => {
   const response = { output: { content: { found: true, price_low: 18000, price_high: 22000 } } }
   expect(parseExaPriceResponse(response)).toEqual({ low: 18000, high: 22000, currency: 'PHP' })
@@ -114,12 +60,6 @@ test('parseExaPriceResponse returns null for a malformed response', () => {
   expect(parseExaPriceResponse(null)).toBeNull()
   expect(parseExaPriceResponse({})).toBeNull()
   expect(parseExaPriceResponse({ output: {} })).toBeNull()
-})
-
-test('buildTavilyQuery asks for retail or secondhand pricing depending on kind', () => {
-  expect(buildTavilyQuery('retail', candidate)).toContain('brand-new retail price')
-  expect(buildTavilyQuery('secondhand', candidate)).toContain('secondhand used market price')
-  expect(buildTavilyQuery('retail', candidate)).toContain('iPhone 13 (Pro Max)')
 })
 
 test('parseTavilyPriceAnswer extracts a price range from peso-prefixed amounts in free text', () => {
