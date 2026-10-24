@@ -1,7 +1,7 @@
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
 import type { Logger } from '../../platform/logger'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
+import { callJson, failureText } from '../../platform/llm-clients'
 import type { TriageCandidate, TriageRow } from '../../modules/pricing'
 import { buildTriagePrompt, parseTriageItem, TRIAGE_RESPONSE_SCHEMA } from '../../modules/pricing'
 
@@ -30,21 +30,21 @@ export async function runPriceTriage(
   for (let i = 0; i < candidates.length; i += batchSize) {
     const batch = candidates.slice(i, i + batchSize)
     const label = `batch starting at ${i}`
-    let raw: unknown
-    try {
-      raw = await withRetry(() => llm.generateJson(buildTriagePrompt(batch), TRIAGE_RESPONSE_SCHEMA), {
-        provider: 'LLM gateway',
-        label,
-        maxAttempts: DEFAULT_MAX_ATTEMPTS,
-        retryDelayMs: DEFAULT_RETRY_DELAY_MS,
-        delay,
-        logger,
-      })
-    } catch (err) {
-      if (!(err instanceof QuotaExhaustedError || err instanceof RetriesExhaustedError)) throw err
-      logger.error(`${label}: LLM gateway unavailable (${err.message}), stopping run; rerun to resume`)
+    const attempt = await callJson(llm, buildTriagePrompt(batch), TRIAGE_RESPONSE_SCHEMA, {
+      provider: 'LLM gateway',
+      label,
+      maxAttempts: DEFAULT_MAX_ATTEMPTS,
+      retryDelayMs: DEFAULT_RETRY_DELAY_MS,
+      delay,
+      logger,
+    })
+    if (!attempt.ok) {
+      logger.error(
+        `${label}: LLM gateway unavailable (${failureText(attempt)}: ${attempt.message}), stopping run; rerun to resume`,
+      )
       return
     }
+    const raw = attempt.raw
     const results = (raw as { results?: unknown } | undefined)?.results
     if (!Array.isArray(results)) {
       logger.error(`${label}: unexpected response shape (no results array), skipping batch`)

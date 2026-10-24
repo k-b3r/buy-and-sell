@@ -29,4 +29,6 @@ export { createGatewayBreaker, createGatewayClient, loadGatewayConfig, withGatew
 
 export { QuotaExhaustedError, isQuotaError, isCreditsError } from './error-classification'
 export type { RetryOptions } from './retry'
+export type { CallJsonOutcome } from './call-json'
+export { callJson, failureText } from './call-json'
 export { RetriesExhaustedError, withRetry, withRetryAndSplit } from './retry'
