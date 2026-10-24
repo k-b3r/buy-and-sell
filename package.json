@@ -99,7 +99,8 @@
       "docs-site/**"
     ],
     "mutationPaths": [
-      "src/modules/*/domain/**"
+      "src/modules/*/domain/**",
+      "src/modules/*/prompts/**"
     ],
     "untestedExempt": [
       "src/platform/cache.ts"

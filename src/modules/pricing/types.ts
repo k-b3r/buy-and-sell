@@ -4,6 +4,9 @@ import type { ExaClient, GeminiClient, OpenRouterClient, TavilyClient } from '..
 import type { Logger } from '../../platform/logger'
 import type { DbClient } from '../../platform/storage'
 
+// Which market a lookup is pricing: a brand-new unit or a used one.
+export type PriceKind = 'retail' | 'secondhand'
+
 // A price range a provider returned, in the currency it quoted.
 export interface PriceRange {
   low: number

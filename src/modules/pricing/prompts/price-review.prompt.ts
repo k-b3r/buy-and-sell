@@ -1,8 +1,7 @@
-import type { PriceReviewCandidate } from '../../types'
-
-function formatListingLine(l: PriceReviewCandidate): string {
-  return `[id: ${l.id}] title: "${l.title}" recorded_price: ₱${l.price_amount} desc: "${l.description ?? ''}"`
-}
+// What the price-review model is told, and the schema its answer must satisfy.
+// Prose first on purpose: this is the file to edit when the review verdicts need
+// retuning. Parsing stays in domain/price-review/parse.ts.
+import type { PriceReviewCandidate } from '../types'
 
 export function buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string {
   const lines = listings.map(formatListingLine).join('\n')
@@ -46,3 +45,7 @@ export const PRICE_REVIEW_RESPONSE_SCHEMA = {
   required: ['results'],
   additionalProperties: false,
 } as const
+
+function formatListingLine(l: PriceReviewCandidate): string {
+  return `[id: ${l.id}] title: "${l.title}" recorded_price: ₱${l.price_amount} desc: "${l.description ?? ''}"`
+}

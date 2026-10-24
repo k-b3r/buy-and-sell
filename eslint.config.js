@@ -49,8 +49,9 @@ const SHARED_RESTRICTED_SYNTAX = [
 // Pure code (CODING_STANDARDS.md > Architecture). The shared config bans clock and
 // randomness there with no-restricted-syntax selectors, but a later block replaces
 // that list, so the module blocks below restate it (read back from the shared
-// config) for domain/ files.
-const PURE_CORE_PATHS = ['src/modules/*/domain/**']
+// config) for domain/ and prompts/ files. Prompt builders interpolate data and
+// nothing else, so they belong here too (and to the mutation report).
+const PURE_CORE_PATHS = ['src/modules/*/domain/**', 'src/modules/*/prompts/**']
 
 const sharedConfig = baseConfig({
   tsconfigRootDir: import.meta.dirname,

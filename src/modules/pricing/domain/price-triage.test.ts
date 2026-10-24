@@ -1,4 +1,5 @@
-import { buildTriagePrompt, parseTriageItem } from './price-triage'
+import { buildTriagePrompt } from '../prompts/price-triage.prompt'
+import { parseTriageItem } from './price-triage'
 import type { TriageCandidate } from '../types'
 
 const candidate = (overrides: Partial<TriageCandidate> = {}): TriageCandidate => ({

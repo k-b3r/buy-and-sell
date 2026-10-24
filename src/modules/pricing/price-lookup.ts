@@ -2,12 +2,21 @@ import { QuotaExhaustedError, isCreditsError, isQuotaError } from '../../platfor
 import type { PriceCheckSource } from './store/price-history'
 import { insertPriceCheck, recordRetailMissForOverridden } from './store/price-history'
 import type {
+  PriceKind,
   PriceLookupCandidate,
   PriceLookupClients,
   PriceLookupDeps,
   PriceRange,
   ProductPricingResult,
 } from './types'
+import {
+  EXA_PRICE_SCHEMA,
+  buildExaQuery,
+  buildExaSystemPrompt,
+  buildGeminiPrompt,
+  buildTavilyQuery,
+  productLabel,
+} from './prompts/price-lookup.prompt'
 import { excludeFromPricing } from './store/exclusion'
 import { detectGenericBaseModel } from './domain/generic-products'
 import { isJunkPrice } from './domain/clean-median'
@@ -19,21 +28,6 @@ const WIDE_SPREAD_RATIO = 4
 export function isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean {
   return price.high > price.low * maxRatio
 }
-
-function productLabel(baseModel: string, variantTier: string | null): string {
-  return variantTier ? `${baseModel} (${variantTier})` : baseModel
-}
-
-function disambiguationContext(candidate: PriceLookupCandidate): string {
-  let context = ''
-  if (candidate.description) context += ` Product context: ${candidate.description}.`
-  if (candidate.sibling_variants.length > 0) {
-    context += ` Other tracked variants of this same base model (price the requested one, not these): ${candidate.sibling_variants.join(', ')}.`
-  }
-  return context
-}
-
-export type PriceKind = 'retail' | 'secondhand'
 
 // ---- Gemini: primary source for both retail and secondhand ----
 // A live 5-product manual comparison (2026-08-31) found Gemini beat Exa on
@@ -48,21 +42,6 @@ export type PriceKind = 'retail' | 'secondhand'
 // Google Search grounding can't combine with responseSchema (confirmed
 // live, see GeminiClient's own comment) - so this asks for a fenced json
 // block in free text rather than relying on structured output.
-export function buildGeminiPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string {
-  const label = productLabel(candidate.base_model, candidate.variant_tier)
-  const ask =
-    kind === 'retail'
-      ? `the current brand-new retail price range in PHP for: ${label}, from official brand sites or known Philippine electronics/appliance retailers`
-      : `the current secondhand/used market price range in PHP for: ${label}, based on real current listings (e.g. Facebook Marketplace, Carousell, Shopee) in the Philippines`
-  return `Search for ${ask}.${disambiguationContext(candidate)}
-
-Respond with a fenced json code block in this exact shape:
-\`\`\`json
-{"found": true, "price_low": <number>, "price_high": <number>}
-\`\`\`
-If you cannot find enough reliable information to determine a real price range, respond with {"found": false} instead of guessing.`
-}
-
 const JSON_BLOCK_PATTERN = /```json\s*([\s\S]*?)```/
 
 export function parseGeminiPriceResponse(text: string): PriceRange | null {
@@ -89,32 +68,6 @@ export function parseGeminiPriceResponse(text: string): PriceRange | null {
 // real data, where Tavily confidently fabricated numbers with no citation
 // trail. Both chains: Gemini first (see above), Exa fallback 1, Tavily
 // fallback 2.
-export function buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string {
-  const label = productLabel(candidate.base_model, candidate.variant_tier)
-  return kind === 'retail'
-    ? `current brand-new retail price of ${label} in the Philippines`
-    : `current secondhand used market price of ${label} in the Philippines`
-}
-
-export function buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string {
-  const base =
-    kind === 'retail'
-      ? 'Find the current brand-new retail price in Philippine Peso (PHP) from official brand sites and known PH electronics retailers - not a temporary promo or flash-sale price.'
-      : 'Find the current secondhand (used) market price range in Philippine Peso (PHP) from real current listings (e.g. Facebook Marketplace, Carousell, Shopee).'
-  return `${base}${disambiguationContext(candidate)} If you cannot find a reliable price, set found to false rather than guessing.`
-}
-
-const EXA_PRICE_SCHEMA = {
-  type: 'object',
-  required: ['found'],
-  additionalProperties: false,
-  properties: {
-    found: { type: 'boolean', description: 'true if a reliable current PHP price was found' },
-    price_low: { type: 'number', description: 'lowest observed price in PHP' },
-    price_high: { type: 'number', description: 'highest observed price in PHP' },
-  },
-} as const
-
 // Exa's /search with outputSchema returns the structured result at
 // response.output.content - same shape clients/market-context.ts's
 // EXA_SUMMARY_SCHEMA call already relies on.
@@ -129,19 +82,13 @@ export function parseExaPriceResponse(response: unknown): PriceRange | null {
 }
 
 // ---- Tavily: last-resort fallback for both (last stage of either chain) ----
-export function buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string {
-  const label = productLabel(candidate.base_model, candidate.variant_tier)
-  return kind === 'retail'
-    ? `current brand-new retail price of ${label} in the Philippines`
-    : `current secondhand used market price of ${label} in the Philippines`
-}
-
 // Tavily's include_answer has no structured output - per the
 // pipeline-consolidation plan's decided approach, this extracts PHP amounts
 // via regex rather than spending a second LLM call just to structure free
 // text. Matches ₱/PHP-prefixed comma-grouped numbers (3+ digits) - a bare
 // 1-2 digit number is far more likely a spec/year than a price, so it's
 // excluded rather than risked.
+
 const PRICE_AMOUNT_PATTERN = /(?:₱|PHP\s?)\s?([\d,]{3,})(?:\.\d+)?/gi
 
 export function parseTavilyPriceAnswer(text: string | null): PriceRange | null {

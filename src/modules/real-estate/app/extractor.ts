@@ -1,7 +1,8 @@
 import type { Logger } from '../../../platform/logger'
 import type { DelayFn } from '../../../platform/delay'
 import { withRetryAndSplit } from '../../../platform/llm-clients'
-import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA, parseRealEstateResponse } from '../domain/extraction'
+import { parseRealEstateResponse } from '../domain/extraction'
+import { buildRealEstatePrompt, REAL_ESTATE_RESPONSE_SCHEMA } from '../prompts/extraction.prompt'
 import type { JsonModelClient, RealEstateCandidate, RealEstateFields } from '../types'
 
 const MAX_ATTEMPTS = 3

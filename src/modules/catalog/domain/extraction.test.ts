@@ -1,4 +1,5 @@
-import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA, parseExtractionItem } from './extraction'
+import { buildExtractionPrompt, EXTRACTION_RESPONSE_SCHEMA } from '../prompts/extraction.prompt'
+import { parseExtractionItem } from './extraction'
 import type { ExtractedListing } from './extraction'
 import { PRODUCT_CATEGORIES, SUB_CATEGORIES } from './products'
 import type { ExtractionCandidate } from '../types'

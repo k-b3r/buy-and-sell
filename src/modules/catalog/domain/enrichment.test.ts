@@ -1,4 +1,5 @@
-import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA, parseEnrichmentItem } from './enrichment'
+import { buildEnrichmentPrompt, ENRICHMENT_RESPONSE_SCHEMA } from '../prompts/enrichment.prompt'
+import { parseEnrichmentItem } from './enrichment'
 import { PRODUCT_CATEGORIES } from './products'
 import type { EnrichmentCandidate } from '../types'
 

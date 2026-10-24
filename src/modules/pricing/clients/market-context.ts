@@ -1,4 +1,4 @@
-import { buildPriceQuery } from '../domain/discount-verification'
+import { buildPriceQuery } from '../prompts/discount-verification.prompt'
 import type { DiscountVerificationCandidate, VerificationClients } from '../types'
 
 const EXA_SUMMARY_SCHEMA = {

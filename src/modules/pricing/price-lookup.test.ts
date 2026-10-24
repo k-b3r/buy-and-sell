@@ -2,17 +2,14 @@ import { rmSync } from 'node:fs'
 import { expect, test, afterEach } from 'vitest'
 import {
   isWideSpread,
-  buildGeminiPrompt,
   parseGeminiPriceResponse,
-  buildExaQuery,
-  buildExaSystemPrompt,
   parseExaPriceResponse,
-  buildTavilyQuery,
   parseTavilyPriceAnswer,
   lookupPrice,
   ensureProductPriced,
   PriceLookupFailedError,
 } from './price-lookup'
+import { buildExaQuery, buildExaSystemPrompt, buildGeminiPrompt, buildTavilyQuery } from './prompts/price-lookup.prompt'
 import type { PriceLookupCandidate, PriceLookupClients } from './types'
 import type { Logger } from '../../platform/logger'
 import { createLogger } from '../../platform/logger'

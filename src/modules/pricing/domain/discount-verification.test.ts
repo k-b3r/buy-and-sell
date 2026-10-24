@@ -1,4 +1,5 @@
-import { buildPriceQuery, precheckDiscountCandidate } from './discount-verification'
+import { buildPriceQuery } from '../prompts/discount-verification.prompt'
+import { precheckDiscountCandidate } from './discount-verification'
 import type { DiscountVerificationCandidate } from '../types'
 
 function candidate(overrides: Partial<DiscountVerificationCandidate> = {}): DiscountVerificationCandidate {
