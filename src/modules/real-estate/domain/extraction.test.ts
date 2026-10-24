@@ -2,7 +2,6 @@ import {
   parsePriceShorthand,
   normalizeNcrArea,
   normalizeRealEstateItem,
-  buildRealEstatePrompt,
   NCR_LGUS,
   parseRealEstateResponse,
 } from './extraction'
@@ -126,14 +125,6 @@ test('normalizeRealEstateItem returns null for a malformed item', () => {
   expect(normalizeRealEstateItem({ id: '1' }, candidate())).toBeNull()
 })
 
-test('buildRealEstatePrompt lists each listing with its raw price and text amounts', () => {
-  const prompt = buildRealEstatePrompt([candidate({ id: '9', title: '1BR Portico 13M', price_amount: 13 })])
-  expect(prompt).toContain('"id":"9"')
-  expect(prompt).toContain('"listed_price":13')
-  expect(prompt).toContain('13000000')
-  expect(prompt).toContain('Taguig')
-})
-
 test('normalizeRealEstateItem keeps 0 bedrooms only for a condo (studio) and nulls zero bathrooms', () => {
   expect(
     normalizeRealEstateItem(raw({ property_type: 'condo', bedrooms: 0, bathrooms: 1 }), candidate())!.bedrooms,
@@ -191,13 +182,6 @@ test('normalizeRealEstateItem tags room, bedspace and roommate listings as room_
     candidate({ title: '2BR condo for rent, 3 rooms total' }),
   )!
   expect(whole.tags).not.toContain('room_share')
-})
-
-test('buildRealEstatePrompt explains pasalo cash-out, condo detection and room shares', () => {
-  const prompt = buildRealEstatePrompt([candidate()])
-  expect(prompt).toContain('cash out')
-  expect(prompt).toContain('room_share')
-  expect(prompt).toContain('parking slot')
 })
 
 test('parseRealEstateResponse keys normalized fields by listing id and reports each skipped item', () => {

@@ -46,10 +46,6 @@ _(undocumented)_
 
 **Interactions:** imports `../types`, `./products`
 
-### `buildEnrichmentPrompt(products: EnrichmentCandidate[]): string`
-
-_(undocumented)_
-
 ### `parseEnrichmentItem(raw: unknown, batch: EnrichmentCandidate[]): EnrichmentItemOutcome`
 
 _(undocumented)_
@@ -57,10 +53,6 @@ _(undocumented)_
 ## src/modules/catalog/domain/extraction.ts
 
 **Interactions:** imports `../types`, `./products`, `./variant-alias-rules`
-
-### `buildExtractionPrompt(listings: ExtractionInput[]): string`
-
-_(undocumented)_
 
 ### `parseExtractionItem(raw: unknown, batch: ExtractionCandidate[]): ExtractionItemOutcome`
 
@@ -201,6 +193,22 @@ _(undocumented)_
 _(undocumented)_
 
 ### `parseExtractionItem(raw: unknown, batch: ExtractionCandidate[]): ExtractionItemOutcome`
+
+_(undocumented)_
+
+## src/modules/catalog/prompts/enrichment.prompt.ts
+
+**Interactions:** imports `../domain/products`, `../types`
+
+### `buildEnrichmentPrompt(products: EnrichmentCandidate[]): string`
+
+_(undocumented)_
+
+## src/modules/catalog/prompts/extraction.prompt.ts
+
+**Interactions:** imports `../domain/products`
+
+### `buildExtractionPrompt(listings: ExtractionInput[]): string`
 
 _(undocumented)_
 
@@ -766,7 +774,7 @@ _(undocumented)_
 
 ## src/modules/pricing/app/discount-verification.ts
 
-**Interactions:** imports `../clients/market-context`, `../domain/discount-policy`, `../domain/discount-verification`, `../types`
+**Interactions:** imports `../clients/market-context`, `../domain/discount-policy`, `../domain/discount-verification`, `../prompts/discount-verification.prompt`, `../types`
 
 ### `verifyDiscountCandidate(candidate: DiscountVerificationCandidate, clients: VerificationClients, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): Promise<VerificationOutcome>`
 
@@ -810,7 +818,7 @@ _(undocumented)_
 
 ## src/modules/pricing/clients/market-context.ts
 
-**Interactions:** imports `../domain/discount-verification`, `../types`
+**Interactions:** imports `../prompts/discount-verification.prompt`, `../types`
 
 ### `fetchFreshMarketContext(candidate: DiscountVerificationCandidate, clients: Pick<VerificationClients, 'tavily' | 'exa' | 'gemini'>): Promise<{ text: string; source: string } | null>`
 
@@ -860,15 +868,7 @@ _(undocumented)_
 
 ## src/modules/pricing/domain/discount-verification.ts
 
-**Interactions:** imports `../types`, `./discount-policy`, `./price-rules`
-
-### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
-
-_(undocumented)_
-
-### `buildVerificationPrompt(candidate: DiscountVerificationCandidate, marketContext: string, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): string`
-
-_(undocumented)_
+**Interactions:** imports `../types`, `./discount-policy`
 
 ### `parseVerificationResponse(raw: unknown): ParsedVerificationResponse | null`
 
@@ -912,14 +912,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-## src/modules/pricing/domain/price-review/prompt.ts
-
-**Interactions:** imports `../../types`
-
-### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
-
-_(undocumented)_
-
 ## src/modules/pricing/domain/price-rules.ts
 
 **Interactions:** imports `../../../platform/rows`, `../types`, `./clean-median`
@@ -959,10 +951,6 @@ _(undocumented)_
 ## src/modules/pricing/domain/price-triage.ts
 
 **Interactions:** imports `../types`
-
-### `buildTriagePrompt(batch: TriageCandidate[]): string`
-
-_(undocumented)_
 
 ### `parseTriageItem(raw: unknown, batch: TriageCandidate[]): ParsedItem`
 
@@ -1234,13 +1222,9 @@ _(undocumented)_
 
 ## src/modules/pricing/price-lookup.ts
 
-**Interactions:** imports `../../platform/llm-clients`, `./domain/clean-median`, `./domain/generic-products`, `./store/exclusion`, `./store/price-history`, `./types`
+**Interactions:** imports `../../platform/llm-clients`, `./domain/clean-median`, `./domain/generic-products`, `./prompts/price-lookup.prompt`, `./store/exclusion`, `./store/price-history`, `./types`
 
 ### `isWideSpread(price: PriceRange, maxRatio = WIDE_SPREAD_RATIO): boolean`
-
-_(undocumented)_
-
-### `buildGeminiPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
 
 _(undocumented)_
 
@@ -1248,19 +1232,7 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
-### `buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
-
-_(undocumented)_
-
 ### `parseExaPriceResponse(response: unknown): PriceRange | null`
-
-_(undocumented)_
-
-### `buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
 
 _(undocumented)_
 
@@ -1277,6 +1249,58 @@ _(undocumented)_
 _(undocumented)_
 
 ### `class PriceLookupFailedError`
+
+_(undocumented)_
+
+## src/modules/pricing/prompts/discount-verification.prompt.ts
+
+**Interactions:** imports `../domain/discount-policy`, `../domain/price-rules`, `../types`
+
+### `buildVerificationPrompt(candidate: DiscountVerificationCandidate, marketContext: string, thresholds: DiscountPolicyThresholds = DEFAULT_DISCOUNT_POLICY): string`
+
+_(undocumented)_
+
+### `buildPriceQuery(candidate: DiscountVerificationCandidate): string`
+
+_(undocumented)_
+
+## src/modules/pricing/prompts/price-lookup.prompt.ts
+
+**Interactions:** imports `../types`
+
+### `buildGeminiPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `buildExaQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `buildExaSystemPrompt(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `buildTavilyQuery(kind: PriceKind, candidate: PriceLookupCandidate): string`
+
+_(undocumented)_
+
+### `productLabel(baseModel: string, variantTier: string | null): string`
+
+_(undocumented)_
+
+## src/modules/pricing/prompts/price-review.prompt.ts
+
+**Interactions:** imports `../types`
+
+### `buildPriceReviewPrompt(listings: PriceReviewCandidate[]): string`
+
+_(undocumented)_
+
+## src/modules/pricing/prompts/price-triage.prompt.ts
+
+**Interactions:** imports `../types`
+
+### `buildTriagePrompt(batch: TriageCandidate[]): string`
 
 _(undocumented)_
 
@@ -1498,7 +1522,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/app/extractor.ts
 
-**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../domain/extraction`, `../types`
+**Interactions:** imports `../../../platform/delay`, `../../../platform/llm-clients`, `../../../platform/logger`, `../domain/extraction`, `../prompts/extraction.prompt`, `../types`
 
 ### `extractRealEstateBatch(deps: ExtractorDeps, batch: RealEstateCandidate[], retryMissing = true): Promise<Map<string, RealEstateFields>>`
 
@@ -1532,10 +1556,6 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
-
-_(undocumented)_
-
 ## src/modules/real-estate/index.ts
 
 ### `getRealEstateCandidates(db: DbClient, limit: number): Promise<RealEstateCandidate[]>`
@@ -1555,6 +1575,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `getRealEstateListings(db: DbClient, filters: RealEstateFilters = {}): Promise<RealEstateListing[]>`
+
+_(undocumented)_
+
+## src/modules/real-estate/prompts/extraction.prompt.ts
+
+**Interactions:** imports `../domain/extraction`, `../types`
+
+### `buildRealEstatePrompt(candidates: RealEstateCandidate[]): string`
 
 _(undocumented)_
 

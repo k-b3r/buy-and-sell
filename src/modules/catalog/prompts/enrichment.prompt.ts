@@ -1,0 +1,88 @@
+// What the enrichment model is told, and the schema its answer must satisfy.
+// Prose first on purpose: this is the file to edit when enrichment quality needs
+// retuning. Parsing and the category decision stay in domain/enrichment.ts.
+import { PRODUCT_CATEGORIES } from '../domain/products'
+import type { EnrichmentCandidate } from '../types'
+
+export function buildEnrichmentPrompt(products: EnrichmentCandidate[]): string {
+  const lines = products.map(formatProductLine).join('\n')
+  return `For each product below (identified by base model / variant) that you actually
+recognize, provide:
+- description: a concise description of what this product is (2-3 sentences)
+- value_drivers: what affects this specific product's resale value - condition
+  factors, common defects/wear points, meaningful spec or variant differences, what
+  separates a well-priced unit from an overpriced one. Where "other tracked variants"
+  are listed, write value_drivers specific to THIS variant, not the whole family -
+  say how it differs from those siblings where that's relevant to value, not a
+  generic description that could apply to any of them.
+- has_trained_price_knowledge: true only if you have specific knowledge of this
+  product's typical secondhand price from your training data, not a generic guess
+- trained_price_low / trained_price_high: if has_trained_price_knowledge is true,
+  your best estimate of the typical secondhand price range in PHP (Philippines) as
+  of your training data; null otherwise
+- category: exactly one of: ${PRODUCT_CATEGORIES.join(', ')}. Use "Other" if none
+  genuinely fit rather than forcing a bad match.
+- is_specific_product: true only if this base model names one real, specific,
+  priceable product (a model/SKU/nameplate) - not a generic category noun like
+  "Furniture" or "Motherboard", and not a bare brand with no model like
+  "Lenovo Thinkpad" (real prices for that span too wide a range to mean
+  anything as one product), even if you recognize the words.
+- confidence: "high" if you're sure of your is_specific_product judgment,
+  "low" if this could plausibly be outside your training knowledge either way
+  (a genuinely new or obscure product) - don't force a confident guess.
+
+Do not search - answer only from what you already know. If you do not recognize a
+product at all (the name doesn't correspond to anything you actually know), omit it from the results array entirely - do not fabricate a description for a
+product you don't actually know. If you recognize the product itself but have no
+confident price knowledge, still include it, with has_trained_price_knowledge set
+to false and the price fields null.
+
+Products:
+${lines}`
+}
+
+function formatProductLine(p: EnrichmentCandidate): string {
+  const label = p.variant_tier ? `${p.base_model} (${p.variant_tier})` : p.base_model
+  const siblings =
+    p.sibling_variants.length > 0
+      ? ` — other tracked variants of this base model: ${p.sibling_variants.join(', ')}`
+      : ''
+  return `[id: ${p.id}] ${label}${siblings}`
+}
+
+export const ENRICHMENT_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          description: { type: 'string' },
+          value_drivers: { type: 'string' },
+          has_trained_price_knowledge: { type: 'boolean' },
+          trained_price_low: { type: ['number', 'null'] },
+          trained_price_high: { type: ['number', 'null'] },
+          category: { type: 'string', enum: PRODUCT_CATEGORIES },
+          is_specific_product: { type: 'boolean' },
+          confidence: { type: 'string', enum: ['high', 'low'] },
+        },
+        required: [
+          'id',
+          'description',
+          'value_drivers',
+          'has_trained_price_knowledge',
+          'trained_price_low',
+          'trained_price_high',
+          'category',
+          'is_specific_product',
+          'confidence',
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['results'],
+  additionalProperties: false,
+} as const
