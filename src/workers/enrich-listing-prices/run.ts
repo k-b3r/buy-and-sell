@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { GroqClient } from '../../platform/llm-clients'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
+import { callJson, failureText } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
@@ -35,22 +35,19 @@ async function requestPriceReview(
   prompt: string,
   label: string,
 ): Promise<{ results?: unknown } | null> {
-  try {
-    return (await withRetry(() => groq.generateJson(prompt, PRICE_REVIEW_RESPONSE_SCHEMA), {
-      provider: 'Groq',
-      label,
-      maxAttempts: MAX_ATTEMPTS,
-      retryDelayMs: RETRY_DELAY_MS,
-      delay,
-      logger,
-    })) as { results?: unknown }
-  } catch (err) {
-    if (!(err instanceof QuotaExhaustedError || err instanceof RetriesExhaustedError)) throw err
-    const reason =
-      err instanceof QuotaExhaustedError ? 'quota exhausted' : `request failed after ${MAX_ATTEMPTS} attempts`
-    logger.error(`${label}: Groq ${reason} (${err.message}), stopping run`)
+  const attempt = await callJson(groq, prompt, PRICE_REVIEW_RESPONSE_SCHEMA, {
+    provider: 'Groq',
+    label,
+    maxAttempts: MAX_ATTEMPTS,
+    retryDelayMs: RETRY_DELAY_MS,
+    delay,
+    logger,
+  })
+  if (!attempt.ok) {
+    logger.error(`${label}: Groq ${failureText(attempt)} (${attempt.message}), stopping run`)
     return null
   }
+  return attempt.raw as { results?: unknown }
 }
 
 export async function runPriceReview(

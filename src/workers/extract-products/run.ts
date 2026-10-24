@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { GeminiClient, GroqClient, ExaClient, TavilyClient, RetryOptions } from '../../platform/llm-clients'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
+import { callJson, failureText } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
@@ -70,39 +70,19 @@ async function extractBatch(
   prompt: string,
   retry: Omit<RetryOptions, 'provider'> & { label: string },
 ): Promise<unknown | null> {
-  const { label, logger, maxAttempts } = retry
-  try {
-    return await withRetry(() => clients.groq.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA), {
-      ...retry,
-      provider: 'Groq',
-    })
-  } catch (err) {
-    if (err instanceof QuotaExhaustedError) {
-      logger.warn(`${label}: Groq quota exhausted (${err.message}), falling back to Gemini`)
-    } else if (err instanceof RetriesExhaustedError) {
-      logger.warn(
-        `${label}: Groq request failed after ${maxAttempts} attempts (${err.message}), falling back to Gemini`,
-      )
-    } else {
-      throw err
-    }
-  }
+  const { label, logger } = retry
 
-  try {
-    return await withRetry(() => clients.gemini.generateJson(prompt, EXTRACTION_RESPONSE_SCHEMA), {
-      ...retry,
-      provider: 'Gemini',
-    })
-  } catch (err) {
-    if (err instanceof QuotaExhaustedError) {
-      logger.error(`${label}: Gemini quota exhausted across all configured keys too (${err.message}), stopping run`)
-    } else if (err instanceof RetriesExhaustedError) {
-      logger.error(`${label}: Gemini request failed after ${maxAttempts} attempts too (${err.message}), stopping run`)
-    } else {
-      throw err
-    }
-    return null
-  }
+  const first = await callJson(clients.groq, prompt, EXTRACTION_RESPONSE_SCHEMA, { ...retry, provider: 'Groq' })
+  if (first.ok) return first.raw
+  logger.warn(`${label}: Groq ${failureText(first)} (${first.message}), falling back to Gemini`)
+
+  const second = await callJson(clients.gemini, prompt, EXTRACTION_RESPONSE_SCHEMA, { ...retry, provider: 'Gemini' })
+  if (second.ok) return second.raw
+  // "across all configured keys" only makes sense for a quota stop: those keys
+  // are the fallback pool, and exhausting all of them is what ends the run.
+  const suffix = second.reason === 'quota' ? ' across all configured keys too' : ' too'
+  logger.error(`${label}: Gemini ${failureText(second)}${suffix} (${second.message}), stopping run`)
+  return null
 }
 
 const DEFAULT_INTER_BATCH_DELAY_MS = 5000
