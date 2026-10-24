@@ -1,10 +1,6 @@
 import { DEFAULT_DISCOUNT_POLICY } from '../domain/discount-policy'
-import {
-  buildVerificationPrompt,
-  parseVerificationResponse,
-  precheckDiscountCandidate,
-  VERIFICATION_RESPONSE_SCHEMA,
-} from '../domain/discount-verification'
+import { parseVerificationResponse, precheckDiscountCandidate } from '../domain/discount-verification'
+import { buildVerificationPrompt, VERIFICATION_RESPONSE_SCHEMA } from '../prompts/discount-verification.prompt'
 import { fetchFreshMarketContext } from '../clients/market-context'
 import type {
   DiscountPolicyThresholds,

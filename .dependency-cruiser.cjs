@@ -83,14 +83,16 @@ module.exports = {
           },
         ]
       : []),
-    // domain/ is pure code: no store, clients or app, not even for a type, and no
-    // storage or logger. Those enter through the module's ports (types.ts).
+    // domain/ and prompts/ are pure code: no store, clients or app, not even for a
+    // type, and no storage or logger. Those enter through the module's ports
+    // (types.ts). A prompt builder formats a batch and returns a string; reaching
+    // the database or a client from it means the formatting belonged elsewhere.
     {
       name: 'domain-no-effects',
       severity: 'error',
       comment:
-        "domain/ is pure: it never imports store/, clients/ or app/ (its own module's or another's), nor platform/storage or platform/logger, not even as a type. Take them in as arguments through types.ts ports.",
-      from: { path: '^src/modules/[^/]+/domain/' },
+        "domain/ and prompts/ are pure: neither imports store/, clients/ or app/ (its own module's or another's), nor platform/storage or platform/logger, not even as a type. Take them in as arguments through types.ts ports.",
+      from: { path: '^src/modules/[^/]+/(domain|prompts)/' },
       to: {
         path: ['^src/modules/[^/]+/(store|clients|app)/', '^src/platform/(storage|logger)(\\.ts|/)'],
       },

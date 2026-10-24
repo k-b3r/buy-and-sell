@@ -1,5 +1,5 @@
-import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './prompt'
-import type { PriceReviewCandidate } from '../../types'
+import { buildPriceReviewPrompt, PRICE_REVIEW_RESPONSE_SCHEMA } from './price-review.prompt'
+import type { PriceReviewCandidate } from '../types'
 
 test('buildPriceReviewPrompt includes each listing id, recorded price, title, and description', () => {
   const listings: PriceReviewCandidate[] = [
