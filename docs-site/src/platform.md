@@ -44,6 +44,18 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/platform/llm-clients/call-json.ts
+
+**Interactions:** imports `../errors`, `./error-classification`, `./gateway`, `./retry`
+
+### `callJson(client: JsonClient, prompt: string, schema: object, options: RetryOptions): Promise<CallJsonOutcome>`
+
+_(undocumented)_
+
+### `failureText(outcome: Extract<CallJsonOutcome, { ok: false }>): string`
+
+_(undocumented)_
+
 ## src/platform/llm-clients/client-pool.ts
 
 **Interactions:** imports `./error-classification`
@@ -237,6 +249,14 @@ _(undocumented)_
 _(undocumented)_
 
 ### `isCreditsError(err: unknown): boolean`
+
+_(undocumented)_
+
+### `callJson(client: JsonClient, prompt: string, schema: object, options: RetryOptions): Promise<CallJsonOutcome>`
+
+_(undocumented)_
+
+### `failureText(outcome: Extract<CallJsonOutcome, { ok: false }>): string`
 
 _(undocumented)_
 
