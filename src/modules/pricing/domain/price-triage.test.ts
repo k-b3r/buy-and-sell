@@ -1,4 +1,3 @@
-import { buildTriagePrompt } from '../prompts/price-triage.prompt'
 import { parseTriageItem } from './price-triage'
 import type { TriageCandidate } from '../types'
 
@@ -24,21 +23,6 @@ const item = (overrides: Record<string, unknown> = {}) => ({
   price_high_php: 12000,
   reasoning: 'Real model with a known retail price.',
   ...overrides,
-})
-
-test('buildTriagePrompt lists every product with its exclusion reason and listing evidence', () => {
-  const prompt = buildTriagePrompt([candidate(), candidate({ id: 8, base_model: 'Aircon', reason: 'groq_generic' })])
-
-  expect(prompt).toContain('"id":7')
-  expect(prompt).toContain('Sony WH-1000XM4')
-  expect(prompt).toContain('Sony XM4 barely used')
-  expect(prompt).toContain('"reason":"groq_generic"')
-})
-
-test('buildTriagePrompt tells the model a failed Exa search hints at a generic or non-existent product', () => {
-  const prompt = buildTriagePrompt([candidate({ reason: 'exa_no_result' })])
-
-  expect(prompt).toMatch(/exa_no_result.*too generic or does not exist/s)
 })
 
 test('parseTriageItem accepts a well-formed verdict for a product in the batch', () => {

@@ -5,7 +5,7 @@
     "configFile": "vitest.config.ts"
   },
   "plugins": ["@stryker-mutator/vitest-runner"],
-  "mutate": ["src/modules/*/domain/**/*.ts", "!src/**/*.test.ts"],
+  "mutate": ["src/modules/*/domain/**/*.ts", "src/modules/*/prompts/**/*.ts", "!src/**/*.test.ts"],
   "ignorePatterns": [".codegraph", ".stryker-tmp", "reports"],
   "coverageAnalysis": "perTest",
   "reporters": ["clear-text", "json"],
