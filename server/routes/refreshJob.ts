@@ -1,4 +1,4 @@
-import type { RouteHandler, RouteResult } from '../app'
+import type { RouteHandler, RouteResult } from './result'
 import type { JobStore } from '../jobState'
 
 // Dashboard polls this while a bulk product-refresh job is running (see

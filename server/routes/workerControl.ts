@@ -2,9 +2,12 @@ import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from 'no
 import { spawn as spawnProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import express from 'express'
+import type { Router } from 'express'
 import type { DelayFn } from '../../src/platform/delay'
 import { realDelay } from '../../src/platform/delay'
-import type { RouteHandler, RouteResult } from '../app'
+import type { RouteHandler, RouteResult } from './result'
+import { sendResult } from './result'
 import { WORKER_LOG_FILES } from './logs'
 
 // How long a stop waits for the worker to actually exit before reporting.
@@ -233,4 +236,20 @@ export function createWorkerControlHandler(
       }
     })
   }
+}
+
+// POST /worker-control, mounted by server/index.ts.
+export function createWorkerControlRouter(
+  dataDir: string = defaultDataDir,
+  deps: WorkerControlDeps = defaultDeps,
+  repoRoot: string = defaultRepoRoot,
+): Router {
+  const router = express.Router()
+  const handleWorkerControl = createWorkerControlHandler(dataDir, deps, repoRoot)
+
+  router.post('/worker-control', async (req, res) => {
+    sendResult(res, await handleWorkerControl(req.body ?? {}))
+  })
+
+  return router
 }

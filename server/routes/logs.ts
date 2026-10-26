@@ -1,7 +1,10 @@
 import { open, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { RouteHandler, RouteResult } from '../app'
+import express from 'express'
+import type { Router } from 'express'
+import type { RouteHandler, RouteResult } from './result'
+import { sendResult } from './result'
 
 export const WORKER_LOG_FILES: Record<string, string> = {
   collect: 'collector.log',
@@ -96,4 +99,16 @@ export function createLogsHandler(dataDir: string = defaultDataDir): RouteHandle
 
     return { statusCode: 200, body: result }
   }
+}
+
+// POST /logs, mounted by server/index.ts.
+export function createLogsRouter(dataDir: string = defaultDataDir): Router {
+  const router = express.Router()
+  const handleLogs = createLogsHandler(dataDir)
+
+  router.post('/logs', async (req, res) => {
+    sendResult(res, await handleLogs(req.body ?? {}))
+  })
+
+  return router
 }

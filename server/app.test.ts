@@ -1,7 +1,6 @@
 import express from 'express'
 import request from 'supertest'
 import { createApp } from './app'
-import type { RouteTable } from './app'
 import { createRateLimiter } from './rateLimiter'
 import type { RateLimiter } from './rateLimiter'
 
@@ -12,20 +11,35 @@ function freshLimiter() {
   return createRateLimiter(10, 5 * 60 * 1000)
 }
 
-function app(routes: RouteTable, rateLimiter: RateLimiter = freshLimiter(), log: (msg: string) => void = () => {}) {
-  return createApp({ apiKey: API_KEY, routes, rateLimiter, log })
+// A router shaped like every feature router: one POST path that hands the
+// parsed body to a handler and answers with what it returns.
+function refreshRouter(handler: (body: unknown) => Promise<{ statusCode: number; body: unknown }>) {
+  const router = express.Router()
+  router.post('/refresh', async (req, res) => {
+    const result = await handler(req.body)
+    res.status(result.statusCode).json(result.body)
+  })
+  return router
 }
 
 const ok = async () => ({ statusCode: 200, body: { ok: true } })
 
-test('routes a matching method and path to its handler and passes the parsed body', async () => {
+function app(
+  routers: express.Router[],
+  rateLimiter: RateLimiter = freshLimiter(),
+  log: (msg: string) => void = () => {},
+) {
+  return createApp({ apiKey: API_KEY, routers, rateLimiter, log })
+}
+
+test('mounts a router that receives the parsed body and relays its status and body', async () => {
   let receivedBody: unknown
-  const server = app({
-    'POST /refresh': async (body) => {
+  const server = app([
+    refreshRouter(async (body) => {
       receivedBody = body
       return { statusCode: 200, body: { ok: true } }
-    },
-  })
+    }),
+  ])
 
   const res = await request(server).post('/refresh').set('authorization', AUTH).send({ id: '123' })
 
@@ -34,8 +48,8 @@ test('routes a matching method and path to its handler and passes the parsed bod
   expect(receivedBody).toEqual({ id: '123' })
 })
 
-test('404s for an unregistered method and path combination', async () => {
-  const server = app({ 'POST /refresh': ok })
+test('404s for a path no router mounts, and for a method no router handles', async () => {
+  const server = app([refreshRouter(ok)])
 
   const wrongMethod = await request(server).get('/refresh').set('authorization', AUTH)
   const wrongPath = await request(server).post('/nope').set('authorization', AUTH)
@@ -45,19 +59,28 @@ test('404s for an unregistered method and path combination', async () => {
   expect(wrongPath.status).toBe(404)
 })
 
-test('rejects a wrong or missing bearer token for a route that exists', async () => {
-  const server = app({ 'POST /refresh': ok })
+test('auth runs before routing, so an unauthenticated request learns nothing about which paths exist', async () => {
+  const server = app([refreshRouter(ok)])
 
-  const wrong = await request(server).post('/refresh').set('authorization', 'Bearer wrong')
-  const missing = await request(server).post('/refresh')
+  const unknown = await request(server).post('/nope')
+  const known = await request(server).post('/refresh')
 
-  expect(wrong.status).toBe(401)
-  expect(wrong.body).toEqual({ error: 'unauthorized' })
-  expect(missing.status).toBe(401)
+  expect(unknown.status).toBe(401)
+  expect(unknown.body).toEqual({ error: 'unauthorized' })
+  expect(known.status).toBe(401)
+})
+
+test('rejects a wrong bearer token for a route that exists', async () => {
+  const server = app([refreshRouter(ok)])
+
+  const res = await request(server).post('/refresh').set('authorization', 'Bearer wrong')
+
+  expect(res.status).toBe(401)
+  expect(res.body).toEqual({ error: 'unauthorized' })
 })
 
 test('400s on an invalid JSON body for an authenticated request', async () => {
-  const server = app({ 'POST /refresh': ok })
+  const server = app([refreshRouter(ok)])
 
   const res = await request(server)
     .post('/refresh')
@@ -71,15 +94,15 @@ test('400s on an invalid JSON body for an authenticated request', async () => {
 
 test('parses a JSON body even without a JSON content type, as the old server did', async () => {
   let receivedBody: unknown
-  const server = app({
-    'POST /logs': async (body) => {
+  const server = app([
+    refreshRouter(async (body) => {
       receivedBody = body
       return { statusCode: 200, body: {} }
-    },
-  })
+    }),
+  ])
 
   await request(server)
-    .post('/logs')
+    .post('/refresh')
     .set('authorization', AUTH)
     .set('content-type', 'text/plain')
     .send('{"worker":"collect"}')
@@ -89,37 +112,38 @@ test('parses a JSON body even without a JSON content type, as the old server did
 
 test('treats an empty body as {}', async () => {
   let receivedBody: unknown
-  const server = app({
-    'POST /refresh': async (body) => {
+  const server = app([
+    refreshRouter(async (body) => {
       receivedBody = body
       return { statusCode: 200, body: {} }
-    },
-  })
+    }),
+  ])
 
   await request(server).post('/refresh').set('authorization', AUTH)
 
   expect(receivedBody).toEqual({})
 })
 
-test('a second route can be registered independently and gets the same auth', async () => {
-  const server = app({
-    'POST /refresh': async () => ({ statusCode: 200, body: { from: 'refresh' } }),
-    'GET /other-thing': async () => ({ statusCode: 200, body: { from: 'other-thing' } }),
+test('mounts two routers independently and puts both behind the same auth', async () => {
+  const other = express.Router()
+  other.get('/other-thing', (_req, res) => {
+    res.json({ from: 'other-thing' })
   })
+  const server = app([refreshRouter(ok), other])
 
-  const other = await request(server).get('/other-thing').set('authorization', AUTH)
-  const otherUnauthed = await request(server).get('/other-thing').set('authorization', 'Bearer wrong')
+  const authed = await request(server).get('/other-thing').set('authorization', AUTH)
+  const unauthed = await request(server).get('/other-thing').set('authorization', 'Bearer wrong')
 
-  expect(other.body).toEqual({ from: 'other-thing' })
-  expect(otherUnauthed.status).toBe(401)
+  expect(authed.body).toEqual({ from: 'other-thing' })
+  expect(unauthed.status).toBe(401)
 })
 
-test('mounts an express router behind the same auth', async () => {
+test('a router path param reaches the handler behind the same auth', async () => {
   const router = express.Router()
   router.get('/things/:id', (req, res) => {
     res.json({ id: req.params.id })
   })
-  const server = createApp({ apiKey: API_KEY, routers: [router], rateLimiter: freshLimiter(), log: () => {} })
+  const server = app([router])
 
   const authed = await request(server).get('/things/7').set('authorization', AUTH)
   const unauthed = await request(server).get('/things/7')
@@ -129,7 +153,7 @@ test('mounts an express router behind the same auth', async () => {
 })
 
 test('an IP gets 429 after repeated auth failures, even with the correct token', async () => {
-  const server = app({ 'POST /refresh': ok }, createRateLimiter(3, 5 * 60 * 1000))
+  const server = app([refreshRouter(ok)], createRateLimiter(3, 5 * 60 * 1000))
 
   for (let i = 0; i < 3; i++) await request(server).post('/refresh').set('authorization', 'Bearer wrong')
   const res = await request(server).post('/refresh').set('authorization', AUTH)
@@ -139,7 +163,7 @@ test('an IP gets 429 after repeated auth failures, even with the correct token',
 })
 
 test('rate limiting is per client IP - one IP failing does not block another', async () => {
-  const server = app({ 'POST /refresh': ok }, createRateLimiter(2, 5 * 60 * 1000))
+  const server = app([refreshRouter(ok)], createRateLimiter(2, 5 * 60 * 1000))
 
   for (let i = 0; i < 2; i++) {
     await request(server).post('/refresh').set('authorization', 'Bearer wrong').set('x-forwarded-for', '1.1.1.1')
@@ -152,7 +176,7 @@ test('rate limiting is per client IP - one IP failing does not block another', a
 })
 
 test('a successful request clears prior failures, so the IP is not left blocked', async () => {
-  const server = app({ 'POST /refresh': ok }, createRateLimiter(2, 5 * 60 * 1000))
+  const server = app([refreshRouter(ok)], createRateLimiter(2, 5 * 60 * 1000))
 
   await request(server).post('/refresh').set('authorization', 'Bearer wrong')
   await request(server).post('/refresh').set('authorization', AUTH)
@@ -165,11 +189,11 @@ test('a successful request clears prior failures, so the IP is not left blocked'
 test('a handler that throws becomes a 500 with no detail, and the error is logged', async () => {
   const logged: string[] = []
   const server = app(
-    {
-      'POST /refresh': async () => {
+    [
+      refreshRouter(async () => {
         throw new Error('relation "listings" does not exist')
-      },
-    },
+      }),
+    ],
     freshLimiter(),
     (msg) => logged.push(msg),
   )
@@ -183,7 +207,7 @@ test('a handler that throws becomes a 500 with no detail, and the error is logge
 })
 
 test('413s a body over the size limit', async () => {
-  const server = app({ 'POST /refresh': ok })
+  const server = app([refreshRouter(ok)])
 
   const res = await request(server)
     .post('/refresh')

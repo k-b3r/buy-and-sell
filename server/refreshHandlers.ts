@@ -5,7 +5,6 @@ import { launchBrowserDriver } from '../src/modules/collection/clients/browser'
 import { realDelay } from '../src/platform/delay'
 import type { Logger } from '../src/platform/logger'
 import type { QueryClient } from '../src/platform/storage'
-import type { RouteHandler } from './app'
 import type { CacheInvalidator } from '../src/platform/cache'
 import { createJobStore } from './jobState'
 import { createProxyGuard, type ProxyGuardEnv } from './proxyGuard'
@@ -15,6 +14,8 @@ import { createRefreshHandler } from './routes/refresh'
 import { createCancelRefreshJobHandler } from './routes/refreshJobCancel'
 import { createRefreshJobStatusHandler } from './routes/refreshJob'
 import { createRefreshProductHandler } from './routes/refreshProduct'
+import type { RouteHandler } from './routes/result'
+import { sendResult } from './routes/result'
 
 export interface RefreshHandlersDeps {
   db: QueryClient
@@ -34,7 +35,7 @@ export interface RefreshHandlers {
 }
 
 // Builds every handler that drives a browser refresh, with the shared lock,
-// pacer and job store behind them. server/index.ts maps each one to its route.
+// pacer and job store behind them. createRefreshRouter mounts them.
 export function createRefreshHandlers({ db, photos, logger, env, cache }: RefreshHandlersDeps): RefreshHandlers {
   // Shared across the single-listing and bulk product-refresh handlers -
   // this VPS can't run two concurrent Chromium instances (~2GB RAM), so
@@ -71,22 +72,37 @@ export function createRefreshHandlers({ db, photos, logger, env, cache }: Refres
   }
 }
 
-// The id-in-path form of the two body-driven refresh routes (POST /refresh with
-// { id }, POST /refresh-product with { productId }, which stay mounted as they
-// are), so the browser's /api/listings/:id/refresh and /api/products/:id/refresh
-// rewrite straight to the server with no body to build.
-export function createRefreshRouter(handlers: Pick<RefreshHandlers, 'refresh' | 'refreshProduct'>): Router {
+// Every refresh route, mounted by server/index.ts. The body-driven forms are
+// POST /refresh with { id } and POST /refresh-product with { productId }; the
+// id-in-path forms exist too, so the browser's /api/listings/:id/refresh and
+// /api/products/:id/refresh rewrite straight to the server with no body to
+// build. The job routes report and cancel the bulk job those two start.
+export function createRefreshRouter(handlers: RefreshHandlers): Router {
   const router = express.Router()
 
+  router.post('/refresh', async (req, res) => {
+    sendResult(res, await handlers.refresh(req.body ?? {}))
+  })
+
+  router.post('/refresh-product', async (req, res) => {
+    sendResult(res, await handlers.refreshProduct(req.body ?? {}))
+  })
+
   router.post('/listings/:id/refresh', async (req, res) => {
-    const result = await handlers.refresh({ id: req.params.id })
-    res.status(result.statusCode).json(result.body)
+    sendResult(res, await handlers.refresh({ id: req.params.id }))
   })
 
   // A non-numeric id becomes NaN, which the handler answers with its usual 400.
   router.post('/products/:id/refresh', async (req, res) => {
-    const result = await handlers.refreshProduct({ productId: Number(req.params.id) })
-    res.status(result.statusCode).json(result.body)
+    sendResult(res, await handlers.refreshProduct({ productId: Number(req.params.id) }))
+  })
+
+  router.get('/refresh-job', async (_req, res) => {
+    sendResult(res, await handlers.jobStatus({}))
+  })
+
+  router.post('/refresh-job/cancel', async (_req, res) => {
+    sendResult(res, await handlers.cancelJob({}))
   })
 
   return router

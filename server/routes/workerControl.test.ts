@@ -4,8 +4,8 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import request from 'supertest'
 import { createApp } from '../app'
-import { createWorkerControlHandler } from './workerControl'
-import type { RouteResult } from '../app'
+import { createWorkerControlHandler, createWorkerControlRouter } from './workerControl'
+import type { RouteResult } from './result'
 
 interface StatusBody {
   running: boolean
@@ -332,7 +332,7 @@ test(
     const app = createApp({
       apiKey: 'test-key',
       log: () => {},
-      routes: { 'POST /worker-control': createWorkerControlHandler(dir, deps) },
+      routers: [createWorkerControlRouter(dir, deps)],
     })
 
     const res = await request(app)
@@ -342,6 +342,22 @@ test(
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ running: false, lastRunErrored: false })
+    expect(deps.spawn).not.toHaveBeenCalled()
+    expect(deps.kill).not.toHaveBeenCalled()
+  }),
+)
+
+test(
+  'POST /worker-control through the app answers 401 without the bearer key and never touches a worker',
+  withTmpDir(async (dir) => {
+    const deps = fakeDeps()
+    const app = createApp({ apiKey: 'test-key', log: () => {}, routers: [createWorkerControlRouter(dir, deps)] })
+
+    // A 'start' would spawn if it ever reached the handler.
+    const res = await request(app).post('/worker-control').send({ worker: 'collect', action: 'start' })
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'unauthorized' })
     expect(deps.spawn).not.toHaveBeenCalled()
     expect(deps.kill).not.toHaveBeenCalled()
   }),

@@ -1,5 +1,5 @@
 import { isAuthCookieValid } from './auth'
-import { isServerRoute, serverRouteTarget } from './serverRoutes'
+import { resolveServerPath, SERVER_ROUTES, serverUrlFor } from './serverRoutes'
 
 // Pure routing decision behind src/proxy.ts: what to do with a request, from
 // plain data, so the auth order and the header allowlist are unit-testable
@@ -41,12 +41,14 @@ export function decideProxy({ pathname, search, authCookie, contentType, env }: 
     return { kind: 'login' }
   }
 
-  // Resolved against the real routes table, so a path no entry matches (an
-  // unmigrated /api sibling, a page) is never rewritten.
-  if (!isServerRoute(pathname)) return { kind: 'next' }
+  // Resolved against the real routes table once: a path no entry matches (an
+  // unmigrated /api sibling, a page) is never rewritten, and a match is not
+  // looked up a second time to build the target.
+  const serverPath = resolveServerPath(SERVER_ROUTES, pathname)
+  if (serverPath === null) return { kind: 'next' }
 
-  const target = env.REFRESH_SERVER_URL ? serverRouteTarget(pathname, search, env.REFRESH_SERVER_URL) : null
-  if (!target || !env.REFRESH_API_KEY) return { kind: 'unavailable', pathname }
+  if (!env.REFRESH_SERVER_URL || !env.REFRESH_API_KEY) return { kind: 'unavailable', pathname }
+  const target = serverUrlFor(serverPath, search, env.REFRESH_SERVER_URL)
 
   // Allowlist, not a copy of the browser's headers: the dashboard auth cookie
   // and anything else the client sent must not reach the VPS.
