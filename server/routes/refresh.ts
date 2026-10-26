@@ -87,7 +87,11 @@ export function createRefreshHandler(deps: RefreshDeps): RouteHandler {
     // After the pacer is released: the lookup must not hold up the next
     // queued refresh. A failed lookup only leaves the product's cached page to
     // its TTL, so it must not turn a finished refresh into an error.
-    cache.invalidate(`listing:${id}`, 'products-list')
+    // sold-listings too: this request is the only sold/alive listing write that
+    // runs in the server process, so it is the only one that can drop the
+    // catalog's sold counts (the scheduled check-listings worker writes from a
+    // detached child and leaves its own to the TTL - see catalog/routes.ts).
+    cache.invalidate(`listing:${id}`, 'products-list', 'sold-listings')
     const productId = await getListingProductId(db, id).catch(() => null)
     if (productId !== null) cache.invalidate(`product:${productId}`)
     return { statusCode: 200, body: { status } }

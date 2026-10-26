@@ -228,7 +228,7 @@ test('starts the job and returns immediately, then the background loop checks ev
   expect(lock.isBusy()).toBe(false)
 })
 
-test('a finished job drops the product and list caches once, and not before it ends', async () => {
+test('a finished job drops the product, list and sold-count caches once, and not before it ends', async () => {
   const logger = createLogger(LOG_PATH)
   const { factory, closed } = driverFactory(makeDriver({ getDetailHtml: async () => aliveHtml('a') }))
   const lock = createRefreshLock()
@@ -249,7 +249,7 @@ test('a finished job drops the product and list caches once, and not before it e
   expect(invalidated).toEqual([])
 
   await closed
-  expect(invalidated).toEqual([['products-list', 'product:42']])
+  expect(invalidated).toEqual([['products-list', 'product:42', 'sold-listings']])
 })
 
 test('cancellation requested after the first candidate stops the loop before the second', async () => {
@@ -389,5 +389,5 @@ test('an error mid-loop marks the job failed and still releases the lock', async
   expect(jobs.current()?.status).toBe('failed')
   expect(lock.isBusy()).toBe(false)
   // A failed job may still have written some listings before it stopped.
-  expect(invalidated).toEqual([['products-list', 'product:42']])
+  expect(invalidated).toEqual([['products-list', 'product:42', 'sold-listings']])
 })

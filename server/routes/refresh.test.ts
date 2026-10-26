@@ -191,7 +191,7 @@ test('opens the listing, runs checkOneListing, closes the driver, and returns it
 })
 
 // Only listing '1' exists in fakeDb, and its row has no product_id.
-test('a successful refresh drops the listing and list caches, plus the product cache when the listing has one', async () => {
+test('a successful refresh drops the listing, list and sold-count caches, plus the product cache when the listing has one', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
   const db: QueryClient = {
@@ -213,7 +213,7 @@ test('a successful refresh drops the listing and list caches, plus the product c
 
   await handle({ id: '1' })
 
-  expect(invalidated).toEqual([['listing:1', 'products-list'], ['product:7']])
+  expect(invalidated).toEqual([['listing:1', 'products-list', 'sold-listings'], ['product:7']])
 })
 
 test('a failing product lookup still answers the refresh result and keeps the listing and list invalidation', async () => {
@@ -239,10 +239,10 @@ test('a failing product lookup still answers the refresh result and keeps the li
   const result = await handle({ id: '1' })
 
   expect(result).toEqual({ statusCode: 200, body: { status: 'alive' } })
-  expect(invalidated).toEqual([['listing:1', 'products-list']])
+  expect(invalidated).toEqual([['listing:1', 'products-list', 'sold-listings']])
 })
 
-test('a successful refresh of a listing with no product drops only the listing and list caches', async () => {
+test('a successful refresh of a listing with no product drops only the listing, list and sold-count caches', async () => {
   const logger = createLogger(LOG_PATH)
   const driver = makeDriver({ getDetailHtml: async () => realListingDetailHtml })
   const handle = createRefreshHandler({
@@ -258,7 +258,7 @@ test('a successful refresh of a listing with no product drops only the listing a
 
   await handle({ id: '1' })
 
-  expect(invalidated).toEqual([['listing:1', 'products-list']])
+  expect(invalidated).toEqual([['listing:1', 'products-list', 'sold-listings']])
 })
 
 test('a failed refresh drops nothing', async () => {
