@@ -4,18 +4,6 @@ import type { ErrorRequestHandler, Express, RequestHandler, Router } from 'expre
 import { createRateLimiter } from './rateLimiter'
 import type { RateLimiter } from './rateLimiter'
 
-export interface RouteResult {
-  statusCode: number
-  body: unknown
-}
-
-export type RouteHandler = (body: unknown) => Promise<RouteResult>
-
-// Key format: "METHOD /path" (e.g. "POST /refresh"), matched exactly. Handlers
-// here are body-driven and have no path params; a feature that needs params
-// or a query string mounts an express Router (AppOptions.routers) instead.
-export type RouteTable = Record<string, RouteHandler>
-
 // Bearer token has no built-in lockout - without this, an internet-facing
 // port is an unlimited-attempt brute-force target (confirmed as a real gap
 // in the dashboard's own login route, 2026-08-24 - this server doesn't get
@@ -30,7 +18,6 @@ export interface AppOptions {
   apiKey: string
   // Where handler failures go (detail stays in the box's log, never the response).
   log: (msg: string) => void
-  routes?: RouteTable
   routers?: Router[]
   rateLimiter?: RateLimiter
 }
@@ -64,19 +51,6 @@ function authMiddleware(apiKey: string, rateLimiter: RateLimiter): RequestHandle
   }
 }
 
-function tableRouter(routes: RouteTable): Router {
-  const router = express.Router({ caseSensitive: true, strict: true })
-  for (const [key, handler] of Object.entries(routes)) {
-    const [method, path] = key.split(' ', 2)
-    router[method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete'](path, async (req, res) => {
-      // An empty body is {} - handlers read fields off it unconditionally.
-      const result = await handler(req.body ?? {})
-      res.status(result.statusCode).json(result.body)
-    })
-  }
-  return router
-}
-
 function errorMiddleware(log: (msg: string) => void): ErrorRequestHandler {
   return (err, req, res, _next) => {
     const type = (err as { type?: string }).type
@@ -92,12 +66,11 @@ function errorMiddleware(log: (msg: string) => void): ErrorRequestHandler {
 }
 
 // JSON-in/JSON-out express app: rate limit and bearer auth for every request,
-// then the legacy route table and any feature routers. New features mount a
-// Router; the table exists so existing handlers keep working unchanged.
+// then mount the routers server/index.ts builds - a module's routes.ts or a
+// route file in routes/. This file owns only what every route shares.
 export function createApp({
   apiKey,
   log,
-  routes = {},
   routers = [],
   rateLimiter = createRateLimiter(MAX_AUTH_FAILURES, AUTH_FAILURE_WINDOW_MS),
 }: AppOptions): Express {
@@ -109,7 +82,6 @@ export function createApp({
   app.use(authMiddleware(apiKey, rateLimiter))
   // type: always - the old server JSON.parsed any body regardless of content type.
   app.use(express.json({ limit: MAX_BODY_BYTES, type: () => true }))
-  app.use(tableRouter(routes))
   for (const router of routers) app.use(router)
   app.use((_req, res) => {
     res.status(404).json({ error: 'not found' })

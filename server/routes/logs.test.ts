@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import request from 'supertest'
 import { createApp } from '../app'
-import { createLogsHandler, MAX_READ_BYTES } from './logs'
-import type { RouteResult } from '../app'
+import { createLogsHandler, createLogsRouter, MAX_READ_BYTES } from './logs'
+import type { RouteResult } from './result'
 
 interface LogsBody {
   lines: string[]
@@ -141,7 +141,7 @@ test(
     const app = createApp({
       apiKey: 'test-key',
       log: () => {},
-      routes: { 'POST /logs': createLogsHandler(dir) },
+      routers: [createLogsRouter(dir)],
     })
 
     const res = await request(app).post('/logs').set('authorization', 'Bearer test-key').send({ worker: 'collect' })

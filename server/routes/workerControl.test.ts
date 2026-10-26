@@ -4,8 +4,8 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import request from 'supertest'
 import { createApp } from '../app'
-import { createWorkerControlHandler } from './workerControl'
-import type { RouteResult } from '../app'
+import { createWorkerControlHandler, createWorkerControlRouter } from './workerControl'
+import type { RouteResult } from './result'
 
 interface StatusBody {
   running: boolean
@@ -332,7 +332,7 @@ test(
     const app = createApp({
       apiKey: 'test-key',
       log: () => {},
-      routes: { 'POST /worker-control': createWorkerControlHandler(dir, deps) },
+      routers: [createWorkerControlRouter(dir, deps)],
     })
 
     const res = await request(app)

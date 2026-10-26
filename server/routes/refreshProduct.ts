@@ -1,6 +1,6 @@
 import { getListingCheckCandidatesForProduct } from '../../src/modules/collection'
 import { checkOneListing } from '../../src/modules/collection'
-import type { RouteHandler, RouteResult } from '../app'
+import type { RouteHandler, RouteResult } from './result'
 import type { RefreshLock } from '../refreshLock'
 import type { RefreshDeps } from './refresh'
 import type { JobStore } from '../jobState'
