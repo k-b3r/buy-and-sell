@@ -360,6 +360,22 @@ _(undocumented)_
 
 _(undocumented)_
 
+## src/modules/collection/app/page-reader.ts
+
+**Interactions:** imports `../domain/extract-detail`, `../domain/extract-grid`, `../domain/paginate`
+
+### `readGridPage(html: string): GridPage`
+
+_(undocumented)_
+
+### `readNextPage(json: string): NextPage | null`
+
+_(undocumented)_
+
+### `readDetailFields(html: string): Record<string, unknown>`
+
+_(undocumented)_
+
 ## src/modules/collection/app/page-state.ts
 
 **Interactions:** imports `../domain/extract-detail`, `../domain/wall`, `../types`
@@ -604,27 +620,15 @@ _(undocumented)_
 
 _(undocumented)_
 
-### `extractGridListings(html: string): GridListing[]`
+### `readDetailFields(html: string): Record<string, unknown>`
 
 _(undocumented)_
 
-### `looksLikeListing(obj: unknown): obj is Record<string, unknown>`
+### `readGridPage(html: string): GridPage`
 
 _(undocumented)_
 
-### `extractDetailFields(html: string): Record<string, unknown>`
-
-_(undocumented)_
-
-### `extractCursor(html: string): PageCursor | null`
-
-_(undocumented)_
-
-### `extractLsd(html: string): string | null`
-
-_(undocumented)_
-
-### `parsePaginationResponse(json: string): PaginationPage | null`
+### `readNextPage(json: string): NextPage | null`
 
 _(undocumented)_
 
