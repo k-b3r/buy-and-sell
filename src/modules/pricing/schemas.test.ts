@@ -1,3 +1,4 @@
+import { positiveIntIdSchema } from '../../platform/positive-int-id'
 import {
   dealsQuerySchema,
   excludedProductsQuerySchema,
@@ -49,6 +50,13 @@ test('notificationIdParamSchema accepts a positive integer string only', () => {
   for (const raw of ['0', '-1', '1.5', 'abc', '']) {
     expect(notificationIdParamSchema.safeParse(raw).success).toBe(false)
   }
+})
+
+test('notificationIdParamSchema is the shared positive-integer id schema and keeps its 400 body', () => {
+  expect(notificationIdParamSchema).toBe(positiveIntIdSchema)
+
+  const result = notificationIdParamSchema.safeParse('0')
+  expect(result.error?.issues[0].message).toBe('id must be a positive integer')
 })
 
 test('dealsQuerySchema defaults to no filters and offset 0', () => {

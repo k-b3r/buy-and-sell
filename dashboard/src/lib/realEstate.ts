@@ -1,6 +1,15 @@
-import type { RealEstateFilters, RealEstateListing } from './shared.generated'
+import {
+  REAL_ESTATE_PAGE_SIZE,
+  REAL_ESTATE_PROPERTY_TYPES,
+  REAL_ESTATE_SORTS,
+  type RealEstateFilters,
+  type RealEstateListing,
+} from './shared.generated'
 
-// Types-only import from the generated shared file, so this module is safe in client components.
+// The generated shared file is plain types and constants with no imports, so
+// this module is safe in client components. The page size, property types and
+// sorts come from src/modules/real-estate; only the params-to-filters mapping
+// and the display labels are the dashboard's own.
 
 export const NCR_AREAS = [
   'Caloocan',
@@ -30,9 +39,6 @@ export const PROPERTY_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
-export const REAL_ESTATE_PAGE_SIZE = 30
-
-const SORTS = ['newest', 'price_asc', 'price_desc', 'ppsqm_asc'] as const
 const TEXT_FILTERS = ['area', 'project'] as const
 // URL param -> filter field.
 const NUMBER_FILTERS = [
@@ -62,7 +68,8 @@ export function parseRealEstateFilters(params: Record<string, string | undefined
     offset: (page - 1) * REAL_ESTATE_PAGE_SIZE,
   }
   if (params.kind === 'sale' || params.kind === 'rent') filters.listingType = params.kind
-  if (params.type && params.type in PROPERTY_TYPE_LABELS) filters.propertyType = params.type
+  if (params.type && (REAL_ESTATE_PROPERTY_TYPES as readonly string[]).includes(params.type))
+    filters.propertyType = params.type
   for (const key of TEXT_FILTERS) {
     const text = params[key]?.trim()
     if (text) filters[key] = text
@@ -71,7 +78,7 @@ export function parseRealEstateFilters(params: Record<string, string | undefined
     const n = positiveNumber(params[param])
     if (n !== undefined) filters[key] = n
   }
-  if (params.sort && (SORTS as readonly string[]).includes(params.sort))
+  if (params.sort && (REAL_ESTATE_SORTS as readonly string[]).includes(params.sort))
     filters.sort = params.sort as RealEstateFilters['sort']
   if (params.view === 'review') filters.view = 'review'
   if (params.rooms === '1') filters.includeRoomShares = true

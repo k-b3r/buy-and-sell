@@ -2,7 +2,8 @@ import express from 'express'
 import type { Router } from 'express'
 import type { DbClient } from '../../platform/storage'
 import { getRealEstateListings } from './store/listings'
-import { REAL_ESTATE_PAGE_SIZE, realEstateQuerySchema } from './schemas'
+import { REAL_ESTATE_PAGE_SIZE } from './domain/filters'
+import { realEstateQuerySchema } from './schemas'
 
 // HTTP edge of the real-estate feature, mounted by server/index.ts only (the
 // module's index.ts does not export it, so workers never load express).

@@ -1,7 +1,7 @@
 import express from 'express'
 import request from 'supertest'
 import { createRealEstateRouter } from './routes'
-import { REAL_ESTATE_PAGE_SIZE } from './schemas'
+import { REAL_ESTATE_PAGE_SIZE } from './domain/filters'
 
 function fakeDb(rows: Record<string, unknown>[] = []) {
   const calls: { sql: string; params: unknown[] }[] = []

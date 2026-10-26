@@ -2,7 +2,9 @@ import type { DbClient } from '../../../platform/storage'
 import type { RealEstateFilters, RealEstateListing } from '../types'
 import { resolvePhotoUrls, toIsoOrNull, toNullableNumber } from '../../../platform/rows'
 
-const REAL_ESTATE_SORTS: Record<NonNullable<RealEstateFilters['sort']>, string> = {
+// Sort key -> ORDER BY fragment, so the sort is a whitelist lookup and never
+// interpolated user input. The keys are REAL_ESTATE_SORTS in domain/filters.ts.
+const ORDER_BY_SQL: Record<NonNullable<RealEstateFilters['sort']>, string> = {
   newest: 'COALESCE(x.listed_at, x.first_seen_at) DESC',
   price_asc: 'x.price_php ASC NULLS LAST',
   price_desc: 'x.price_php DESC NULLS LAST',
@@ -44,7 +46,7 @@ export async function getRealEstateListings(
 
   const limit = Math.min(Math.max(filters.limit ?? 30, 1), REAL_ESTATE_MAX_LIMIT)
   const offset = Math.max(filters.offset ?? 0, 0)
-  const orderBySql = REAL_ESTATE_SORTS[filters.sort ?? 'newest'] ?? REAL_ESTATE_SORTS.newest
+  const orderBySql = ORDER_BY_SQL[filters.sort ?? 'newest'] ?? ORDER_BY_SQL.newest
   const whereSql = where.join(' AND ')
   params.push(limit, offset)
 

@@ -1,4 +1,5 @@
-import { REAL_ESTATE_PAGE_SIZE, realEstateQuerySchema } from './schemas'
+import { REAL_ESTATE_PAGE_SIZE } from './domain/filters'
+import { realEstateQuerySchema } from './schemas'
 
 function parse(input: unknown) {
   const result = realEstateQuerySchema.safeParse(input)

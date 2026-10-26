@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { getRealEstateListings } from '@/lib/queries'
-import {
-  NCR_AREAS,
-  PROPERTY_TYPE_LABELS,
-  REAL_ESTATE_PAGE_SIZE,
-  parseRealEstateFilters,
-  realEstatePageQuery,
-} from '@/lib/realEstate'
+import { REAL_ESTATE_PAGE_SIZE } from '@/lib/shared.generated'
+import { NCR_AREAS, PROPERTY_TYPE_LABELS, parseRealEstateFilters, realEstatePageQuery } from '@/lib/realEstate'
 import RealEstateGrid from './RealEstateGrid'
 
 // Live data, same reasoning as deals/page.tsx: prerendering would pin it to
