@@ -1,10 +1,7 @@
 import { z } from 'zod'
 import type { RealEstateFilters } from './types'
+import { REAL_ESTATE_PAGE_SIZE, REAL_ESTATE_PROPERTY_TYPES, REAL_ESTATE_SORTS } from './domain/filters'
 
-export const REAL_ESTATE_PAGE_SIZE = 30
-
-const PROPERTY_TYPES = ['house_and_lot', 'condo', 'land', 'commercial', 'other']
-const SORTS = ['newest', 'price_asc', 'price_desc', 'ppsqm_asc'] as const
 const TEXT_FILTERS = ['area', 'project'] as const
 // URL param -> filter field.
 const NUMBER_FILTERS = [
@@ -63,9 +60,10 @@ export const realEstateQuerySchema = z
       offset: (page - 1) * REAL_ESTATE_PAGE_SIZE,
     }
     if (q.kind === 'sale' || q.kind === 'rent') filters.listingType = q.kind
-    if (q.type && PROPERTY_TYPES.includes(q.type)) filters.propertyType = q.type
+    if (q.type && (REAL_ESTATE_PROPERTY_TYPES as readonly string[]).includes(q.type)) filters.propertyType = q.type
     applyTextAndNumberFilters(q, filters)
-    if (q.sort && (SORTS as readonly string[]).includes(q.sort)) filters.sort = q.sort as RealEstateFilters['sort']
+    if (q.sort && (REAL_ESTATE_SORTS as readonly string[]).includes(q.sort))
+      filters.sort = q.sort as RealEstateFilters['sort']
     if (q.view === 'review') filters.view = 'review'
     if (q.rooms === '1') filters.includeRoomShares = true
     return { filters, page }

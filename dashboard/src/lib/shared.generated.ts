@@ -11,12 +11,14 @@ export interface RealEstateFilters {
   minPrice?: number
   maxPrice?: number
   minSqm?: number
-  sort?: 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
+  sort?: RealEstateSort
   view?: 'main' | 'review'
   includeRoomShares?: boolean
   limit?: number
   offset?: number
 }
+
+export type RealEstateSort = 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
 
 export interface RealEstateListing {
   id: string
@@ -40,6 +42,25 @@ export interface RealEstateListing {
   price_per_sqm: number | null
   needs_review: boolean
 }
+
+export const REAL_ESTATE_PAGE_SIZE = 30
+
+export const REAL_ESTATE_PROPERTY_TYPES = [
+  'house_and_lot',
+  'condo',
+  'land',
+  'commercial',
+  'other',
+] as const satisfies readonly PropertyType[]
+
+export type PropertyType = 'house_and_lot' | 'condo' | 'land' | 'commercial' | 'other'
+
+export const REAL_ESTATE_SORTS = [
+  'newest',
+  'price_asc',
+  'price_desc',
+  'ppsqm_asc',
+] as const satisfies readonly RealEstateSort[]
 
 // From src/modules/catalog/index.ts
 
