@@ -1,6 +1,6 @@
 import type { Logger } from '../../platform/logger'
 import type { GroqClient } from '../../platform/llm-clients'
-import { QuotaExhaustedError, RetriesExhaustedError, withRetry } from '../../platform/llm-clients'
+import { callJson, failureText } from '../../platform/llm-clients'
 import type { DbClient } from '../../platform/storage'
 import type { DelayFn } from '../../platform/delay'
 import { realDelay } from '../../platform/delay'
@@ -67,26 +67,19 @@ async function requestEnrichment(
   label: string,
   { maxAttempts = DEFAULT_MAX_ATTEMPTS, retryDelayMs = DEFAULT_RETRY_DELAY_MS }: EnrichmentOptions,
 ): Promise<EnrichmentResponse> {
-  try {
-    const raw = (await withRetry(() => groq.generateJson(prompt, ENRICHMENT_RESPONSE_SCHEMA), {
-      provider: 'Groq',
-      label,
-      maxAttempts,
-      retryDelayMs,
-      delay,
-      logger,
-    })) as { results?: unknown } | undefined
-    return { stop: false, raw }
-  } catch (err) {
-    if (err instanceof QuotaExhaustedError) {
-      logger.error(`${label}: Groq quota exhausted (${err.message}), stopping run`)
-    } else if (err instanceof RetriesExhaustedError) {
-      logger.error(`${label}: Groq request failed after ${maxAttempts} attempts (${err.message}), stopping run`)
-    } else {
-      throw err
-    }
+  const attempt = await callJson(groq, prompt, ENRICHMENT_RESPONSE_SCHEMA, {
+    provider: 'Groq',
+    label,
+    maxAttempts,
+    retryDelayMs,
+    delay,
+    logger,
+  })
+  if (!attempt.ok) {
+    logger.error(`${label}: Groq ${failureText(attempt)} (${attempt.message}), stopping run`)
     return { stop: true }
   }
+  return { stop: false, raw: attempt.raw as { results?: unknown } | undefined }
 }
 
 async function saveEnrichments(
