@@ -9,8 +9,10 @@ REMOTE_DIR=/home/scraper/buy-and-sell-ai
 
 # Mirrors server/routes/workerControl.ts's WORKER_PID_FILES keys - kept in
 # sync by hand, same tradeoff as the dashboard's own WORKERS array (no
-# shared import path between this script and the TS source).
-WORKERS="collect check-listings extract-products enrich-products price-lookup enrich-listing-prices verify-discount-notifications"
+# shared import path between this script and the TS source). A worker missing
+# here is killed by the restart below and never started again -
+# tests/deploy-workers.test.ts fails when this list drifts.
+WORKERS="collect check-listings extract-products enrich-products price-lookup enrich-listing-prices extract-real-estate verify-discount-notifications"
 
 # No trailing slash on src/server - keeps them as named subdirs at the
 # destination instead of dumping their contents into REMOTE_DIR directly.
