@@ -1,41 +1,50 @@
 import { expect, test } from 'vitest'
-import { isServerRoute, resolveServerPath, serverRouteTarget } from './serverRoutes'
+import { resolveServerPath, SERVER_ROUTES, serverUrlFor } from './serverRoutes'
 
 const BASE = 'https://vps.test'
 
-test('serverRouteTarget maps a migrated /api path to the same path on the server, minus /api', () => {
-  expect(serverRouteTarget('/api/settings', '', BASE)?.toString()).toBe('https://vps.test/settings')
-  expect(serverRouteTarget('/api/collect-keywords', '', BASE)?.toString()).toBe('https://vps.test/collect-keywords')
+// The proxy's own two steps, in order: match the path once, then build the
+// server URL from that one match.
+function target(pathname: string, search = '') {
+  const serverPath = resolveServerPath(SERVER_ROUTES, pathname)
+  return serverPath === null ? null : serverUrlFor(serverPath, search, BASE).toString()
+}
+
+function isServerRoute(pathname: string) {
+  return resolveServerPath(SERVER_ROUTES, pathname) !== null
+}
+
+test('a migrated /api path maps to the same path on the server, minus /api', () => {
+  expect(target('/api/settings')).toBe('https://vps.test/settings')
+  expect(target('/api/collect-keywords')).toBe('https://vps.test/collect-keywords')
 })
 
-test('serverRouteTarget sends /api/real-estate to the server with its filters intact', () => {
-  expect(serverRouteTarget('/api/real-estate', '?kind=sale&page=2', BASE)?.toString()).toBe(
-    'https://vps.test/real-estate?kind=sale&page=2',
-  )
+test('/api/real-estate goes to the server with its filters intact', () => {
+  expect(target('/api/real-estate', '?kind=sale&page=2')).toBe('https://vps.test/real-estate?kind=sale&page=2')
 })
 
-test('serverRouteTarget keeps the query string', () => {
-  expect(serverRouteTarget('/api/settings', '?a=1', BASE)?.toString()).toBe('https://vps.test/settings?a=1')
+test('the query string is kept', () => {
+  expect(target('/api/settings', '?a=1')).toBe('https://vps.test/settings?a=1')
 })
 
-test('serverRouteTarget returns null for paths still served by Next handlers', () => {
-  expect(serverRouteTarget('/api/login', '', BASE)).toBeNull()
-  expect(serverRouteTarget('/api/listings/123', '', BASE)).toBeNull()
-  expect(serverRouteTarget('/admin/settings', '', BASE)).toBeNull()
+test('paths still served by Next handlers resolve to nothing', () => {
+  expect(target('/api/login')).toBeNull()
+  expect(target('/api/listings/123')).toBeNull()
+  expect(target('/admin/settings')).toBeNull()
 })
 
-test('serverRouteTarget does not match a path that only shares a prefix', () => {
-  expect(serverRouteTarget('/api/settings-old', '', BASE)).toBeNull()
+test('a path that only shares a prefix does not match', () => {
+  expect(target('/api/settings-old')).toBeNull()
 })
 
-test('isServerRoute is true for migrated exact paths only, not their subpaths', () => {
+test('only migrated exact paths match, not their subpaths', () => {
   expect(isServerRoute('/api/settings')).toBe(true)
   expect(isServerRoute('/api/settings/x')).toBe(false)
   expect(isServerRoute('/api/listings/123/refresh/x')).toBe(false)
 })
 
-test('serverRouteTarget tolerates a trailing slash on the base url', () => {
-  expect(serverRouteTarget('/api/settings', '', 'https://vps.test/')?.toString()).toBe('https://vps.test/settings')
+test('serverUrlFor tolerates a trailing slash on the base url', () => {
+  expect(serverUrlFor('/settings', '', 'https://vps.test/').toString()).toBe('https://vps.test/settings')
 })
 
 const ROUTES = [
@@ -72,31 +81,25 @@ test('resolveServerPath uses the per-entry server path, filling in its params', 
 })
 
 test('the catalog routes resolve to their server paths and leave their unmigrated siblings to Next', () => {
-  expect(serverRouteTarget('/api/products', '?q=iphone&offset=30', BASE)?.toString()).toBe(
-    'https://vps.test/products?q=iphone&offset=30',
-  )
-  expect(serverRouteTarget('/api/products/42/listings', '?sort=price_asc', BASE)?.toString()).toBe(
+  expect(target('/api/products', '?q=iphone&offset=30')).toBe('https://vps.test/products?q=iphone&offset=30')
+  expect(target('/api/products/42/listings', '?sort=price_asc')).toBe(
     'https://vps.test/products/42/listings?sort=price_asc',
   )
-  expect(serverRouteTarget('/api/products/42/mark-reviewed', '', BASE)?.toString()).toBe(
-    'https://vps.test/products/42/mark-reviewed',
-  )
+  expect(target('/api/products/42/mark-reviewed')).toBe('https://vps.test/products/42/mark-reviewed')
   expect(isServerRoute('/api/products/42')).toBe(false)
 })
 
-test('serverRouteTarget sends the listing save toggle to the server, keeping the productId query', () => {
-  expect(serverRouteTarget('/api/listings/123/save', '?productId=7', BASE)?.toString()).toBe(
-    'https://vps.test/listings/123/save?productId=7',
-  )
+test('the listing save toggle goes to the server, keeping the productId query', () => {
+  expect(target('/api/listings/123/save', '?productId=7')).toBe('https://vps.test/listings/123/save?productId=7')
 })
 
-test('isServerRoute matches the listing save and refresh toggles but not the listing itself', () => {
+test('the listing save and refresh toggles match, but not the listing itself', () => {
   expect(isServerRoute('/api/listings/123/save')).toBe(true)
   expect(isServerRoute('/api/listings/123/refresh')).toBe(true)
   expect(isServerRoute('/api/listings/123')).toBe(false)
 })
 
-test('serverRouteTarget sends the refresh, job, logs and worker-control paths to the same path on the server', () => {
+test('the refresh, job, logs and worker-control paths go to the same path on the server', () => {
   for (const path of [
     '/api/listings/123/refresh',
     '/api/products/42/refresh',
@@ -105,25 +108,19 @@ test('serverRouteTarget sends the refresh, job, logs and worker-control paths to
     '/api/logs',
     '/api/worker-control',
   ]) {
-    expect(serverRouteTarget(path, '', BASE)?.toString()).toBe(`https://vps.test${path.slice('/api'.length)}`)
+    expect(target(path)).toBe(`https://vps.test${path.slice('/api'.length)}`)
   }
 })
 
 test('the pricing routes resolve to their server paths, bodies and all', () => {
-  expect(serverRouteTarget('/api/deals', '?minTier=sold_comps&offset=30', BASE)?.toString()).toBe(
+  expect(target('/api/deals', '?minTier=sold_comps&offset=30')).toBe(
     'https://vps.test/deals?minTier=sold_comps&offset=30',
   )
-  expect(serverRouteTarget('/api/notifications', '', BASE)?.toString()).toBe('https://vps.test/notifications')
-  expect(serverRouteTarget('/api/notifications/9/read', '', BASE)?.toString()).toBe(
-    'https://vps.test/notifications/9/read',
-  )
-  expect(serverRouteTarget('/api/notifications/mark-all-read', '', BASE)?.toString()).toBe(
-    'https://vps.test/notifications/mark-all-read',
-  )
+  expect(target('/api/notifications')).toBe('https://vps.test/notifications')
+  expect(target('/api/notifications/9/read')).toBe('https://vps.test/notifications/9/read')
+  expect(target('/api/notifications/mark-all-read')).toBe('https://vps.test/notifications/mark-all-read')
   for (const action of ['exclude', 'include', 'manual-price']) {
-    expect(serverRouteTarget(`/api/products/42/${action}`, '', BASE)?.toString()).toBe(
-      `https://vps.test/products/42/${action}`,
-    )
+    expect(target(`/api/products/42/${action}`)).toBe(`https://vps.test/products/42/${action}`)
   }
 })
 
