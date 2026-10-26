@@ -43,6 +43,34 @@ test('getCollectedListingIds returns every listing id as a Set, for dedup during
   expect([...result]).toEqual(['1', '2'])
 })
 
+// The column list and the staleness ordering are shared fragments (see
+// store/listings.ts): this pins the interpolated text of every check-candidate
+// query, so editing a fragment has to show up here as a deliberate change to
+// each query it reaches, not as a silent one.
+test('every check-candidate query keeps its exact SQL text', async () => {
+  const sqls: string[] = []
+  const db: DbClient = {
+    query: async (sql: string) => {
+      sqls.push(sql)
+      return { rows: [] }
+    },
+  }
+
+  await getCheckListingsCandidates(db, 50)
+  await getCheckListingsCandidates(db, 50, 7)
+  await getDealCheckCandidates(db, ['a'], 6)
+  await getListingCheckCandidatesForProduct(db, 42)
+  await getListingCheckCandidate(db, '123')
+
+  expect(sqls).toEqual([
+    'SELECT id, flagged_removed_at, source_photo_ids FROM listings\n         WHERE sold_at IS NULL\n         ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST\n         LIMIT $1',
+    "SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l\n         LEFT JOIN products p ON p.id = l.product_id\n         LEFT JOIN categories c ON c.id = p.category_id\n         WHERE l.sold_at IS NULL\n           AND NOT COALESCE(c.name = 'Real Estate' AND l.last_checked_at > now() - make_interval(days => $2), false)\n         ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST\n         LIMIT $1",
+    'SELECT id, flagged_removed_at, source_photo_ids FROM listings\n     WHERE id = ANY($1)\n       AND sold_at IS NULL\n       AND (last_checked_at IS NULL OR last_checked_at < now() - make_interval(hours => $2))\n     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST',
+    'SELECT id, flagged_removed_at, source_photo_ids FROM listings\n     WHERE product_id = $1\n     AND sold_at IS NULL\n     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST',
+    'SELECT id, flagged_removed_at, source_photo_ids FROM listings WHERE id = $1',
+  ])
+})
+
 test('getCheckListingsCandidates orders by last_checked_at then listed_at, oldest/never-checked first', async () => {
   const calls: { sql: string; params: unknown[] }[] = []
   const db = {
