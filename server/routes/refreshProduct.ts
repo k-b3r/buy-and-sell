@@ -105,8 +105,9 @@ export function createRefreshProductHandler(deps: RefreshProductDeps): RouteHand
         // A finished, failed or cancelled job may all have written listings,
         // so the product's cached page and the list drop the stale entries
         // here, where the job state lives (the dashboard used to do this on
-        // the poll that saw the final status).
-        cache.invalidate('products-list', `product:${productId}`)
+        // the poll that saw the final status). sold-listings for the same
+        // reason as routes/refresh.ts: a checked listing can turn sold or back.
+        cache.invalidate('products-list', `product:${productId}`, 'sold-listings')
         await close?.()
       }
     })()

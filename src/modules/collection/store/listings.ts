@@ -128,11 +128,24 @@ export interface CheckListingsCandidate {
   source_photo_ids: string[] | null
 }
 
+// Every check-candidate read selects these three columns and orders them the
+// same way, so both are spelled out once here. `alias` is whatever alias the
+// query gives listings ('l.' in the one query that joins products), so each
+// query still renders exactly the text it would have written by hand.
+function candidateColumnsSql(alias = ''): string {
+  return `${alias}id, ${alias}flagged_removed_at, ${alias}source_photo_ids`
+}
+
 // Never-checked listings (NULLS FIRST) all come before any re-check cycle —
 // the first full pass works through the backlog before anything repeats.
 // Within that, oldest by the seller's actual FB posting date (listed_at)
 // goes first: the longer something's been posted, the likelier it's already
 // sold/removed, so checking those first finds genuinely-stale listings fastest.
+function staleFirstSql(alias = ''): string {
+  return `${alias}last_checked_at ASC NULLS FIRST, ${alias}listed_at ASC NULLS LAST`
+}
+
+// The backlog slice, stalest first (see staleFirstSql).
 export async function getCheckListingsCandidates(
   db: DbClient,
   limit: number,
@@ -146,19 +159,19 @@ export async function getCheckListingsCandidates(
   const result = (
     reRecheckMinDays > 0
       ? await db.query(
-          `SELECT l.id, l.flagged_removed_at, l.source_photo_ids FROM listings l
+          `SELECT ${candidateColumnsSql('l.')} FROM listings l
          LEFT JOIN products p ON p.id = l.product_id
          LEFT JOIN categories c ON c.id = p.category_id
          WHERE l.sold_at IS NULL
            AND NOT COALESCE(c.name = 'Real Estate' AND l.last_checked_at > now() - make_interval(days => $2), false)
-         ORDER BY l.last_checked_at ASC NULLS FIRST, l.listed_at ASC NULLS LAST
+         ORDER BY ${staleFirstSql('l.')}
          LIMIT $1`,
           [limit, reRecheckMinDays],
         )
       : await db.query(
-          `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+          `SELECT ${candidateColumnsSql()} FROM listings
          WHERE sold_at IS NULL
-         ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST
+         ORDER BY ${staleFirstSql()}
          LIMIT $1`,
           [limit],
         )
@@ -178,11 +191,11 @@ export async function getDealCheckCandidates(
 ): Promise<CheckListingsCandidate[]> {
   if (ids.length === 0) return []
   const result = (await db.query(
-    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+    `SELECT ${candidateColumnsSql()} FROM listings
      WHERE id = ANY($1)
        AND sold_at IS NULL
        AND (last_checked_at IS NULL OR last_checked_at < now() - make_interval(hours => $2))
-     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
+     ORDER BY ${staleFirstSql()}`,
     [ids, minHoursSinceCheck],
   )) as { rows: CheckListingsCandidate[] }
   return result.rows
@@ -198,10 +211,10 @@ export async function getListingCheckCandidatesForProduct(
   productId: number,
 ): Promise<CheckListingsCandidate[]> {
   const result = (await db.query(
-    `SELECT id, flagged_removed_at, source_photo_ids FROM listings
+    `SELECT ${candidateColumnsSql()} FROM listings
      WHERE product_id = $1
      AND sold_at IS NULL
-     ORDER BY last_checked_at ASC NULLS FIRST, listed_at ASC NULLS LAST`,
+     ORDER BY ${staleFirstSql()}`,
     [productId],
   )) as { rows: CheckListingsCandidate[] }
   return result.rows
@@ -214,9 +227,9 @@ export async function getListingCheckCandidatesForProduct(
 // filter on sold_at IS NULL - a sold listing can still be manually refreshed
 // (e.g. to double-check it wasn't a false positive).
 export async function getListingCheckCandidate(db: DbClient, id: string): Promise<CheckListingsCandidate | null> {
-  const result = (await db.query(`SELECT id, flagged_removed_at, source_photo_ids FROM listings WHERE id = $1`, [
-    id,
-  ])) as { rows: CheckListingsCandidate[] }
+  const result = (await db.query(`SELECT ${candidateColumnsSql()} FROM listings WHERE id = $1`, [id])) as {
+    rows: CheckListingsCandidate[]
+  }
   return result.rows[0] ?? null
 }
 

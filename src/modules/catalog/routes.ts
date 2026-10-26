@@ -78,12 +78,21 @@ export function createCatalogRouter(db: QueryClient, cache: RouteCache): Router 
     res.json({ ok: true })
   })
 
-  // Static (categories.parent_id seeding), no per-user input: tagged only so
-  // a re-seed can bust it.
+  // Nothing drops the categories tag, on purpose: the only writer of the
+  // categories table is db/schema.sql (a psql re-seed from outside this
+  // process), so an invalidate call anywhere in the server would never fire.
+  // A re-seed shows up within the 300 s TTL, the same bound the dashboard's
+  // unstable_cache gave it.
   router.get('/categories/tree', async (_req, res) => {
     res.json({ tree: await cache.wrap('sub-category-tree', ['categories'], () => getSubCategoryTree(db)) })
   })
 
+  // sold-listings is dropped by the two refresh handlers in server/routes/:
+  // they re-check one listing (or a product's listings) inside this process,
+  // which is what marks a listing sold or alive. The scheduled check-listings
+  // worker writes the same columns from a detached child process, and that
+  // write cannot reach this in-memory cache - those stay bounded by the 300 s
+  // TTL (see server/cache.ts).
   router.get('/categories/sold-counts', async (_req, res) => {
     const categories = await cache.wrap('sold-counts-by-sub-category', ['sold-listings'], () =>
       getSoldCountsBySubCategory(db),

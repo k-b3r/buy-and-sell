@@ -1,14 +1,11 @@
-import type { GridListing, ListingPhotos, PageIo } from '../../modules/collection'
+import type { GridListing, GridPage, ListingPhotos, PageIo } from '../../modules/collection'
 import {
-  extractCursor,
-  extractDetailFields,
-  extractGridListings,
-  extractLsd,
   getCollectedListingIds,
   isWithinServiceArea,
-  looksLikeListing,
   MAX_SERVICE_RADIUS_KM,
-  parsePaginationResponse,
+  readDetailFields,
+  readGridPage,
+  readNextPage,
   resolveDetailPage,
   resolvePageState,
   upsertListing,
@@ -62,12 +59,6 @@ function takeUnseen(listings: GridListing[], seen: Set<string>): GridListing[] {
   })
 }
 
-// Splits pagination nodes into new listings and a count of nodes that don't look like one.
-function selectPageListings(nodes: unknown[], seen: Set<string>): { newItems: GridListing[]; skipped: number } {
-  const listings = nodes.filter(looksLikeListing) as unknown as GridListing[]
-  return { newItems: takeUnseen(listings, seen), skipped: nodes.length - listings.length }
-}
-
 // maxItems is new-items-to-collect-this-run, not a lifetime total. Already-saved
 // IDs (from any prior run, any query, any machine — Postgres is shared) are
 // skipped via dedup regardless, so re-running the same command after a
@@ -90,7 +81,7 @@ async function processListing(ctx: RunContext, listing: GridListing): Promise<Ba
   const detailResult = await resolveDetailPage(io, options.softWallTimeoutMs)
   if (detailResult.status === 'stop') return 'stop'
 
-  const merged: Record<string, unknown> = { ...listing, ...extractDetailFields(detailResult.html) }
+  const merged: Record<string, unknown> = { ...listing, ...readDetailFields(detailResult.html) }
   if (!isWithinServiceArea(merged)) {
     logger.info(`rejected listing ${merged.id}: outside ${MAX_SERVICE_RADIUS_KM}km Manila service area`)
     return 'continue'
@@ -128,11 +119,11 @@ async function processBatch(ctx: RunContext, items: GridListing[]): Promise<Batc
 // Fetches pages after the grid until maxItems new listings are processed, the
 // feed ends, or a guard trips (page cap, missing token, unknown shape, too
 // many empty pages in a row). 'stop' only when a listing step stopped the run.
-async function paginate(ctx: RunContext, gridHtml: string, processedSoFar: number): Promise<BatchOutcome> {
+async function paginate(ctx: RunContext, grid: GridPage, processedSoFar: number): Promise<BatchOutcome> {
   const { io, options, maxItems } = ctx
   const { driver, logger } = io
   let processedCount = processedSoFar
-  let cursor = extractCursor(gridHtml)
+  let cursor = grid.cursor
   let hasNextPage = true
   let pageCount = 0
   let consecutiveEmptyPages = 0
@@ -142,19 +133,18 @@ async function paginate(ctx: RunContext, gridHtml: string, processedSoFar: numbe
       logger.warn('pagination page limit reached, stopping')
       return 'continue'
     }
-    const lsd = extractLsd(gridHtml)
-    if (!lsd) {
+    if (!grid.lsd) {
       logger.error('no lsd token found for pagination, stopping')
       return 'continue'
     }
     await driver.waitRandom(ctx.pacingMinMs, ctx.pacingMaxMs)
-    const page = parsePaginationResponse(await driver.fetchNextPage(cursor, lsd, options.query))
+    const page = readNextPage(await driver.fetchNextPage(cursor, grid.lsd, options.query))
     if (!page) {
       logger.error('unrecognized pagination response shape, failing closed and stopping pagination')
       return 'continue'
     }
-    const { newItems, skipped } = selectPageListings(page.nodes, ctx.seen)
-    if (skipped > 0) logger.info(`skipped ${skipped} pagination nodes with unrecognized shape`)
+    if (page.skipped > 0) logger.info(`skipped ${page.skipped} pagination nodes with unrecognized shape`)
+    const newItems = takeUnseen(page.listings, ctx.seen)
     newItems.length = Math.min(newItems.length, maxItems - processedCount)
     logger.info(
       `page ${cursor.pg} -> ${page.nextCursor?.pg ?? '?'}: ${newItems.length} new listings (${processedCount + newItems.length}/${maxItems} total)`,
@@ -187,14 +177,15 @@ export async function runCollection(io: CollectionRunIo, options: RunOptions): P
 
   const gridResult = await resolvePageState(
     io,
-    { fetchHtml: () => driver.getGridHtml(), hasContent: (html) => extractGridListings(html).length > 0 },
+    { fetchHtml: () => driver.getGridHtml(), hasContent: (html) => readGridPage(html).listings.length > 0 },
     options.softWallTimeoutMs,
   )
   if (gridResult.status === 'stop') return
 
+  const grid = readGridPage(gridResult.html)
   const persistedIds = await getCollectedListingIds(db)
   const seen = new Set<string>(persistedIds)
-  const rawGridListings = extractGridListings(gridResult.html)
+  const rawGridListings = grid.listings
   const alreadyCollected = rawGridListings.filter((l) => persistedIds.has(l.id)).length
   const firstBatch = takeUnseen(rawGridListings, seen)
   logger.info(
@@ -213,6 +204,6 @@ export async function runCollection(io: CollectionRunIo, options: RunOptions): P
     seen,
   }
   if ((await processBatch(ctx, firstBatch)) === 'stop') return
-  if ((await paginate(ctx, gridResult.html, firstBatch.length)) === 'stop') return
+  if ((await paginate(ctx, grid, firstBatch.length)) === 'stop') return
   logger.info('run complete')
 }
