@@ -1,7 +1,4 @@
-import { z } from 'zod'
+import { positiveIntIdSchema } from './positive-int-id'
 
-/** Product id path param: a positive integer, no sign, no leading zeros. Shared by the catalog and pricing routes. */
-export const productIdParamSchema = z
-  .string()
-  .regex(/^[1-9]\d*$/, 'id must be a positive integer')
-  .transform(Number)
+/** Product id path param: the shared positive-integer id schema. */
+export const productIdParamSchema = positiveIntIdSchema

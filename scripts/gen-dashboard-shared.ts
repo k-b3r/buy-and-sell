@@ -19,7 +19,16 @@ interface SharedSource {
 }
 
 const SHARED_SOURCES: SharedSource[] = [
-  { index: 'src/modules/real-estate/index.ts', names: ['RealEstateFilters', 'RealEstateListing'] },
+  {
+    index: 'src/modules/real-estate/index.ts',
+    names: [
+      'RealEstateFilters',
+      'RealEstateListing',
+      'REAL_ESTATE_PAGE_SIZE',
+      'REAL_ESTATE_PROPERTY_TYPES',
+      'REAL_ESTATE_SORTS',
+    ],
+  },
   {
     index: 'src/modules/catalog/index.ts',
     names: [

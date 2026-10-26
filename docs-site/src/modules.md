@@ -1592,7 +1592,7 @@ _(undocumented)_
 
 ## src/modules/real-estate/routes.ts
 
-**Interactions:** imports `../../platform/storage`, `./schemas`, `./store/listings`
+**Interactions:** imports `../../platform/storage`, `./domain/filters`, `./schemas`, `./store/listings`
 
 ### `createRealEstateRouter(db: DbClient): Router`
 

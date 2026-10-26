@@ -12,4 +12,5 @@ export { getRealEstateCandidates, upsertRealEstateDetails } from './store/detail
 export { EXTRACTOR_MODELS, EXTRACTOR_REQUEST_OPTIONS, extractRealEstateBatch } from './app/extractor'
 export { recordRealEstatePriceChange } from './app/price-history'
 export { getRealEstateListings } from './store/listings'
-export { REAL_ESTATE_PAGE_SIZE, realEstateQuerySchema } from './schemas'
+export { REAL_ESTATE_PAGE_SIZE, REAL_ESTATE_PROPERTY_TYPES, REAL_ESTATE_SORTS } from './domain/filters'
+export { realEstateQuerySchema } from './schemas'
