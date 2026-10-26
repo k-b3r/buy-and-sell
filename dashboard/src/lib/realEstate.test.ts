@@ -6,8 +6,14 @@ import {
   formatReviewReason,
   realEstatePageQuery,
   NCR_AREAS,
+  PROPERTY_TYPE_LABELS,
 } from './realEstate'
-import type { RealEstateListing } from './shared.generated'
+import {
+  REAL_ESTATE_PAGE_SIZE,
+  REAL_ESTATE_PROPERTY_TYPES,
+  REAL_ESTATE_SORTS,
+  type RealEstateListing,
+} from './shared.generated'
 
 const listing = (over: Partial<RealEstateListing> = {}): RealEstateListing => ({
   id: '1',
@@ -70,6 +76,20 @@ test('parseRealEstateFilters ignores garbage and defaults to page 1', () => {
   expect(filters.sort).toBeUndefined()
   expect(page).toBe(1)
   expect(filters.offset).toBe(0)
+})
+
+test('parseRealEstateFilters accepts exactly the property types and sorts the shared lists hold', () => {
+  for (const type of REAL_ESTATE_PROPERTY_TYPES) {
+    expect(parseRealEstateFilters({ type }).filters.propertyType).toBe(type)
+  }
+  for (const sort of REAL_ESTATE_SORTS) {
+    expect(parseRealEstateFilters({ sort }).filters.sort).toBe(sort)
+  }
+  expect(parseRealEstateFilters({}).filters.limit).toBe(REAL_ESTATE_PAGE_SIZE)
+})
+
+test('the dashboard labels cover every shared property type, in the order the module lists them', () => {
+  expect(Object.keys(PROPERTY_TYPE_LABELS)).toEqual([...REAL_ESTATE_PROPERTY_TYPES])
 })
 
 test('parseRealEstateFilters reads the review tab and the room-share toggle, ignoring other values', () => {

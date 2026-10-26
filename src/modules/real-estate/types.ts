@@ -2,6 +2,7 @@
 
 export type PropertyType = 'house_and_lot' | 'condo' | 'land' | 'commercial' | 'other'
 export type ListingType = 'sale' | 'rent'
+export type RealEstateSort = 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
 export type PriceBasis = 'total' | 'per_sqm' | 'monthly' | 'equity' | 'unresolved'
 export type RealEstateConfidence = 'high' | 'medium' | 'low'
 export type RealEstateTag = 'pasalo' | 'foreclosure' | 'rfo' | 'preselling' | 'has_title' | 'furnished' | 'room_share'
@@ -37,7 +38,7 @@ export interface RealEstateFilters {
   minPrice?: number
   maxPrice?: number
   minSqm?: number
-  sort?: 'newest' | 'price_asc' | 'price_desc' | 'ppsqm_asc'
+  sort?: RealEstateSort
   view?: 'main' | 'review'
   includeRoomShares?: boolean
   limit?: number

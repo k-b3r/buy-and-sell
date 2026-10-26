@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { positiveIntIdSchema } from '../../platform/positive-int-id'
 import { DEALS_CONFIDENCE_TIERS } from './domain/deals'
 import type { DealsConfidenceTier } from './types'
 import { PRICE_EXCLUSION_REASONS } from './domain/exclusion-reasons'
@@ -32,11 +33,8 @@ export const manualPriceSchema = z
 
 export type ManualPrice = z.infer<typeof manualPriceSchema>
 
-/** Notification id path param: a positive integer, no sign, no leading zeros. */
-export const notificationIdParamSchema = z
-  .string()
-  .regex(/^[1-9]\d*$/, 'id must be a positive integer')
-  .transform(Number)
+/** Notification id path param: the shared positive-integer id schema. */
+export const notificationIdParamSchema = positiveIntIdSchema
 
 const offsetSchema = z.preprocess(
   first,

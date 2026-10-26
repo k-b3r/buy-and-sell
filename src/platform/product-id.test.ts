@@ -1,4 +1,9 @@
 import { productIdParamSchema } from './product-id'
+import { positiveIntIdSchema } from './positive-int-id'
+
+test('productIdParamSchema is the shared positive-integer id schema', () => {
+  expect(productIdParamSchema).toBe(positiveIntIdSchema)
+})
 
 test('productIdParamSchema accepts a positive integer string and returns a number', () => {
   expect(productIdParamSchema.parse('42')).toBe(42)
