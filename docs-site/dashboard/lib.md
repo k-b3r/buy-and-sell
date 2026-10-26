@@ -149,14 +149,9 @@ _(undocumented)_
 
 The server path for a browser path, or null when no entry matches.
 
-### `isServerRoute(pathname: string): boolean`
+### `serverUrlFor(serverPath: string, search: string, baseUrl: string): URL`
 
-_(undocumented)_
-
-### `serverRouteTarget(pathname: string, search: string, baseUrl: string): URL | null`
-
-The server URL a browser request should be rewritten to, or null when Next
-still serves the path itself. `/api/settings` becomes `{baseUrl}/settings`.
+The server URL for a resolved server path plus the browser's query string.
 
 ## dashboard/src/lib/shared.generated.ts
 
