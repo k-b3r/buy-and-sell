@@ -346,3 +346,19 @@ test(
     expect(deps.kill).not.toHaveBeenCalled()
   }),
 )
+
+test(
+  'POST /worker-control through the app answers 401 without the bearer key and never touches a worker',
+  withTmpDir(async (dir) => {
+    const deps = fakeDeps()
+    const app = createApp({ apiKey: 'test-key', log: () => {}, routers: [createWorkerControlRouter(dir, deps)] })
+
+    // A 'start' would spawn if it ever reached the handler.
+    const res = await request(app).post('/worker-control').send({ worker: 'collect', action: 'start' })
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'unauthorized' })
+    expect(deps.spawn).not.toHaveBeenCalled()
+    expect(deps.kill).not.toHaveBeenCalled()
+  }),
+)

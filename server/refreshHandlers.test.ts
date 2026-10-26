@@ -205,7 +205,7 @@ test('a handler that throws behind a refresh route answers an opaque JSON 500 an
   expect(logged[1]).toContain('browser crashed')
 })
 
-test('the refresh routes answer 401 without the bearer key and run the handler with it', async () => {
+test('every refresh route answers 401 without the bearer key and reaches its handler with it', async () => {
   const seen: unknown[] = []
   const app = authedApp(
     fakeHandlers({
@@ -217,20 +217,38 @@ test('the refresh routes answer 401 without the bearer key and run the handler w
         seen.push(body)
         return { statusCode: 200, body: { productId: 2, total: 3 } }
       },
+      jobStatus: async () => {
+        seen.push('jobStatus')
+        return { statusCode: 200, body: null }
+      },
+      cancelJob: async () => {
+        seen.push('cancelJob')
+        return { statusCode: 400, body: { error: 'no refresh job in progress' } }
+      },
     }),
   )
 
-  const noKeyListing = await request(app).post('/listings/1/refresh')
-  const noKeyProduct = await request(app).post('/products/2/refresh').set('authorization', 'Bearer wrong-key')
-  expect(noKeyListing.status).toBe(401)
-  expect(noKeyProduct.status).toBe(401)
+  const unauthorized = [
+    await request(app).post('/refresh').send({ id: '1' }),
+    await request(app).post('/refresh-product').send({ productId: 2 }),
+    await request(app).post('/listings/1/refresh'),
+    await request(app).post('/products/2/refresh').set('authorization', 'Bearer wrong-key'),
+    await request(app).get('/refresh-job'),
+    await request(app).post('/refresh-job/cancel'),
+  ]
+  for (const res of unauthorized) expect(res.status).toBe(401)
   expect(seen).toEqual([])
 
   const bodyRefresh = await request(app).post('/refresh').set('authorization', `Bearer ${API_KEY}`).send({ id: '1' })
   const listing = await request(app).post('/listings/1/refresh').set('authorization', `Bearer ${API_KEY}`)
   const product = await request(app).post('/products/2/refresh').set('authorization', `Bearer ${API_KEY}`)
+  const status = await request(app).get('/refresh-job').set('authorization', `Bearer ${API_KEY}`)
+  const cancel = await request(app).post('/refresh-job/cancel').set('authorization', `Bearer ${API_KEY}`)
+
   expect(bodyRefresh.body).toEqual({ status: 'alive' })
   expect(listing.body).toEqual({ status: 'alive' })
   expect(product.body).toEqual({ productId: 2, total: 3 })
-  expect(seen).toEqual([{ id: '1' }, { id: '1' }, { productId: 2 }])
+  expect(status.status).toBe(200)
+  expect(cancel.status).toBe(400)
+  expect(seen).toEqual([{ id: '1' }, { id: '1' }, { productId: 2 }, 'jobStatus', 'cancelJob'])
 })

@@ -150,3 +150,17 @@ test(
     expect(res.body).toEqual({ lines: ['one', 'two'], nextOffset: 8 })
   }),
 )
+
+test(
+  'POST /logs through the app answers 401 without the bearer key and reads no log file',
+  withTmpDir(async (dir) => {
+    // Nothing is written, so a handler that ran would have to answer 200 with
+    // empty lines - a 401 can only come from before the route.
+    const app = createApp({ apiKey: 'test-key', log: () => {}, routers: [createLogsRouter(dir)] })
+
+    const res = await request(app).post('/logs').send({ worker: 'collect' })
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'unauthorized' })
+  }),
+)
