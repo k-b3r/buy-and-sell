@@ -12,7 +12,7 @@ export interface ServerRoute {
   serverPath?: string
 }
 
-const SERVER_ROUTES: readonly ServerRoute[] = [
+export const SERVER_ROUTES: readonly ServerRoute[] = [
   { pattern: '/api/settings' },
   { pattern: '/api/collect-keywords' },
   { pattern: '/api/products' },
@@ -62,16 +62,7 @@ export function resolveServerPath(routes: readonly ServerRoute[], pathname: stri
   return null
 }
 
-export function isServerRoute(pathname: string): boolean {
-  return resolveServerPath(SERVER_ROUTES, pathname) !== null
-}
-
-/**
- * The server URL a browser request should be rewritten to, or null when Next
- * still serves the path itself. `/api/settings` becomes `{baseUrl}/settings`.
- */
-export function serverRouteTarget(pathname: string, search: string, baseUrl: string): URL | null {
-  const serverPath = resolveServerPath(SERVER_ROUTES, pathname)
-  if (serverPath === null) return null
+/** The server URL for a resolved server path plus the browser's query string. */
+export function serverUrlFor(serverPath: string, search: string, baseUrl: string): URL {
   return new URL(`${baseUrl.replace(/\/+$/, '')}${serverPath}${search}`)
 }

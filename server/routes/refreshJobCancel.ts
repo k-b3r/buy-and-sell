@@ -1,4 +1,4 @@
-import type { RouteHandler, RouteResult } from '../app'
+import type { RouteHandler, RouteResult } from './result'
 import type { JobStore } from '../jobState'
 
 // The loop in routes/refreshProduct.ts only checks isCancelRequested()

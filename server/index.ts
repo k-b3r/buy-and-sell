@@ -11,8 +11,8 @@ import { createRealEstateRouter } from '../src/modules/real-estate/routes'
 import { createApp } from './app'
 import { createCache } from './cache'
 import { loadServerConfig } from './config'
-import { createLogsHandler } from './routes/logs'
-import { createWorkerControlHandler } from './routes/workerControl'
+import { createLogsRouter } from './routes/logs'
+import { createWorkerControlRouter } from './routes/workerControl'
 import { createSettingsRouter } from './routes/settings'
 import { createRefreshHandlers, createRefreshRouter } from './refreshHandlers'
 
@@ -31,10 +31,9 @@ async function main() {
   const photos = createListingPhotos({ ...photoIo, logger })
   const cache = createCache()
 
-  // A new feature mounts its module's router in `routers`; createApp handles
-  // auth and JSON parsing for every route uniformly, so a route only ever needs
-  // its own logic. `routes` is the older body-driven table (refresh, logs,
-  // worker control) and takes no new entries.
+  // One router per feature area - a module's routes.ts, or a route file in
+  // routes/. createApp handles auth and JSON parsing for every route uniformly,
+  // so a route only ever needs its own logic.
   const refreshHandlers = createRefreshHandlers({ db: pool, photos, logger, env: process.env, cache })
   const app = createApp({
     apiKey,
@@ -46,15 +45,9 @@ async function main() {
       createPricingRouter(pool, cache),
       createRealEstateRouter(pool),
       createRefreshRouter(refreshHandlers),
+      createLogsRouter(),
+      createWorkerControlRouter(),
     ],
-    routes: {
-      'POST /refresh': refreshHandlers.refresh,
-      'POST /refresh-product': refreshHandlers.refreshProduct,
-      'GET /refresh-job': refreshHandlers.jobStatus,
-      'POST /refresh-job/cancel': refreshHandlers.cancelJob,
-      'POST /logs': createLogsHandler(),
-      'POST /worker-control': createWorkerControlHandler(),
-    },
   })
 
   app.listen(port, () => {
