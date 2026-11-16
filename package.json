@@ -102,6 +102,11 @@
       "src/modules/*/domain/**",
       "src/modules/*/prompts/**"
     ],
+    "claudeReviewPaths": [
+      "src/modules/*/domain/**",
+      "src/modules/*/store/**",
+      "src/modules/*/prompts/**"
+    ],
     "untestedExempt": [
       "src/platform/cache.ts"
     ]
